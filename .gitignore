@@ -13,3 +13,9 @@ run/
 run-data/
 .idea/
 *.iml
+/src/test/
+/tools/
+/libs/
+/examples/
+/gradle/
+/.kotlin/

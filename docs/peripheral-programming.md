@@ -11,21 +11,26 @@ assert(desk, "Kein Aeroworks Control Desk gefunden")
 
 Sind mehrere Pulte verbunden, kann man sie mit `peripheral.getNames()` und `peripheral.wrap(name)` gezielt auswählen. Die von CC:Tweaked vergebene Anschlussbezeichnung wird auch im Eingabeereignis geliefert.
 
-## Wichtig: Socketnummern beginnen bei null
+## Desk-Sockets: left, right und big
 
-Aeroworks nummeriert seine Sockets ab `0`. Das ist absichtlich anders als die üblichen Lua-Tabellenindizes, die bei `1` beginnen. `getModules()` liefert zwar eine normale Lua-Liste, das Feld `socket` darin bleibt aber nullbasiert.
+Der Control Desk besitzt die Namen `left`, `right` und `big`. Ihre nativen Aeroworks-Indizes sind `0`, `1` und `2`. Alle socketbezogenen Methoden akzeptieren entweder den Namen oder den Index. `getModules()` liefert im Feld `socket` weiterhin den kompatiblen Zahlenwert und zusätzlich `socketName`.
 
 ```lua
 print("Socketanzahl:", desk.getSocketCount())
 
+for _, socket in ipairs(desk.getSockets()) do
+  print(socket.name, socket.index)
+end
+
 for _, module in ipairs(desk.getModules()) do
-  print(module.socket, module.id, module.kind)
+  print(module.socketName, module.socket, module.id, module.kind)
 end
 ```
 
 Ein Moduleintrag enthält mindestens:
 
 - `socket`: nullbasierter Aeroworks-Socketindex,
+- `socketName`: `left`, `right` oder `big`,
 - `id`: Registry-ID des Moduls, zum Beispiel `aeroworks:lever`,
 - `kind`: vereinfachte Art wie `lever`, `joystick`, `button` oder `display`,
 - `display`: `true` nur für CC-Aeroworks-Anzeigen.
@@ -35,7 +40,7 @@ Eingabemodule enthalten zusätzlich `value`, wenn sie genau einen Kanal haben. M
 ## Eingaben lesen
 
 ```lua
-local socket = 0
+local socket = "left"
 local module = desk.getModule(socket)
 
 if module then
@@ -58,10 +63,10 @@ end
 Das zweistellige Display kann in kleinen und großen Desk-Slots montiert werden. Das dreistellige Display passt nur in große Slots.
 
 ```lua
-desk.setDisplayText(2, "42")
-desk.setDisplayNumber(5, 7, true) -- bei drei Stellen: "007"
+desk.setDisplayText("left", "42")
+desk.setDisplayNumber("big", 7, true) -- bei drei Stellen: "007"
 
-local display = desk.getDisplay(2)
+local display = desk.getDisplay("left")
 print(display.width, display.text)
 ```
 
@@ -77,19 +82,19 @@ Unterstützt werden die Zeichen `0` bis `9`, Minus und Leerzeichen. Andere Zeich
 Neben dem Ziffernmodus besitzt jedes Display einen Pixelmodus. Der Zweisteller hat `7x5`, der Dreisteller `11x5` Pixel. Anders als die Desk-Sockets sind Pixelkoordinaten Lua-typisch **1-basiert**: `(1,1)` ist links oben.
 
 ```lua
-local size = desk.getDisplaySize(2)
+local size = desk.getDisplaySize("left")
 print(size.width, size.height)
 
-desk.clearDisplayPixels(2)
-desk.setDisplayPixel(2, 1, 1, true)
-desk.setDisplayPixel(2, size.width, size.height, true)
-print(desk.getDisplayPixel(2, 1, 1)) -- true
+desk.clearDisplayPixels("left")
+desk.setDisplayPixel("left", 1, 1, true)
+desk.setDisplayPixel("left", size.width, size.height, true)
+print(desk.getDisplayPixel("left", 1, 1)) -- true
 ```
 
 Für ein ganzes Bild ist ein einzelner Aufruf effizienter, weil er nur eine Zustandsänderung synchronisiert:
 
 ```lua
-desk.setDisplayPixels(2, {
+desk.setDisplayPixels("left", {
   "1000001",
   "0100010",
   "0010100",
@@ -106,10 +111,10 @@ Solange mindestens ein Computer angehängt ist, überwacht CC-Aeroworks die Eing
 
 ```lua
 while true do
-  local _, peripheralName, socket, moduleId, value, channel =
+  local _, peripheralName, socket, moduleId, value, channel, socketName =
     os.pullEvent("cc_aeroworks_desk_input")
 
-  print(peripheralName, socket, moduleId, channel, value)
+  print(peripheralName, socketName, socket, moduleId, channel, value)
 end
 ```
 

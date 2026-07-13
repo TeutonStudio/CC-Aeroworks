@@ -3,6 +3,9 @@
   "minVersion": "0.8",
   "package": "de.teutonstudio.ccaeroworks.mixin",
   "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "ConsoleBlockEntityInvoker"
+  ],
   "client": [
     "client.AbstractContainerScreenAccessor",
     "client.MouseHandlerAccessor",

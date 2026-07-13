@@ -31,7 +31,8 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
         renderSidebar(graphics, layout, mouseX, mouseY)
         renderSection(graphics, layout)
         renderFooter(graphics, layout, mouseX, mouseY)
-        super.render(graphics, mouseX, mouseY, partialTick)
+        // There are no vanilla widgets to render. Calling super.render() would invoke
+        // Screen.renderBackground() and apply the blur shader after drawing this UI.
     }
 
     private fun renderSidebar(graphics: GuiGraphics, layout: Layout, mouseX: Int, mouseY: Int) {
@@ -235,7 +236,7 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
             )),
             Section("guide.cc_aeroworks.tab.modules", "guide.cc_aeroworks.modules.title", listOf(
                 Entry.Text("guide.cc_aeroworks.modules.text"),
-                Entry.Code(listOf("getSocketCount()", "getModules()", "getModule(socket)")),
+                Entry.Code(listOf("getSocketCount() / getSockets()", "getModules()", "getModule(\"left\")", "getModule(\"right\") / getModule(\"big\")")),
                 Entry.Note("guide.cc_aeroworks.modules.note")
             )),
             Section("guide.cc_aeroworks.tab.inputs", "guide.cc_aeroworks.inputs.title", listOf(
@@ -245,7 +246,7 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
             )),
             Section("guide.cc_aeroworks.tab.displays", "guide.cc_aeroworks.displays.title", listOf(
                 Entry.Text("guide.cc_aeroworks.displays.text"),
-                Entry.Code(listOf("getDisplays() / getDisplay(socket)", "setDisplayText(socket, text)", "setDisplayNumber(socket, value, zeroPad)", "clearDisplay(socket) / clearDisplays()")),
+                Entry.Code(listOf("getDisplays() / getDisplay(\"big\")", "setDisplayText(\"left\", text)", "setDisplayNumber(\"big\", value, zeroPad)", "clearDisplay(socket) / clearDisplays()")),
                 Entry.Note("guide.cc_aeroworks.displays.note")
             )),
             Section("guide.cc_aeroworks.tab.pixels", "guide.cc_aeroworks.pixels.title", listOf(
@@ -260,7 +261,7 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
             )),
             Section("guide.cc_aeroworks.tab.example", "guide.cc_aeroworks.example.title", listOf(
                 Entry.Text("guide.cc_aeroworks.example.text"),
-                Entry.Code(listOf("local desk = peripheral.find(", "  \"cc_aeroworks_control_desk\")", "while true do", "  local _,_,socket,_,value = os.pullEvent(", "    \"cc_aeroworks_desk_input\")", "  desk.setDisplayNumber(2, value, false)", "end"))
+                Entry.Code(listOf("local desk = peripheral.find(", "  \"cc_aeroworks_control_desk\")", "while true do", "  local _,_,socket,_,value = os.pullEvent(", "    \"cc_aeroworks_desk_input\")", "  desk.setDisplayNumber(\"big\", value, false)", "end"))
             ))
         )
     }

@@ -16,9 +16,17 @@ Das Desk-Peripheral wird ausschließlich für den bestätigten BlockEntityType `
 
 Aeroworks 1.3.0 verwendet für Analogquellen freie `String`-Werte und keine geschlossene Registry oder ein Enum. Deshalb ergänzt `cc_aeroworks.combined` den Modulbildschirm als dritten Zustand für `aeroworks:lever`, `aeroworks:joystick` (`x`, `y`) sowie die vier bestätigten Throttle-Quadrant-Kanäle `red`, `amber`, `green`, `blue`. Gezielte Invoker auf `modeToggleAt`, `bindAreaAt`, `analogDriven`, `sendAnalogSource`, `sendBind`, `sendChannelFlag`, `bindFor` und `module` erweitern den Zyklus zu `Buttons -> Analog -> Kombiniert -> Buttons`. In diesem Zustand dient die vorhandene negative Tastenbindung der Achse als persistent gespeicherte Aktivierungstaste; das mittlere Feld erfasst und zeigt diese Taste. Joystick `x` verarbeitet Maus X, alle übrigen unterstützten Kanäle Maus Y. `InputSource.displayName(String)` erhält nur für die eigene Quellen-ID einen übersetzten Namen. Client-Zielerfassung und Server-Payload akzeptieren nur explizit unterstützte Module/Kanäle mit `ANALOG_ACTIVE` und exakt dieser Quelle.
 
+Die Client-Zielstruktur enthält eine Liste von Achsenzuständen. Nach Erkennung einer gehaltenen Aktivierungstaste werden alle kombinierten Kanäle desselben Moduls mit exakt diesem Binding aufgenommen. Dadurch verarbeitet ein Joystick mit identischer X-/Y-Taste beide Mausdeltas parallel. Die serverseitige Rate-Limit-ID enthält Spieler, Deskposition, Socket und Kanal; zwei gültige Achsenpakete desselben Spielers im selben Tick blockieren einander daher nicht.
+
+Die drei Desk-Anschlüsse heißen in der CC-API `left`, `right` und `big`; sie entsprechen den Aeroworks-Socketindizes `0`, `1` und `2`. Diese Reihenfolge wurde direkt an `AeroworksConsoles.DESK` bestätigt: zwei `SMALL`-Sockets links/rechts und ein mittiger `LARGE`-Socket. Lua-Aufrufe akzeptieren sowohl diese Namen als auch die bisherigen numerischen Indizes. `getSockets()`, Modul-/Displaybeschreibungen und das Eingabeereignis geben den Namen zusätzlich aus.
+
+Bei der Zielerfassung wird Aeroworks' private Methode `ConsoleBlockEntity.nearestMount(Vec3, Vec3, Predicate)` über einen kleinen Invoker wiederverwendet. Der Predicate lässt vor der eigentlichen Nächster-Treffer-Auswahl nur belegte Top-Level-Mounts mit mindestens einem aktiven `Kombiniert`-Kanal und aktuell gehaltener Aktivierungstaste zu. Damit kann ein naher, aber nicht passender Lever im jeweils anderen kleinen Slot den tatsächlich anvisierten Lever nicht mehr verdrängen. Aeroworks' eigener Raycast einschließlich der von ihm genutzten Sable-Transformation bleibt erhalten.
+
 Der Throttle Quadrant wird über Modulraycast plus Aktivierungstaste aufgelöst. Weil jeder seiner vier Kanäle eine eigene Taste besitzt, ist kein fragiler geometrischer Raycast gegen die vier beweglichen Teilmodelle nötig. Die Payload überträgt den Kanalnamen; der Server prüft ihn gegen die feste, aus der Aeroworks-JAR bestätigte Kanalliste, bevor er `setChannelFromController` aufruft.
 
 Das Guide-Book ist ein registriertes Vanilla-`WrittenBookItem` mit `WrittenBookContent` aus acht übersetzten Component-Seiten als Datenfallback. Es benötigt keine optionale Dokumentationsmod und referenziert für das Item lediglich das Vanilla-Modell `minecraft:item/written_book`. Der Creative-Tab-Ordner fügt dessen Default-Stack genau einmal in den Abschnitt `CC-Aeroworks` ein. Weil `ServerPlayer.openItemGui` in Minecraft 1.21.1 hart auf exakt `Items.WRITTEN_BOOK` prüft, öffnet ein ausschließlich clientseitig registrierter `RightClickItem`-Handler `GuideBookScreen`; dadurch bleiben Clientklassen vom Dedicated Server getrennt. Die eigene Oberfläche bietet sieben lokalisierte Kapitel, Codeblöcke, Hinweise, Sidebar-, Vor/Zurück- und Scrollnavigation in einem skalierenden Cockpit-Layout.
+
+`GuideBookScreen.render` zeichnet Hintergrund und Dokumentation vollständig selbst. Es ruft weder `Screen.renderBackground` noch `super.render` auf: Beide Wege würden in Vanilla 1.21.1 letztlich `GameRenderer.processBlurEffect` ausführen, wobei der spätere `super.render` die bereits gezeichnete Oberfläche selbst weichzeichnete.
 
 ## Rendering
 
@@ -32,6 +40,7 @@ die erzeugte Companion-Referenz privat und erfüllt Mixins Feldvalidierung. Ziel
 - `ConsoleRenderer.renderSafe(ConsoleBlockEntity,float,PoseStack,MultiBufferSource,int,int)` bei `TAIL`.
 - Konstruktor und Lebenszyklusmethoden von `ConsoleVisual`; keine pauschale Render-Injection.
 - `ConsoleControlClient.feedMouseDelta(DD)V` und `JoystickControlClient.feedMouseDelta(DD)V` bei `HEAD`, nur während des gültigen Combined-Lever-Modus.
+- Invoker auf `ConsoleBlockEntity.nearestMount(Vec3,Vec3,Predicate)` zur vorgefilterten Verwendung des originalen Desk-/Sable-Hit-Tests.
 - Accessor auf `MouseHandler.accumulatedDY` für das bestätigte `CalculatePlayerTurnEvent`.
 - `CreativeModeTab.buildContents(ItemDisplayParameters)` über MixinExtras `@WrapMethod`, beschränkt durch die bestätigte Aeroworks-Tab-ID; zwei Vanilla-Accessors setzen `displayItems` beziehungsweise lesen `scrollOffs`.
 - `ModuleScreen.mouseClicked(DDI)Z` und `renderModeTooltip(GuiGraphics,III)V` jeweils bei `HEAD`, nur für `aeroworks:lever`; private Aeroworks-Helfer werden über Invoker aufgerufen.
@@ -47,4 +56,4 @@ Drive By Wire ist eine optionale Laufzeitintegration. Die lokal untersuchte `dri
 
 ## Laufzeitstatus
 
-Client-Modloading, Registry-Phase, Mixins und Ressourcen-Reload liefen bis ins Hauptmenü. Dabei wurden auch `ModuleScreenCombinedInputMixin`, dessen Invoker/Accessor und `InputSourceMixin` nachweislich angewendet. Interaktive Weltprüfungen sind in `manual-test-plan.md` offen und werden nicht als abgeschlossen bezeichnet.
+Client-Modloading, Registry-Phase, Mixins und Ressourcen-Reload liefen bis ins Hauptmenü. Dabei wurden auch `ModuleScreenCombinedInputMixin`, dessen Invoker/Accessor, `InputSourceMixin` und `ConsoleBlockEntityInvoker` nachweislich angewendet. Der Dedicated Server erreichte mit dem gemeinsamen Desk-Invoker ebenfalls `Done`. Interaktive Weltprüfungen sind in `manual-test-plan.md` offen und werden nicht als abgeschlossen bezeichnet.

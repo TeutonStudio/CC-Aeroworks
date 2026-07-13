@@ -2,7 +2,9 @@ package de.teutonstudio.ccaeroworks.input
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.config.CCClientConfig
+import de.teutonstudio.ccaeroworks.mixin.ConsoleBlockEntityInvoker
 import de.teutonstudio.ccaeroworks.mixin.client.MouseHandlerAccessor
+import java.util.function.Predicate
 import de.teutonstudio.ccaeroworks.network.SetCombinedLeverValuePayload
 import net.minecraft.client.Minecraft
 import net.minecraft.world.phys.BlockHitResult
@@ -54,17 +56,19 @@ object CombinedLeverController {
     @JvmStatic
     fun consumeMouseDelta(deltaX: Double, deltaY: Double) {
         val active = target ?: return
-        val mouseAxis = CombinedInputSource.mouseAxis(active.channel)
-        val delta = when (mouseAxis) {
-            CombinedInputSource.MouseAxis.X -> deltaX
-            CombinedInputSource.MouseAxis.Y -> deltaY
+        active.axes.forEach { axis ->
+            val mouseAxis = CombinedInputSource.mouseAxis(axis.channel)
+            val delta = when (mouseAxis) {
+                CombinedInputSource.MouseAxis.X -> deltaX
+                CombinedInputSource.MouseAxis.Y -> deltaY
+            }
+            val discrete = axis.accumulator.apply(
+                delta,
+                CCClientConfig.combinedLeverSensitivity.get(),
+                mouseAxis == CombinedInputSource.MouseAxis.Y && CCClientConfig.combinedLeverInvertY.get()
+            )
+            if (discrete != axis.sentValue) axis.pendingValue = discrete
         }
-        val discrete = active.accumulator.apply(
-            delta,
-            CCClientConfig.combinedLeverSensitivity.get(),
-            mouseAxis == CombinedInputSource.MouseAxis.Y && CCClientConfig.combinedLeverInvertY.get()
-        )
-        if (discrete != active.sentValue) active.pendingValue = discrete
         sendPending()
     }
 
@@ -82,17 +86,29 @@ object CombinedLeverController {
         val desk = level.getBlockEntity(hit.blockPos) as? ConsoleBlockEntity ?: return null
         val from = player.eyePosition
         val to = from.add(player.getViewVector(1.0f).scale(player.blockInteractionRange()))
-        val mount = desk.nearestOccupiedMount(from, to) ?: return null
-        if (mount.subPath() != null) return null
+        val mount = (desk as ConsoleBlockEntityInvoker).ccaeroworks_nearestMount(from, to, Predicate { spot ->
+            val candidate = spot.target()
+            if (!spot.occupied() || candidate.subPath() != null) return@Predicate false
+            val candidateModule = desk.module(candidate.socket()) ?: return@Predicate false
+            CombinedInputSource.channels(candidateModule).any { channel ->
+                CombinedInputSource.isCombined(candidateModule, channel) &&
+                    CombinedActivationKey.isDown(CombinedInputSource.activationBinding(candidateModule, channel), minecraft)
+            }
+        }) ?: return null
         val module = desk.module(mount.socket()) ?: return null
-        val channel = CombinedInputSource.channels(module).firstOrNull {
+        val firstChannel = CombinedInputSource.channels(module).firstOrNull {
             CombinedInputSource.isCombined(module, it) &&
                 CombinedActivationKey.isDown(CombinedInputSource.activationBinding(module, it), minecraft)
         } ?: return null
-        val binding = CombinedInputSource.activationBinding(module, channel)
-        val value = module.value(channel).coerceIn(-15, 15)
+        val binding = CombinedInputSource.activationBinding(module, firstChannel)
+        val axes = CombinedInputSource.channels(module)
+            .filter { CombinedInputSource.isCombined(module, it) && CombinedInputSource.activationBinding(module, it) == binding }
+            .map { channel ->
+                val value = module.value(channel).coerceIn(-15, 15)
+                CombinedAxisTarget(channel, LeverAccumulator(value), value)
+            }
         return CombinedLeverTarget(
-            level.dimension(), desk.blockPos.immutable(), mount.socket(), channel, binding, LeverAccumulator(value), value
+            level.dimension(), desk.blockPos.immutable(), mount.socket(), binding, axes
         )
     }
 
@@ -105,20 +121,24 @@ object CombinedLeverController {
         val desk = level.getBlockEntity(active.pos) as? ConsoleBlockEntity ?: return false
         if (active.socket !in 0 until desk.socketCount()) return false
         val module = desk.module(active.socket) ?: return false
-        return CombinedInputSource.isCombined(module, active.channel) &&
-            CombinedInputSource.activationBinding(module, active.channel) == active.activationBinding
+        return active.axes.isNotEmpty() && active.axes.all { axis ->
+            CombinedInputSource.isCombined(module, axis.channel) &&
+                CombinedInputSource.activationBinding(module, axis.channel) == active.activationBinding
+        }
     }
 
     private fun sendPending() {
         val active = target ?: return
-        val pending = active.pendingValue ?: return
         val interval = 1_000_000_000L / CCClientConfig.combinedLeverPacketRate.get().coerceIn(1, 20)
         val now = System.nanoTime()
-        if (now - active.lastPacketNanos < interval) return
-        PacketDistributor.sendToServer(SetCombinedLeverValuePayload(active.pos, active.socket, active.channel, pending))
-        active.sentValue = pending
-        active.pendingValue = null
-        active.lastPacketNanos = now
+        active.axes.forEach { axis ->
+            val pending = axis.pendingValue ?: return@forEach
+            if (now - axis.lastPacketNanos < interval) return@forEach
+            PacketDistributor.sendToServer(SetCombinedLeverValuePayload(active.pos, active.socket, axis.channel, pending))
+            axis.sentValue = pending
+            axis.pendingValue = null
+            axis.lastPacketNanos = now
+        }
     }
 
     private fun stop() {

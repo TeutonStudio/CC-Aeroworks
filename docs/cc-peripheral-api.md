@@ -1,6 +1,6 @@
 # CC:Tweaked Peripheral API
 
-Peripheral-Typ: `cc_aeroworks_control_desk`. Socketindizes sind die nativen nullbasierten Aeroworks-Indizes.
+Peripheral-Typ: `cc_aeroworks_control_desk`. Desk-Sockets können mit Namen oder ihrem nativen nullbasierten Aeroworks-Index angegeben werden: `left` = `0`, `right` = `1`, `big` = `2`.
 
 Eine ausführlichere deutschsprachige Einführung mit vollständigem Beispiel steht in [`peripheral-programming.md`](peripheral-programming.md).
 
@@ -12,6 +12,7 @@ assert(desk, "Kein Aeroworks Control Desk gefunden")
 ## Methoden
 
 - `getSocketCount() -> number`
+- `getSockets() -> table`: liefert `{ name, index }` für `left`, `right` und `big`.
 - `getModules() -> table`
 - `getModule(socket) -> table|nil`
 - `getInput(socket) -> number|table`: ein Kanal wird als Zahl, mehrere Kanäle als Tabelle nach Aeroworks-Kanal-ID geliefert.
@@ -28,6 +29,8 @@ assert(desk, "Kein Aeroworks Control Desk gefunden")
 - `setDisplayPixels(socket, rows) -> table`: schreibt das vollständige Raster mit einer Synchronisation.
 - `clearDisplayPixels(socket)`: wechselt in den Pixelmodus und löscht das Raster.
 
+Jeder Parameter `socket` akzeptiert beispielsweise sowohl `"left"` als auch `0`. Modul- und Displayeinträge enthalten den kompatiblen Zahlenwert `socket` sowie zusätzlich `socketName`.
+
 Texte werden links beginnend auf zwei beziehungsweise drei Zeichen begrenzt. Zulässig sind `0-9`, Minus und Leerzeichen; jedes andere Zeichen wird konsistent zu einem Leerzeichen. Zahlen werden gegen null abgeschnitten und auf `-9..99` beziehungsweise `-99..999` begrenzt. `zeroPad` füllt die Ziffern rechts vom Vorzeichen mit Nullen. NaN und Unendlich erzeugen einen Lua-Fehler.
 
 Der Pixelmodus verwendet beim Zweisteller ein Raster von `7x5`, beim Dreisteller `11x5`. Pixelkoordinaten beginnen bei `(1,1)` links oben. `setDisplayPixels` erwartet genau fünf Strings aus `0` und `1` mit der passenden Breite. Text-/Zahlenschreiben wechselt in den Textmodus; Pixelmethoden wechseln in den Pixelmodus. Das Feld `mode` eines Displayeintrags ist entsprechend `text` oder `pixels`.
@@ -39,7 +42,7 @@ Eingabewerte sind rohe Aeroworks-Kanalwerte. Die verifizierte Kanalbegrenzung is
 Nur solange Computer angehängt sind, vergleicht der Server einmal pro Tick Eingabewerte. Bei Änderung:
 
 ```lua
-local event, peripheralName, socket, moduleId, value, channel =
+local event, peripheralName, socket, moduleId, value, channel, socketName =
   os.pullEvent("cc_aeroworks_desk_input")
 ```
 

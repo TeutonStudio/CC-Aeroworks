@@ -36,7 +36,8 @@ object ControlDeskPeripheralState {
                                     socket,
                                     de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksModuleAccess.id(module).toString(),
                                     value,
-                                    channel
+                                    channel,
+                                    de.teutonstudio.ccaeroworks.compat.aeroworks.DeskSockets.name(socket)
                                 )
                             }
                         }

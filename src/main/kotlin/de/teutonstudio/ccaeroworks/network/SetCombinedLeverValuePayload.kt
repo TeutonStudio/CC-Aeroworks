@@ -36,7 +36,7 @@ data class SetCombinedLeverValuePayload(val pos: BlockPos, val socket: Int, val 
                 }
             }
 
-        private val lastAcceptedTick = ConcurrentHashMap<UUID, Long>()
+        private val lastAcceptedTick = ConcurrentHashMap<RateKey, Long>()
 
         @JvmStatic
         fun handle(payload: SetCombinedLeverValuePayload, context: IPayloadContext) {
@@ -51,8 +51,11 @@ data class SetCombinedLeverValuePayload(val pos: BlockPos, val socket: Int, val 
             val maximumDistance = player.blockInteractionRange() + 1.0
             if (player.distanceToSqr(payload.pos.center) > maximumDistance * maximumDistance) return
             val tick = level.gameTime
-            if (lastAcceptedTick.put(player.uuid, tick) == tick) return
+            val rateKey = RateKey(player.uuid, payload.pos.asLong(), payload.socket, payload.channel)
+            if (lastAcceptedTick.put(rateKey, tick) == tick) return
             desk.setChannelFromController(payload.socket, payload.channel, payload.value)
         }
+
+        private data class RateKey(val player: UUID, val pos: Long, val socket: Int, val channel: String)
     }
 }

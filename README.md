@@ -4,6 +4,8 @@ CC-Aeroworks verbindet Create: Aeroworks Control Desks direkt mit CC:Tweaked und
 
 Für die kombinierte Steuerung im Aeroworks-Modulbildschirm den Input Type `Kombiniert` auswählen, anschließend im mittleren Eingabefeld die gewünschte Aktivierungstaste erfassen und diese beim Steuern halten. Der Modus wechselt über das vorhandene Symbol zyklisch zwischen `Buttons`, `Analog` und `Kombiniert`. Das API-Handbuch liegt als Buchitem im Abschnitt `CC-Aeroworks` des Aeroworks-Creative-Tabs.
 
+Die Control-Desk-Anschlüsse heißen in Lua `left`, `right` und `big` (kompatible Indizes: `0`, `1`, `2`). Das Handbuch im Spiel und [die Peripheral-Dokumentation](docs/cc-peripheral-api.md) verwenden diese Namen.
+
 ## Entwicklungsumgebung
 
 - Minecraft 1.21.1, NeoForge 21.1.228 und Java 21

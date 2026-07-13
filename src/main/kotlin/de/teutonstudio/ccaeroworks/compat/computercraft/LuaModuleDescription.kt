@@ -7,7 +7,8 @@ data class LuaModuleSnapshot(
     val values: Map<String, Int> = emptyMap(),
     val displayWidth: Int? = null,
     val displayText: String? = null,
-    val displayPixels: List<String>? = null
+    val displayPixels: List<String>? = null,
+    val socketName: String = de.teutonstudio.ccaeroworks.compat.aeroworks.DeskSockets.name(socket)
 )
 
 object LuaModuleDescription {
@@ -18,6 +19,7 @@ object LuaModuleDescription {
     @JvmStatic
     fun describe(module: LuaModuleSnapshot): Map<String, Any> = linkedMapOf<String, Any>(
         "socket" to module.socket,
+        "socketName" to module.socketName,
         "id" to module.id,
         "kind" to module.kind,
         "display" to (module.displayWidth != null)

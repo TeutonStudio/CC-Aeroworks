@@ -20,6 +20,7 @@ class LuaModuleDescriptionTest {
             LuaModuleSnapshot(0, "aeroworks:lever", "lever", mapOf("lever" to 4))
         )
         assertEquals(4, result["value"])
+        assertEquals("left", result["socketName"])
         assertFalse(result["display"] as Boolean)
     }
 
