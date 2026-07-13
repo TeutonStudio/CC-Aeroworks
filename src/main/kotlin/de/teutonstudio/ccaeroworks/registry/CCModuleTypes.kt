@@ -24,9 +24,13 @@ object CCModuleTypes {
 
     private fun create(displayType: DeskDisplayType): ModuleType {
         val model = CCAeroworks.id("block/module/${displayType.modulePath}")
+        val shanks = when (displayType) {
+            DeskDisplayType.TWO_DIGIT -> arrayOf(AeroworksSocketTypes.SMALL, AeroworksSocketTypes.LARGE)
+            DeskDisplayType.THREE_DIGIT -> arrayOf(AeroworksSocketTypes.LARGE)
+        }
         return ModuleTypes.register(
             CCAeroworks.id(displayType.modulePath),
-            ModuleType.builder(AeroworksSocketTypes.SMALL)
+            ModuleType.builder(*shanks)
                 .summary("item.cc_aeroworks.${displayType.modulePath}")
                 .part(
                     ModulePart.builder(model)

@@ -7,7 +7,10 @@
     "client.MouseHandlerAccessor",
     "client.AeroworksAnalogInputMixin",
     "client.ConsoleRendererMixin",
-    "client.ConsoleVisualMixin"
+    "client.ConsoleVisualMixin",
+    "client.CreativeModeInventoryScreenAccessor",
+    "client.CreativeModeTabAccessor",
+    "client.CreativeModeTabSectionsMixin"
   ],
   "injectors": {
     "defaultRequire": 1

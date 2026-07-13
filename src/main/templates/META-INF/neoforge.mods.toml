@@ -131,6 +131,13 @@ Adds a CC:Tweaked peripheral, desk displays, and combined lever control to Creat
     ordering="AFTER"
     side="BOTH"
 
+[[dependencies.${mod_id}]]
+    modId="drivebywire"
+    type="optional"
+    versionRange="[0.2.9,0.3)"
+    ordering="AFTER"
+    side="BOTH"
+
 [[mixins]]
 config="cc_aeroworks.mixins.json"
 

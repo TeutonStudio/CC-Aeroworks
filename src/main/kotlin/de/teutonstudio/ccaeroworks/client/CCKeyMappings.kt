@@ -12,7 +12,7 @@ object CCKeyMappings {
     val COMBINED_LEVER: KeyMapping = KeyMapping(
         "key.cc_aeroworks.combined_lever",
         InputConstants.Type.KEYSYM,
-        GLFW.GLFW_KEY_UNKNOWN,
+        GLFW.GLFW_KEY_K,
         "key.categories.cc_aeroworks"
     )
 

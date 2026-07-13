@@ -2,6 +2,8 @@
   "mod.cc_aeroworks.name": "CC-Aeroworks",
   "item.cc_aeroworks.two_digit_display": "Zweistellige Pultanzeige",
   "item.cc_aeroworks.three_digit_display": "Dreistellige Pultanzeige",
-  "key.cc_aeroworks.combined_lever": "Kombinierte Lever-Steuerung",
+  "key.cc_aeroworks.combined_lever": "Kombiniert (Lever, Maus Y)",
+  "creative_section.cc_aeroworks.aeroworks": "Aeroworks",
+  "creative_section.cc_aeroworks.cc_aeroworks": "CC-Aeroworks",
   "key.categories.cc_aeroworks": "CC-Aeroworks"
 }
