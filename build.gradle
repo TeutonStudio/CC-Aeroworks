@@ -1,6 +1,7 @@
 plugins {
     id 'java-library'
     id 'maven-publish'
+    id 'org.jetbrains.kotlin.jvm' version '2.2.20'
     id 'net.neoforged.moddev' version '2.0.141'
     id 'idea'
 }
@@ -27,15 +28,25 @@ sourceSets.main.resources {
 }
 
 repositories {
-    // Add here additional repositories if required by some of the dependencies below.
+    maven {
+        name = 'KotlinForForge'
+        url = 'https://thedarkcolour.github.io/KotlinForForge/'
+        content { includeGroup('thedarkcolour') }
+    }
+    maven {
+        name = 'SquidDev'
+        url = 'https://maven.squiddev.cc'
+        content { includeGroup('cc.tweaked') }
+    }
 }
 
 base {
-    archivesName = mod_id
+    archivesName = 'cc-aeroworks'
 }
 
 // Mojang ships Java 21 to end users in 1.21.1, so mods should target Java 21.
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+kotlin.jvmToolchain(21)
 
 neoForge {
     // Specify the version of NeoForge to use.
@@ -118,9 +129,13 @@ configurations {
 }
 
 dependencies {
-    // Proprietary/third-party mod JARs are supplied locally and are never bundled into this mod.
-    // The research-only skeleton has no foreign-mod imports, so an empty libs directory is valid.
+    implementation("thedarkcolour:kotlinforforge-neoforge:${kotlin_for_forge_version}")
+
+    // Exact researched mod binaries. They are local-only, ignored by Git and never shaded.
     implementation fileTree(dir: 'libs', include: ['*.jar'])
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.4'
 
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
@@ -157,6 +172,7 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
             mod_name               : mod_name,
             mod_license            : mod_license,
             mod_version            : mod_version,
+            kotlin_for_forge_version: kotlin_for_forge_version,
     ]
     inputs.properties replaceProperties
     expand replaceProperties
@@ -185,6 +201,14 @@ publishing {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+}
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+    compilerOptions.jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
 }
 
 // IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.

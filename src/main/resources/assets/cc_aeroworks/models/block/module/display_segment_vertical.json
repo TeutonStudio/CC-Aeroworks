@@ -1,0 +1,10 @@
+{
+  "ambientocclusion": false,
+  "textures": { "segment": "cc_aeroworks:block/display_segment", "particle": "cc_aeroworks:block/display_segment" },
+  "elements": [
+    { "from": [7.65, 2.02, 6.8], "to": [8.35, 2.25, 9.2], "shade": false, "faces": {
+      "down": {"texture": "#segment"}, "up": {"texture": "#segment"}, "north": {"texture": "#segment"},
+      "south": {"texture": "#segment"}, "west": {"texture": "#segment"}, "east": {"texture": "#segment"}
+    }}
+  ]
+}

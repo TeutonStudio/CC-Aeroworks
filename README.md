@@ -1,25 +1,21 @@
+# CC-Aeroworks
 
-Installation information
-=======
+CC-Aeroworks verbindet Create: Aeroworks Control Desks direkt mit CC:Tweaked und ergänzt zwei- und dreistellige Desk-Displays sowie die kombinierte Maussteuerung für Lever.
 
-This template repository can be directly cloned to get you started with a new
-mod. Simply create a new repository cloned from this one, by following the
-instructions provided by [GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template).
+## Entwicklungsumgebung
 
-Once you have your clone, simply open the repository in the IDE of your choice. The usual recommendation for an IDE is either IntelliJ IDEA or Eclipse.
+- Minecraft 1.21.1, NeoForge 21.1.228 und Java 21
+- Kotlin 2.2.20 mit KotlinForForge NeoForge 5.11.0
+- Create 6.0.10, Aeronautics/Aeroworks 1.3.0
+- CC:Tweaked API-Baseline 1.119.0; Metadatenbereich bis vor 1.121
 
-If at any point you are missing libraries in your IDE, or you've run into problems you can
-run `gradlew --refresh-dependencies` to refresh the local cache. `gradlew clean` to reset everything 
-{this does not affect your code} and then start the process again.
+Die lizenzpflichtigen Mod-JARs werden nicht mitgeliefert. Die erwarteten Namen stehen in [libs/README.md](libs/README.md). Danach:
 
-Mapping Names:
-============
-By default, the MDK is configured to use the official mapping names from Mojang for methods and fields 
-in the Minecraft codebase. These names are covered by a specific license. All modders should be aware of this
-license. For the latest license text, refer to the mapping file itself, or the reference copy here:
-https://github.com/NeoForged/NeoForm/blob/main/Mojang.md
+```bash
+./gradlew clean build
+./gradlew runClient
+```
 
-Additional Resources: 
-==========
-Community Documentation: https://docs.neoforged.net/  
-NeoForged Discord: https://discord.neoforged.net/
+Lua-Dokumentation und Beispiele stehen unter `docs/cc-peripheral-api.md` und `examples/cc/`.
+
+Repository: `TeutonStudio/CC-Aeroworks`

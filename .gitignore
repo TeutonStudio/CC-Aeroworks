@@ -1,0 +1,15 @@
+# Local mod dependencies are intentionally not distributed.
+libs/*.jar
+
+# Reproducible analysis output and decompiler scratch data.
+.codex-work/
+decompiled/
+jar-analysis/
+
+# Gradle and run output.
+.gradle/
+build/
+run/
+run-data/
+.idea/
+*.iml

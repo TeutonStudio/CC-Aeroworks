@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": ["RRR", "GGG", "INI"],
+  "key": {
+    "R": {"item": "minecraft:redstone"},
+    "G": {"item": "minecraft:orange_stained_glass_pane"},
+    "I": {"item": "minecraft:iron_nugget"},
+    "N": {"item": "minecraft:quartz"}
+  },
+  "result": {"id": "cc_aeroworks:three_digit_display", "count": 1}
+}

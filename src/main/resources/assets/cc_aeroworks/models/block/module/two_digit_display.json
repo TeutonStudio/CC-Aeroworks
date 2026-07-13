@@ -1,0 +1,9 @@
+{
+  "textures": { "base": "cc_aeroworks:block/display_base", "particle": "cc_aeroworks:block/display_base" },
+  "elements": [
+    { "from": [4.5, 0, 4.5], "to": [11.5, 2, 11.5], "faces": {
+      "down": {"texture": "#base"}, "up": {"texture": "#base"}, "north": {"texture": "#base"},
+      "south": {"texture": "#base"}, "west": {"texture": "#base"}, "east": {"texture": "#base"}
+    }}
+  ]
+}
