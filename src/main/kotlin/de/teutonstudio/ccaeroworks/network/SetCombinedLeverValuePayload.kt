@@ -1,8 +1,8 @@
 package de.teutonstudio.ccaeroworks.network
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
-import com.mred231.aeroworks.content.controls.ModuleTypes
 import de.teutonstudio.ccaeroworks.CCAeroworks
+import de.teutonstudio.ccaeroworks.input.CombinedInputSource
 import net.minecraft.core.BlockPos
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
@@ -12,7 +12,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
-data class SetCombinedLeverValuePayload(val pos: BlockPos, val socket: Int, val value: Int) : CustomPacketPayload {
+data class SetCombinedLeverValuePayload(val pos: BlockPos, val socket: Int, val channel: String, val value: Int) : CustomPacketPayload {
     override fun type(): CustomPacketPayload.Type<out CustomPacketPayload> = TYPE
 
     companion object {
@@ -24,11 +24,14 @@ data class SetCombinedLeverValuePayload(val pos: BlockPos, val socket: Int, val 
         val STREAM_CODEC: StreamCodec<RegistryFriendlyByteBuf, SetCombinedLeverValuePayload> =
             object : StreamCodec<RegistryFriendlyByteBuf, SetCombinedLeverValuePayload> {
                 override fun decode(buffer: RegistryFriendlyByteBuf): SetCombinedLeverValuePayload =
-                    SetCombinedLeverValuePayload(buffer.readBlockPos(), buffer.readVarInt(), buffer.readByte().toInt())
+                    SetCombinedLeverValuePayload(
+                        buffer.readBlockPos(), buffer.readVarInt(), buffer.readUtf(16), buffer.readByte().toInt()
+                    )
 
                 override fun encode(buffer: RegistryFriendlyByteBuf, payload: SetCombinedLeverValuePayload) {
                     buffer.writeBlockPos(payload.pos)
                     buffer.writeVarInt(payload.socket)
+                    buffer.writeUtf(payload.channel, 16)
                     buffer.writeByte(payload.value)
                 }
             }
@@ -43,13 +46,13 @@ data class SetCombinedLeverValuePayload(val pos: BlockPos, val socket: Int, val 
             val desk = level.getBlockEntity(payload.pos) as? ConsoleBlockEntity ?: return
             if (payload.socket !in 0 until desk.socketCount()) return
             val module = desk.module(payload.socket) ?: return
-            if (ModuleTypes.idOf(module.type()).toString() != "aeroworks:lever") return
+            if (!CombinedInputSource.isCombined(module, payload.channel)) return
             if (desk.hasController() && !desk.checkUser(player.uuid)) return
             val maximumDistance = player.blockInteractionRange() + 1.0
             if (player.distanceToSqr(payload.pos.center) > maximumDistance * maximumDistance) return
             val tick = level.gameTime
             if (lastAcceptedTick.put(player.uuid, tick) == tick) return
-            desk.setChannelFromController(payload.socket, "lever", payload.value)
+            desk.setChannelFromController(payload.socket, payload.channel, payload.value)
         }
     }
 }

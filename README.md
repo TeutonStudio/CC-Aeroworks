@@ -1,6 +1,8 @@
 # CC-Aeroworks
 
-CC-Aeroworks verbindet Create: Aeroworks Control Desks direkt mit CC:Tweaked und ergänzt zwei- und dreistellige Desk-Displays sowie die kombinierte Maussteuerung für Lever. Das zweistellige Display passt in kleine und große Slots, das dreistellige ausschließlich in große Slots. Drive By Wire 0.2.9 ist optional unterstützt.
+CC-Aeroworks verbindet Create: Aeroworks Control Desks direkt mit CC:Tweaked und ergänzt zwei- und dreistellige Desk-Displays sowie die kombinierte Maussteuerung für Lever, Joystick und Throttle Quadrants. Die Displays unterstützen Ziffern und frei beschreibbare `7x5`- beziehungsweise `11x5`-Pixelraster. Das zweistellige Display passt in kleine und große Slots, das dreistellige ausschließlich in große Slots. Drive By Wire 0.2.9 ist optional unterstützt.
+
+Für die kombinierte Steuerung im Aeroworks-Modulbildschirm den Input Type `Kombiniert` auswählen, anschließend im mittleren Eingabefeld die gewünschte Aktivierungstaste erfassen und diese beim Steuern halten. Der Modus wechselt über das vorhandene Symbol zyklisch zwischen `Buttons`, `Analog` und `Kombiniert`. Das API-Handbuch liegt als Buchitem im Abschnitt `CC-Aeroworks` des Aeroworks-Creative-Tabs.
 
 ## Entwicklungsumgebung
 

@@ -72,6 +72,34 @@ Unterstützt werden die Zeichen `0` bis `9`, Minus und Leerzeichen. Andere Zeich
 
 `zeroPad=true` füllt links mit Nullen auf und lässt ein negatives Vorzeichen vorne stehen. NaN und unendliche Werte erzeugen einen Lua-Fehler. `clearDisplay(socket)` leert eine Anzeige; `clearDisplays()` leert alle Anzeigen des Pults und liefert deren Anzahl.
 
+## Einzelne Pixel zeichnen
+
+Neben dem Ziffernmodus besitzt jedes Display einen Pixelmodus. Der Zweisteller hat `7x5`, der Dreisteller `11x5` Pixel. Anders als die Desk-Sockets sind Pixelkoordinaten Lua-typisch **1-basiert**: `(1,1)` ist links oben.
+
+```lua
+local size = desk.getDisplaySize(2)
+print(size.width, size.height)
+
+desk.clearDisplayPixels(2)
+desk.setDisplayPixel(2, 1, 1, true)
+desk.setDisplayPixel(2, size.width, size.height, true)
+print(desk.getDisplayPixel(2, 1, 1)) -- true
+```
+
+Für ein ganzes Bild ist ein einzelner Aufruf effizienter, weil er nur eine Zustandsänderung synchronisiert:
+
+```lua
+desk.setDisplayPixels(2, {
+  "1000001",
+  "0100010",
+  "0010100",
+  "0001000",
+  "0010100"
+})
+```
+
+Die Tabelle muss genau fünf Zeilen enthalten. Jede Zeile besteht ausschließlich aus `0` und `1` und muss exakt zur Displaybreite passen. `setDisplayText` und `setDisplayNumber` wechseln zurück in den Textmodus. Die Pixelmethoden wechseln in den Pixelmodus. `getDisplay(socket)` meldet dies über `mode`, `pixelWidth`, `pixelHeight` und `pixels`.
+
 ## Änderungen als Ereignis empfangen
 
 Solange mindestens ein Computer angehängt ist, überwacht CC-Aeroworks die Eingabemodule des Pults. Nur geänderte Kanalwerte erzeugen ein Ereignis:
@@ -105,4 +133,4 @@ while true do
 end
 ```
 
-Weitere vollständige Programme liegen unter `examples/cc/`. Die knappe Methodensignatur-Referenz steht in `docs/cc-peripheral-api.md`.
+Weitere vollständige Programme, einschließlich `pixel_display_demo.lua`, liegen unter `examples/cc/`. Die knappe Methodensignatur-Referenz steht in `docs/cc-peripheral-api.md`.

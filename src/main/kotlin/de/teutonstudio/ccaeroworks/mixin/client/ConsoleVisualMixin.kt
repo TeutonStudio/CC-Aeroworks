@@ -74,28 +74,44 @@ abstract class ConsoleVisualMixin(
     @Unique
     private fun rebuildDigits() {
         val displays = AeroworksDeskAccess.displays(blockEntity)
-        val nextKey = displays.joinToString(separator = ";", postfix = ";") { "${it.socket}:${it.text}" }
+        val nextKey = displays.joinToString(separator = ";", postfix = ";") {
+            "${it.socket}:${it.text}:${it.pixels?.encode().orEmpty()}"
+        }
         if (nextKey == displayKey) return
         displayKey = nextKey
         displayDigits.forEach { it.instance.delete() }
         displayDigits.clear()
 
         displays.forEach { display ->
-            val text = display.text.padEnd(display.type.width, ' ')
-            repeat(display.type.width) { index ->
-                DeskDisplayModels.segments(text[index]).forEach { segment ->
+            if (display.pixels != null) {
+                for (y in 0 until display.pixels.height) for (x in 0 until display.pixels.width) {
+                    if (!display.pixels.get(x, y)) continue
                     val instance = instancerProvider()
-                        .instancer(InstanceTypes.TRANSFORMED, Models.partial(segment.model))
+                        .instancer(InstanceTypes.TRANSFORMED, Models.partial(DeskDisplayModels.PIXEL))
                         .createInstance()
                     displayDigits += CCAeroworksDigit(
                         display.socket,
-                        display.type.width,
-                        index,
-                        segment.x,
-                        segment.z,
+                        DeskDisplayRenderer.pixelOffsetX(display.pixels.width, x),
+                        DeskDisplayRenderer.pixelOffsetZ(y),
                         instance
                     )
                     relight(instance)
+                }
+            } else {
+                val text = display.text.padEnd(display.type.width, ' ')
+                repeat(display.type.width) { index ->
+                    DeskDisplayModels.segments(text[index]).forEach { segment ->
+                        val instance = instancerProvider()
+                            .instancer(InstanceTypes.TRANSFORMED, Models.partial(segment.model))
+                            .createInstance()
+                        displayDigits += CCAeroworksDigit(
+                            display.socket,
+                            DeskDisplayRenderer.digitOffset(display.type.width, index) + segment.x,
+                            segment.z,
+                            instance
+                        )
+                        relight(instance)
+                    }
                 }
             }
         }
@@ -114,7 +130,7 @@ abstract class ConsoleVisualMixin(
                 .translate(socket.offset().x - 0.5, socket.offset().y - 0.5, socket.offset().z - 0.5)
                 .rotate(socket.orientation())
                 .translate(-0.5f, 0.0f, -0.5f)
-                .translate(DeskDisplayRenderer.digitOffset(digit.width, digit.index) + digit.x, 0.0, digit.z)
+                .translate(digit.x, 0.0, digit.z)
                 .setChanged()
         }
     }
@@ -122,8 +138,6 @@ abstract class ConsoleVisualMixin(
     @Unique
     private data class CCAeroworksDigit(
         val socket: Int,
-        val width: Int,
-        val index: Int,
         val x: Double,
         val z: Double,
         val instance: TransformedInstance

@@ -7,7 +7,7 @@ object CCClientConfig {
 
     @JvmField
     val combinedLeverSensitivity: ModConfigSpec.DoubleValue = builder
-        .comment("Lever steps applied per mouse-Y unit while combined control is held.")
+        .comment("Control steps applied per mouse-Y unit while a combined input is held.")
         .defineInRange("combinedLeverSensitivity", 0.15, 0.001, 10.0)
 
     @JvmField
@@ -16,7 +16,7 @@ object CCClientConfig {
 
     @JvmField
     val combinedLeverPacketRate: ModConfigSpec.IntValue = builder
-        .comment("Maximum combined-lever packets per second.")
+        .comment("Maximum combined-input packets per second.")
         .defineInRange("combinedLeverPacketRate", 20, 1, 20)
 
     @JvmField

@@ -1,8 +1,6 @@
 package de.teutonstudio.ccaeroworks.input
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
-import com.mred231.aeroworks.content.controls.ModuleTypes
-import de.teutonstudio.ccaeroworks.client.CCKeyMappings
 import de.teutonstudio.ccaeroworks.config.CCClientConfig
 import de.teutonstudio.ccaeroworks.mixin.client.MouseHandlerAccessor
 import de.teutonstudio.ccaeroworks.network.SetCombinedLeverValuePayload
@@ -16,9 +14,8 @@ import net.neoforged.neoforge.client.event.ClientTickEvent
 import net.neoforged.neoforge.network.PacketDistributor
 
 object CombinedLeverController {
-    private const val LEVER_CHANNEL = "lever"
     private var target: CombinedLeverTarget? = null
-    private var keyWasDown = false
+    private var suppressedBinding: String? = null
 
     @JvmStatic
     fun isActive(): Boolean = target != null
@@ -26,11 +23,13 @@ object CombinedLeverController {
     @SubscribeEvent
     fun onClientTick(event: ClientTickEvent.Post) {
         val minecraft = Minecraft.getInstance()
-        val keyDown = CCKeyMappings.COMBINED_LEVER.isDown
-        if (keyDown && !keyWasDown) target = acquireTarget(minecraft)
-        keyWasDown = keyDown
-
-        if (!keyDown || !targetStillValid(minecraft)) {
+        suppressedBinding?.let {
+            if (!CombinedActivationKey.isDown(it, minecraft)) suppressedBinding = null
+        }
+        if (target == null && suppressedBinding == null) target = acquireTarget(minecraft)
+        val active = target ?: return
+        if (!CombinedActivationKey.isDown(active.activationBinding, minecraft) || !targetStillValid(minecraft)) {
+            if (CombinedActivationKey.isDown(active.activationBinding, minecraft)) suppressedBinding = active.activationBinding
             stop()
             return
         }
@@ -45,20 +44,25 @@ object CombinedLeverController {
             stop()
             return
         }
-        val deltaY = (minecraft.mouseHandler as MouseHandlerAccessor).ccaeroworks_getAccumulatedDY()
-        consumeMouseDelta(deltaY)
+        val mouse = minecraft.mouseHandler as MouseHandlerAccessor
+        consumeMouseDelta(mouse.ccaeroworks_getAccumulatedDX(), mouse.ccaeroworks_getAccumulatedDY())
         // Vanilla computes (sensitivity * 0.6 + 0.2)^3. -1/3 therefore produces exactly zero rotation.
         event.mouseSensitivity = -1.0 / 3.0
         event.cinematicCameraEnabled = false
     }
 
     @JvmStatic
-    fun consumeMouseDelta(deltaY: Double) {
+    fun consumeMouseDelta(deltaX: Double, deltaY: Double) {
         val active = target ?: return
+        val mouseAxis = CombinedInputSource.mouseAxis(active.channel)
+        val delta = when (mouseAxis) {
+            CombinedInputSource.MouseAxis.X -> deltaX
+            CombinedInputSource.MouseAxis.Y -> deltaY
+        }
         val discrete = active.accumulator.apply(
-            deltaY,
+            delta,
             CCClientConfig.combinedLeverSensitivity.get(),
-            CCClientConfig.combinedLeverInvertY.get()
+            mouseAxis == CombinedInputSource.MouseAxis.Y && CCClientConfig.combinedLeverInvertY.get()
         )
         if (discrete != active.sentValue) active.pendingValue = discrete
         sendPending()
@@ -81,9 +85,15 @@ object CombinedLeverController {
         val mount = desk.nearestOccupiedMount(from, to) ?: return null
         if (mount.subPath() != null) return null
         val module = desk.module(mount.socket()) ?: return null
-        if (ModuleTypes.idOf(module.type()).toString() != "aeroworks:lever") return null
-        val value = module.value(LEVER_CHANNEL).coerceIn(-15, 15)
-        return CombinedLeverTarget(level.dimension(), desk.blockPos.immutable(), mount.socket(), LeverAccumulator(value), value)
+        val channel = CombinedInputSource.channels(module).firstOrNull {
+            CombinedInputSource.isCombined(module, it) &&
+                CombinedActivationKey.isDown(CombinedInputSource.activationBinding(module, it), minecraft)
+        } ?: return null
+        val binding = CombinedInputSource.activationBinding(module, channel)
+        val value = module.value(channel).coerceIn(-15, 15)
+        return CombinedLeverTarget(
+            level.dimension(), desk.blockPos.immutable(), mount.socket(), channel, binding, LeverAccumulator(value), value
+        )
     }
 
     private fun targetStillValid(minecraft: Minecraft): Boolean {
@@ -95,7 +105,8 @@ object CombinedLeverController {
         val desk = level.getBlockEntity(active.pos) as? ConsoleBlockEntity ?: return false
         if (active.socket !in 0 until desk.socketCount()) return false
         val module = desk.module(active.socket) ?: return false
-        return ModuleTypes.idOf(module.type()).toString() == "aeroworks:lever"
+        return CombinedInputSource.isCombined(module, active.channel) &&
+            CombinedInputSource.activationBinding(module, active.channel) == active.activationBinding
     }
 
     private fun sendPending() {
@@ -104,7 +115,7 @@ object CombinedLeverController {
         val interval = 1_000_000_000L / CCClientConfig.combinedLeverPacketRate.get().coerceIn(1, 20)
         val now = System.nanoTime()
         if (now - active.lastPacketNanos < interval) return
-        PacketDistributor.sendToServer(SetCombinedLeverValuePayload(active.pos, active.socket, pending))
+        PacketDistributor.sendToServer(SetCombinedLeverValuePayload(active.pos, active.socket, active.channel, pending))
         active.sentValue = pending
         active.pendingValue = null
         active.lastPacketNanos = now

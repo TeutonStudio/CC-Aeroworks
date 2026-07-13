@@ -6,6 +6,8 @@ import dev.engine_room.flywheel.lib.model.baked.PartialModel
 object DeskDisplayModels {
     private val horizontal = PartialModel.of(CCAeroworks.id("block/module/display_segment_horizontal"))
     private val vertical = PartialModel.of(CCAeroworks.id("block/module/display_segment_vertical"))
+    @JvmField
+    val PIXEL: PartialModel = PartialModel.of(CCAeroworks.id("block/module/display_pixel"))
 
     data class Segment(val model: PartialModel, val x: Double, val z: Double)
 

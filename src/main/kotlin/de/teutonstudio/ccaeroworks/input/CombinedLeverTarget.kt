@@ -8,6 +8,8 @@ data class CombinedLeverTarget(
     val dimension: ResourceKey<Level>,
     val pos: BlockPos,
     val socket: Int,
+    val channel: String,
+    val activationBinding: String,
     val accumulator: LeverAccumulator,
     var sentValue: Int,
     var pendingValue: Int? = null,

@@ -6,6 +6,9 @@ import org.spongepowered.asm.mixin.gen.Accessor
 
 @Mixin(MouseHandler::class)
 interface MouseHandlerAccessor {
+    @Accessor("accumulatedDX")
+    fun ccaeroworks_getAccumulatedDX(): Double
+
     @Accessor("accumulatedDY")
     fun ccaeroworks_getAccumulatedDY(): Double
 }

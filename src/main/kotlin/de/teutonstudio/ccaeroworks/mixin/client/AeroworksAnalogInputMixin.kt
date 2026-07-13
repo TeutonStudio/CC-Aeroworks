@@ -19,7 +19,7 @@ abstract class AeroworksAnalogInputMixin {
         @Inject(method = ["feedMouseDelta(DD)V"], at = [At("HEAD")], cancellable = true)
         private fun routeCombinedLever(deltaX: Double, deltaY: Double, callback: CallbackInfo) {
             if (CombinedLeverController.isActive()) {
-                CombinedLeverController.consumeMouseDelta(deltaY)
+                CombinedLeverController.consumeMouseDelta(deltaX, deltaY)
                 callback.cancel()
             }
         }

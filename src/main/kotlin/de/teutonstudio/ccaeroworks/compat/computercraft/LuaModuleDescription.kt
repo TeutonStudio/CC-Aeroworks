@@ -6,7 +6,8 @@ data class LuaModuleSnapshot(
     val kind: String,
     val values: Map<String, Int> = emptyMap(),
     val displayWidth: Int? = null,
-    val displayText: String? = null
+    val displayText: String? = null,
+    val displayPixels: List<String>? = null
 )
 
 object LuaModuleDescription {
@@ -24,6 +25,8 @@ object LuaModuleDescription {
         if (module.displayWidth != null) {
             put("width", module.displayWidth)
             put("text", module.displayText.orEmpty())
+            put("mode", if (module.displayPixels == null) "text" else "pixels")
+            if (module.displayPixels != null) put("pixels", module.displayPixels)
         } else if (module.values.size == 1) {
             put("value", module.values.values.first())
         } else if (module.values.isNotEmpty()) {
