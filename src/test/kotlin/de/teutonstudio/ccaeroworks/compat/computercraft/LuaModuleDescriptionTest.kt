@@ -24,12 +24,35 @@ class LuaModuleDescriptionTest {
         assertFalse(result["display"] as Boolean)
     }
 
-    @Test fun `describes display for Lua`() {
+    @Test fun `describes multi channel input without losing channel names`() {
+        val values = linkedMapOf("x" to 3, "y" to -2)
         val result = LuaModuleDescription.describe(
+            LuaModuleSnapshot(1, "aeroworks:joystick", "joystick", values)
+        )
+        assertEquals(values, result["values"])
+        assertEquals("right", result["socketName"])
+    }
+
+    @Test fun `describes text and pixel displays distinctly`() {
+        val text = LuaModuleDescription.describe(
             LuaModuleSnapshot(2, "cc_aeroworks:three_digit_display", "display", displayWidth = 3, displayText = "007")
         )
-        assertEquals(3, result["width"])
-        assertEquals("007", result["text"])
-        assertEquals(true, result["display"])
+        assertEquals(3, text["width"])
+        assertEquals("007", text["text"])
+        assertEquals("text", text["mode"])
+
+        val pixels = listOf("10000000001", "00000000000")
+        val pixelResult = LuaModuleDescription.describe(
+            LuaModuleSnapshot(
+                2,
+                "cc_aeroworks:three_digit_display",
+                "display",
+                displayWidth = 3,
+                displayPixels = pixels
+            )
+        )
+        assertEquals("pixels", pixelResult["mode"])
+        assertEquals(pixels, pixelResult["pixels"])
+        assertEquals(true, pixelResult["display"])
     }
 }

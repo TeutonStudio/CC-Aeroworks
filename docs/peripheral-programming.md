@@ -1,141 +1,142 @@
-# Control Desk mit CC:Tweaked programmieren
+# Steuerungspulte mit CC:Tweaked programmieren
 
-CC-Aeroworks macht jeden geladenen Aeroworks Control Desk direkt zu einem CC:Tweaked-Peripheral. Es ist kein zusätzlicher Peripheral-Block nötig. Ein Computer erkennt das Pult, wenn er direkt daneben steht oder über ein kabelgebundenes Modem damit verbunden ist.
+## Externer Computer
 
-## Peripheral finden
+Ein gewöhnlicher Computer oder ein Wired Modem wird mit einem beliebigen Steuerungspult des Multiblocks verbunden.
 
 ```lua
-local desk = peripheral.find("cc_aeroworks_control_desk")
-assert(desk, "Kein Aeroworks Control Desk gefunden")
+local console = peripheral.find("cc_aeroworks_control_desk")
+assert(console, "Kein Steuerungspult verbunden")
 ```
 
-Sind mehrere Pulte verbunden, kann man sie mit `peripheral.getNames()` und `peripheral.wrap(name)` gezielt auswählen. Die von CC:Tweaked vergebene Anschlussbezeichnung wird auch im Eingabeereignis geliefert.
-
-## Desk-Sockets: left, right und big
-
-Der Control Desk besitzt die Namen `left`, `right` und `big`. Ihre nativen Aeroworks-Indizes sind `0`, `1` und `2`. Alle socketbezogenen Methoden akzeptieren entweder den Namen oder den Index. `getModules()` liefert im Feld `socket` weiterhin den kompatiblen Zahlenwert und zusätzlich `socketName`.
+Die bisherigen Methoden wie `getInput("left")` adressieren weiterhin das physisch angeschlossene Pult. Für den gesamten Multiblock wird zuerst ein Desk gewählt:
 
 ```lua
-print("Socketanzahl:", desk.getSocketCount())
+local desks = console.getDesks()
 
-for _, socket in ipairs(desk.getSockets()) do
-  print(socket.name, socket.index)
+for _, desk in ipairs(desks) do
+  print(
+    ("Desk %d: %s (%s)"):format(
+      desk.index,
+      desk.id,
+      desk.variant
+    )
+  )
 end
 
-for _, module in ipairs(desk.getModules()) do
-  print(module.socketName, module.socket, module.id, module.kind)
-end
+local first = desks[1]
+local last = desks[#desks]
+
+local input = console.getDeskInput(first.id, "left")
+console.setDeskDisplayNumber(last.id, "big", input, false)
 ```
 
-Ein Moduleintrag enthält mindestens:
+Der Deskparameter kann der 1-basierte Index oder die stabile ID sein. IDs sind vorzuziehen, wenn ein Programm Umbauten überstehen soll.
 
-- `socket`: nullbasierter Aeroworks-Socketindex,
-- `socketName`: `left`, `right` oder `big`,
-- `id`: Registry-ID des Moduls, zum Beispiel `aeroworks:lever`,
-- `kind`: vereinfachte Art wie `lever`, `joystick`, `button` oder `display`,
-- `display`: `true` nur für CC-Aeroworks-Anzeigen.
-
-Eingabemodule enthalten zusätzlich `value`, wenn sie genau einen Kanal haben. Mehrkanalmodule enthalten `values`, eine Tabelle nach der tatsächlichen Aeroworks-Kanal-ID. Displays enthalten `width` und `text`.
-
-## Eingaben lesen
+## Eingabeereignisse des gesamten Multiblocks
 
 ```lua
-local socket = "left"
-local module = desk.getModule(socket)
+while true do
+  local _, peripheralName, deskId, deskIndex, socket, moduleId, value, channel, socketName =
+    os.pullEvent("cc_aeroworks_multiblock_input")
 
-if module then
-  print("Modul:", module.id)
-  local value = desk.getInput(socket)
-  if type(value) == "table" then
-    for channel, channelValue in pairs(value) do
-      print(channel, channelValue)
-    end
+  if value == nil then
+    print(("Desk %d, %s: Kanal entfernt"):format(deskIndex, socketName))
   else
-    print("Wert:", value)
+    print(
+      ("Desk %d, %s, %s = %s"):format(
+        deskIndex,
+        socketName,
+        channel,
+        tostring(value)
+      )
+    )
   end
 end
 ```
 
-`getInput(socket)` erzeugt einen verständlichen Fehler, wenn der Socket ungültig, leer oder kein Eingabemodul ist. `getInputs()` liefert alle momentan lesbaren Eingaben nach Socketindex. Die rohen Aeroworks-Kanalwerte liegen im verifizierten Bereich `-15` bis `15`; mehrkanalige Joysticks, Yokes und Throttle Quadrants behalten ihre Aeroworks-Kanalnamen.
-
-## Displays beschreiben
-
-Das zweistellige Display kann in kleinen und großen Desk-Slots montiert werden. Das dreistellige Display passt nur in große Slots.
+Eine Strukturänderung wird getrennt gemeldet:
 
 ```lua
-desk.setDisplayText("left", "42")
-desk.setDisplayNumber("big", 7, true) -- bei drei Stellen: "007"
-
-local display = desk.getDisplay("left")
-print(display.width, display.text)
+local _, peripheralName, state, memberCount, revision =
+  os.pullEvent("cc_aeroworks_multiblock_changed")
 ```
 
-Unterstützt werden die Zeichen `0` bis `9`, Minus und Leerzeichen. Andere Zeichen werden zu Leerzeichen. Zu langer Text wird rechts abgeschnitten. Dezimalzahlen werden gegen null abgeschnitten, nicht gerundet. Werte werden auf den darstellbaren Bereich begrenzt:
+## Eingebetteter Computer
 
-- zwei Stellen: `-9` bis `99`,
-- drei Stellen: `-99` bis `999`.
-
-`zeroPad=true` füllt links mit Nullen auf und lässt ein negatives Vorzeichen vorne stehen. NaN und unendliche Werte erzeugen einen Lua-Fehler. `clearDisplay(socket)` leert eine Anzeige; `clearDisplays()` leert alle Anzeigen des Pults und liefert deren Anzahl.
-
-## Einzelne Pixel zeichnen
-
-Neben dem Ziffernmodus besitzt jedes Display einen Pixelmodus. Der Zweisteller hat `7x5`, der Dreisteller `11x5` Pixel. Anders als die Desk-Sockets sind Pixelkoordinaten Lua-typisch **1-basiert**: `(1,1)` ist links oben.
+Im Computer-Steuerungspult ist kein `peripheral.find` nötig. Die API ist direkt global vorhanden:
 
 ```lua
-local size = desk.getDisplaySize("left")
-print(size.width, size.height)
+local desks = aeroworks.getDesks()
+local owner
 
-desk.clearDisplayPixels("left")
-desk.setDisplayPixel("left", 1, 1, true)
-desk.setDisplayPixel("left", size.width, size.height, true)
-print(desk.getDisplayPixel("left", 1, 1)) -- true
+for _, desk in ipairs(desks) do
+  if desk.owner then
+    owner = desk
+  end
+end
+
+assert(owner, "Besitzerpult fehlt")
+print("Eigene Socketanzahl:", aeroworks.getSocketCount(owner.id))
+aeroworks.setDisplayText(owner.id, "big", "ON")
 ```
 
-Für ein ganzes Bild ist ein einzelner Aufruf effizienter, weil er nur eine Zustandsänderung synchronisiert:
+Die folgende Schreibweise ist gleichwertig:
 
 ```lua
-desk.setDisplayPixels("left", {
-  "1000001",
-  "0100010",
-  "0010100",
-  "0001000",
-  "0010100"
+local aeroworks = require("cc_aeroworks.aeroworks")
+```
+
+Ein vollständiges Dashboard:
+
+```lua
+local desks = aeroworks.getDesks()
+assert(#desks > 0, "Leerer Steuerungspult-Multiblock")
+
+while true do
+  local _, deskId, deskIndex, socket, socketName, moduleId, value, channel =
+    os.pullEvent("cc_aeroworks_console_input")
+
+  local target = desks[#desks]
+  if value == nil then
+    aeroworks.clearDisplay(target.id, "big")
+  elseif type(value) == "number" then
+    aeroworks.setDisplayNumber(target.id, "big", value, false)
+  end
+end
+```
+
+## Text und Pixel
+
+```lua
+console.setDeskDisplayText(1, "big", "42")
+console.setDeskDisplayNumber(1, "big", -7, true)
+
+console.setDeskDisplayPixels(1, "big", {
+  "11111111111",
+  "10000000001",
+  "10111111101",
+  "10000000001",
+  "11111111111",
 })
 ```
 
-Die Tabelle muss genau fünf Zeilen enthalten. Jede Zeile besteht ausschließlich aus `0` und `1` und muss exakt zur Displaybreite passen. `setDisplayText` und `setDisplayNumber` wechseln zurück in den Textmodus. Die Pixelmethoden wechseln in den Pixelmodus. `getDisplay(socket)` meldet dies über `mode`, `pixelWidth`, `pixelHeight` und `pixels`.
-
-## Änderungen als Ereignis empfangen
-
-Solange mindestens ein Computer angehängt ist, überwacht CC-Aeroworks die Eingabemodule des Pults. Nur geänderte Kanalwerte erzeugen ein Ereignis:
+Im eingebetteten Computer werden dieselben Operationen ohne `Desk` im Methodennamen verwendet:
 
 ```lua
-while true do
-  local _, peripheralName, socket, moduleId, value, channel, socketName =
-    os.pullEvent("cc_aeroworks_desk_input")
-
-  print(peripheralName, socketName, socket, moduleId, channel, value)
-end
+aeroworks.setDisplayText(1, "big", "42")
+aeroworks.setDisplayPixel(1, "big", 1, 1, true)
 ```
 
-Der erste gelesene Zustand dient als Ausgangspunkt und löst kein Ereignis aus. Ein Mehrkanalmodul kann für eine Bewegung mehrere Ereignisse mit unterschiedlichen `channel`-Werten erzeugen.
+## Topologiefehler
 
-## Vollständiges kleines Beispiel
-
-Dieses Programm schreibt den Wert des ersten gefundenen Eingabemoduls auf das erste Display:
+`getNetwork()` zeigt den aktuellen Zustand:
 
 ```lua
-local desk = peripheral.find("cc_aeroworks_control_desk")
-assert(desk, "Kein Aeroworks Control Desk gefunden")
-
-local displays = desk.getDisplays()
-assert(#displays > 0, "Kein CC-Aeroworks-Display montiert")
-local displaySocket = displays[1].socket
-
-while true do
-  local _, _, _, _, value = os.pullEvent("cc_aeroworks_desk_input")
-  desk.setDisplayNumber(displaySocket, value, false)
-end
+local network = console.getNetwork()
+print(network.state, network.memberCount, network.revision)
 ```
 
-Weitere vollständige Programme, einschließlich `pixel_display_demo.lua`, liegen unter `examples/cc/`. Die knappe Methodensignatur-Referenz steht in `docs/cc-peripheral-api.md`.
+- `too_large` und `partially_loaded` werden als Lua-Fehler behandelt.
+- `conflict` bedeutet mehrere Computer-Steuerungspulte. Externe Peripheral-Zugriffe funktionieren weiterhin.
+- Die direkte API eines eingebetteten Computers verweigert den Konfliktzustand, damit kein Computer zufällig zum Besitzer erklärt wird.

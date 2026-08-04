@@ -1,49 +1,233 @@
-# CC:Tweaked Peripheral API
+# CC:Tweaked APIs
 
-Peripheral-Typ: `cc_aeroworks_control_desk`. Desk-Sockets können mit Namen oder ihrem nativen nullbasierten Aeroworks-Index angegeben werden: `left` = `0`, `right` = `1`, `big` = `2`.
+CC-Aeroworks besitzt zwei Zugriffswege:
 
-Eine ausführlichere deutschsprachige Einführung mit vollständigem Beispiel steht in [`peripheral-programming.md`](peripheral-programming.md).
+1. Ein gewöhnlicher CC:Tweaked-Computer verwendet das Peripheral `cc_aeroworks_control_desk`.
+2. Der Computer in einem Computer-Steuerungspult verwendet die globale API `aeroworks` direkt.
+
+Sockets akzeptieren Namen oder den nativen nullbasierten Aeroworks-Index:
+
+| Name | Index |
+|---|---:|
+| `left` | `0` |
+| `right` | `1` |
+| `big` | `2` |
+
+Deskparameter sind entweder ein 1-basierter Multiblockindex oder eine stabile Desk-ID.
+
+## Externes Peripheral
 
 ```lua
-local desk = peripheral.find("cc_aeroworks_control_desk")
-assert(desk, "Kein Aeroworks Control Desk gefunden")
+local console = peripheral.find("cc_aeroworks_control_desk")
+assert(console, "Kein Aeroworks-Steuerungspult verbunden")
 ```
 
-## Methoden
+Eine Verbindung zu einem beliebigen Mitglied genügt. `getDesks()` und alle `*Desk*`-Methoden arbeiten auf dem vollständigen direkt verbundenen Steuerungspult-Multiblock.
+
+### Kompatible Einzelpultmethoden
+
+Diese Methoden adressieren weiterhin genau das Pult, an dem das Peripheral hängt:
 
 - `getSocketCount() -> number`
-- `getSockets() -> table`: liefert `{ name, index }` für `left`, `right` und `big`.
+- `getSockets() -> table`
 - `getModules() -> table`
 - `getModule(socket) -> table|nil`
-- `getInput(socket) -> number|table`: ein Kanal wird als Zahl, mehrere Kanäle als Tabelle nach Aeroworks-Kanal-ID geliefert.
-- `getInputs() -> table`: Zuordnung Socket zu Zahl/Kanaltabelle.
+- `getInput(socket) -> number|table`
+- `getInputs() -> table`
 - `getDisplays() -> table`
 - `getDisplay(socket) -> table`
 - `setDisplayText(socket, text) -> string`
 - `setDisplayNumber(socket, value, zeroPad?) -> string`
 - `clearDisplay(socket)`
-- `clearDisplays() -> number`: Anzahl geleerter Displays.
-- `getDisplaySize(socket) -> table`: Pixelgröße als `{ width, height }`.
+- `clearDisplays() -> number`
+- `getDisplaySize(socket) -> table`
 - `getDisplayPixel(socket, x, y) -> boolean`
 - `setDisplayPixel(socket, x, y, enabled) -> boolean`
-- `setDisplayPixels(socket, rows) -> table`: schreibt das vollständige Raster mit einer Synchronisation.
-- `clearDisplayPixels(socket)`: wechselt in den Pixelmodus und löscht das Raster.
+- `setDisplayPixels(socket, rows) -> table`
+- `clearDisplayPixels(socket)`
 
-Jeder Parameter `socket` akzeptiert beispielsweise sowohl `"left"` als auch `0`. Modul- und Displayeinträge enthalten den kompatiblen Zahlenwert `socket` sowie zusätzlich `socketName`.
+Bestehende Programme ändern dadurch ihr Ziel nicht.
 
-Texte werden links beginnend auf zwei beziehungsweise drei Zeichen begrenzt. Zulässig sind `0-9`, Minus und Leerzeichen; jedes andere Zeichen wird konsistent zu einem Leerzeichen. Zahlen werden gegen null abgeschnitten und auf `-9..99` beziehungsweise `-99..999` begrenzt. `zeroPad` füllt die Ziffern rechts vom Vorzeichen mit Nullen. NaN und Unendlich erzeugen einen Lua-Fehler.
+### Multiblockmethoden
 
-Der Pixelmodus verwendet beim Zweisteller ein Raster von `7x5`, beim Dreisteller `11x5`. Pixelkoordinaten beginnen bei `(1,1)` links oben. `setDisplayPixels` erwartet genau fünf Strings aus `0` und `1` mit der passenden Breite. Text-/Zahlenschreiben wechselt in den Textmodus; Pixelmethoden wechseln in den Pixelmodus. Das Feld `mode` eines Displayeintrags ist entsprechend `text` oder `pixels`.
+- `getNetwork() -> table`
+- `getDesks() -> table`
+- `getDesk(desk) -> table`
+- `getDeskSocketCount(desk) -> number`
+- `getDeskSockets(desk) -> table`
+- `getDeskModules(desk) -> table`
+- `getDeskModule(desk, socket) -> table|nil`
+- `getDeskInput(desk, socket) -> number|table`
+- `getDeskInputs(desk) -> table`
+- `getDeskDisplays(desk) -> table`
+- `getDeskDisplay(desk, socket) -> table`
+- `setDeskDisplayText(desk, socket, text) -> string`
+- `setDeskDisplayNumber(desk, socket, value, zeroPad?) -> string`
+- `clearDeskDisplay(desk, socket)`
+- `clearDeskDisplays(desk) -> number`
+- `getDeskDisplaySize(desk, socket) -> table`
+- `getDeskDisplayPixel(desk, socket, x, y) -> boolean`
+- `setDeskDisplayPixel(desk, socket, x, y, enabled) -> boolean`
+- `setDeskDisplayPixels(desk, socket, rows) -> table`
+- `clearDeskDisplayPixels(desk, socket)`
 
-Eingabewerte sind rohe Aeroworks-Kanalwerte. Die verifizierte Kanalbegrenzung ist `-15..15`; Buttonmodule verwenden ihre diskreten Kanalwerte. Mehrkanalmodule behalten ihre von Aeroworks vergebenen Kanal-IDs.
-
-## Ereignis
-
-Nur solange Computer angehängt sind, vergleicht der Server einmal pro Tick Eingabewerte. Bei Änderung:
+Beispiel:
 
 ```lua
-local event, peripheralName, socket, moduleId, value, channel, socketName =
+local console = peripheral.find("cc_aeroworks_control_desk")
+local desks = console.getDesks()
+
+for _, desk in ipairs(desks) do
+  print(desk.index, desk.id, desk.variant, desk.attached)
+end
+
+local target = desks[#desks]
+print(console.getDeskInput(target.id, "left"))
+console.setDeskDisplayText(target.id, "big", "123")
+```
+
+`getNetwork()` liefert:
+
+```lua
+{
+  state = "none" | "active" | "conflict",
+  memberCount = 4,
+  revision = 12
+}
+```
+
+`none` bedeutet hier lediglich, dass kein eingebettetes Computer-Steuerungspult im Multiblock liegt. Für einen extern angeschlossenen Computer bleibt der Multiblock vollständig verwendbar.
+
+## Direkte API des Computer-Steuerungspults
+
+Nur der eingebettete Computer besitzt die globale API:
+
+```lua
+local desks = aeroworks.getDesks()
+```
+
+Es ist ausdrücklich **kein** Peripheral erforderlich. Folgende Aufrufe gehören hier nicht zum Zugriffsweg:
+
+```lua
+peripheral.find(...)
+peripheral.wrap(...)
+peripheral.call(...)
+```
+
+Alternativ kann dasselbe API-Objekt geladen werden:
+
+```lua
+local aeroworks = require("cc_aeroworks.aeroworks")
+```
+
+### Direkte Methoden
+
+- `getNetwork() -> table`
+- `getDesks() -> table`
+- `getDesk(desk) -> table`
+- `getSocketCount(desk) -> number`
+- `getSockets(desk) -> table`
+- `getModules(desk) -> table`
+- `getModule(desk, socket) -> table|nil`
+- `getInput(desk, socket) -> number|table`
+- `getInputs(desk) -> table`
+- `getDisplays(desk) -> table`
+- `getDisplay(desk, socket) -> table`
+- `setDisplayText(desk, socket, text) -> string`
+- `setDisplayNumber(desk, socket, value, zeroPad?) -> string`
+- `clearDisplay(desk, socket)`
+- `clearDisplays(desk) -> number`
+- `getDisplaySize(desk, socket) -> table`
+- `getDisplayPixel(desk, socket, x, y) -> boolean`
+- `setDisplayPixel(desk, socket, x, y, enabled) -> boolean`
+- `setDisplayPixels(desk, socket, rows) -> table`
+- `clearDisplayPixels(desk, socket)`
+
+Beispiel:
+
+```lua
+local network = aeroworks.getNetwork()
+print(network.memberCount)
+
+for _, desk in ipairs(aeroworks.getDesks()) do
+  print(desk.index, desk.id, desk.owner)
+  for _, socket in ipairs(aeroworks.getSockets(desk.id)) do
+    print(socket.name, socket.index)
+  end
+end
+
+aeroworks.setDisplayNumber(1, "big", 42, true)
+```
+
+Enthält derselbe Multiblock mehrere Computer-Steuerungspulte, verweigert die direkte API den mehrdeutigen Zugriff. Jeder Computer behält seine Computer-ID und sein Dateisystem.
+
+## Desk-Beschreibungen
+
+`getDesk` und `getDesks` liefern mindestens:
+
+```lua
+{
+  id = "stabile-uuid",
+  index = 1,
+  x = 10,
+  y = 64,
+  z = -5,
+  variant = "control_desk" | "computer" | "advanced_computer",
+  computer = false,
+  facing = "north",
+  loaded = true
+}
+```
+
+Beim externen Peripheral kennzeichnet `attached` das physisch angeschlossene Pult. In der direkten API kennzeichnet `owner` das Pult, dessen eingebetteter Computer die API ausführt.
+
+## Displayvertrag
+
+Texte werden links beginnend auf zwei beziehungsweise drei Zeichen begrenzt. Zulässig sind `0-9`, Minus und Leerzeichen; andere Zeichen werden zu Leerzeichen.
+
+Zahlen werden gegen null abgeschnitten und auf `-9..99` beziehungsweise `-99..999` begrenzt. `zeroPad` füllt die Ziffern rechts vom Vorzeichen mit Nullen. NaN und Unendlich erzeugen einen Lua-Fehler.
+
+Der Pixelmodus verwendet beim Zweisteller `7x5`, beim Dreisteller `11x5`. Koordinaten beginnen bei `(1,1)` links oben. `setDisplayPixels` erwartet genau fünf Strings aus `0` und `1`.
+
+## Ereignisse
+
+### Angeschlossenes Einzelpult
+
+```lua
+local _, peripheralName, socket, moduleId, value, channel, socketName =
   os.pullEvent("cc_aeroworks_desk_input")
 ```
 
-Der erste Snapshot erzeugt kein Ereignis; unveränderte Werte werden nicht gesendet.
+### Multiblock eines externen Peripherals
+
+```lua
+local _, peripheralName, deskId, deskIndex, socket, moduleId, value, channel, socketName =
+  os.pullEvent("cc_aeroworks_multiblock_input")
+```
+
+```lua
+local _, peripheralName, state, memberCount, revision =
+  os.pullEvent("cc_aeroworks_multiblock_changed")
+```
+
+### Eingebetteter Computer
+
+```lua
+local _, deskId, deskIndex, socket, socketName, moduleId, value, channel =
+  os.pullEvent("cc_aeroworks_console_input")
+```
+
+```lua
+local _, state, memberCount, revision =
+  os.pullEvent("cc_aeroworks_console_changed")
+```
+
+Der erste Eingabesnapshot erzeugt kein Ereignis. Bei entfernten Kanälen oder Modulen ist `value` `nil`.
+
+## Fehlerzustände
+
+- Mehr als 64 verbundene Pulte: Zugriff wird abgelehnt.
+- Teilweise geladener Multiblock: Zugriff wird abgelehnt, statt einen unvollständigen Zustand als vollständig auszugeben.
+- Ungültiger Deskindex oder unbekannte Desk-ID: Lua-Fehler.
+- Ungültiger Socket: Lua-Fehler.
+- Mehrere eingebettete Computer: direkter Zugriff ist mehrdeutig und wird abgelehnt; externe Peripheral-Methoden bleiben nutzbar.

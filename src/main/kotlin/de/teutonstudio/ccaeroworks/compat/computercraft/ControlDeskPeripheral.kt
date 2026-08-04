@@ -1,26 +1,40 @@
 package de.teutonstudio.ccaeroworks.compat.computercraft
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
-import com.mred231.aeroworks.content.controls.MountedModule
+import dan200.computercraft.api.lua.IArguments
 import dan200.computercraft.api.lua.LuaException
 import dan200.computercraft.api.lua.LuaFunction
-import dan200.computercraft.api.lua.IArguments
 import dan200.computercraft.api.peripheral.AttachedComputerSet
 import dan200.computercraft.api.peripheral.IComputerAccess
 import dan200.computercraft.api.peripheral.IPeripheral
 import de.teutonstudio.ccaeroworks.CCAeroworks
-import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess
-import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksModuleAccess
-import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskSockets
-import de.teutonstudio.ccaeroworks.display.DeskDisplayFormatter
-import de.teutonstudio.ccaeroworks.display.DeskDisplayPixels
-import de.teutonstudio.ccaeroworks.display.DeskDisplayState
+import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskService
+import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskInputSnapshot
+import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleMember
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockSnapshot
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import java.lang.ref.WeakReference
+
+internal data class PeripheralNetworkDeskSnapshot(
+    val index: Int,
+    val inputs: Map<Int, DeskInputSnapshot>
+)
+
+internal data class PeripheralNetworkSnapshot(
+    val state: ConsoleNetworkState,
+    val memberCount: Int,
+    val revision: Long,
+    val signature: String,
+    val desks: Map<String, PeripheralNetworkDeskSnapshot>
+)
 
 class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral {
     private val blockEntity = WeakReference(blockEntity)
     internal val computers = AttachedComputerSet()
-    internal var lastInputs: Map<Int, Map<String, Int>>? = null
+    internal var lastInputs: Map<Int, DeskInputSnapshot>? = null
+    internal var lastNetwork: PeripheralNetworkSnapshot? = null
 
     override fun getType(): String = CCAeroworks.PERIPHERAL_TYPE
 
@@ -35,6 +49,7 @@ class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral {
         computers.remove(computer)
         if (!computers.hasComputers()) {
             lastInputs = null
+            lastNetwork = null
             ControlDeskPeripheralState.deactivate(this)
         }
     }
@@ -46,252 +61,280 @@ class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral {
     fun getSocketCount(): Int = desk().socketCount()
 
     @LuaFunction(mainThread = true)
-    fun getSockets(): List<Map<String, Any>> = DeskSockets.entries(desk().socketCount())
+    fun getSockets(): List<Map<String, Any>> = AeroworksDeskService.getSockets(desk())
 
     @LuaFunction(mainThread = true)
-    fun getModules(): List<Map<String, Any>> {
-        val desk = desk()
-        return (0 until desk.socketCount()).mapNotNull { socket -> desk.module(socket)?.let { describe(socket, it) } }
+    fun getModules(): List<Map<String, Any>> = AeroworksDeskService.getModules(desk())
+
+    @LuaFunction(mainThread = true)
+    fun getModule(arguments: IArguments): Map<String, Any>? =
+        AeroworksDeskService.getModule(desk(), arguments.get(0))
+
+    @LuaFunction(mainThread = true)
+    fun getInput(arguments: IArguments): Any =
+        AeroworksDeskService.getInput(desk(), arguments.get(0))
+
+    @LuaFunction(mainThread = true)
+    fun getInputs(): Map<Int, Any> = AeroworksDeskService.getInputs(desk())
+
+    @LuaFunction(mainThread = true)
+    fun getDisplays(): List<Map<String, Any>> = AeroworksDeskService.getDisplays(desk())
+
+    @LuaFunction(mainThread = true)
+    fun getDisplay(arguments: IArguments): Map<String, Any> =
+        AeroworksDeskService.getDisplay(desk(), arguments.get(0))
+
+    @LuaFunction(mainThread = true)
+    fun setDisplayText(arguments: IArguments): String =
+        AeroworksDeskService.setDisplayText(desk(), arguments.get(0), arguments.getString(1))
+
+    @LuaFunction(mainThread = true)
+    fun setDisplayNumber(arguments: IArguments): String =
+        AeroworksDeskService.setDisplayNumber(
+            desk(),
+            arguments.get(0),
+            arguments.getDouble(1),
+            arguments.optBoolean(2).orElse(false)
+        )
+
+    @LuaFunction(mainThread = true)
+    fun clearDisplay(arguments: IArguments) =
+        AeroworksDeskService.clearDisplay(desk(), arguments.get(0))
+
+    @LuaFunction(mainThread = true)
+    fun clearDisplays(): Int = AeroworksDeskService.clearDisplays(desk())
+
+    @LuaFunction(mainThread = true)
+    fun getDisplaySize(arguments: IArguments): Map<String, Int> =
+        AeroworksDeskService.getDisplaySize(desk(), arguments.get(0))
+
+    @LuaFunction(mainThread = true)
+    fun getDisplayPixel(arguments: IArguments): Boolean =
+        AeroworksDeskService.getDisplayPixel(
+            desk(),
+            arguments.get(0),
+            arguments.getInt(1),
+            arguments.getInt(2)
+        )
+
+    @LuaFunction(mainThread = true)
+    fun setDisplayPixel(arguments: IArguments): Boolean =
+        AeroworksDeskService.setDisplayPixel(
+            desk(),
+            arguments.get(0),
+            arguments.getInt(1),
+            arguments.getInt(2),
+            arguments.getBoolean(3)
+        )
+
+    @LuaFunction(mainThread = true)
+    fun setDisplayPixels(arguments: IArguments): List<String> {
+        val table = arguments.getTableUnsafe(1)
+        val rows = (1..table.length()).map { index -> table.getString(index) }
+        return AeroworksDeskService.setDisplayPixels(desk(), arguments.get(0), rows)
     }
 
     @LuaFunction(mainThread = true)
-    fun getModule(arguments: IArguments): Map<String, Any>? {
-        val desk = desk()
-        val socket = socketArgument(arguments, 0, desk)
-        return desk.module(socket)?.let { describe(socket, it) }
-    }
+    fun clearDisplayPixels(arguments: IArguments) =
+        AeroworksDeskService.clearDisplayPixels(desk(), arguments.get(0))
 
     @LuaFunction(mainThread = true)
-    @Throws(LuaException::class)
-    fun getInput(arguments: IArguments): Any {
-        val desk = desk()
-        val socket = socketArgument(arguments, 0, desk)
-        val module = desk.module(socket) ?: throw LuaException("Socket $socket is empty")
-        val values = AeroworksModuleAccess.values(module)
-        if (values.isEmpty()) throw LuaException("Module at socket $socket is not an input module")
-        return if (values.size == 1) values.values.first() else values
-    }
+    fun getDesks(): List<Map<String, Any>> =
+        usableSnapshot().members.map(::describeDesk)
 
     @LuaFunction(mainThread = true)
-    fun getInputs(): Map<Int, Any> {
-        val desk = desk()
-        val result = linkedMapOf<Int, Any>()
-        (0 until desk.socketCount()).forEach { socket ->
-            val module = desk.module(socket) ?: return@forEach
-            val values = AeroworksModuleAccess.values(module)
-            if (values.isNotEmpty()) result[socket] = if (values.size == 1) values.values.first() else values
-        }
-        return result
-    }
+    fun getDesk(arguments: IArguments): Map<String, Any> =
+        describeDesk(member(arguments.get(0)))
 
     @LuaFunction(mainThread = true)
-    fun getDisplays(): List<Map<String, Any>> = AeroworksDeskAccess.displays(desk()).map(::describeDisplay)
-
-    @LuaFunction(mainThread = true)
-    @Throws(LuaException::class)
-    fun getDisplay(arguments: IArguments): Map<String, Any> {
-        val desk = desk()
-        val socket = socketArgument(arguments, 0, desk)
-        return describeDisplay(AeroworksDeskAccess.display(desk, socket)
-            ?: throw LuaException("Module at socket $socket is not a CC-Aeroworks display"))
-    }
-
-    @LuaFunction(mainThread = true)
-    @Throws(LuaException::class)
-    fun setDisplayText(arguments: IArguments): String {
-        val desk = desk()
-        val socket = socketArgument(arguments, 0, desk)
-        val text = arguments.getString(1)
-        return AeroworksDeskAccess.setDisplayText(desk, socket, text)?.text
-            ?: throw LuaException("Module at socket $socket is not a CC-Aeroworks display")
-    }
-
-    @LuaFunction(mainThread = true)
-    @Throws(LuaException::class)
-    fun setDisplayNumber(arguments: IArguments): String {
-        val value = arguments.getDouble(1)
-        if (!value.isFinite()) throw LuaException("value must be a finite number")
-        val desk = desk()
-        val socket = socketArgument(arguments, 0, desk)
-        val display = AeroworksDeskAccess.display(desk, socket)
-            ?: throw LuaException("Module at socket $socket is not a CC-Aeroworks display")
-        val text = DeskDisplayFormatter.formatNumber(value, display.type.width, arguments.optBoolean(2).orElse(false))
-        return AeroworksDeskAccess.setDisplayText(desk, socket, text)?.text
-            ?: throw LuaException("Module at socket $socket is not a CC-Aeroworks display")
-    }
-
-    @LuaFunction(mainThread = true)
-    @Throws(LuaException::class)
-    fun clearDisplay(arguments: IArguments) {
-        val desk = desk()
-        val socket = socketArgument(arguments, 0, desk)
-        if (AeroworksDeskAccess.setDisplayText(desk, socket, "") == null) {
-            throw LuaException("Module at socket $socket is not a CC-Aeroworks display")
-        }
-    }
-
-    @LuaFunction(mainThread = true)
-    fun clearDisplays(): Int {
-        val desk = desk()
-        val displays = AeroworksDeskAccess.displays(desk)
-        displays.forEach { AeroworksDeskAccess.setDisplayText(desk, it.socket, "") }
-        return displays.size
-    }
-
-    @LuaFunction(mainThread = true)
-    @Throws(LuaException::class)
-    fun getDisplaySize(arguments: IArguments): Map<String, Int> {
-        val socket = socketArgument(arguments, 0, desk())
-        val display = requiredDisplay(socket)
+    fun getNetwork(): Map<String, Any> {
+        val snapshot = usableSnapshot()
         return linkedMapOf(
-            "width" to DeskDisplayPixels.pixelWidth(display.type),
-            "height" to DeskDisplayPixels.HEIGHT
+            "state" to snapshot.state.name.lowercase(),
+            "memberCount" to snapshot.members.size,
+            "revision" to snapshot.revision
         )
     }
 
     @LuaFunction(mainThread = true)
-    @Throws(LuaException::class)
-    fun getDisplayPixel(arguments: IArguments): Boolean {
-        val socket = socketArgument(arguments, 0, desk())
-        val x = arguments.getInt(1)
-        val y = arguments.getInt(2)
-        val display = requiredDisplay(socket)
-        val pixels = display.pixels ?: DeskDisplayPixels.blank(display.type)
-        validatePixel(pixels, x, y)
-        return pixels.get(x - 1, y - 1)
+    fun getDeskSocketCount(arguments: IArguments): Int =
+        member(arguments.get(0)).desk.socketCount()
+
+    @LuaFunction(mainThread = true)
+    fun getDeskSockets(arguments: IArguments): List<Map<String, Any>> =
+        AeroworksDeskService.getSockets(member(arguments.get(0)).desk)
+
+    @LuaFunction(mainThread = true)
+    fun getDeskModules(arguments: IArguments): List<Map<String, Any>> =
+        AeroworksDeskService.getModules(member(arguments.get(0)).desk)
+
+    @LuaFunction(mainThread = true)
+    fun getDeskModule(arguments: IArguments): Map<String, Any>? =
+        AeroworksDeskService.getModule(member(arguments.get(0)).desk, arguments.get(1))
+
+    @LuaFunction(mainThread = true)
+    fun getDeskInput(arguments: IArguments): Any =
+        AeroworksDeskService.getInput(member(arguments.get(0)).desk, arguments.get(1))
+
+    @LuaFunction(mainThread = true)
+    fun getDeskInputs(arguments: IArguments): Map<Int, Any> =
+        AeroworksDeskService.getInputs(member(arguments.get(0)).desk)
+
+    @LuaFunction(mainThread = true)
+    fun getDeskDisplays(arguments: IArguments): List<Map<String, Any>> =
+        AeroworksDeskService.getDisplays(member(arguments.get(0)).desk)
+
+    @LuaFunction(mainThread = true)
+    fun getDeskDisplay(arguments: IArguments): Map<String, Any> =
+        AeroworksDeskService.getDisplay(member(arguments.get(0)).desk, arguments.get(1))
+
+    @LuaFunction(mainThread = true)
+    fun setDeskDisplayText(arguments: IArguments): String =
+        AeroworksDeskService.setDisplayText(
+            member(arguments.get(0)).desk,
+            arguments.get(1),
+            arguments.getString(2)
+        )
+
+    @LuaFunction(mainThread = true)
+    fun setDeskDisplayNumber(arguments: IArguments): String =
+        AeroworksDeskService.setDisplayNumber(
+            member(arguments.get(0)).desk,
+            arguments.get(1),
+            arguments.getDouble(2),
+            arguments.optBoolean(3).orElse(false)
+        )
+
+    @LuaFunction(mainThread = true)
+    fun clearDeskDisplay(arguments: IArguments) =
+        AeroworksDeskService.clearDisplay(member(arguments.get(0)).desk, arguments.get(1))
+
+    @LuaFunction(mainThread = true)
+    fun clearDeskDisplays(arguments: IArguments): Int =
+        AeroworksDeskService.clearDisplays(member(arguments.get(0)).desk)
+
+    @LuaFunction(mainThread = true)
+    fun getDeskDisplaySize(arguments: IArguments): Map<String, Int> =
+        AeroworksDeskService.getDisplaySize(member(arguments.get(0)).desk, arguments.get(1))
+
+    @LuaFunction(mainThread = true)
+    fun getDeskDisplayPixel(arguments: IArguments): Boolean =
+        AeroworksDeskService.getDisplayPixel(
+            member(arguments.get(0)).desk,
+            arguments.get(1),
+            arguments.getInt(2),
+            arguments.getInt(3)
+        )
+
+    @LuaFunction(mainThread = true)
+    fun setDeskDisplayPixel(arguments: IArguments): Boolean =
+        AeroworksDeskService.setDisplayPixel(
+            member(arguments.get(0)).desk,
+            arguments.get(1),
+            arguments.getInt(2),
+            arguments.getInt(3),
+            arguments.getBoolean(4)
+        )
+
+    @LuaFunction(mainThread = true)
+    fun setDeskDisplayPixels(arguments: IArguments): List<String> {
+        val table = arguments.getTableUnsafe(2)
+        val rows = (1..table.length()).map { index -> table.getString(index) }
+        return AeroworksDeskService.setDisplayPixels(
+            member(arguments.get(0)).desk,
+            arguments.get(1),
+            rows
+        )
     }
 
     @LuaFunction(mainThread = true)
-    @Throws(LuaException::class)
-    fun setDisplayPixel(arguments: IArguments): Boolean {
-        val desk = desk()
-        val socket = socketArgument(arguments, 0, desk)
-        val x = arguments.getInt(1)
-        val y = arguments.getInt(2)
-        val enabled = arguments.getBoolean(3)
-        val display = AeroworksDeskAccess.display(desk, socket)
-            ?: throw LuaException("Module at socket $socket is not a CC-Aeroworks display")
-        val pixels = display.pixels ?: DeskDisplayPixels.blank(display.type)
-        validatePixel(pixels, x, y)
-        AeroworksDeskAccess.setDisplayPixels(desk, socket, pixels.withPixel(x - 1, y - 1, enabled))
-        return enabled
-    }
-
-    @LuaFunction(mainThread = true)
-    @Throws(LuaException::class)
-    fun setDisplayPixels(arguments: IArguments): List<String> {
-        val desk = desk()
-        val socket = socketArgument(arguments, 0, desk)
-        val display = AeroworksDeskAccess.display(desk, socket)
-            ?: throw LuaException("Module at socket $socket is not a CC-Aeroworks display")
-        val table = arguments.getTableUnsafe(1)
-        if (table.length() != DeskDisplayPixels.HEIGHT) {
-            throw LuaException("pixel table must contain exactly ${DeskDisplayPixels.HEIGHT} rows")
-        }
-        val rows = (1..DeskDisplayPixels.HEIGHT).map { table.getString(it) }
-        val pixels = try {
-            DeskDisplayPixels.fromRows(display.type, rows)
-        } catch (error: IllegalArgumentException) {
-            throw LuaException(error.message ?: "invalid pixel table")
-        }
-        AeroworksDeskAccess.setDisplayPixels(desk, socket, pixels)
-        return pixels.rows()
-    }
-
-    @LuaFunction(mainThread = true)
-    @Throws(LuaException::class)
-    fun clearDisplayPixels(arguments: IArguments) {
-        val desk = desk()
-        val socket = socketArgument(arguments, 0, desk)
-        val display = AeroworksDeskAccess.display(desk, socket)
-            ?: throw LuaException("Module at socket $socket is not a CC-Aeroworks display")
-        AeroworksDeskAccess.setDisplayPixels(desk, socket, DeskDisplayPixels.blank(display.type))
-    }
+    fun clearDeskDisplayPixels(arguments: IArguments) =
+        AeroworksDeskService.clearDisplayPixels(member(arguments.get(0)).desk, arguments.get(1))
 
     internal fun validDesk(): ConsoleBlockEntity? = blockEntity.get()?.takeIf {
         !it.isRemoved && it.level != null && it.level?.isLoaded(it.blockPos) == true
     }
 
-    internal fun snapshotInputs(): Map<Int, Map<String, Int>> {
-        val desk = validDesk() ?: return emptyMap()
-        val values = linkedMapOf<Int, Map<String, Int>>()
-        (0 until desk.socketCount()).forEach { socket ->
-            desk.module(socket)?.let { module ->
-                AeroworksModuleAccess.values(module).takeIf { it.isNotEmpty() }?.let { values[socket] = it }
-            }
-        }
-        return values
-    }
+    internal fun snapshotInputs(): Map<Int, DeskInputSnapshot> =
+        validDesk()?.let(AeroworksDeskService::snapshotInputs).orEmpty()
 
-    private fun desk(): ConsoleBlockEntity = validDesk() ?: throw IllegalStateException("Aeroworks Control Desk is no longer loaded")
-
-    @Throws(LuaException::class)
-    private fun validateSocket(desk: ConsoleBlockEntity, socket: Int) {
-        if (socket !in 0 until desk.socketCount()) {
-            throw LuaException("Socket index $socket is outside 0..${desk.socketCount() - 1}")
-        }
-    }
-
-    @Throws(LuaException::class)
-    private fun socketArgument(arguments: IArguments, index: Int, desk: ConsoleBlockEntity): Int {
-        val raw = arguments.get(index)
-        val socket = when (raw) {
-            is String -> DeskSockets.index(raw)
-                ?: throw LuaException("Unknown socket '$raw'; expected left, right, or big")
-            is Number -> {
-                val number = raw.toDouble()
-                if (!number.isFinite() || number % 1.0 != 0.0) {
-                    throw LuaException("Socket must be an integer index or left, right, or big")
-                }
-                number.toInt()
-            }
-            else -> throw LuaException("Socket must be an integer index or left, right, or big")
-        }
-        validateSocket(desk, socket)
-        return socket
-    }
-
-    @Throws(LuaException::class)
-    private fun requiredDisplay(socket: Int): DeskDisplayState {
-        val desk = desk()
-        validateSocket(desk, socket)
-        return AeroworksDeskAccess.display(desk, socket)
-            ?: throw LuaException("Module at socket $socket is not a CC-Aeroworks display")
-    }
-
-    @Throws(LuaException::class)
-    private fun validatePixel(pixels: DeskDisplayPixels, x: Int, y: Int) {
-        if (x !in 1..pixels.width || y !in 1..pixels.height) {
-            throw LuaException("Pixel ($x,$y) is outside 1..${pixels.width}, 1..${pixels.height}")
-        }
-    }
-
-    private fun describe(socket: Int, module: MountedModule): Map<String, Any> {
-        val values = AeroworksModuleAccess.values(module)
-        val display = AeroworksDeskAccess.display(desk(), socket)
-        return LuaModuleDescription.describe(
-            LuaModuleSnapshot(
-                socket = socket,
-                socketName = DeskSockets.name(socket),
-                id = AeroworksModuleAccess.id(module).toString(),
-                kind = AeroworksModuleAccess.kind(module),
-                values = values,
-                displayWidth = display?.type?.width,
-                displayText = display?.text,
-                displayPixels = display?.pixels?.rows()
+    internal fun snapshotNetwork(): PeripheralNetworkSnapshot? {
+        val attached = validDesk() ?: return null
+        val level = attached.level ?: return null
+        val snapshot = ConsoleMultiblockManager.resolve(level, attached.blockPos)
+        val desks = snapshot.members.associate { member ->
+            member.id to PeripheralNetworkDeskSnapshot(
+                index = member.index,
+                inputs = AeroworksDeskService.snapshotInputs(member.desk)
             )
+        }
+        val signature = buildString {
+            append(snapshot.state.name)
+            snapshot.members.forEach { member ->
+                append('|')
+                append(member.id)
+                append(':')
+                append(member.kind.name)
+            }
+        }
+        return PeripheralNetworkSnapshot(
+            state = snapshot.state,
+            memberCount = snapshot.members.size,
+            revision = snapshot.revision,
+            signature = signature,
+            desks = desks
         )
     }
 
-    private fun describeDisplay(display: DeskDisplayState): Map<String, Any> = linkedMapOf(
-        "socket" to display.socket,
-        "socketName" to DeskSockets.name(display.socket),
-        "id" to "${CCAeroworks.MOD_ID}:${display.type.modulePath}",
-        "width" to display.type.width,
-        "text" to display.text,
-        "mode" to if (display.pixels == null) "text" else "pixels",
-        "pixelWidth" to DeskDisplayPixels.pixelWidth(display.type),
-        "pixelHeight" to DeskDisplayPixels.HEIGHT,
-        "pixels" to (display.pixels ?: DeskDisplayPixels.blank(display.type)).rows()
+    private fun desk(): ConsoleBlockEntity =
+        validDesk() ?: throw LuaException("Aeroworks control desk is no longer loaded")
+
+    private fun usableSnapshot(): ConsoleMultiblockSnapshot {
+        val attached = desk()
+        val level = attached.level ?: throw LuaException("Aeroworks control desk is not in a level")
+        val snapshot = ConsoleMultiblockManager.resolve(level, attached.blockPos)
+        when (snapshot.state) {
+            ConsoleNetworkState.TOO_LARGE ->
+                throw LuaException("The control desk multiblock exceeds 64 blocks")
+
+            ConsoleNetworkState.PARTIALLY_LOADED ->
+                throw LuaException("The control desk multiblock is only partially loaded")
+
+            else -> return snapshot
+        }
+    }
+
+    private fun member(raw: Any?): ConsoleMember {
+        val members = usableSnapshot().members
+        return when (raw) {
+            is Number -> {
+                val number = raw.toDouble()
+                if (!number.isFinite() || number % 1.0 != 0.0) {
+                    throw LuaException("Desk must be a one-based integer index or desk id")
+                }
+                members.getOrNull(number.toInt() - 1)
+                    ?: throw LuaException(
+                        "Desk index ${number.toInt()} is outside 1..${members.size}"
+                    )
+            }
+
+            is String -> members.firstOrNull { it.id.equals(raw, ignoreCase = true) }
+                ?: throw LuaException("Unknown desk id '$raw'")
+
+            else -> throw LuaException("Desk must be a one-based integer index or desk id")
+        }
+    }
+
+    private fun describeDesk(member: ConsoleMember): Map<String, Any> = linkedMapOf(
+        "id" to member.id,
+        "index" to member.index,
+        "x" to member.pos.x,
+        "y" to member.pos.y,
+        "z" to member.pos.z,
+        "computer" to (member.desk is ComputerControlDeskBlockEntity),
+        "attached" to (member.desk === validDesk()),
+        "variant" to member.kind.name.lowercase(),
+        "facing" to member.facing.name.lowercase(),
+        "loaded" to true
     )
 }
