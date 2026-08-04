@@ -1,6 +1,5 @@
 package de.teutonstudio.ccaeroworks.client.ponder;
 
-import com.simibubi.create.AllItems;
 import com.simibubi.create.foundation.ponder.CreateSceneBuilder;
 import dan200.computercraft.shared.ModRegistry;
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes;
@@ -12,11 +11,16 @@ import net.createmod.ponder.api.scene.SceneBuildingUtil;
 import net.createmod.ponder.api.scene.Selection;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
 public class ComputerControlDeskScenes {
+    private static final ResourceLocation CREATE_WRENCH_ID =
+        ResourceLocation.fromNamespaceAndPath("create", "wrench");
+
     public static void overview(SceneBuilder builder, SceneBuildingUtil util) {
         CreateSceneBuilder scene = new CreateSceneBuilder(builder);
         scene.title("computer_control_desk", "Using Computer Control Desks");
@@ -67,7 +71,7 @@ public class ComputerControlDeskScenes {
 
         scene.overlay().showControls(util.vector().blockSurface(middleDesk, Direction.SOUTH), Pointing.UP, 55)
             .rightClick()
-            .withItem(AllItems.WRENCH.asStack());
+            .withItem(createWrenchStack());
         scene.overlay().showText(65)
             .attachKeyFrame()
             .text("Right-click a horizontal desk face with a Wrench to open control settings")
@@ -116,5 +120,9 @@ public class ComputerControlDeskScenes {
             .placeNearTarget();
         scene.idle(80);
         scene.markAsFinished();
+    }
+
+    private static ItemStack createWrenchStack() {
+        return new ItemStack(BuiltInRegistries.ITEM.get(CREATE_WRENCH_ID));
     }
 }
