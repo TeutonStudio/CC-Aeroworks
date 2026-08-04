@@ -2,13 +2,14 @@ package de.teutonstudio.ccaeroworks.multiblock
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
-import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskIdentityAccess
+import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
+import net.minecraft.world.level.block.state.properties.BooleanProperty
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.event.level.BlockEvent
 import net.neoforged.neoforge.event.level.ChunkEvent
@@ -54,19 +55,33 @@ data class ConsoleMultiblockSnapshot(
 
 object ConsoleMultiblockResolver {
     const val MAX_MEMBERS: Int = 64
+
     fun resolve(level: Level, start: BlockPos, revision: Long): ConsoleMultiblockSnapshot {
         if (!level.isLoaded(start)) {
-            return ConsoleMultiblockSnapshot(start.immutable(), emptyList(), emptyList(), ConsoleNetworkState.PARTIALLY_LOADED, revision)
+            return ConsoleMultiblockSnapshot(
+                start.immutable(),
+                emptyList(),
+                emptyList(),
+                ConsoleNetworkState.PARTIALLY_LOADED,
+                revision
+            )
         }
 
         val startState = level.getBlockState(start)
         if (!AeroworksTypes.isControlDesk(startState.block) ||
             !startState.hasProperty(BlockStateProperties.HORIZONTAL_FACING)
         ) {
-            return ConsoleMultiblockSnapshot(start.immutable(), emptyList(), emptyList(), ConsoleNetworkState.NONE, revision)
+            return ConsoleMultiblockSnapshot(
+                start.immutable(),
+                emptyList(),
+                emptyList(),
+                ConsoleNetworkState.NONE,
+                revision
+            )
         }
 
         val facing = startState.getValue(BlockStateProperties.HORIZONTAL_FACING)
+        val ceiling = booleanPropertyValue(startState, "ceiling")
         val left = facing.counterClockWise
         val right = facing.clockWise
         val positions = mutableListOf(start.immutable())
@@ -82,12 +97,12 @@ object ConsoleMultiblockResolver {
                     break
                 }
                 val state = level.getBlockState(cursor)
-                if (!compatible(state, facing)) break
+                if (!compatible(state, facing, ceiling)) break
                 found += cursor.immutable()
                 cursor = cursor.relative(direction)
             }
             if (found.size + positions.size >= MAX_MEMBERS && level.isLoaded(cursor) &&
-                compatible(level.getBlockState(cursor), facing)
+                compatible(level.getBlockState(cursor), facing, ceiling)
             ) {
                 tooLarge = true
             }
@@ -104,7 +119,9 @@ object ConsoleMultiblockResolver {
                 return@mapIndexedNotNull null
             }
             val kind = when {
-                desk is ComputerControlDeskBlockEntity && desk.isAdvanced -> ConsoleMemberKind.ADVANCED_COMPUTER
+                desk is ComputerControlDeskBlockEntity && desk.isAdvanced ->
+                    ConsoleMemberKind.ADVANCED_COMPUTER
+
                 desk is ComputerControlDeskBlockEntity -> ConsoleMemberKind.COMPUTER
                 else -> ConsoleMemberKind.CONTROL_DESK
             }
@@ -130,9 +147,25 @@ object ConsoleMultiblockResolver {
     }
 
     fun compatible(state: BlockState, facing: Direction): Boolean =
+        compatible(state, facing, null)
+
+    private fun compatible(
+        state: BlockState,
+        facing: Direction,
+        ceiling: Boolean?
+    ): Boolean =
         AeroworksTypes.isControlDesk(state.block) &&
             state.hasProperty(BlockStateProperties.HORIZONTAL_FACING) &&
-            state.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing
+            state.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing &&
+            (ceiling == null || booleanPropertyValue(state, "ceiling") == ceiling)
+
+    private fun booleanPropertyValue(state: BlockState, name: String): Boolean? {
+        val property = state.properties
+            .filterIsInstance<BooleanProperty>()
+            .firstOrNull { it.name == name }
+            ?: return null
+        return state.getValue(property)
+    }
 }
 
 object ConsoleMultiblockManager {

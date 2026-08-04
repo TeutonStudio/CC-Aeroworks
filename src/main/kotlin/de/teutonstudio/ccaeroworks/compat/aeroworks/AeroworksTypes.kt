@@ -26,6 +26,21 @@ object AeroworksTypes {
             ?: error("[CC-Aeroworks] Missing or incompatible block entity type $CONSOLE_BLOCK_ENTITY_ID")
     }
 
+    fun vanillaControlDeskBlock(): ConsoleDeskBlock {
+        val registered = BuiltInRegistries.BLOCK.get(CONTROL_DESK_ID)
+        if (registered is ConsoleDeskBlock && !isComputerControlDesk(registered)) {
+            return registered
+        }
+
+        return BuiltInRegistries.BLOCK
+            .filterIsInstance<ConsoleDeskBlock>()
+            .firstOrNull { block ->
+                BuiltInRegistries.BLOCK.getKey(block).namespace == "aeroworks" &&
+                    !isComputerControlDesk(block)
+            }
+            ?: error("[CC-Aeroworks] Missing Aeroworks control desk block")
+    }
+
     fun isVanillaControlDesk(block: Block): Boolean =
         block is ConsoleDeskBlock && !isComputerControlDesk(block)
 
