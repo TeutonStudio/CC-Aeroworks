@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - agent/restore-control-interactions
+  pull_request:
+    paths:
+      - .github/workflows/inspect-aeroworks-interactions.yml
 
 permissions:
   contents: read
