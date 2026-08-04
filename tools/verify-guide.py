@@ -34,6 +34,7 @@ TAG_LIST = 9
 TAG_COMPOUND = 10
 TAG_INT_ARRAY = 11
 TAG_LONG_ARRAY = 12
+MINECRAFT_1_21_1_DATA_VERSION = 3955
 
 
 def require(condition: bool, message: str) -> None:
@@ -138,6 +139,10 @@ def verify_ponder_structure() -> None:
     )
     structure = NbtReader(gzip.decompress(compressed_structure)).read_root()
 
+    require(
+        structure.get("DataVersion") == MINECRAFT_1_21_1_DATA_VERSION,
+        "Ponder structure DataVersion must match Minecraft 1.21.1",
+    )
     require(structure.get("size") == [5, 3, 5], "Ponder structure size must be 5x3x5")
     palette = structure.get("palette")
     require(isinstance(palette, list) and len(palette) == 3, "Ponder palette must contain three states")
