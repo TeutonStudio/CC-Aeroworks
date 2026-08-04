@@ -29,7 +29,7 @@ object ComputerConsoleInteractionHandler {
 
         val heldItem = event.itemStack.item
         if (heldItem is WrenchItem) {
-            if (event.face.axis.isHorizontal) {
+            if (event.face?.axis?.isHorizontal == true) {
                 // Horizontal wrench clicks are reserved for the Aeroworks control UI.
                 // Suppress the wrench's rotation path and force the block interaction.
                 event.setUseItem(TriState.FALSE)
