@@ -1,7 +1,7 @@
 package de.teutonstudio.ccaeroworks.client
 
-import com.mred231.aeroworks.content.controls.ConsoleDeskBlock
 import de.teutonstudio.ccaeroworks.CCAeroworks
+import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockSkin
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockSkinState
 import de.teutonstudio.ccaeroworks.registry.CCBlocks
@@ -39,17 +39,15 @@ object ConsoleMultiblockModels {
     }
 
     fun modifyBakingResult(event: ModelEvent.ModifyBakingResult) {
-        val normalDesk = BuiltInRegistries.BLOCK
-            .filterIsInstance<ConsoleDeskBlock>()
-            .firstOrNull {
-                BuiltInRegistries.BLOCK.getKey(it).namespace == "aeroworks"
-            }
-            ?: run {
-                CCAeroworks.LOGGER.error(
-                    "[CC-Aeroworks] Could not locate the Aeroworks control desk model"
-                )
-                return
-            }
+        val normalDesk = try {
+            AeroworksTypes.vanillaControlDeskBlock()
+        } catch (error: IllegalStateException) {
+            CCAeroworks.LOGGER.error(
+                "[CC-Aeroworks] Could not locate the Aeroworks control desk model",
+                error
+            )
+            return
+        }
 
         val originalModels = HashMap(event.models)
         val computerSprite = event.textureGetter.apply(
@@ -104,6 +102,31 @@ object ConsoleMultiblockModels {
                 }
             }
         }
+
+        inheritItemModels(event, originalModels, normalDesk)
+    }
+
+    private fun inheritItemModels(
+        event: ModelEvent.ModifyBakingResult,
+        originalModels: Map<ModelResourceLocation, BakedModel>,
+        normalDesk: Block
+    ) {
+        val normalItemLocation = ModelResourceLocation.inventory(
+            BuiltInRegistries.ITEM.getKey(normalDesk.asItem())
+        )
+        val normalItemModel = originalModels[normalItemLocation] ?: run {
+            CCAeroworks.LOGGER.error(
+                "[CC-Aeroworks] Could not locate the Aeroworks control desk item model"
+            )
+            return
+        }
+
+        event.models[
+            ModelResourceLocation.inventory(CCAeroworks.id("computer_control_desk"))
+        ] = normalItemModel
+        event.models[
+            ModelResourceLocation.inventory(CCAeroworks.id("advanced_computer_control_desk"))
+        ] = normalItemModel
     }
 
     private fun copyConsoleShape(source: BlockState, initialTarget: BlockState): BlockState {
