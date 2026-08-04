@@ -67,10 +67,26 @@ def verifyDependencyManifest = tasks.register('verifyDependencyManifest') {
                 errors << "Duplicate dependency identity: ${identity}"
             }
 
+            Pattern filenamePattern = null
             try {
-                Pattern.compile(dependency.filenamePattern?.toString() ?: '')
+                filenamePattern = Pattern.compile(dependency.filenamePattern?.toString() ?: '')
             } catch (Exception exception) {
                 errors << "Invalid filenamePattern for ${identity}: ${exception.message}"
+            }
+
+            Object filenameExamples = dependency.filenameExamples
+            if (filenameExamples != null) {
+                if (!(filenameExamples instanceof List) || filenameExamples.isEmpty()) {
+                    errors << "filenameExamples for ${identity} must be a non-empty list when present."
+                } else if (filenamePattern != null) {
+                    filenameExamples.eachWithIndex { Object example, int exampleIndex ->
+                        if (!(example instanceof String) || example.isBlank()) {
+                            errors << "filenameExamples[${exampleIndex}] for ${identity} must be a non-empty string."
+                        } else if (!filenamePattern.matcher(example).matches()) {
+                            errors << "Known filename does not match filenamePattern for ${identity}: ${example}"
+                        }
+                    }
+                }
             }
 
             Object checksum = dependency.sha256
