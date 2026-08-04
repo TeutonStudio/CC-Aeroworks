@@ -116,19 +116,35 @@ Erwartung: 64 Mitglieder funktionieren; der übergroße Multiblock wird eindeuti
 
 Erwartung: Module, Displays, Computer-ID, Label, Speicher- und Terminaldaten bleiben erhalten; kein doppelter Drop.
 
-## MB-RENDER-01: Modelle
+## MB-RENDER-01: Block- und Multiblock-Overlay
 
-Prüfen:
+1. Normales und Advanced-Computer-Steuerungspult einzeln platzieren.
+2. Beide Varianten jeweils mit normalen Aeroworks-Steuerungspulten zu einer Reihe verbinden.
+3. Innen- und Außenverbindungen, Decke/Boden und alle vier Ausrichtungen prüfen.
+4. Flywheel- und Fallback-Renderer prüfen.
 
-- normales Computer-Steuerungspult,
-- Advanced-Variante,
-- gemischte Reihen,
-- Inventarmodelle,
-- Flywheel aktiv,
-- Fallback-Renderer,
-- Innen- und Außenverbindungen.
+Erwartung:
 
-Erwartung: keine fehlenden Modelle, Texturen oder doppelten Pultflächen.
+- Geometrie und Grundtextur entsprechen dem normalen Aeroworks Control Desk,
+- die jeweilige Computertextur wird ausschließlich transparent darübergelegt,
+- transparente Bereiche zeigen unverändert die Aeroworks-Grundtextur,
+- alle Mitglieder eines Computer-Multiblocks erhalten dasselbe normale beziehungsweise Advanced-Overlay,
+- kein Z-Flimmern, keine doppelte Grundtextur und keine fehlenden Flächen.
+
+## MB-RENDER-02: Inventar- und Itemmodell
+
+1. Beide Computer-Steuerungspulte im Creative-Inventar, Spielerinventar und in der Hotbar prüfen.
+2. Stapelgrößen `1`, `2` und `64` prüfen.
+3. Item in erster und dritter Person halten sowie als gedropptes Item darstellen.
+4. GUI-Skalierung und Fabulous-/Fast-Grafikmodus wechseln.
+
+Erwartung:
+
+- Form, Perspektive und Grundtextur entsprechen dem normalen Aeroworks-Control-Desk-Item,
+- normales beziehungsweise Advanced-Overlay liegt sichtbar über der Grundtextur,
+- Textur und Modell fehlen nicht,
+- Stapelzahl und sonstige GUI-Dekorationen bleiben sichtbar,
+- keine doppelte Transformation und kein Z-Flimmern.
 
 ## MB-SABLE-01: Statisches und bewegtes Schiff
 

@@ -1,5 +1,6 @@
 package de.teutonstudio.ccaeroworks.client
 
+import com.mojang.blaze3d.vertex.PoseStack
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockSkin
@@ -16,10 +17,14 @@ import net.minecraft.client.resources.model.ModelResourceLocation
 import net.minecraft.core.Direction
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.util.RandomSource
+import net.minecraft.world.item.ItemDisplayContext
+import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.BooleanProperty
 import net.minecraft.world.level.block.state.properties.DirectionProperty
+import net.neoforged.neoforge.client.ChunkRenderTypeSet
+import net.neoforged.neoforge.client.RenderTypeHelper
 import net.neoforged.neoforge.client.event.ModelEvent
 import net.neoforged.neoforge.client.model.BakedModelWrapper
 import net.neoforged.neoforge.client.model.data.ModelData
@@ -85,16 +90,16 @@ object ConsoleMultiblockModels {
                     ConsoleMultiblockSkin.DEFAULT -> if (isNormalDesk) {
                         originalModel
                     } else {
-                        InheritedConsoleModel(originalModel, normalState, null)
+                        InheritedConsoleModel(originalModel, normalState)
                     }
 
-                    ConsoleMultiblockSkin.COMPUTER -> InheritedConsoleModel(
+                    ConsoleMultiblockSkin.COMPUTER -> OverlayConsoleModel(
                         originalModel,
                         normalState,
                         computerSprite
                     )
 
-                    ConsoleMultiblockSkin.ADVANCED -> InheritedConsoleModel(
+                    ConsoleMultiblockSkin.ADVANCED -> OverlayConsoleModel(
                         originalModel,
                         normalState,
                         advancedSprite
@@ -103,13 +108,15 @@ object ConsoleMultiblockModels {
             }
         }
 
-        inheritItemModels(event, originalModels, normalDesk)
+        inheritItemModels(event, originalModels, normalDesk, computerSprite, advancedSprite)
     }
 
     private fun inheritItemModels(
         event: ModelEvent.ModifyBakingResult,
         originalModels: Map<ModelResourceLocation, BakedModel>,
-        normalDesk: Block
+        normalDesk: Block,
+        computerSprite: TextureAtlasSprite,
+        advancedSprite: TextureAtlasSprite
     ) {
         val normalItemLocation = ModelResourceLocation.inventory(
             BuiltInRegistries.ITEM.getKey(normalDesk.asItem())
@@ -123,10 +130,10 @@ object ConsoleMultiblockModels {
 
         event.models[
             ModelResourceLocation.inventory(CCAeroworks.id("computer_control_desk"))
-        ] = normalItemModel
+        ] = OverlayItemModel(normalItemModel, computerSprite)
         event.models[
             ModelResourceLocation.inventory(CCAeroworks.id("advanced_computer_control_desk"))
-        ] = normalItemModel
+        ] = OverlayItemModel(normalItemModel, advancedSprite)
     }
 
     private fun copyConsoleShape(source: BlockState, initialTarget: BlockState): BlockState {
@@ -173,18 +180,13 @@ object ConsoleMultiblockModels {
 
 private class InheritedConsoleModel(
     private val delegate: BakedModel,
-    private val sourceState: BlockState,
-    private val replacementSprite: TextureAtlasSprite?
+    private val sourceState: BlockState
 ) : BakedModelWrapper<BakedModel>(delegate) {
-    private val quadCache = ConcurrentHashMap<BakedQuad, BakedQuad>()
-
     override fun getQuads(
         state: BlockState?,
         side: Direction?,
         random: RandomSource
-    ): List<BakedQuad> = retexture(
-        delegate.getQuads(sourceState, side, random)
-    )
+    ): List<BakedQuad> = delegate.getQuads(sourceState, side, random)
 
     override fun getQuads(
         state: BlockState?,
@@ -192,49 +194,179 @@ private class InheritedConsoleModel(
         random: RandomSource,
         modelData: ModelData,
         renderType: RenderType?
-    ): List<BakedQuad> = retexture(
-        delegate.getQuads(sourceState, side, random, modelData, renderType)
-    )
+    ): List<BakedQuad> = delegate.getQuads(sourceState, side, random, modelData, renderType)
 
-    override fun getParticleIcon(): TextureAtlasSprite =
-        replacementSprite ?: delegate.particleIcon
+    override fun getRenderTypes(
+        state: BlockState,
+        random: RandomSource,
+        modelData: ModelData
+    ): ChunkRenderTypeSet = delegate.getRenderTypes(sourceState, random, modelData)
+}
 
-    override fun getParticleIcon(data: ModelData): TextureAtlasSprite =
-        replacementSprite ?: delegate.getParticleIcon(data)
+private class OverlayConsoleModel(
+    private val delegate: BakedModel,
+    private val sourceState: BlockState,
+    overlaySprite: TextureAtlasSprite
+) : BakedModelWrapper<BakedModel>(delegate) {
+    private val overlay = OverlayQuadFactory(overlaySprite)
 
-    private fun retexture(quads: List<BakedQuad>): List<BakedQuad> {
-        if (replacementSprite == null) return quads
-        return quads.map(::replaceTexture)
+    override fun getQuads(
+        state: BlockState?,
+        side: Direction?,
+        random: RandomSource
+    ): List<BakedQuad> {
+        val baseQuads = delegate.getQuads(sourceState, side, random)
+        return baseQuads + overlay.create(baseQuads)
     }
 
-    private fun replaceTexture(quad: BakedQuad): BakedQuad =
-        quadCache.computeIfAbsent(quad) { originalQuad ->
-            val sprite = replacementSprite ?: return@computeIfAbsent originalQuad
-            val vertices = originalQuad.vertices.clone()
-            val stride = vertices.size / 4
-            if (stride <= 5) return@computeIfAbsent originalQuad
+    override fun getQuads(
+        state: BlockState?,
+        side: Direction?,
+        random: RandomSource,
+        modelData: ModelData,
+        renderType: RenderType?
+    ): List<BakedQuad> {
+        if (renderType == null) {
+            val baseQuads = delegate.getQuads(sourceState, side, random, modelData, null)
+            return baseQuads + overlay.create(baseQuads)
+        }
+
+        if (renderType != RenderType.translucent()) {
+            return delegate.getQuads(sourceState, side, random, modelData, renderType)
+        }
+
+        val baseRenderTypes = delegate.getRenderTypes(
+            sourceState,
+            RandomSource.create(OVERLAY_RANDOM_SEED),
+            modelData
+        )
+        val translucentBase = if (baseRenderTypes.contains(RenderType.translucent())) {
+            delegate.getQuads(sourceState, side, random, modelData, renderType)
+        } else {
+            emptyList()
+        }
+        val overlaySource = delegate.getQuads(
+            sourceState,
+            side,
+            RandomSource.create(OVERLAY_RANDOM_SEED),
+            modelData,
+            null
+        )
+        return translucentBase + overlay.create(overlaySource)
+    }
+
+    override fun getRenderTypes(
+        state: BlockState,
+        random: RandomSource,
+        modelData: ModelData
+    ): ChunkRenderTypeSet = ChunkRenderTypeSet.union(
+        delegate.getRenderTypes(sourceState, random, modelData),
+        OVERLAY_BLOCK_RENDER_TYPES
+    )
+
+    override fun getParticleIcon(): TextureAtlasSprite = delegate.particleIcon
+
+    override fun getParticleIcon(data: ModelData): TextureAtlasSprite =
+        delegate.getParticleIcon(data)
+}
+
+private class OverlayItemModel(
+    private val delegate: BakedModel,
+    private val overlaySprite: TextureAtlasSprite
+) : BakedModelWrapper<BakedModel>(delegate) {
+    override fun getRenderPasses(itemStack: ItemStack, fabulous: Boolean): List<BakedModel> =
+        delegate.getRenderPasses(itemStack, fabulous) + OverlayItemPass(delegate, overlaySprite)
+
+    override fun applyTransform(
+        transformType: ItemDisplayContext,
+        poseStack: PoseStack,
+        applyLeftHandTransform: Boolean
+    ): BakedModel {
+        val transformed = delegate.applyTransform(
+            transformType,
+            poseStack,
+            applyLeftHandTransform
+        )
+        return if (transformed === delegate) this else OverlayItemModel(transformed, overlaySprite)
+    }
+}
+
+private class OverlayItemPass(
+    private val delegate: BakedModel,
+    overlaySprite: TextureAtlasSprite
+) : BakedModelWrapper<BakedModel>(delegate) {
+    private val overlay = OverlayQuadFactory(overlaySprite)
+
+    override fun getQuads(
+        state: BlockState?,
+        side: Direction?,
+        random: RandomSource
+    ): List<BakedQuad> = overlay.create(delegate.getQuads(state, side, random))
+
+    override fun getRenderTypes(itemStack: ItemStack, fabulous: Boolean): List<RenderType> =
+        listOf(RenderTypeHelper.getEntityRenderType(RenderType.translucent(), fabulous))
+
+    override fun getParticleIcon(): TextureAtlasSprite = delegate.particleIcon
+
+    override fun getParticleIcon(data: ModelData): TextureAtlasSprite =
+        delegate.getParticleIcon(data)
+}
+
+private class OverlayQuadFactory(
+    private val sprite: TextureAtlasSprite
+) {
+    private val cache = ConcurrentHashMap<BakedQuad, BakedQuad>()
+
+    fun create(quads: List<BakedQuad>): List<BakedQuad> = quads.mapNotNull(::create)
+
+    private fun create(originalQuad: BakedQuad): BakedQuad? {
+        val vertices = originalQuad.vertices
+        if (vertices.size % 4 != 0 || vertices.size / 4 <= 5) return null
+
+        return cache.computeIfAbsent(originalQuad) { source ->
+            val copiedVertices = source.vertices.clone()
+            val stride = copiedVertices.size / 4
+            val direction = source.direction
 
             repeat(4) { vertexIndex ->
                 val base = vertexIndex * stride
+                copiedVertices[base] = (
+                    Float.fromBits(copiedVertices[base]) +
+                        direction.stepX * OVERLAY_OFFSET
+                    ).toRawBits()
+                copiedVertices[base + 1] = (
+                    Float.fromBits(copiedVertices[base + 1]) +
+                        direction.stepY * OVERLAY_OFFSET
+                    ).toRawBits()
+                copiedVertices[base + 2] = (
+                    Float.fromBits(copiedVertices[base + 2]) +
+                        direction.stepZ * OVERLAY_OFFSET
+                    ).toRawBits()
+
                 val uIndex = base + 4
                 val vIndex = base + 5
-                val oldU = Float.fromBits(vertices[uIndex])
-                val oldV = Float.fromBits(vertices[vIndex])
-                vertices[uIndex] = sprite
-                    .getU(originalQuad.sprite.getUOffset(oldU))
+                val oldU = Float.fromBits(copiedVertices[uIndex])
+                val oldV = Float.fromBits(copiedVertices[vIndex])
+                copiedVertices[uIndex] = sprite
+                    .getU(source.sprite.getUOffset(oldU))
                     .toRawBits()
-                vertices[vIndex] = sprite
-                    .getV(originalQuad.sprite.getVOffset(oldV))
+                copiedVertices[vIndex] = sprite
+                    .getV(source.sprite.getVOffset(oldV))
                     .toRawBits()
             }
 
             BakedQuad(
-                vertices,
-                originalQuad.tintIndex,
-                originalQuad.direction,
+                copiedVertices,
+                source.tintIndex,
+                source.direction,
                 sprite,
-                originalQuad.isShade,
-                originalQuad.hasAmbientOcclusion()
+                source.isShade,
+                source.hasAmbientOcclusion()
             )
         }
+    }
 }
+
+private val OVERLAY_BLOCK_RENDER_TYPES = ChunkRenderTypeSet.of(RenderType.translucent())
+private const val OVERLAY_RANDOM_SEED: Long = 42L
+private const val OVERLAY_OFFSET: Float = 0.0005F
