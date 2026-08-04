@@ -32,6 +32,11 @@ repositories {
         url = 'https://maven.squiddev.cc'
         content { includeGroup('cc.tweaked') }
     }
+    maven {
+        name = 'CreateMaven'
+        url = 'https://maven.createmod.net'
+        content { includeGroup('net.createmod.ponder') }
+    }
 }
 
 base {
@@ -99,6 +104,7 @@ configurations {
 dependencies {
     implementation("thedarkcolour:kotlinforforge-neoforge:${kotlin_for_forge_version}")
     implementation fileTree(dir: modDependencyDirectory, include: ['*.jar'])
+    compileOnly("net.createmod.ponder:ponder-neoforge:${ponder_version}+mc${minecraft_version}")
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.4'
