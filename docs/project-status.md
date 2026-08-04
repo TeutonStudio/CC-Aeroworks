@@ -2,30 +2,39 @@
 
 ## Implementiert
 
-- zwei Computer-Steuerungspultvarianten,
-- normaler beziehungsweise Advanced-CC-Computer,
+- zwei Computer-Steuerungspultvarianten mit normaler beziehungsweise Advanced-Computerfamilie,
 - komponentenerhaltendes Spezialrezept,
-- linearer, ausrichtungsgebundener Steuerungspult-Multiblock,
-- Terminalzugriff von jedem Mitglied,
+- linearer, ausrichtungs- und Deckenstatus-gebundener Multiblock bis 64 Mitglieder,
+- Terminalzugriff von jedem gültigen Mitglied,
 - Konflikt-, Größen- und Teilladezustand,
-- eingebettete `aeroworks`-Lua-API,
-- Multiblock-Eingabe- und Strukturereignisse,
+- direkte globale `aeroworks`-API des eingebetteten Computers,
+- vollständige direkte Socket-, Modul-, Eingabe- und Displayverwaltung,
+- multiblockfähiges externes `cc_aeroworks_control_desk`-Peripheral bei nur einer Verbindung,
+- rückwärtskompatible Einzelpultmethoden,
+- Einzelpult-, Multiblock- und eingebettete Eingabeereignisse einschließlich Entfernungen,
 - gemeinsamer Desk-Service,
-- externe Peripheral- und Display-Target-Unterstützung,
+- externe Display-Target-Unterstützung,
 - Redstone, gebündeltes Redstone und fremde Seitenperipherals,
-- Modelle, Loot Tables, Sprachen, Creative Tab und Dokumentation.
+- Modelle, gemischte Pultverbindungen, Skins, Loot Tables, Sprachen und Creative Tab,
+- reproduzierbarer Build-Einstieg, Dependency-Validierung, CI und Testharness.
 
 ## Statisch geprüft
 
-- JSON-Ressourcen sind syntaktisch gültig.
-- Registrierungen und Fremdmodzugriffe sind in klaren Compat-Grenzen organisiert.
-- Einzelpult-API und Multiblock-API verwenden dieselbe Validierungslogik.
+- Repositorydateien und Ressourcen sind strukturell konsistent.
+- Branchhistorien von Buildbasis und Multiblockfunktion sind im Integrationscommit zusammengeführt.
+- Einzelpult- und Multiblockzugriff delegieren an denselben Desk-Service.
+- Eingabedifferenzen behandeln neue, geänderte und entfernte Kanäle sowie Modulwechsel deterministisch.
+- Die direkte API ist ohne Peripheral dokumentiert.
 
-## Offen
+## Offen beziehungsweise blockiert
 
-- Gradle-Kompilierung mit den lokalen Ziel-JARs,
-- Client- und Dedicated-Server-Start,
-- interaktive Crafting- und Persistenzprüfung,
-- Flywheel-Visualpfad des neuen BlockEntityTypes,
-- Sable-Laufzeitprüfung,
-- vollständige manuelle Testmatrix.
+- vollständige Gradle-Kompilierung mit den rechtmäßig bereitgestellten Ziel-JARs,
+- geschützter Vollbuild und Dedicated-Server-Smoke-Test,
+- Client- und Ingame-Prüfung,
+- Crafting- und Persistenzprüfung,
+- Flywheel- und Fallback-Rendering,
+- Sable statisch und bewegt,
+- CC:Tweaked 1.119.0 und 1.120.0,
+- vollständige manuelle Basis- und Multiblockmatrix.
+
+Nicht ausgeführte Laufzeitprüfungen gelten weiterhin als `NOT RUN` oder `BLOCKED`, nicht als implizit bestanden.

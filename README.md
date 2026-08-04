@@ -1,44 +1,116 @@
 # CC-Aeroworks
 
-CC-Aeroworks verbindet Create: Aeroworks Control Desks mit CC:Tweaked. Die Mod ergänzt programmierbare Pultanzeigen, kombinierte Maussteuerung und Computer-Steuerungspulte für zusammenhängende Cockpits.
+CC-Aeroworks verbindet Create: Aeroworks Control Desks mit CC:Tweaked. Die Mod ergänzt programmierbare zwei- und dreistellige Displays, frei beschreibbare Pixelraster, kombinierte Maussteuerung sowie normale und erweiterte Computer-Steuerungspulte.
+
+## Steuerungspult-Multiblocks
+
+Gleich ausgerichtete Steuerungspulte verbinden sich direkt links und rechts zu einem linearen Multiblock. Unterstützt werden normale Aeroworks-Steuerungspulte sowie die normalen und erweiterten Computer-Steuerungspulte aus CC-Aeroworks. Die Auflösung lädt keine Chunks nach und ist auf 64 Mitglieder begrenzt.
+
+Ein externer CC:Tweaked-Computer oder ein Wired Modem muss nur mit **einem** beliebigen Mitglied verbunden werden. Das Peripheral `cc_aeroworks_control_desk` behält seine bisherigen Einzelpultmethoden und ergänzt deskbezogene Multiblockmethoden:
+
+```lua
+local console = peripheral.find("cc_aeroworks_control_desk")
+assert(console, "Kein Steuerungspult verbunden")
+
+for _, desk in ipairs(console.getDesks()) do
+  print(desk.index, desk.id, desk.variant)
+end
+
+console.setDeskDisplayText(3, "big", "123")
+```
+
+`desk` ist ein 1-basierter Netzwerkindex oder die stabile Desk-ID.
 
 ## Computer-Steuerungspulte
 
-Ein Aeroworks-Steuerungspult kann mit einem normalen oder erweiterten CC:Tweaked-Computer kombiniert werden. Das Ergebnis behält die Daten beider Zutaten.
+Ein Aeroworks-Steuerungspult kann mit einem normalen oder erweiterten CC:Tweaked-Computer kombiniert werden. Das spezielle Rezept erhält die Aeroworks-Moduldaten und die CC:Tweaked-Computerkomponenten.
 
-Gleich ausgerichtete Pulte verbinden sich direkt links und rechts zu einer Reihe. Genau ein Computer-Steuerungspult genügt an beliebiger Stelle. Mit **Schleichen + Rechtsklick bei leerer Haupthand** lässt sich dasselbe Terminal von jedem Pult der Reihe öffnen.
-
-Die normale und die Advanced-Variante unterscheiden sich ausschließlich durch die CC:Tweaked-Programmieroberfläche.
-
-Im eingebetteten Computer steht die API `aeroworks` zur Verfügung:
+Der eingebettete Computer verwaltet den gesamten verbundenen Multiblock direkt. Seine globale API `aeroworks` wird **ohne Peripheral, Modem, `peripheral.find` oder `peripheral.wrap`** aufgerufen:
 
 ```lua
+local network = aeroworks.getNetwork()
+
 for _, desk in ipairs(aeroworks.getDesks()) do
   print(desk.index, desk.id, desk.variant)
 end
 
-local modules = aeroworks.getModules(1)
+print(aeroworks.getSocketCount(1))
+aeroworks.setDisplayText(1, "big", "123")
 ```
 
-## Einzelpult-Peripheral
+Alternativ steht dasselbe Objekt als Modul bereit:
 
-Jeder geladene Control Desk bleibt als `cc_aeroworks_control_desk` über direkte Nachbarschaft oder ein kabelgebundenes Modem erreichbar. Sockets heißen `left`, `right` und `big` und akzeptieren kompatibel auch `0`, `1`, `2`.
+```lua
+local aeroworks = require("cc_aeroworks.aeroworks")
+```
+
+Mit Schleichen und Rechtsklick bei leerer Haupthand lässt sich das Terminal von jedem Mitglied eines gültigen Einzelcomputer-Multiblocks öffnen. Mehrere Computer-Steuerungspulte im selben Multiblock bleiben ein expliziter Konflikt; ihre Computer-IDs und Dateisysteme werden nicht automatisch zusammengeführt.
+
+## Displays und kombinierte Eingabe
+
+Die Displays unterstützen Ziffern sowie `7x5`- beziehungsweise `11x5`-Pixelraster. Das zweistellige Display passt in kleine und große Slots, das dreistellige ausschließlich in große Slots.
+
+Für Lever, Joystick und Throttle Quadrants kann im Aeroworks-Modulbildschirm der Input Type `Kombiniert` gewählt werden. Anschließend wird im mittleren Eingabefeld die Aktivierungstaste erfasst und beim Steuern gehalten.
+
+Desk-Sockets heißen in Lua `left`, `right` und `big`; kompatible Indizes sind `0`, `1` und `2`.
+
+## Entwicklungsstand
+
+Das Projekt ist eine frühe Integrationsversion. Build-, Repository- und Testinfrastruktur sind vorhanden, die vollständige interaktive Laufzeitmatrix ist jedoch noch nicht ausgeführt. Der absichtlich blockierte Baselinebericht liegt unter [`docs/test-results/baseline-1.0.md`](docs/test-results/baseline-1.0.md). Ein Compilerlauf ersetzt weiterhin keine Prüfung von Rendering, Persistenz, Sable oder realen Multiblocks. Bedauerlich für alle, die auf optimistische Dateinamen gesetzt hatten.
 
 ## Entwicklungsumgebung
 
-- Minecraft 1.21.1
-- NeoForge 21.1.228
-- Java 21
-- Kotlin 2.2.20 / KotlinForForge 5.11.0
-- Create 6.0.10
-- Aeroworks 1.3.0
-- CC:Tweaked 1.119.x bis vor 1.121
+- Minecraft 1.21.1, NeoForge 21.1.228 und Java 21
+- Kotlin 2.2.20 mit KotlinForForge NeoForge 5.11.0
+- Create 6.0.10, Aeronautics/Aeroworks 1.3.0
+- CC:Tweaked API-Baseline 1.119.0; Metadatenbereich bis vor 1.121
 
-Die nicht redistribuierbaren Ziel-JARs werden lokal unter `libs/` bereitgestellt. Danach:
+## Frischer Clone
+
+Der eingecheckte Bootstrap benötigt Java 21. `gradlew` lädt die festgelegte Gradle-Distribution und akzeptiert sie nur bei passender SHA-256-Prüfsumme.
+
+Repositorydateien ohne Fremd-JARs prüfen:
 
 ```bash
-./gradlew clean build
+python3 tools/verify-repository.py
+./gradlew verifyDependencyManifest
+```
+
+Die Fremdmod-JARs werden nicht mitgeliefert und dürfen nicht eingecheckt werden. Versionen und Dateimuster stehen in [`libs/dependencies.json`](libs/dependencies.json), Beschaffungs- und Prüfanweisungen in [`libs/README.md`](libs/README.md).
+
+Nach dem rechtmäßigen Bereitstellen der Baseline-JARs:
+
+```bash
+./gradlew verifyModDependencies
+./gradlew clean test build
 ./gradlew runClient
 ```
 
-Details stehen in `BranchChanges.md` sowie unter `docs/`.
+Ein alternatives Verzeichnis wird mit `-Pmod_dependency_dir=/pfad/zu/mods` angegeben.
+
+## Tests und CI
+
+Die unterstützten Profile und Release-Gates stehen in [`docs/runtime-test-matrix.md`](docs/runtime-test-matrix.md). Interaktive Basistests stehen in [`docs/manual-test-plan.md`](docs/manual-test-plan.md), die zusätzlichen Multiblockfälle in [`docs/multiblock-test-plan.md`](docs/multiblock-test-plan.md).
+
+```bash
+python3 tools/run-integration-profile.py BASE-CLIENT \
+  --dependency-dir test-mods/base-cc-1.119
+
+python3 tools/run-integration-profile.py BASE-SERVER \
+  --dependency-dir test-mods/base-cc-1.119 \
+  --server-smoke
+```
+
+`.github/workflows/verify.yml` prüft bei Push und Pull Request den Repositoryvertrag. Der geschützte Vollbuild benötigt rechtmäßig bereitgestellte Mod-JARs über die Repository-Secrets `MOD_DEPENDENCY_URL` und `MOD_DEPENDENCY_SHA256`.
+
+## Dokumentation und Beispiele
+
+- [Peripheral- und direkte API](docs/cc-peripheral-api.md)
+- [Einführung zur Programmierung](docs/peripheral-programming.md)
+- [Integrations-Testharness](docs/integration-test-harness.md)
+- [Runtime-Testmatrix](docs/runtime-test-matrix.md)
+- [Manueller Testplan](docs/manual-test-plan.md)
+- [Multiblock-Testplan](docs/multiblock-test-plan.md)
+- [Lua-Beispiele](examples/cc/)
+
+Repository: `TeutonStudio/CC-Aeroworks`

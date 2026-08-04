@@ -1,7 +1,6 @@
 package de.teutonstudio.ccaeroworks.compat.computercraft
 
 import de.teutonstudio.ccaeroworks.CCAeroworks
-import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskSockets
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.event.tick.ServerTickEvent
 import java.util.concurrent.ConcurrentHashMap
@@ -20,37 +19,83 @@ object ControlDeskPeripheralState {
     @SubscribeEvent
     fun onServerTick(event: ServerTickEvent.Post) {
         active.removeIf { peripheral ->
-            if (!peripheral.computers.hasComputers() || peripheral.validDesk() == null) return@removeIf true
-            val current = peripheral.snapshotInputs()
-            val previous = peripheral.lastInputs
-            peripheral.lastInputs = current
+            if (!peripheral.computers.hasComputers() || peripheral.validDesk() == null) {
+                return@removeIf true
+            }
 
-            if (previous != null) {
-                val sockets = previous.keys + current.keys
-                sockets.forEach { socket ->
-                    val oldModule = previous[socket]
-                    val newModule = current[socket]
-                    val channels = oldModule?.channels.orEmpty().keys + newModule?.channels.orEmpty().keys
-                    channels.forEach { channel ->
-                        val oldValue = oldModule?.channels?.get(channel)
-                        val newValue = newModule?.channels?.get(channel)
-                        if (oldValue != newValue) {
-                            peripheral.computers.forEach { computer ->
-                                computer.queueEvent(
-                                    CCAeroworks.INPUT_EVENT,
-                                    computer.attachmentName,
-                                    socket,
-                                    newModule?.moduleId ?: oldModule?.moduleId.orEmpty(),
-                                    newValue,
-                                    channel,
-                                    DeskSockets.name(socket)
-                                )
-                            }
-                        }
+            publishAttachedDeskEvents(peripheral)
+            publishMultiblockEvents(peripheral)
+            false
+        }
+    }
+
+    private fun publishAttachedDeskEvents(peripheral: ControlDeskPeripheral) {
+        val current = peripheral.snapshotInputs()
+        val previous = peripheral.lastInputs
+        peripheral.lastInputs = current
+
+        if (previous == null) return
+        InputSnapshotDiff.changed(previous, current).forEach { change ->
+            peripheral.computers.forEach { computer ->
+                computer.queueEvent(
+                    CCAeroworks.INPUT_EVENT,
+                    *DeskInputEventArguments.create(
+                        computer.attachmentName,
+                        change.socket,
+                        change.moduleId,
+                        change.value,
+                        change.channel
+                    )
+                )
+            }
+        }
+    }
+
+    private fun publishMultiblockEvents(peripheral: ControlDeskPeripheral) {
+        val current = peripheral.snapshotNetwork() ?: return
+        val previous = peripheral.lastNetwork
+        peripheral.lastNetwork = current
+
+        if (previous == null) return
+
+        if (previous.signature != current.signature) {
+            peripheral.computers.forEach { computer ->
+                computer.queueEvent(
+                    CCAeroworks.MULTIBLOCK_CHANGED_EVENT,
+                    computer.attachmentName,
+                    current.state.name.lowercase(),
+                    current.memberCount,
+                    current.revision
+                )
+            }
+        }
+
+        (previous.desks.keys + current.desks.keys)
+            .toSortedSet()
+            .forEach { deskId ->
+                val oldDesk = previous.desks[deskId]
+                val newDesk = current.desks[deskId]
+                val deskIndex = newDesk?.index ?: oldDesk?.index ?: return@forEach
+                InputSnapshotDiff.changed(
+                    oldDesk?.inputs.orEmpty(),
+                    newDesk?.inputs.orEmpty()
+                ).forEach { change ->
+                    peripheral.computers.forEach { computer ->
+                        computer.queueEvent(
+                            CCAeroworks.MULTIBLOCK_INPUT_EVENT,
+                            computer.attachmentName,
+                            deskId,
+                            deskIndex,
+                            change.socket,
+                            change.moduleId,
+                            change.value,
+                            change.channel,
+                            de.teutonstudio.ccaeroworks.compat.aeroworks.DeskSockets.name(
+                                change.socket
+                            )
+                        )
                     }
                 }
             }
-            false
-        }
     }
 }

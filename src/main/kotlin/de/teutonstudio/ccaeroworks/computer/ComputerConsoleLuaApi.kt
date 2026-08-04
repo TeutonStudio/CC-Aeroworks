@@ -15,11 +15,29 @@ class ComputerConsoleLuaApi(private val access: ComputerConsoleAccess) : ILuaAPI
     override fun getModuleName(): String = "cc_aeroworks.aeroworks"
 
     @LuaFunction(mainThread = true)
+    fun getNetwork(): Map<String, Any> {
+        val snapshot = rawSnapshot()
+        return linkedMapOf(
+            "state" to snapshot.state.name.lowercase(),
+            "memberCount" to snapshot.members.size,
+            "revision" to snapshot.revision
+        )
+    }
+
+    @LuaFunction(mainThread = true)
     fun getDesks(): List<Map<String, Any>> = snapshot().members.map(::describeDesk)
 
     @LuaFunction(mainThread = true)
     fun getDesk(arguments: IArguments): Map<String, Any> =
         describeDesk(member(arguments.get(0)))
+
+    @LuaFunction(mainThread = true)
+    fun getSocketCount(arguments: IArguments): Int =
+        member(arguments.get(0)).desk.socketCount()
+
+    @LuaFunction(mainThread = true)
+    fun getSockets(arguments: IArguments): List<Map<String, Any>> =
+        AeroworksDeskService.getSockets(member(arguments.get(0)).desk)
 
     @LuaFunction(mainThread = true)
     fun getModules(arguments: IArguments): List<Map<String, Any>> =
@@ -113,12 +131,15 @@ class ComputerConsoleLuaApi(private val access: ComputerConsoleAccess) : ILuaAPI
     private fun owner(): ComputerControlDeskBlockEntity =
         access.owner() ?: throw LuaException("The computer control desk is no longer loaded")
 
-    private fun snapshot() = owner().let { blockEntity ->
-        val level = blockEntity.level ?: throw LuaException("The computer control desk is not in a level")
-        val snapshot = ConsoleMultiblockManager.resolve(level, blockEntity.blockPos)
+    private fun snapshot() = rawSnapshot().also { snapshot ->
         if (snapshot.state == ConsoleNetworkState.CONFLICT) {
             throw LuaException("Multiple computer control desks are connected")
         }
+    }
+
+    private fun rawSnapshot() = owner().let { blockEntity ->
+        val level = blockEntity.level ?: throw LuaException("The computer control desk is not in a level")
+        val snapshot = ConsoleMultiblockManager.resolve(level, blockEntity.blockPos)
         if (snapshot.state == ConsoleNetworkState.TOO_LARGE) {
             throw LuaException("The control desk multiblock exceeds 64 blocks")
         }
@@ -139,8 +160,10 @@ class ComputerConsoleLuaApi(private val access: ComputerConsoleAccess) : ILuaAPI
                 members.getOrNull(number.toInt() - 1)
                     ?: throw LuaException("Desk index ${number.toInt()} is outside 1..${members.size}")
             }
+
             is String -> members.firstOrNull { it.id.equals(raw, ignoreCase = true) }
                 ?: throw LuaException("Unknown desk id '$raw'")
+
             else -> throw LuaException("Desk must be a one-based integer index or desk id")
         }
     }

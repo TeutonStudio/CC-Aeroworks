@@ -1,0 +1,132 @@
+name: Verify
+
+on:
+  push:
+    branches:
+      - master
+      - "agent/**"
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      full_build:
+        description: "Run the protected full build and dedicated server smoke test"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repository:
+    name: Repository contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Prepare executable files
+        run: chmod +x gradlew tools/*.py
+
+      - name: Validate Python tools
+        run: python3 -m py_compile tools/*.py
+
+      - name: Validate repository contract
+        run: python3 tools/verify-repository.py
+
+      - name: Compile Gradle bootstrap
+        run: javac --release 21 gradle/wrapper/GradleBootstrap.java
+
+      - name: Validate dependency manifest through Gradle
+        run: ./gradlew verifyDependencyManifest --no-daemon --stacktrace
+
+  full-build:
+    name: Protected full build
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_build }}
+    needs: repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      MOD_DEPENDENCY_URL: ${{ secrets.MOD_DEPENDENCY_URL }}
+      MOD_DEPENDENCY_SHA256: ${{ secrets.MOD_DEPENDENCY_SHA256 }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Prepare executable files
+        run: chmod +x gradlew tools/*.py
+
+      - name: Require protected dependency bundle configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MOD_DEPENDENCY_URL}" || {
+            echo "MOD_DEPENDENCY_URL secret is not configured" >&2
+            exit 1
+          }
+          [[ "${MOD_DEPENDENCY_SHA256}" =~ ^[0-9a-fA-F]{64}$ ]] || {
+            echo "MOD_DEPENDENCY_SHA256 must contain 64 hexadecimal characters" >&2
+            exit 1
+          }
+
+      - name: Download and verify protected dependency bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="${RUNNER_TEMP}/cc-aeroworks-mods.zip"
+          extracted="${RUNNER_TEMP}/cc-aeroworks-mods-extracted"
+          mods="${RUNNER_TEMP}/cc-aeroworks-mods"
+
+          curl --fail --location --retry 3 --proto '=https' \
+            --output "${archive}" "${MOD_DEPENDENCY_URL}"
+          printf '%s  %s\n' "${MOD_DEPENDENCY_SHA256}" "${archive}" | sha256sum --check --strict -
+
+          mkdir -p "${extracted}" "${mods}"
+          unzip -q "${archive}" -d "${extracted}"
+          find "${extracted}" -type f -name '*.jar' -exec cp '{}' "${mods}/" ';'
+
+          jar_count=$(find "${mods}" -maxdepth 1 -type f -name '*.jar' | wc -l)
+          test "${jar_count}" -gt 0 || {
+            echo "Verified bundle contains no JAR files" >&2
+            exit 1
+          }
+          echo "MOD_DEPENDENCY_DIR=${mods}" >> "${GITHUB_ENV}"
+
+      - name: Run baseline server integration profile
+        run: |
+          python3 tools/run-integration-profile.py BASE-SERVER \
+            --dependency-dir "${MOD_DEPENDENCY_DIR}" \
+            --server-smoke
+
+      - name: Upload verification evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: cc-aeroworks-verification-${{ github.sha }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            build/test-results/**
+            build/reports/tests/**
+            build/libs/**

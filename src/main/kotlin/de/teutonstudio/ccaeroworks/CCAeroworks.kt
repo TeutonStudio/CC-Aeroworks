@@ -55,6 +55,8 @@ class CCAeroworks(modEventBus: IEventBus, modContainer: ModContainer) {
         const val DISPLAY_TARGET_ID: String = "control_desk"
         const val PERIPHERAL_TYPE: String = "cc_aeroworks_control_desk"
         const val INPUT_EVENT: String = "cc_aeroworks_desk_input"
+        const val MULTIBLOCK_INPUT_EVENT: String = "cc_aeroworks_multiblock_input"
+        const val MULTIBLOCK_CHANGED_EVENT: String = "cc_aeroworks_multiblock_changed"
         const val CONSOLE_INPUT_EVENT: String = "cc_aeroworks_console_input"
         const val CONSOLE_CHANGED_EVENT: String = "cc_aeroworks_console_changed"
 

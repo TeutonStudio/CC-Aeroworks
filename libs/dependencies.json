@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "dependencyDirectoryProperty": "mod_dependency_dir",
+  "dependencies": [
+    {
+      "name": "Create",
+      "modId": "create",
+      "version": "6.0.10",
+      "required": true,
+      "filenamePattern": "(?i)^create[^/]*6\\.0\\.10[^/]*\\.jar$",
+      "sha256": null,
+      "source": "Official Create distribution page",
+      "notes": "Compile and runtime dependency for Minecraft 1.21.1. Do not use source or development JARs."
+    },
+    {
+      "name": "Create: Aeronautics",
+      "modId": "aeronautics",
+      "version": "1.3.0",
+      "required": true,
+      "filenamePattern": "(?i)^(?:create[-_ ]?)?aeronautics(?:[-_ ]?bundled)?[^/]*1\\.3\\.0[^/]*\\.jar$",
+      "filenameExamples": [
+        "create-aeronautics-bundled-1.21.1-1.3.0.jar"
+      ],
+      "sha256": null,
+      "source": "Official Create: Aeronautics distribution page",
+      "notes": "Required by the researched Aeroworks 1.3.0 baseline. The official 1.3.0 release is distributed as a create-aeronautics-bundled JAR."
+    },
+    {
+      "name": "Create: Aeroworks",
+      "modId": "aeroworks",
+      "version": "1.3.0",
+      "required": true,
+      "filenamePattern": "(?i)^aeroworks[^/]*1\\.3\\.0[^/]*\\.jar$",
+      "filenameExamples": [
+        "aeroworks-1.3.0.jar"
+      ],
+      "sha256": null,
+      "source": "Official Create: Aeroworks distribution page",
+      "notes": "The implementation and mixins in this repository target exactly 1.3.0."
+    },
+    {
+      "name": "CC: Tweaked",
+      "modId": "computercraft",
+      "version": "1.119.0",
+      "required": true,
+      "filenamePattern": "(?i)^(cc[-_ ]?tweaked|cc-tweaked)[^/]*1\\.119\\.0[^/]*\\.jar$",
+      "sha256": null,
+      "source": "Official CC: Tweaked distribution page",
+      "notes": "Default compile and runtime API baseline. Test 1.120.0 separately, never beside 1.119.0 in the same dependency directory."
+    },
+    {
+      "name": "Sable",
+      "modId": "sable",
+      "version": "2.0.1",
+      "required": true,
+      "filenamePattern": "(?i)^sable[^/]*2\\.0\\.1[^/]*\\.jar$",
+      "sha256": null,
+      "source": "Official Sable distribution page",
+      "notes": "Required runtime dependency of Create: Aeronautics 1.3.0 and also used by the static and moving ship compatibility tests."
+    },
+    {
+      "name": "Drive By Wire",
+      "modId": "drive_by_wire",
+      "version": "0.2.9",
+      "required": false,
+      "filenamePattern": "(?i)^(drive[-_ ]?by[-_ ]?wire|drivebywire)[^/]*0\\.2\\.9[^/]*\\.jar$",
+      "sha256": null,
+      "source": "Official Drive By Wire distribution page",
+      "notes": "Optional compatibility runtime."
+    }
+  ]
+}
