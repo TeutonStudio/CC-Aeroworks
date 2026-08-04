@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the in-game guide, Ponder registration and wiki entry points."""
+"""Validate guide, translations, item orientation, Ponder and wiki entry points."""
 
 from __future__ import annotations
 
@@ -13,13 +13,16 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 LANG_DIR = ROOT / "src/main/resources/assets/cc_aeroworks/lang"
+AEROWORKS_LANG_DIR = ROOT / "src/main/resources/assets/aeroworks/lang"
 GUIDE_CONTENT = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/client/guide/GuideBookContent.kt"
 CLIENT_ENTRY = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/client/CCAeroworksClient.kt"
+ITEM_ORIENTATION = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/client/ControlDeskItemOrientation.kt"
 PONDER_PLUGIN = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/client/ponder/CCAeroworksPonderPlugin.java"
 PONDER_SCENE = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/client/ponder/ComputerControlDeskScenes.java"
 PONDER_STRUCTURE = ROOT / "src/main/resources/assets/cc_aeroworks/ponder/computer_control_desk.nbt"
 WIKI_CONTROLS = ROOT / "wiki/Bedienung.md"
 WIKI_SIDEBAR = ROOT / "wiki/_Sidebar.md"
+FORMAT_PLACEHOLDER = re.compile(r"%\d+\$[a-zA-Z]")
 
 TAG_END = 0
 TAG_BYTE = 1
@@ -35,6 +38,7 @@ TAG_COMPOUND = 10
 TAG_INT_ARRAY = 11
 TAG_LONG_ARRAY = 12
 MINECRAFT_1_21_1_DATA_VERSION = 3955
+AEROWORKS_1_3_0_LANGUAGE_KEY_COUNT = 260
 
 
 def require(condition: bool, message: str) -> None:
@@ -120,8 +124,8 @@ class NbtReader:
         raise ValueError(f"Unsupported NBT tag type: {tag_type}")
 
 
-def load_language(name: str) -> dict[str, str]:
-    path = LANG_DIR / name
+def load_language(directory: Path, name: str) -> dict[str, str]:
+    path = directory / name
     data = json.loads(path.read_text(encoding="utf-8"))
     require(isinstance(data, dict), f"{path} must contain a JSON object")
     require(
@@ -129,6 +133,44 @@ def load_language(name: str) -> dict[str, str]:
         f"{path} must contain string keys and values",
     )
     return data
+
+
+def verify_language_pair(directory: Path, label: str) -> tuple[dict[str, str], dict[str, str]]:
+    german = load_language(directory, "de_de.json")
+    english = load_language(directory, "en_us.json")
+    require(
+        set(german) == set(english),
+        f"{label} de_de.json and en_us.json must expose the same keys",
+    )
+    for key in sorted(english):
+        english_placeholders = sorted(FORMAT_PLACEHOLDER.findall(english[key]))
+        german_placeholders = sorted(FORMAT_PLACEHOLDER.findall(german[key]))
+        require(
+            english_placeholders == german_placeholders,
+            f"{label} placeholder mismatch for {key}: "
+            f"{english_placeholders} != {german_placeholders}",
+        )
+    return german, english
+
+
+def verify_item_orientation() -> None:
+    source = ITEM_ORIENTATION.read_text(encoding="utf-8")
+    require(
+        "Axis.YP.rotationDegrees(180.0F)" in source,
+        "Computer Control Desk item models must rotate 180 degrees around their vertical axis",
+    )
+    expected_contexts = (
+        "ItemDisplayContext.GUI",
+        "ItemDisplayContext.FIRST_PERSON_LEFT_HAND",
+        "ItemDisplayContext.FIRST_PERSON_RIGHT_HAND",
+        "ItemDisplayContext.THIRD_PERSON_LEFT_HAND",
+        "ItemDisplayContext.THIRD_PERSON_RIGHT_HAND",
+    )
+    missing = [context for context in expected_contexts if context not in source]
+    require(
+        not missing,
+        "Computer Control Desk item rotation is missing display contexts: " + ", ".join(missing),
+    )
 
 
 def verify_ponder_structure() -> None:
@@ -169,9 +211,19 @@ def verify_ponder_structure() -> None:
 
 
 def main() -> int:
-    german = load_language("de_de.json")
-    english = load_language("en_us.json")
-    require(set(german) == set(english), "de_de.json and en_us.json must expose the same keys")
+    german, _ = verify_language_pair(LANG_DIR, "CC-Aeroworks")
+    aeroworks_german, aeroworks_english = verify_language_pair(AEROWORKS_LANG_DIR, "Aeroworks")
+    require(
+        len(aeroworks_english) == AEROWORKS_1_3_0_LANGUAGE_KEY_COUNT,
+        "Aeroworks language overrides must cover the complete 1.3.0 key set",
+    )
+    for key in (
+        "block.aeroworks.control_desk",
+        "gui.aeroworks.module.config.title",
+        "aeroworks.ponder.console_control.header",
+        "message.aeroworks.console.entered_mouse",
+    ):
+        require(key in aeroworks_german, f"Missing representative Aeroworks translation: {key}")
 
     guide_source = GUIDE_CONTENT.read_text(encoding="utf-8")
     guide_keys = set(re.findall(r'"(guide\.cc_aeroworks\.[a-z0-9_.]+)"', guide_source))
@@ -208,6 +260,7 @@ def main() -> int:
         scene_source.count("showText(") == 8,
         "Ponder scene text count must match text_1 through text_8",
     )
+    verify_item_orientation()
     verify_ponder_structure()
 
     require(WIKI_CONTROLS.is_file(), "wiki/Bedienung.md is missing")
@@ -217,8 +270,9 @@ def main() -> int:
     )
 
     print(
-        "Validated guide translations, 8 fallback pages, 8 Ponder steps, "
-        "both Computer Control Desk variants, parsed structure NBT and wiki navigation."
+        "Validated CC-Aeroworks and complete Aeroworks 1.3.0 German/English languages, "
+        "item display contexts, 8 fallback pages, 8 Ponder steps, both Computer Control Desk "
+        "variants, parsed structure NBT and wiki navigation."
     )
     return 0
 
