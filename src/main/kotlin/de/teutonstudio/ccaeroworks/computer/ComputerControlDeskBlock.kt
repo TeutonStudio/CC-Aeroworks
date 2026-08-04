@@ -30,6 +30,9 @@ class ComputerControlDeskBlock(
     override fun getBlockEntityType(): BlockEntityType<out ConsoleBlockEntity> =
         CCBlockEntities.COMPUTER_CONTROL_DESK.get()
 
+    override fun newBlockEntity(pos: BlockPos, state: BlockState): ComputerControlDeskBlockEntity =
+        ComputerControlDeskBlockEntity(CCBlockEntities.COMPUTER_CONTROL_DESK.get(), pos, state)
+
     override fun isSignalSource(state: BlockState): Boolean = true
 
     override fun getDirectSignal(
