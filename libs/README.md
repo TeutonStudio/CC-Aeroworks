@@ -26,10 +26,20 @@ Für die Baseline werden genau diese Versionen erwartet:
 | Create: Aeronautics | `aeronautics` | 1.3.0 | erforderlich |
 | Create: Aeroworks | `aeroworks` | 1.3.0 | erforderlich |
 | CC: Tweaked | `computercraft` | 1.119.0 | erforderlich |
-| Sable | `sable` | 2.0.1 | optional |
+| Sable | `sable` | 2.0.1 | erforderlich |
 | Drive By Wire | `drive_by_wire` | 0.2.9 | optional |
 
-Die maschinenlesbaren Dateimuster stehen in [`dependencies.json`](dependencies.json). Dateinamen dürfen den üblichen Plattformzusatz enthalten, müssen aber Modname und Version eindeutig enthalten. Source-, API- oder Development-JARs sind nicht zulässig.
+Das offizielle Create-Aeronautics-Artefakt für diese Baseline heißt:
+
+```text
+create-aeronautics-bundled-1.21.1-1.3.0.jar
+```
+
+Der Präfix `create-` und der Zusatz `bundled` sind Teil des offiziellen Dateinamens. Die Validierung akzeptiert zusätzlich gleichwertig benannte Aeronautics-1.3.0-Artefakte, sofern Modname und Version eindeutig enthalten sind.
+
+Create Aeronautics benötigt neben Create auch Sable zur Laufzeit. Sable ist daher für den Baseline-Client und -Server ein Pflichtartefakt, auch wenn CC-Aeroworks seine eigene Sable-Kompatibilität nur optional aktiviert.
+
+Die maschinenlesbaren Dateimuster und bekannte offizielle Beispieldateinamen stehen in [`dependencies.json`](dependencies.json). Dateinamen dürfen den üblichen Plattformzusatz enthalten, müssen aber Modname und Version eindeutig enthalten. Source-, API- oder Development-JARs sind nicht zulässig.
 
 ## Prüfsummen
 
