@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - agent/restore-control-interactions
-  pull_request:
-    paths:
-      - .github/workflows/inspect-aeroworks-interactions.yml
 
 permissions:
   contents: read
@@ -21,22 +18,18 @@ jobs:
           curl --fail --location --retry 3 \
             --output aeroworks.jar \
             https://cdn.modrinth.com/data/P26k79kP/versions/EYVmBa7H/aeroworks-1.3.0.jar
-          sha256sum aeroworks.jar
-      - name: Inspect interaction entry points
-        run: |
-          javap -classpath aeroworks.jar -p -c -s com.mred231.aeroworks.content.controls.ConsoleDeskBlock
-          javap -classpath aeroworks.jar -p -c -s com.mred231.aeroworks.content.controls.MountedModule
-      - name: Find shift and menu triggers
+      - name: Print relevant interaction bytecode
         shell: bash
         run: |
           set -euo pipefail
           while IFS= read -r entry; do
             class_name="${entry%.class}"
             class_name="${class_name//\//.}"
-            output="$(javap -classpath aeroworks.jar -p -c -s "$class_name" 2>/dev/null || true)"
-            if grep -Eq 'isShiftKeyDown|isCrouching|MountedModule\.openMenu|ModuleMenu|openMenu:' <<<"$output"; then
+            output="$(javap -classpath aeroworks.jar -p -c "$class_name" 2>/dev/null || true)"
+            matches="$(grep -n -B 10 -A 28 -E 'isShiftKeyDown|isCrouching|openMenu|ModuleMenu' <<<"$output" || true)"
+            if [[ -n "$matches" ]]; then
               echo "===== $class_name ====="
-              echo "$output"
+              printf '%s\n' "$matches" | head -n 180
             fi
           done < <(
             jar tf aeroworks.jar \
