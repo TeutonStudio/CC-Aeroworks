@@ -4,6 +4,7 @@
   "package": "de.teutonstudio.ccaeroworks.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "BlockEntityDeskIdMixin",
     "ConsoleBlockEntityInvoker",
     "ConsoleBlockEntityDeskIdMixin"
   ],

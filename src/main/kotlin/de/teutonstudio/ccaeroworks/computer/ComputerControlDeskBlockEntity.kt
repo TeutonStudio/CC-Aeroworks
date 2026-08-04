@@ -203,11 +203,6 @@ class ComputerControlDeskBlockEntity(
         super.invalidate()
     }
 
-    override fun setRemoved() {
-        closeComputer()
-        super.setRemoved()
-    }
-
     override fun write(tag: CompoundTag, registries: HolderLookup.Provider, clientPacket: Boolean) {
         super.write(tag, registries, clientPacket)
         if (computerId >= 0) tag.putInt(NBT_COMPUTER_ID, computerId)

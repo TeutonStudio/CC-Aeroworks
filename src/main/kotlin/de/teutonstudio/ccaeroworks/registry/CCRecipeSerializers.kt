@@ -8,6 +8,7 @@ import net.minecraft.world.item.crafting.SimpleCraftingRecipeSerializer
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.neoforge.registries.DeferredHolder
 import net.neoforged.neoforge.registries.DeferredRegister
+import java.util.function.Supplier
 
 object CCRecipeSerializers {
     private val SERIALIZERS: DeferredRegister<RecipeSerializer<*>> =
@@ -16,9 +17,12 @@ object CCRecipeSerializers {
     @JvmField
     val COMPUTER_CONTROL_DESK:
         DeferredHolder<RecipeSerializer<*>, RecipeSerializer<ComputerControlDeskRecipe>> =
-        SERIALIZERS.register("computer_control_desk") {
-            SimpleCraftingRecipeSerializer(::ComputerControlDeskRecipe)
-        }
+        SERIALIZERS.register(
+            "computer_control_desk",
+            Supplier<RecipeSerializer<ComputerControlDeskRecipe>> {
+                SimpleCraftingRecipeSerializer(::ComputerControlDeskRecipe)
+            }
+        )
 
     fun register(bus: IEventBus) = SERIALIZERS.register(bus)
 }

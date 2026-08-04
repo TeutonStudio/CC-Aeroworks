@@ -8,6 +8,7 @@ import net.minecraft.world.level.block.state.BlockBehaviour
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.neoforge.registries.DeferredBlock
 import net.neoforged.neoforge.registries.DeferredRegister
+import java.util.function.Supplier
 
 object CCBlocks {
     private val BLOCKS: DeferredRegister.Blocks = DeferredRegister.createBlocks(CCAeroworks.MOD_ID)
@@ -17,17 +18,19 @@ object CCBlocks {
 
     @JvmField
     val COMPUTER_CONTROL_DESK: DeferredBlock<ComputerControlDeskBlock> = BLOCKS.register(
-        "computer_control_desk"
-    ) {
-        ComputerControlDeskBlock(properties(), AeroworksConsoles.DESK, ComputerFamily.NORMAL)
-    }
+        "computer_control_desk",
+        Supplier<ComputerControlDeskBlock> {
+            ComputerControlDeskBlock(properties(), AeroworksConsoles.DESK, ComputerFamily.NORMAL)
+        }
+    )
 
     @JvmField
     val ADVANCED_COMPUTER_CONTROL_DESK: DeferredBlock<ComputerControlDeskBlock> = BLOCKS.register(
-        "advanced_computer_control_desk"
-    ) {
-        ComputerControlDeskBlock(properties(), AeroworksConsoles.DESK, ComputerFamily.ADVANCED)
-    }
+        "advanced_computer_control_desk",
+        Supplier<ComputerControlDeskBlock> {
+            ComputerControlDeskBlock(properties(), AeroworksConsoles.DESK, ComputerFamily.ADVANCED)
+        }
+    )
 
     fun register(bus: IEventBus) = BLOCKS.register(bus)
 }

@@ -4,4 +4,5 @@ import java.util.UUID
 
 interface DeskIdentityAccess {
     fun ccaeroworks_getDeskId(): UUID
+    fun ccaeroworks_setDeskId(id: UUID)
 }

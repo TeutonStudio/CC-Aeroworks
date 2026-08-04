@@ -6,7 +6,6 @@ import de.teutonstudio.ccaeroworks.registry.CCDataComponents
 import net.minecraft.core.HolderLookup
 import net.minecraft.core.component.DataComponentMap
 import net.minecraft.nbt.CompoundTag
-import net.minecraft.world.level.block.entity.BlockEntity
 import org.spongepowered.asm.mixin.Mixin
 import org.spongepowered.asm.mixin.Unique
 import org.spongepowered.asm.mixin.injection.At
@@ -20,6 +19,10 @@ abstract class ConsoleBlockEntityDeskIdMixin : DeskIdentityAccess {
     private var ccaeroworks_deskId: UUID = UUID.randomUUID()
 
     override fun ccaeroworks_getDeskId(): UUID = ccaeroworks_deskId
+
+    override fun ccaeroworks_setDeskId(id: UUID) {
+        ccaeroworks_deskId = id
+    }
 
     @Inject(method = ["write"], at = [At("TAIL")])
     private fun ccaeroworks_writeDeskId(
@@ -47,16 +50,6 @@ abstract class ConsoleBlockEntityDeskIdMixin : DeskIdentityAccess {
         callback: CallbackInfo
     ) {
         builder.set(CCDataComponents.DESK_ID.get(), ccaeroworks_deskId.toString())
-    }
-
-    @Inject(method = ["applyImplicitComponents"], at = [At("TAIL")])
-    private fun ccaeroworks_applyDeskId(
-        input: BlockEntity.DataComponentInput,
-        callback: CallbackInfo
-    ) {
-        input.get(CCDataComponents.DESK_ID.get())?.let { raw ->
-            runCatching { UUID.fromString(raw) }.getOrNull()?.let { ccaeroworks_deskId = it }
-        }
     }
 
     companion object {
