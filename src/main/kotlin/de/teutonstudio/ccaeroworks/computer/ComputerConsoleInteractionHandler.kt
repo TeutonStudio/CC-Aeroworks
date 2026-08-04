@@ -42,15 +42,24 @@ object ComputerConsoleInteractionHandler {
     }
 
     private fun openControlDefinition(event: PlayerInteractEvent.RightClickBlock) {
-        // The control definition is the held-item block path. Invoke it before Create's wrench
-        // use rotates the desk, then consume the original event so both actions cannot occur.
-        val result = event.level.getBlockState(event.pos).useItemOn(
-            event.itemStack,
-            event.level,
-            event.entity,
-            event.hand,
-            event.hitVec
-        )
+        // Aeroworks opens the console overview/configuration from its held-item block path
+        // when the player is sneaking. Reserve that exact native path for a horizontal wrench
+        // right-click, without changing the player's persistent crouch state.
+        val player = event.entity
+        val wasShiftDown = player.isShiftKeyDown
+        val result = try {
+            player.setShiftKeyDown(true)
+            event.level.getBlockState(event.pos).useItemOn(
+                event.itemStack,
+                event.level,
+                player,
+                event.hand,
+                event.hitVec
+            )
+        } finally {
+            player.setShiftKeyDown(wasShiftDown)
+        }
+
         event.cancellationResult = if (result.consumesAction()) {
             result
         } else {
