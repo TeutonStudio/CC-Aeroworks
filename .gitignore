@@ -1,5 +1,7 @@
 # Local mod dependencies are intentionally not distributed.
 libs/*.jar
+test-mods/
+libs-cc-*/
 
 # Reproducible analysis output and decompiler scratch data.
 .codex-work/
