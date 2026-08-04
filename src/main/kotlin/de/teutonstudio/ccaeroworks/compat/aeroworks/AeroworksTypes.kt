@@ -1,9 +1,11 @@
 package de.teutonstudio.ccaeroworks.compat.aeroworks
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.ConsoleDeskBlock
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.resources.ResourceLocation
+import net.minecraft.world.item.BlockItem
 import net.minecraft.world.item.Item
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.entity.BlockEntityType
@@ -25,10 +27,10 @@ object AeroworksTypes {
     }
 
     fun isVanillaControlDesk(block: Block): Boolean =
-        BuiltInRegistries.BLOCK.getKey(block) == CONTROL_DESK_ID
+        block is ConsoleDeskBlock && !isComputerControlDesk(block)
 
     fun isVanillaControlDesk(item: Item): Boolean =
-        BuiltInRegistries.ITEM.getKey(item) == CONTROL_DESK_ID
+        item is BlockItem && isVanillaControlDesk(item.block)
 
     fun isComputerControlDesk(block: Block): Boolean {
         val id = BuiltInRegistries.BLOCK.getKey(block)
@@ -36,6 +38,5 @@ object AeroworksTypes {
             (id.path == "computer_control_desk" || id.path == "advanced_computer_control_desk")
     }
 
-    fun isControlDesk(block: Block): Boolean =
-        isVanillaControlDesk(block) || isComputerControlDesk(block)
+    fun isControlDesk(block: Block): Boolean = block is ConsoleDeskBlock
 }

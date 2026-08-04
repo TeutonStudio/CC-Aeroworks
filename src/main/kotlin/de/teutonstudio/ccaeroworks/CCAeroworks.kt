@@ -7,6 +7,7 @@ import de.teutonstudio.ccaeroworks.computer.CCLuaApis
 import de.teutonstudio.ccaeroworks.computer.ComputerConsoleInteractionHandler
 import de.teutonstudio.ccaeroworks.config.CCClientConfig
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockSkinUpdater
 import de.teutonstudio.ccaeroworks.network.CCPayloads
 import de.teutonstudio.ccaeroworks.registry.CCBlockEntities
 import de.teutonstudio.ccaeroworks.registry.CCBlocks
@@ -43,6 +44,7 @@ class CCAeroworks(modEventBus: IEventBus, modContainer: ModContainer) {
         modContainer.registerConfig(ModConfig.Type.CLIENT, CCClientConfig.SPEC, "cc_aeroworks-client.toml")
         NeoForge.EVENT_BUS.register(ControlDeskPeripheralState)
         NeoForge.EVENT_BUS.register(ConsoleMultiblockManager)
+        NeoForge.EVENT_BUS.register(ConsoleMultiblockSkinUpdater)
         NeoForge.EVENT_BUS.register(ComputerConsoleInteractionHandler)
         if (FMLEnvironment.dist == Dist.CLIENT) CCAeroworksClient.register(modEventBus)
         LOGGER.info("[CC-Aeroworks] Initializing")

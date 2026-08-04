@@ -10,6 +10,7 @@ import de.teutonstudio.ccaeroworks.registry.CCBlockEntities
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent
 import net.neoforged.neoforge.client.event.EntityRenderersEvent
+import net.neoforged.neoforge.client.event.ModelEvent
 import net.neoforged.neoforge.common.NeoForge
 
 object CCAeroworksClient {
@@ -17,6 +18,8 @@ object CCAeroworksClient {
         DeskDisplayModels.init()
         modBus.addListener(::clientSetup)
         modBus.addListener(::registerRenderers)
+        modBus.addListener<ModelEvent.RegisterAdditional>(ConsoleMultiblockModels::registerAdditional)
+        modBus.addListener<ModelEvent.ModifyBakingResult>(ConsoleMultiblockModels::modifyBakingResult)
         NeoForge.EVENT_BUS.register(CombinedLeverController)
         NeoForge.EVENT_BUS.register(AeroworksCreativeSections)
         NeoForge.EVENT_BUS.register(GuideBookClientHandler)
