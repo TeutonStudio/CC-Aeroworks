@@ -119,15 +119,17 @@ object ConsoleMultiblockSkinUpdater {
                 snapshot.members.forEachIndexed memberLoop@{ index, member ->
                     val state = level.getBlockState(member.pos)
                     var nextState = state
+                    val connectedWest = index > 0
+                    val connectedEast = index < lastIndex
                     nextState = setBooleanProperty(
                         nextState,
                         "open_west",
-                        index == 0
+                        connectedWest
                     )
                     nextState = setBooleanProperty(
                         nextState,
                         "open_east",
-                        index == lastIndex
+                        connectedEast
                     )
                     if (nextState.hasProperty(ConsoleMultiblockSkinState.SKIN)) {
                         nextState = nextState.setValue(ConsoleMultiblockSkinState.SKIN, skin)
