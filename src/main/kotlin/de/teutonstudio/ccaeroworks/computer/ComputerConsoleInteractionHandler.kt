@@ -47,7 +47,7 @@ object ComputerConsoleInteractionHandler {
         // right-click, without changing the player's persistent crouch state.
         val player = event.entity
         val wasShiftDown = player.isShiftKeyDown
-        val result = try {
+        try {
             player.setShiftKeyDown(true)
             event.level.getBlockState(event.pos).useItemOn(
                 event.itemStack,
@@ -60,11 +60,10 @@ object ComputerConsoleInteractionHandler {
             player.setShiftKeyDown(wasShiftDown)
         }
 
-        event.cancellationResult = if (result.consumesAction()) {
-            result
-        } else {
-            InteractionResult.SUCCESS
-        }
+        // BlockState.useItemOn returns ItemInteractionResult in Minecraft 1.21.1, while
+        // RightClickBlock cancellation expects InteractionResult. The native call has already
+        // performed the menu-opening side effect, so consume the original event explicitly.
+        event.cancellationResult = InteractionResult.SUCCESS
         event.isCanceled = true
     }
 
