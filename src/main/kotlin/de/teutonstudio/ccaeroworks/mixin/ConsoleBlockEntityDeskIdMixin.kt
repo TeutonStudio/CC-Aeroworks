@@ -13,6 +13,8 @@ import org.spongepowered.asm.mixin.injection.Inject
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo
 import java.util.UUID
 
+private const val NBT_KEY = "CCAeroworksDeskId"
+
 @Mixin(value = [ConsoleBlockEntity::class], remap = false)
 abstract class ConsoleBlockEntityDeskIdMixin : DeskIdentityAccess {
     @Unique
@@ -50,9 +52,5 @@ abstract class ConsoleBlockEntityDeskIdMixin : DeskIdentityAccess {
         callback: CallbackInfo
     ) {
         builder.set(CCDataComponents.DESK_ID.get(), ccaeroworks_deskId.toString())
-    }
-
-    companion object {
-        private const val NBT_KEY = "CCAeroworksDeskId"
     }
 }
