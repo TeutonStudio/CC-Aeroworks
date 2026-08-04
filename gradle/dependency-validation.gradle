@@ -135,7 +135,7 @@ def verifyModDependencies = tasks.register('verifyModDependencies') {
     }
 }
 
-['compileJava', 'compileKotlin', 'runClient', 'runServer', 'gameTestServer', 'build'].each { String taskName ->
+['compileJava', 'compileKotlin', 'runClient', 'runServer', 'runSmokeServer', 'gameTestServer', 'build'].each { String taskName ->
     tasks.matching { Task candidate -> candidate.name == taskName }.configureEach {
         dependsOn(verifyModDependencies)
     }
