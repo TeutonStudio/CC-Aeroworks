@@ -61,6 +61,14 @@ neoForge {
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
+        smokeServer {
+            server()
+            gameDirectory = project.file(
+                providers.gradleProperty('smoke_server_dir').orElse('build/smoke-server').get()
+            )
+            programArgument '--nogui'
+        }
+
         gameTestServer {
             type = "gameTestServer"
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
