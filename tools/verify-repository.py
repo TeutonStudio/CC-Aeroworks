@@ -89,9 +89,25 @@ def verify_manifest() -> None:
         identities.add(identity)
 
         try:
-            re.compile(str(dependency["filenamePattern"]))
+            filename_pattern = re.compile(str(dependency["filenamePattern"]))
         except re.error as exception:
             fail(f"Invalid filename pattern for {identity}: {exception}")
+
+        filename_examples = dependency.get("filenameExamples")
+        if filename_examples is not None:
+            if not isinstance(filename_examples, list) or not filename_examples:
+                fail(f"filenameExamples for {identity[0]}:{identity[1]} must be a non-empty list")
+            for example_index, example in enumerate(filename_examples):
+                if not isinstance(example, str) or not example:
+                    fail(
+                        f"filenameExamples[{example_index}] for "
+                        f"{identity[0]}:{identity[1]} must be a non-empty string"
+                    )
+                if filename_pattern.fullmatch(example) is None:
+                    fail(
+                        f"Known filename does not match filenamePattern for "
+                        f"{identity[0]}:{identity[1]}: {example}"
+                    )
 
         checksum = dependency["sha256"]
         if checksum is not None and not re.fullmatch(r"[0-9a-fA-F]{64}", str(checksum)):
