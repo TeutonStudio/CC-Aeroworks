@@ -8,19 +8,19 @@ final File modDependencyDirectory = rootProject.file(configuredDependencyDir)
 
 ext.modDependencyDirectory = modDependencyDirectory
 
-private static String sha256(File file) {
+final Closure<String> calculateSha256 = { File file ->
     MessageDigest digest = MessageDigest.getInstance('SHA-256')
-    file.withInputStream { input ->
+    file.withInputStream { InputStream input ->
         byte[] buffer = new byte[64 * 1024]
         int read
         while ((read = input.read(buffer)) >= 0) {
             digest.update(buffer, 0, read)
         }
     }
-    return digest.digest().encodeHex().toString()
+    digest.digest().encodeHex().toString()
 }
 
-private static Map<String, Object> readManifest(File manifest) {
+final Closure<Map<String, Object>> readDependencyManifest = { File manifest ->
     if (!manifest.isFile()) {
         throw new GradleException("Missing dependency manifest: ${manifest}")
     }
@@ -28,7 +28,7 @@ private static Map<String, Object> readManifest(File manifest) {
     if (!(parsed instanceof Map)) {
         throw new GradleException('libs/dependencies.json must contain a JSON object.')
     }
-    return (Map<String, Object>) parsed
+    (Map<String, Object>) parsed
 }
 
 def verifyDependencyManifest = tasks.register('verifyDependencyManifest') {
@@ -37,7 +37,7 @@ def verifyDependencyManifest = tasks.register('verifyDependencyManifest') {
     inputs.file(dependencyManifest)
 
     doLast {
-        Map<String, Object> manifest = readManifest(dependencyManifest)
+        Map<String, Object> manifest = readDependencyManifest(dependencyManifest)
         if (manifest.schemaVersion != 1) {
             throw new GradleException("Unsupported dependency manifest schema: ${manifest.schemaVersion}")
         }
@@ -93,10 +93,11 @@ def verifyModDependencies = tasks.register('verifyModDependencies') {
     inputs.dir(modDependencyDirectory).optional()
 
     doLast {
-        Map<String, Object> manifest = readManifest(dependencyManifest)
-        File[] jarFiles = modDependencyDirectory.isDirectory()
-            ? modDependencyDirectory.listFiles({ File file -> file.isFile() && file.name.toLowerCase().endsWith('.jar') } as FileFilter)
-            : new File[0]
+        Map<String, Object> manifest = readDependencyManifest(dependencyManifest)
+        List<File> jarFiles = modDependencyDirectory.isDirectory()
+            ? (modDependencyDirectory.listFiles() ?: new File[0])
+                .findAll { File file -> file.isFile() && file.name.toLowerCase(Locale.ROOT).endsWith('.jar') }
+            : []
 
         List<String> errors = []
         manifest.dependencies.each { Object rawDependency ->
@@ -114,8 +115,8 @@ def verifyModDependencies = tasks.register('verifyModDependencies') {
                 return
             }
             if (matches.size() == 1 && dependency.sha256 != null) {
-                String actual = sha256(matches.first())
-                String expected = dependency.sha256.toString().toLowerCase()
+                String actual = calculateSha256(matches.first())
+                String expected = dependency.sha256.toString().toLowerCase(Locale.ROOT)
                 if (actual != expected) {
                     errors << "Checksum mismatch for ${matches.first().name}: expected ${expected}, got ${actual}"
                 }
