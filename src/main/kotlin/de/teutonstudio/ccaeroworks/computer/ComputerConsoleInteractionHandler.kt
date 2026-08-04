@@ -1,5 +1,7 @@
 package de.teutonstudio.ccaeroworks.computer
 
+import com.mred231.aeroworks.content.controls.ModuleItem
+import com.simibubi.create.content.equipment.wrench.WrenchItem
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
@@ -7,25 +9,59 @@ import net.minecraft.network.chat.Component
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
 import net.neoforged.bus.api.SubscribeEvent
+import net.neoforged.neoforge.common.util.TriState
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent
 
 object ComputerConsoleInteractionHandler {
     @SubscribeEvent
     fun onRightClickBlock(event: PlayerInteractEvent.RightClickBlock) {
-        if (event.hand != InteractionHand.MAIN_HAND ||
-            !event.entity.isCrouching ||
-            !event.itemStack.isEmpty ||
-            !AeroworksTypes.isControlDesk(event.level.getBlockState(event.pos).block)
+        if (!AeroworksTypes.isControlDesk(event.level.getBlockState(event.pos).block)) {
+            return
+        }
+
+        if (event.hand == InteractionHand.MAIN_HAND &&
+            event.entity.isCrouching &&
+            event.itemStack.isEmpty &&
+            openComputerTerminal(event)
         ) {
             return
         }
 
-        // The client only consumes the deliberately reserved interaction. Computer creation and
+        val heldItem = event.itemStack.item
+        if (heldItem is WrenchItem) {
+            if (event.face.axis.isHorizontal) {
+                // Horizontal wrench clicks are reserved for the Aeroworks control UI.
+                // Suppress the wrench's rotation path and force the block interaction.
+                event.setUseItem(TriState.FALSE)
+                event.setUseBlock(TriState.TRUE)
+            } else {
+                // Top and bottom retain normal Create wrench behaviour. Prevent a failed
+                // wrench action from falling through into the control configuration UI.
+                event.setUseBlock(TriState.FALSE)
+            }
+            return
+        }
+
+        if (event.itemStack.isEmpty) {
+            // Bare interaction no longer opens the control configuration UI. Sneak + bare
+            // main hand was handled above and remains reserved for the computer terminal.
+            consume(event)
+            return
+        }
+
+        if (heldItem !is ModuleItem) {
+            // Preserve item-specific use while preventing unrelated held items from opening
+            // the control configuration UI after their own interaction passes.
+            event.setUseBlock(TriState.FALSE)
+        }
+    }
+
+    private fun openComputerTerminal(event: PlayerInteractEvent.RightClickBlock): Boolean {
+        // The client consumes the deliberately reserved interaction. Computer creation and
         // menu opening are server-only operations and are handled by the matching server event.
         if (event.level.isClientSide) {
-            event.cancellationResult = InteractionResult.SUCCESS
-            event.isCanceled = true
-            return
+            consume(event)
+            return true
         }
 
         val snapshot = ConsoleMultiblockManager.resolve(event.level, event.pos)
@@ -57,9 +93,12 @@ object ComputerConsoleInteractionHandler {
             else -> false
         }
 
-        if (handled) {
-            event.cancellationResult = InteractionResult.SUCCESS
-            event.isCanceled = true
-        }
+        if (handled) consume(event)
+        return handled
+    }
+
+    private fun consume(event: PlayerInteractEvent.RightClickBlock) {
+        event.cancellationResult = InteractionResult.SUCCESS
+        event.isCanceled = true
     }
 }

@@ -19,7 +19,7 @@ object CCAeroworksClient {
         modBus.addListener(::clientSetup)
         modBus.addListener(::registerRenderers)
         modBus.addListener<ModelEvent.RegisterAdditional>(ConsoleMultiblockModels::registerAdditional)
-        modBus.addListener<ModelEvent.ModifyBakingResult>(ConsoleMultiblockModels::modifyBakingResult)
+        modBus.addListener<ModelEvent.ModifyBakingResult>(::modifyBakingResult)
         NeoForge.EVENT_BUS.register(CombinedLeverController)
         NeoForge.EVENT_BUS.register(AeroworksCreativeSections)
         NeoForge.EVENT_BUS.register(GuideBookClientHandler)
@@ -37,5 +37,10 @@ object CCAeroworksClient {
             CCBlockEntities.COMPUTER_CONTROL_DESK.get(),
             ::ComputerControlDeskRenderer
         )
+    }
+
+    private fun modifyBakingResult(event: ModelEvent.ModifyBakingResult) {
+        ConsoleMultiblockModels.modifyBakingResult(event)
+        ControlDeskItemOrientation.modifyBakingResult(event)
     }
 }
