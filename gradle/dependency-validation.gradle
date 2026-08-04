@@ -1,0 +1,141 @@
+import groovy.json.JsonSlurper
+import java.security.MessageDigest
+import java.util.regex.Pattern
+
+final File dependencyManifest = rootProject.file('libs/dependencies.json')
+final String configuredDependencyDir = providers.gradleProperty('mod_dependency_dir').orElse('libs').get()
+final File modDependencyDirectory = rootProject.file(configuredDependencyDir)
+
+ext.modDependencyDirectory = modDependencyDirectory
+
+private static String sha256(File file) {
+    MessageDigest digest = MessageDigest.getInstance('SHA-256')
+    file.withInputStream { input ->
+        byte[] buffer = new byte[64 * 1024]
+        int read
+        while ((read = input.read(buffer)) >= 0) {
+            digest.update(buffer, 0, read)
+        }
+    }
+    return digest.digest().encodeHex().toString()
+}
+
+private static Map<String, Object> readManifest(File manifest) {
+    if (!manifest.isFile()) {
+        throw new GradleException("Missing dependency manifest: ${manifest}")
+    }
+    Object parsed = new JsonSlurper().parse(manifest)
+    if (!(parsed instanceof Map)) {
+        throw new GradleException('libs/dependencies.json must contain a JSON object.')
+    }
+    return (Map<String, Object>) parsed
+}
+
+def verifyDependencyManifest = tasks.register('verifyDependencyManifest') {
+    group = 'verification'
+    description = 'Validates the local mod dependency manifest without requiring the mod JARs.'
+    inputs.file(dependencyManifest)
+
+    doLast {
+        Map<String, Object> manifest = readManifest(dependencyManifest)
+        if (manifest.schemaVersion != 1) {
+            throw new GradleException("Unsupported dependency manifest schema: ${manifest.schemaVersion}")
+        }
+        if (!(manifest.dependencies instanceof List) || manifest.dependencies.isEmpty()) {
+            throw new GradleException('The dependency manifest must define at least one dependency.')
+        }
+
+        Set<String> identities = new LinkedHashSet<>()
+        List<String> errors = []
+        manifest.dependencies.eachWithIndex { Object rawDependency, int index ->
+            if (!(rawDependency instanceof Map)) {
+                errors << "Entry ${index} is not an object."
+                return
+            }
+            Map dependency = (Map) rawDependency
+            ['name', 'modId', 'version', 'required', 'filenamePattern', 'source'].each { String key ->
+                if (!dependency.containsKey(key) || dependency[key] == null || dependency[key].toString().isBlank()) {
+                    errors << "Entry ${index} is missing '${key}'."
+                }
+            }
+            if (dependency.required != null && !(dependency.required instanceof Boolean)) {
+                errors << "Entry ${index} field 'required' must be boolean."
+            }
+
+            String identity = "${dependency.modId}:${dependency.version}"
+            if (!identities.add(identity)) {
+                errors << "Duplicate dependency identity: ${identity}"
+            }
+
+            try {
+                Pattern.compile(dependency.filenamePattern?.toString() ?: '')
+            } catch (Exception exception) {
+                errors << "Invalid filenamePattern for ${identity}: ${exception.message}"
+            }
+
+            Object checksum = dependency.sha256
+            if (checksum != null && !(checksum.toString() ==~ /(?i)[0-9a-f]{64}/)) {
+                errors << "Invalid SHA-256 for ${identity}: expected 64 hexadecimal characters."
+            }
+        }
+
+        if (!errors.isEmpty()) {
+            throw new GradleException('Invalid local dependency manifest:\n - ' + errors.join('\n - '))
+        }
+    }
+}
+
+def verifyModDependencies = tasks.register('verifyModDependencies') {
+    group = 'verification'
+    description = 'Checks required local mod JARs, versions, duplicates and configured checksums.'
+    dependsOn(verifyDependencyManifest)
+    inputs.file(dependencyManifest)
+    inputs.dir(modDependencyDirectory).optional()
+
+    doLast {
+        Map<String, Object> manifest = readManifest(dependencyManifest)
+        File[] jarFiles = modDependencyDirectory.isDirectory()
+            ? modDependencyDirectory.listFiles({ File file -> file.isFile() && file.name.toLowerCase().endsWith('.jar') } as FileFilter)
+            : new File[0]
+
+        List<String> errors = []
+        manifest.dependencies.each { Object rawDependency ->
+            Map dependency = (Map) rawDependency
+            Pattern pattern = Pattern.compile(dependency.filenamePattern.toString())
+            List<File> matches = jarFiles.findAll { File file -> pattern.matcher(file.name).matches() }
+            String label = "${dependency.name} ${dependency.version}"
+
+            if (dependency.required && matches.isEmpty()) {
+                errors << "Missing required local dependency: ${label}\n   Expected a filename matching: ${dependency.filenamePattern}"
+                return
+            }
+            if (matches.size() > 1) {
+                errors << "Multiple files match ${label}: ${matches*.name.join(', ')}"
+                return
+            }
+            if (matches.size() == 1 && dependency.sha256 != null) {
+                String actual = sha256(matches.first())
+                String expected = dependency.sha256.toString().toLowerCase()
+                if (actual != expected) {
+                    errors << "Checksum mismatch for ${matches.first().name}: expected ${expected}, got ${actual}"
+                }
+            }
+        }
+
+        if (!errors.isEmpty()) {
+            throw new GradleException(
+                "Local mod dependency validation failed in ${modDependencyDirectory}:\n - " +
+                    errors.join('\n - ') +
+                    '\nSee libs/README.md or override the directory with -Pmod_dependency_dir=/path/to/mods.'
+            )
+        }
+
+        logger.lifecycle("Validated local mod dependencies in ${modDependencyDirectory}")
+    }
+}
+
+['compileJava', 'compileKotlin', 'runClient', 'runServer', 'gameTestServer', 'build'].each { String taskName ->
+    tasks.matching { Task candidate -> candidate.name == taskName }.configureEach {
+        dependsOn(verifyModDependencies)
+    }
+}
