@@ -44,26 +44,6 @@ jobs:
       - name: Validate Python tools
         run: python3 -m py_compile tools/*.py
 
-      - name: Inspect Aeroworks 1.3.0 language resources
-        shell: bash
-        run: |
-          set -euo pipefail
-          jar="${RUNNER_TEMP}/aeroworks-1.3.0.jar"
-          curl --fail --location --retry 3 \
-            --output "${jar}" \
-            'https://cdn.modrinth.com/data/P26k79kP/versions/EYVmBa7H/aeroworks-1.3.0.jar'
-          unzip -l "${jar}" 'assets/aeroworks/lang/*'
-          for language in en_us de_de zh_cn ru_ru; do
-            path="assets/aeroworks/lang/${language}.json"
-            echo "===== ${path} ====="
-            if unzip -Z1 "${jar}" | grep -Fxq "${path}"; then
-              unzip -p "${jar}" "${path}"
-              echo
-            else
-              echo '<missing>'
-            fi
-          done
-
       - name: Validate repository contract
         run: python3 tools/verify-repository.py
 
