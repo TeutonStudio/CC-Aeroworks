@@ -9,6 +9,8 @@ import de.teutonstudio.ccaeroworks.registry.CCBlocks
 import net.minecraft.client.renderer.RenderType
 import net.minecraft.client.renderer.block.BlockModelShaper
 import net.minecraft.client.renderer.block.model.BakedQuad
+import net.minecraft.client.renderer.block.model.ItemOverrides
+import net.minecraft.client.renderer.block.model.ItemTransforms
 import net.minecraft.client.renderer.texture.TextureAtlas
 import net.minecraft.client.renderer.texture.TextureAtlasSprite
 import net.minecraft.client.resources.model.BakedModel
@@ -118,6 +120,15 @@ object ConsoleMultiblockModels {
         computerSprite: TextureAtlasSprite,
         advancedSprite: TextureAtlasSprite
     ) {
+        val normalState = normalDesk.defaultBlockState()
+        val normalBlockLocation = BlockModelShaper.stateToModelLocation(normalState)
+        val normalBlockModel = originalModels[normalBlockLocation] ?: run {
+            CCAeroworks.LOGGER.error(
+                "[CC-Aeroworks] Could not locate the Aeroworks control desk block model for items"
+            )
+            return
+        }
+
         val normalItemLocation = ModelResourceLocation.inventory(
             BuiltInRegistries.ITEM.getKey(normalDesk.asItem())
         )
@@ -130,10 +141,20 @@ object ConsoleMultiblockModels {
 
         event.models[
             ModelResourceLocation.inventory(CCAeroworks.id("computer_control_desk"))
-        ] = OverlayItemModel(normalItemModel, computerSprite)
+        ] = ControlDeskItemModel(
+            normalBlockModel,
+            normalState,
+            normalItemModel,
+            computerSprite
+        )
         event.models[
             ModelResourceLocation.inventory(CCAeroworks.id("advanced_computer_control_desk"))
-        ] = OverlayItemModel(normalItemModel, advancedSprite)
+        ] = ControlDeskItemModel(
+            normalBlockModel,
+            normalState,
+            normalItemModel,
+            advancedSprite
+        )
     }
 
     private fun copyConsoleShape(source: BlockState, initialTarget: BlockState): BlockState {
@@ -270,46 +291,127 @@ private class OverlayConsoleModel(
         delegate.getParticleIcon(data)
 }
 
-private class OverlayItemModel(
-    private val delegate: BakedModel,
+/**
+ * Uses the reliable baked block model for geometry while retaining the normal
+ * Aeroworks item's camera transforms and presentation flags. In particular,
+ * this deliberately disables the custom-renderer flag inherited from some
+ * Create/Aeroworks item models, because CC-Aeroworks has no matching BEWLR for
+ * these two BlockItems.
+ */
+private class ControlDeskItemModel(
+    private val geometry: BakedModel,
+    private val sourceState: BlockState,
+    private val presentation: BakedModel,
     private val overlaySprite: TextureAtlasSprite
-) : BakedModelWrapper<BakedModel>(delegate) {
+) : BakedModelWrapper<BakedModel>(geometry) {
+    private val basePass = ControlDeskItemBasePass(geometry, sourceState)
+    private val overlayPass = ControlDeskItemOverlayPass(geometry, sourceState, overlaySprite)
+
     override fun getRenderPasses(itemStack: ItemStack, fabulous: Boolean): List<BakedModel> =
-        delegate.getRenderPasses(itemStack, fabulous) + OverlayItemPass(delegate, overlaySprite)
+        listOf(basePass, overlayPass)
 
     override fun applyTransform(
         transformType: ItemDisplayContext,
         poseStack: PoseStack,
         applyLeftHandTransform: Boolean
     ): BakedModel {
-        val transformed = delegate.applyTransform(
+        val transformedPresentation = presentation.applyTransform(
             transformType,
             poseStack,
             applyLeftHandTransform
         )
-        return if (transformed === delegate) this else OverlayItemModel(transformed, overlaySprite)
+        return if (transformedPresentation === presentation) {
+            this
+        } else {
+            ControlDeskItemModel(
+                geometry,
+                sourceState,
+                transformedPresentation,
+                overlaySprite
+            )
+        }
     }
+
+    override fun getTransforms(): ItemTransforms = presentation.transforms
+
+    override fun getOverrides(): ItemOverrides = presentation.overrides
+
+    override fun isGui3d(): Boolean = presentation.isGui3d
+
+    override fun usesBlockLight(): Boolean = presentation.usesBlockLight()
+
+    override fun useAmbientOcclusion(): Boolean = geometry.useAmbientOcclusion()
+
+    override fun isCustomRenderer(): Boolean = false
+
+    override fun getParticleIcon(): TextureAtlasSprite = geometry.particleIcon
+
+    override fun getParticleIcon(data: ModelData): TextureAtlasSprite =
+        geometry.getParticleIcon(data)
 }
 
-private class OverlayItemPass(
-    private val delegate: BakedModel,
+private class ControlDeskItemBasePass(
+    private val geometry: BakedModel,
+    private val sourceState: BlockState
+) : BakedModelWrapper<BakedModel>(geometry) {
+    override fun getQuads(
+        state: BlockState?,
+        side: Direction?,
+        random: RandomSource
+    ): List<BakedQuad> = geometry.getQuads(sourceState, side, random)
+
+    override fun getQuads(
+        state: BlockState?,
+        side: Direction?,
+        random: RandomSource,
+        modelData: ModelData,
+        renderType: RenderType?
+    ): List<BakedQuad> = geometry.getQuads(sourceState, side, random, modelData, renderType)
+
+    override fun getRenderTypes(
+        state: BlockState,
+        random: RandomSource,
+        modelData: ModelData
+    ): ChunkRenderTypeSet = geometry.getRenderTypes(sourceState, random, modelData)
+
+    override fun getRenderTypes(itemStack: ItemStack, fabulous: Boolean): List<RenderType> =
+        listOf(RenderTypeHelper.getFallbackItemRenderType(itemStack, this, fabulous))
+
+    override fun isCustomRenderer(): Boolean = false
+}
+
+private class ControlDeskItemOverlayPass(
+    private val geometry: BakedModel,
+    private val sourceState: BlockState,
     overlaySprite: TextureAtlasSprite
-) : BakedModelWrapper<BakedModel>(delegate) {
+) : BakedModelWrapper<BakedModel>(geometry) {
     private val overlay = OverlayQuadFactory(overlaySprite)
 
     override fun getQuads(
         state: BlockState?,
         side: Direction?,
         random: RandomSource
-    ): List<BakedQuad> = overlay.create(delegate.getQuads(state, side, random))
+    ): List<BakedQuad> = overlay.create(geometry.getQuads(sourceState, side, random))
+
+    override fun getQuads(
+        state: BlockState?,
+        side: Direction?,
+        random: RandomSource,
+        modelData: ModelData,
+        renderType: RenderType?
+    ): List<BakedQuad> = overlay.create(
+        geometry.getQuads(sourceState, side, random, modelData, null)
+    )
 
     override fun getRenderTypes(itemStack: ItemStack, fabulous: Boolean): List<RenderType> =
         listOf(RenderTypeHelper.getEntityRenderType(RenderType.translucent(), fabulous))
 
-    override fun getParticleIcon(): TextureAtlasSprite = delegate.particleIcon
+    override fun isCustomRenderer(): Boolean = false
+
+    override fun getParticleIcon(): TextureAtlasSprite = geometry.particleIcon
 
     override fun getParticleIcon(data: ModelData): TextureAtlasSprite =
-        delegate.getParticleIcon(data)
+        geometry.getParticleIcon(data)
 }
 
 private class OverlayQuadFactory(
