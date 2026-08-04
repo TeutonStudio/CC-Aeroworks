@@ -6,16 +6,25 @@ libs/*.jar
 decompiled/
 jar-analysis/
 
-# Gradle and run output.
+# Gradle, Kotlin and run output.
 .gradle/
+.kotlin/
 build/
 run/
 run-data/
+
+# IDE output.
 .idea/
 *.iml
-/src/test/
-/tools/
-/libs/
-/examples/
-/gradle/
-/.kotlin/
+*.ipr
+*.iws
+
+# Operating-system noise.
+.DS_Store
+Thumbs.db
+
+# Test evidence that should not be committed as large binaries.
+docs/test-results/**/*.log
+docs/test-results/**/*.zip
+docs/test-results/**/*.png
+!docs/test-results/.gitkeep
