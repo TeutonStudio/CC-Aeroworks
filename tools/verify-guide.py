@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import gzip
 import json
 import re
 from pathlib import Path
@@ -65,9 +66,12 @@ def main() -> int:
     require(scene_source.count("showText(") == 8,
             "Ponder scene text count must match text_1 through text_8")
 
-    structure = PONDER_STRUCTURE.read_bytes()
-    require(len(structure) > 256, "Ponder structure is unexpectedly small")
-    require(structure[:1] == b"\x0a", "Ponder structure must be an uncompressed root TAG_Compound")
+    compressed_structure = PONDER_STRUCTURE.read_bytes()
+    require(compressed_structure[:2] == b"\x1f\x8b",
+            "Ponder structure must be gzip-compressed Minecraft structure NBT")
+    structure = gzip.decompress(compressed_structure)
+    require(len(structure) > 1024, "Decompressed Ponder structure is unexpectedly small")
+    require(structure[:1] == b"\x0a", "Ponder structure root must be TAG_Compound")
     require(b"cc_aeroworks:computer_control_desk" in structure,
             "Ponder structure does not contain the Computer Control Desk")
     require(b"aeroworks:control_desk" in structure,
@@ -79,7 +83,7 @@ def main() -> int:
 
     print(
         "Validated guide translations, 8 fallback pages, 8 Ponder steps, "
-        "both Computer Control Desk variants, structure NBT and wiki navigation."
+        "both Computer Control Desk variants, compressed structure NBT and wiki navigation."
     )
     return 0
 
@@ -87,6 +91,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (AssertionError, OSError, json.JSONDecodeError) as exception:
+    except (AssertionError, OSError, gzip.BadGzipFile, json.JSONDecodeError) as exception:
         print(f"ERROR: {exception}")
         raise SystemExit(1)
