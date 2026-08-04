@@ -17,10 +17,13 @@
       "modId": "aeronautics",
       "version": "1.3.0",
       "required": true,
-      "filenamePattern": "(?i)^aeronautics[^/]*1\\.3\\.0[^/]*\\.jar$",
+      "filenamePattern": "(?i)^(?:create[-_ ]?)?aeronautics(?:[-_ ]?bundled)?[^/]*1\\.3\\.0[^/]*\\.jar$",
+      "filenameExamples": [
+        "create-aeronautics-bundled-1.21.1-1.3.0.jar"
+      ],
       "sha256": null,
       "source": "Official Create: Aeronautics distribution page",
-      "notes": "Required by the researched Aeroworks 1.3.0 baseline."
+      "notes": "Required by the researched Aeroworks 1.3.0 baseline. The official 1.3.0 release is distributed as a create-aeronautics-bundled JAR."
     },
     {
       "name": "Create: Aeroworks",
@@ -28,6 +31,9 @@
       "version": "1.3.0",
       "required": true,
       "filenamePattern": "(?i)^aeroworks[^/]*1\\.3\\.0[^/]*\\.jar$",
+      "filenameExamples": [
+        "aeroworks-1.3.0.jar"
+      ],
       "sha256": null,
       "source": "Official Create: Aeroworks distribution page",
       "notes": "The implementation and mixins in this repository target exactly 1.3.0."
@@ -46,11 +52,11 @@
       "name": "Sable",
       "modId": "sable",
       "version": "2.0.1",
-      "required": false,
+      "required": true,
       "filenamePattern": "(?i)^sable[^/]*2\\.0\\.1[^/]*\\.jar$",
       "sha256": null,
       "source": "Official Sable distribution page",
-      "notes": "Optional compatibility runtime for static and moving ship tests."
+      "notes": "Required runtime dependency of Create: Aeronautics 1.3.0 and also used by the static and moving ship compatibility tests."
     },
     {
       "name": "Drive By Wire",
