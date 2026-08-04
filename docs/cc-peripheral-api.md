@@ -1,49 +1,82 @@
-# CC:Tweaked Peripheral API
+# CC:Tweaked APIs
 
-Peripheral-Typ: `cc_aeroworks_control_desk`. Desk-Sockets können mit Namen oder ihrem nativen nullbasierten Aeroworks-Index angegeben werden: `left` = `0`, `right` = `1`, `big` = `2`.
+## Einzelnes Steuerungspult
 
-Eine ausführlichere deutschsprachige Einführung mit vollständigem Beispiel steht in [`peripheral-programming.md`](peripheral-programming.md).
+Peripheral-Typ: `cc_aeroworks_control_desk`.
 
-```lua
-local desk = peripheral.find("cc_aeroworks_control_desk")
-assert(desk, "Kein Aeroworks Control Desk gefunden")
-```
+Methoden:
 
-## Methoden
-
-- `getSocketCount() -> number`
-- `getSockets() -> table`: liefert `{ name, index }` für `left`, `right` und `big`.
-- `getModules() -> table`
-- `getModule(socket) -> table|nil`
-- `getInput(socket) -> number|table`: ein Kanal wird als Zahl, mehrere Kanäle als Tabelle nach Aeroworks-Kanal-ID geliefert.
-- `getInputs() -> table`: Zuordnung Socket zu Zahl/Kanaltabelle.
-- `getDisplays() -> table`
-- `getDisplay(socket) -> table`
-- `setDisplayText(socket, text) -> string`
-- `setDisplayNumber(socket, value, zeroPad?) -> string`
+- `getSocketCount()`
+- `getSockets()`
+- `getModules()`
+- `getModule(socket)`
+- `getInput(socket)`
+- `getInputs()`
+- `getDisplays()`
+- `getDisplay(socket)`
+- `setDisplayText(socket, text)`
+- `setDisplayNumber(socket, value, zeroPad?)`
 - `clearDisplay(socket)`
-- `clearDisplays() -> number`: Anzahl geleerter Displays.
-- `getDisplaySize(socket) -> table`: Pixelgröße als `{ width, height }`.
-- `getDisplayPixel(socket, x, y) -> boolean`
-- `setDisplayPixel(socket, x, y, enabled) -> boolean`
-- `setDisplayPixels(socket, rows) -> table`: schreibt das vollständige Raster mit einer Synchronisation.
-- `clearDisplayPixels(socket)`: wechselt in den Pixelmodus und löscht das Raster.
+- `clearDisplays()`
+- `getDisplaySize(socket)`
+- `getDisplayPixel(socket, x, y)`
+- `setDisplayPixel(socket, x, y, enabled)`
+- `setDisplayPixels(socket, rows)`
+- `clearDisplayPixels(socket)`
 
-Jeder Parameter `socket` akzeptiert beispielsweise sowohl `"left"` als auch `0`. Modul- und Displayeinträge enthalten den kompatiblen Zahlenwert `socket` sowie zusätzlich `socketName`.
+Sockets: `left=0`, `right=1`, `big=2`.
 
-Texte werden links beginnend auf zwei beziehungsweise drei Zeichen begrenzt. Zulässig sind `0-9`, Minus und Leerzeichen; jedes andere Zeichen wird konsistent zu einem Leerzeichen. Zahlen werden gegen null abgeschnitten und auf `-9..99` beziehungsweise `-99..999` begrenzt. `zeroPad` füllt die Ziffern rechts vom Vorzeichen mit Nullen. NaN und Unendlich erzeugen einen Lua-Fehler.
-
-Der Pixelmodus verwendet beim Zweisteller ein Raster von `7x5`, beim Dreisteller `11x5`. Pixelkoordinaten beginnen bei `(1,1)` links oben. `setDisplayPixels` erwartet genau fünf Strings aus `0` und `1` mit der passenden Breite. Text-/Zahlenschreiben wechselt in den Textmodus; Pixelmethoden wechseln in den Pixelmodus. Das Feld `mode` eines Displayeintrags ist entsprechend `text` oder `pixels`.
-
-Eingabewerte sind rohe Aeroworks-Kanalwerte. Die verifizierte Kanalbegrenzung ist `-15..15`; Buttonmodule verwenden ihre diskreten Kanalwerte. Mehrkanalmodule behalten ihre von Aeroworks vergebenen Kanal-IDs.
-
-## Ereignis
-
-Nur solange Computer angehängt sind, vergleicht der Server einmal pro Tick Eingabewerte. Bei Änderung:
+Ereignis:
 
 ```lua
-local event, peripheralName, socket, moduleId, value, channel, socketName =
+local _, peripheralName, socket, moduleId, value, channel, socketName =
   os.pullEvent("cc_aeroworks_desk_input")
 ```
 
-Der erste Snapshot erzeugt kein Ereignis; unveränderte Werte werden nicht gesendet.
+Bei entferntem Modul oder Kanal ist `value` nil.
+
+## Computer-Steuerungspult
+
+Nur der eingebettete Computer besitzt die globale API `aeroworks` und das require-Modul `cc_aeroworks.aeroworks`.
+
+```lua
+local desks = aeroworks.getDesks()
+local first = aeroworks.getDesk(1)
+local same = aeroworks.getDesk(first.id)
+```
+
+Alle Einzelpultmethoden existieren mit einem zusätzlichen ersten Deskparameter:
+
+```lua
+aeroworks.getModules(desk)
+aeroworks.getModule(desk, socket)
+aeroworks.getInput(desk, socket)
+aeroworks.getInputs(desk)
+aeroworks.getDisplays(desk)
+aeroworks.getDisplay(desk, socket)
+aeroworks.setDisplayText(desk, socket, text)
+aeroworks.setDisplayNumber(desk, socket, value, zeroPad)
+aeroworks.clearDisplay(desk, socket)
+aeroworks.clearDisplays(desk)
+aeroworks.getDisplaySize(desk, socket)
+aeroworks.getDisplayPixel(desk, socket, x, y)
+aeroworks.setDisplayPixel(desk, socket, x, y, enabled)
+aeroworks.setDisplayPixels(desk, socket, rows)
+aeroworks.clearDisplayPixels(desk, socket)
+```
+
+`desk` ist ein 1-basierter Netzwerkindex oder die stabile Desk-ID.
+
+Eingabeereignis:
+
+```lua
+local _, deskId, deskIndex, socket, socketName, moduleId, value, channel =
+  os.pullEvent("cc_aeroworks_console_input")
+```
+
+Strukturereignis:
+
+```lua
+local _, state, memberCount, revision =
+  os.pullEvent("cc_aeroworks_console_changed")
+```

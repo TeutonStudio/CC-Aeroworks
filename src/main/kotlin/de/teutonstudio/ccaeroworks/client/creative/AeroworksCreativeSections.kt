@@ -30,7 +30,10 @@ object AeroworksCreativeSections {
             BuiltInRegistries.ITEM.getKey(it.item).namespace == CCAeroworks.MOD_ID
         }
         val bridgeItems = registeredBridgeItems.toMutableList()
-        if (bridgeItems.none { it.`is`(CCItems.GUIDE_BOOK.get()) }) bridgeItems += CCItems.GUIDE_BOOK.get().defaultInstance
+        appendMissing(bridgeItems, CCItems.COMPUTER_CONTROL_DESK.get().defaultInstance)
+        appendMissing(bridgeItems, CCItems.ADVANCED_COMPUTER_CONTROL_DESK.get().defaultInstance)
+        appendMissing(bridgeItems, CCItems.GUIDE_BOOK.get().defaultInstance)
+
         val arranged = mutableListOf<ItemStack>()
         sectionRows.clear()
         appendSection(arranged, "aeroworks", aeroworksItems)
@@ -53,7 +56,6 @@ object AeroworksCreativeSections {
             val visibleRow = absoluteRow - currentRow
             if (visibleRow !in 0 until VISIBLE_ROWS) return@forEach
             val y = top + visibleRow * BANNER_HEIGHT
-            // Fully opaque so the category row does not expose vanilla inventory-slot graphics.
             val background = if (id == "aeroworks") 0xFF5A3A20.toInt() else 0xFF1F4B59.toInt()
             val border = if (id == "aeroworks") 0xFFFFC66D.toInt() else 0xFF79D7EE.toInt()
             event.guiGraphics.fill(left, y, left + BANNER_WIDTH, y + BANNER_HEIGHT, background)
@@ -67,6 +69,10 @@ object AeroworksCreativeSections {
                 true
             )
         }
+    }
+
+    private fun appendMissing(target: MutableList<ItemStack>, stack: ItemStack) {
+        if (target.none { ItemStack.isSameItemSameComponents(it, stack) }) target += stack
     }
 
     private fun appendSection(target: MutableList<ItemStack>, id: String, items: List<ItemStack>) {

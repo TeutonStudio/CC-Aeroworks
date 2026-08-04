@@ -1,6 +1,7 @@
 package de.teutonstudio.ccaeroworks.compat.computercraft
 
 import de.teutonstudio.ccaeroworks.CCAeroworks
+import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskSockets
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.event.tick.ServerTickEvent
 import java.util.concurrent.ConcurrentHashMap
@@ -23,21 +24,26 @@ object ControlDeskPeripheralState {
             val current = peripheral.snapshotInputs()
             val previous = peripheral.lastInputs
             peripheral.lastInputs = current
+
             if (previous != null) {
-                current.forEach { (socket, channels) ->
-                    val oldChannels = previous[socket]
-                    channels.forEach { (channel, value) ->
-                        if (oldChannels?.get(channel) != value) {
-                            val module = peripheral.validDesk()?.module(socket) ?: return@forEach
+                val sockets = previous.keys + current.keys
+                sockets.forEach { socket ->
+                    val oldModule = previous[socket]
+                    val newModule = current[socket]
+                    val channels = oldModule?.channels.orEmpty().keys + newModule?.channels.orEmpty().keys
+                    channels.forEach { channel ->
+                        val oldValue = oldModule?.channels?.get(channel)
+                        val newValue = newModule?.channels?.get(channel)
+                        if (oldValue != newValue) {
                             peripheral.computers.forEach { computer ->
                                 computer.queueEvent(
                                     CCAeroworks.INPUT_EVENT,
                                     computer.attachmentName,
                                     socket,
-                                    de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksModuleAccess.id(module).toString(),
-                                    value,
+                                    newModule?.moduleId ?: oldModule?.moduleId.orEmpty(),
+                                    newValue,
                                     channel,
-                                    de.teutonstudio.ccaeroworks.compat.aeroworks.DeskSockets.name(socket)
+                                    DeskSockets.name(socket)
                                 )
                             }
                         }

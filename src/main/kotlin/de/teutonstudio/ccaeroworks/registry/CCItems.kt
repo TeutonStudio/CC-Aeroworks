@@ -5,6 +5,7 @@ import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.item.GuideBookContent
 import de.teutonstudio.ccaeroworks.item.GuideBookItem
 import net.minecraft.core.component.DataComponents
+import net.minecraft.world.item.BlockItem
 import net.minecraft.world.item.Item
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.neoforge.registries.DeferredItem
@@ -24,6 +25,18 @@ object CCItems {
     val THREE_DIGIT_DISPLAY: DeferredItem<ModuleItem> = ITEMS.register(
         "three_digit_display",
         Supplier { ModuleItem(CCModuleTypes.THREE_DIGIT, Item.Properties()) }
+    )
+
+    @JvmField
+    val COMPUTER_CONTROL_DESK: DeferredItem<BlockItem> = ITEMS.register(
+        "computer_control_desk",
+        Supplier { BlockItem(CCBlocks.COMPUTER_CONTROL_DESK.get(), Item.Properties().stacksTo(1)) }
+    )
+
+    @JvmField
+    val ADVANCED_COMPUTER_CONTROL_DESK: DeferredItem<BlockItem> = ITEMS.register(
+        "advanced_computer_control_desk",
+        Supplier { BlockItem(CCBlocks.ADVANCED_COMPUTER_CONTROL_DESK.get(), Item.Properties().stacksTo(1)) }
     )
 
     @JvmField

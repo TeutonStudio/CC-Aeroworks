@@ -1,59 +1,35 @@
 # Implementation Log
 
-## Architektur
+## Computer-Steuerungspult
 
-Pfad A wurde umgesetzt: Die Displaymodule werden über Aeroworks `ModuleTypes.register(ResourceLocation, ModuleType.Builder)` registriert. Es gibt keine Enum-Erweiterung, Reflection, Access Transformer oder `@Overwrite`.
+Die beiden Computer-Steuerungspulte sind Aeroworks-`ConsoleDeskBlock`-Unterklassen. Ihre BlockEntity erweitert `ConsoleBlockEntity` und hostet per Komposition einen CC:Tweaked-`ServerComputer`.
 
-Die Displaywerte liegen im von Aeroworks bereits persistent gespeicherten und synchronisierten `MountedModule.customName`. `ConsoleBlockEntity.setModuleName` markiert die BlockEntity und sendet deren Daten. Socket und Displayvariante werden nicht doppelt gespeichert.
+Die CC-Abhängigkeit auf Klassen unter `dan200.computercraft.shared` ist bewusst in den Paketen `computer`, `recipe` und den entsprechenden Registrierungen konzentriert. Diese Klassen sind keine stabile öffentliche API; unterstützt wird der deklarierte Versionsbereich 1.119.x bis vor 1.121.
 
-Textzustände bleiben direkt lesbarer Text. Pixelzustände verwenden im selben Feld das versionierte Präfix `@cca_pixels_1:` und ein validiertes zeilenweises Bitraster. Damit gibt es weiterhin nur eine persistente Quelle. Zweisteller nutzen `7x5`, Dreisteller `11x5` Pixel. Fallback- und Flywheel-Pfad teilen Positionierung und eigenes Pixelmodell.
+## Multiblock
 
-Aeroworks nimmt registrierte `ModuleItem`s selbst in seinen Creative Tab auf. Ein zusätzlicher `BuildCreativeModeTabContentsEvent`-Eintrag wurde nach einem Dedicated-Server-Test entfernt, weil er die Items doppelt einfügte. Clientseitig wird der vorhandene Aeroworks-Tab nun nach dem Vorbild der Simulated-Kategorieschilder in die Abschnitte `Aeroworks` und `CC-Aeroworks` gegliedert. Ein `@WrapMethod` auf `CreativeModeTab.buildContents` ordnet nur diesen bestätigten Tab um; Accessors ersetzen dessen Anzeigeliste und lesen den Scrollwert. Die Kategorieflächen werden vollständig deckend nach dem Slotrendering gezeichnet, sodass darunter keine Slotgrafik sichtbar bleibt. Fremde Tabs und die eigentliche Aeroworks-Itemregistrierung bleiben unverändert.
+`ConsoleMultiblockResolver` leitet eine gleich ausgerichtete Links-rechts-Reihe aus geladenen Blöcken ab. `ConsoleMultiblockManager` cached Snapshots und invalidiert sie bei Block- und Chunkänderungen.
 
-Die Sockettypen werden bereits bei `ModuleType.builder(SocketType...)` eingeschränkt: `TWO_DIGIT` nennt explizit `AeroworksSocketTypes.SMALL` und `LARGE`, `THREE_DIGIT` ausschließlich `LARGE`. Damit passt die zweistellige Anzeige in kleine und große, die dreistellige nur in große Desk-Sockets.
+Mehrere Computer erzeugen einen Konflikt. Ein zufälliger primärer Computer wird nicht ausgewählt.
 
-Das Desk-Peripheral wird ausschließlich für den bestätigten BlockEntityType `aeroworks:console` über `RegisterCapabilitiesEvent.registerBlockEntity` und `PeripheralCapability.get()` bereitgestellt. Eine `WeakHashMap` erhält Identität ohne Weltreferenzleck; das Peripheral selbst hält die BlockEntity schwach. Alle Lua-Weltzugriffe sind mit `mainThread = true` annotiert.
+## Lua
 
-Aeroworks 1.3.0 verwendet für Analogquellen freie `String`-Werte und keine geschlossene Registry oder ein Enum. Deshalb ergänzt `cc_aeroworks.combined` den Modulbildschirm als dritten Zustand für `aeroworks:lever`, `aeroworks:joystick` (`x`, `y`) sowie die vier bestätigten Throttle-Quadrant-Kanäle `red`, `amber`, `green`, `blue`. Gezielte Invoker auf `modeToggleAt`, `bindAreaAt`, `analogDriven`, `sendAnalogSource`, `sendBind`, `sendChannelFlag`, `bindFor` und `module` erweitern den Zyklus zu `Buttons -> Analog -> Kombiniert -> Buttons`. In diesem Zustand dient die vorhandene negative Tastenbindung der Achse als persistent gespeicherte Aktivierungstaste; das mittlere Feld erfasst und zeigt diese Taste. Joystick `x` verarbeitet Maus X, alle übrigen unterstützten Kanäle Maus Y. `InputSource.displayName(String)` erhält nur für die eigene Quellen-ID einen übersetzten Namen. Client-Zielerfassung und Server-Payload akzeptieren nur explizit unterstützte Module/Kanäle mit `ANALOG_ACTIVE` und exakt dieser Quelle.
+`CCComputerComponents.CONSOLE` wird nur den eingebetteten `ServerComputer.Properties` hinzugefügt. Die über `ComputerCraftAPI.registerAPIFactory` registrierte API wird deshalb auf gewöhnlichen Computern nicht erzeugt.
 
-Die Client-Zielstruktur enthält eine Liste von Achsenzuständen. Nach Erkennung einer gehaltenen Aktivierungstaste werden alle kombinierten Kanäle desselben Moduls mit exakt diesem Binding aufgenommen. Dadurch verarbeitet ein Joystick mit identischer X-/Y-Taste beide Mausdeltas parallel. Die serverseitige Rate-Limit-ID enthält Spieler, Deskposition, Socket und Kanal; zwei gültige Achsenpakete desselben Spielers im selben Tick blockieren einander daher nicht.
+## Gemeinsamer Desk-Service
 
-Die drei Desk-Anschlüsse heißen in der CC-API `left`, `right` und `big`; sie entsprechen den Aeroworks-Socketindizes `0`, `1` und `2`. Diese Reihenfolge wurde direkt an `AeroworksConsoles.DESK` bestätigt: zwei `SMALL`-Sockets links/rechts und ein mittiger `LARGE`-Socket. Lua-Aufrufe akzeptieren sowohl diese Namen als auch die bisherigen numerischen Indizes. `getSockets()`, Modul-/Displaybeschreibungen und das Eingabeereignis geben den Namen zusätzlich aus.
+`AeroworksDeskService` enthält Socketvalidierung, Modulbeschreibung, Eingabeabfrage und sämtliche Displayoperationen. `ControlDeskPeripheral` und `ComputerConsoleLuaApi` delegieren dorthin.
 
-Bei der Zielerfassung wird Aeroworks' private Methode `ConsoleBlockEntity.nearestMount(Vec3, Vec3, Predicate)` über einen kleinen Invoker wiederverwendet. Der Predicate lässt vor der eigentlichen Nächster-Treffer-Auswahl nur belegte Top-Level-Mounts mit mindestens einem aktiven `Kombiniert`-Kanal und aktuell gehaltener Aktivierungstaste zu. Damit kann ein naher, aber nicht passender Lever im jeweils anderen kleinen Slot den tatsächlich anvisierten Lever nicht mehr verdrängen. Aeroworks' eigener Raycast einschließlich der von ihm genutzten Sable-Transformation bleibt erhalten.
+## Persistenz
 
-Der Throttle Quadrant wird über Modulraycast plus Aktivierungstaste aufgelöst. Weil jeder seiner vier Kanäle eine eigene Taste besitzt, ist kein fragiler geometrischer Raycast gegen die vier beweglichen Teilmodelle nötig. Die Payload überträgt den Kanalnamen; der Server prüft ihn gegen die feste, aus der Aeroworks-JAR bestätigte Kanalliste, bevor er `setChannelFromController` aufruft.
+Aeroworks behält die Verantwortung für `controller_contents`. Eigene Data Components speichern Desk-ID und Einschaltzustand; CC:Tweakeds bestehende Komponenten speichern Computer-ID, Terminalgröße und Kapazität.
 
-Das Guide-Book ist ein registriertes Vanilla-`WrittenBookItem` mit `WrittenBookContent` aus acht übersetzten Component-Seiten als Datenfallback. Es benötigt keine optionale Dokumentationsmod und referenziert für das Item lediglich das Vanilla-Modell `minecraft:item/written_book`. Der Creative-Tab-Ordner fügt dessen Default-Stack genau einmal in den Abschnitt `CC-Aeroworks` ein. Weil `ServerPlayer.openItemGui` in Minecraft 1.21.1 hart auf exakt `Items.WRITTEN_BOOK` prüft, öffnet ein ausschließlich clientseitig registrierter `RightClickItem`-Handler `GuideBookScreen`; dadurch bleiben Clientklassen vom Dedicated Server getrennt. Die eigene Oberfläche bietet sieben lokalisierte Kapitel, Codeblöcke, Hinweise, Sidebar-, Vor/Zurück- und Scrollnavigation in einem skalierenden Cockpit-Layout.
-
-`GuideBookScreen.render` zeichnet Hintergrund und Dokumentation vollständig selbst. Es ruft weder `Screen.renderBackground` noch `super.render` auf: Beide Wege würden in Vanilla 1.21.1 letztlich `GameRenderer.processBlurEffect` ausführen, wobei der spätere `super.render` die bereits gezeichnete Oberfläche selbst weichzeichnete.
+Das Spezialrezept kopiert alle Komponenten beider Eingaben.
 
 ## Rendering
 
-Aeroworks rendert den statischen, eigenen Modulgrundkörper regulär als `ModulePart`. Dynamische Siebensegmentteile werden im Fallback am Ende von `ConsoleRenderer.renderSafe` ergänzt. Der Flywheel-Pfad ergänzt ausschließlich CC-Aeroworks-Displays am Ende von `ConsoleVisual` und verwaltet eigene `TransformedInstance`s. Beide Hooks ersetzen keinen fremden Renderer.
-
-Auch die Mixins wurden nach Kotlin migriert. Die Deskriptoren der vier Render-/Eingabemixins wurden mit
-`javap -p -s -v` geprüft und diese Mixins anschließend durch einen Clientstart angewendet. Der
-statische Analog-Handler verwendet ein `private companion object` mit `@JvmStatic`; dadurch bleibt
-die erzeugte Companion-Referenz privat und erfüllt Mixins Feldvalidierung. Zielmethoden:
-
-- `ConsoleRenderer.renderSafe(ConsoleBlockEntity,float,PoseStack,MultiBufferSource,int,int)` bei `TAIL`.
-- Konstruktor und Lebenszyklusmethoden von `ConsoleVisual`; keine pauschale Render-Injection.
-- `ConsoleControlClient.feedMouseDelta(DD)V` und `JoystickControlClient.feedMouseDelta(DD)V` bei `HEAD`, nur während des gültigen Combined-Lever-Modus.
-- Invoker auf `ConsoleBlockEntity.nearestMount(Vec3,Vec3,Predicate)` zur vorgefilterten Verwendung des originalen Desk-/Sable-Hit-Tests.
-- Accessor auf `MouseHandler.accumulatedDY` für das bestätigte `CalculatePlayerTurnEvent`.
-- `CreativeModeTab.buildContents(ItemDisplayParameters)` über MixinExtras `@WrapMethod`, beschränkt durch die bestätigte Aeroworks-Tab-ID; zwei Vanilla-Accessors setzen `displayItems` beziehungsweise lesen `scrollOffs`.
-- `ModuleScreen.mouseClicked(DDI)Z` und `renderModeTooltip(GuiGraphics,III)V` jeweils bei `HEAD`, nur für `aeroworks:lever`; private Aeroworks-Helfer werden über Invoker aufgerufen.
-- `InputSource.displayName(String)` bei `HEAD`, nur für die eigene Quellen-ID `cc_aeroworks.combined`.
-
-Alle Fremdmodziele verwenden `remap = false`; Vanilla-Zugriffe werden remappt. Fehlschlagende Kernmixins sind absichtlich nicht still optional.
-
-## Versionsentscheidung
-
-Kotlin 2.2.20 und das NeoForge-Artefakt `kotlinforforge-neoforge:5.11.0` wurden aus einer lokalen funktionierenden 1.21.1-Konfiguration übernommen. NeoForge ist auf 21.1.228 gepinnt: Aeronautics/Sable verlangen mindestens 21.1.228; Create 6.0.10 startet damit. Unter 21.1.231 scheiterte Create 6.0.10 in Registrate an ungenutzten Callback-Prüfungen.
-
-Drive By Wire ist eine optionale Laufzeitintegration. Die lokal untersuchte `drivebywire-0.2.9.jar` deklariert die Mod-ID `drivebywire`, Minecraft 1.21.1 und NeoForge; deshalb ist `[0.2.9,0.3)` als optionale Abhängigkeit eingetragen. Aeroworks aktiviert bei Anwesenheit seine eigene konditionale Konfiguration `aeroworks-drivebywire.mixins.json`. CC-Aeroworks importiert keine Drive-By-Wire-Klassen und bleibt ohne die Mod startfähig.
+Der eigene BlockEntityRenderer delegiert Aeroworks' `ConsoleRenderer` über eine kleine reflektive Konstruktorgrenze. Damit ist der klassische Renderpfad abgedeckt. Eine native Flywheel-Visual-Registrierung ist noch nicht als verifiziert markiert.
 
 ## Laufzeitstatus
 
-Client-Modloading, Registry-Phase, Mixins und Ressourcen-Reload liefen bis ins Hauptmenü. Dabei wurden auch `ModuleScreenCombinedInputMixin`, dessen Invoker/Accessor, `InputSourceMixin` und `ConsoleBlockEntityInvoker` nachweislich angewendet. Der Dedicated Server erreichte mit dem gemeinsamen Desk-Invoker ebenfalls `Done`. Interaktive Weltprüfungen sind in `manual-test-plan.md` offen und werden nicht als abgeschlossen bezeichnet.
+Der Quellstand wurde ohne die lokal erforderlichen Fremdmod-JARs erstellt. JSON-Ressourcen und Struktur wurden statisch validiert. Gradle-, Client-, Server- und Ingame-Prüfung sind offen.

@@ -1,13 +1,10 @@
 package de.teutonstudio.ccaeroworks.registry
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import com.simibubi.create.api.behaviour.display.DisplayTarget
 import com.simibubi.create.api.registry.CreateRegistries
 import de.teutonstudio.ccaeroworks.CCAeroworks
+import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
 import de.teutonstudio.ccaeroworks.display.DeskDisplayTarget
-import net.minecraft.core.registries.BuiltInRegistries
-import net.minecraft.resources.ResourceLocation
-import net.minecraft.world.level.block.entity.BlockEntityType
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent
 import net.neoforged.neoforge.registries.DeferredHolder
@@ -29,12 +26,16 @@ object CCDisplayTargets {
         bus.addListener(::commonSetup)
     }
 
-    @Suppress("UNCHECKED_CAST")
     private fun commonSetup(event: FMLCommonSetupEvent) {
         event.enqueueWork {
-            val id = ResourceLocation.fromNamespaceAndPath("aeroworks", "console")
-            val type = BuiltInRegistries.BLOCK_ENTITY_TYPE.get(id) as BlockEntityType<ConsoleBlockEntity>
-            DisplayTarget.BY_BLOCK_ENTITY.register(type, CONTROL_DESK.get())
+            DisplayTarget.BY_BLOCK_ENTITY.register(
+                AeroworksTypes.consoleBlockEntityType(),
+                CONTROL_DESK.get()
+            )
+            DisplayTarget.BY_BLOCK_ENTITY.register(
+                CCBlockEntities.COMPUTER_CONTROL_DESK.get(),
+                CONTROL_DESK.get()
+            )
         }
     }
 }
