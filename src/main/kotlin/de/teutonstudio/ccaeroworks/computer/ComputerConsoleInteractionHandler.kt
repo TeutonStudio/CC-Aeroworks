@@ -30,10 +30,7 @@ object ComputerConsoleInteractionHandler {
         val heldItem = event.itemStack.item
         if (heldItem is WrenchItem) {
             if (event.face?.axis?.isHorizontal == true) {
-                // Horizontal wrench clicks are reserved for the Aeroworks control UI.
-                // Suppress the wrench's rotation path and force the block interaction.
-                event.setUseItem(TriState.FALSE)
-                event.setUseBlock(TriState.TRUE)
+                openControlConfiguration(event)
             } else {
                 // Top and bottom retain normal Create wrench behaviour. Prevent a failed
                 // wrench action from falling through into the control configuration UI.
@@ -54,6 +51,23 @@ object ComputerConsoleInteractionHandler {
             // the control configuration UI after their own interaction passes.
             event.setUseBlock(TriState.FALSE)
         }
+    }
+
+    private fun openControlConfiguration(event: PlayerInteractEvent.RightClickBlock) {
+        // Aeroworks opens the configuration UI through the empty-hand block path. A held
+        // wrench prevents vanilla from reaching that path, so invoke it explicitly and
+        // consume the event before Create can rotate the desk.
+        val result = event.level.getBlockState(event.pos).useWithoutItem(
+            event.level,
+            event.entity,
+            event.hitVec
+        )
+        event.cancellationResult = if (result.consumesAction()) {
+            result
+        } else {
+            InteractionResult.SUCCESS
+        }
+        event.isCanceled = true
     }
 
     private fun openComputerTerminal(event: PlayerInteractEvent.RightClickBlock): Boolean {
