@@ -1,6 +1,5 @@
 package de.teutonstudio.ccaeroworks.computer
 
-import com.mred231.aeroworks.content.controls.ModuleItem
 import com.simibubi.create.content.equipment.wrench.WrenchItem
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
@@ -27,39 +26,29 @@ object ComputerConsoleInteractionHandler {
             return
         }
 
-        val heldItem = event.itemStack.item
-        if (heldItem is WrenchItem) {
+        if (event.itemStack.item is WrenchItem) {
             if (event.face?.axis?.isHorizontal == true) {
-                openControlConfiguration(event)
+                openControlDefinition(event)
             } else {
-                // Top and bottom retain normal Create wrench behaviour. Prevent a failed
-                // wrench action from falling through into the control configuration UI.
+                // Top and bottom retain the normal Create wrench rotation. Prevent the
+                // Aeroworks block interaction from consuming the click before the wrench runs.
                 event.setUseBlock(TriState.FALSE)
             }
             return
         }
 
-        if (event.itemStack.isEmpty) {
-            // Bare interaction no longer opens the control configuration UI. Sneak + bare
-            // main hand was handled above and remains reserved for the computer terminal.
-            consume(event)
-            return
-        }
-
-        if (heldItem !is ModuleItem) {
-            // Preserve item-specific use while preventing unrelated held items from opening
-            // the control configuration UI after their own interaction passes.
-            event.setUseBlock(TriState.FALSE)
-        }
+        // All other right-clicks, including the empty-hand control interaction and module
+        // installation/removal, are native Aeroworks behaviour and must not be consumed here.
     }
 
-    private fun openControlConfiguration(event: PlayerInteractEvent.RightClickBlock) {
-        // Aeroworks opens the configuration UI through the empty-hand block path. A held
-        // wrench prevents vanilla from reaching that path, so invoke it explicitly and
-        // consume the event before Create can rotate the desk.
-        val result = event.level.getBlockState(event.pos).useWithoutItem(
+    private fun openControlDefinition(event: PlayerInteractEvent.RightClickBlock) {
+        // The control definition is the held-item block path. Invoke it before Create's wrench
+        // use rotates the desk, then consume the original event so both actions cannot occur.
+        val result = event.level.getBlockState(event.pos).useItemOn(
+            event.itemStack,
             event.level,
             event.entity,
+            event.hand,
             event.hitVec
         )
         event.cancellationResult = if (result.consumesAction()) {
