@@ -8,6 +8,8 @@ data class LuaModuleSnapshot(
     val displayWidth: Int? = null,
     val displayText: String? = null,
     val displayPixels: List<String>? = null,
+    val displayPixelWidth: Int? = null,
+    val displayPixelHeight: Int? = null,
     val socketName: String = de.teutonstudio.ccaeroworks.compat.aeroworks.DeskSockets.name(socket)
 )
 
@@ -28,6 +30,14 @@ object LuaModuleDescription {
             put("width", module.displayWidth)
             put("text", module.displayText.orEmpty())
             put("mode", if (module.displayPixels == null) "text" else "pixels")
+            module.displayPixelWidth?.let {
+                put("pixelWidth", it)
+                put("PIXEL_WIDTH", it)
+            }
+            module.displayPixelHeight?.let {
+                put("pixelHeight", it)
+                put("PIXEL_HEIGHT", it)
+            }
             if (module.displayPixels != null) put("pixels", module.displayPixels)
         } else if (module.values.size == 1) {
             put("value", module.values.values.first())
