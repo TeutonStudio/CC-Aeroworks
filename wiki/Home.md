@@ -4,16 +4,19 @@ CC-Aeroworks verbindet die Steuerungspulte aus Create: Aeroworks mit CC:Tweaked.
 
 ## Einstieg
 
-- [[Computer-Steuerungspulte]] erklärt Crafting, Bedienung, Multiblocks und die beiden Computer-Zugriffswege.
-- [[Programmierbare-Displays]] beschreibt Text-, Zahlen- und Pixelmodus samt Lua-Beispielen.
+- [[Bedienung]] erklärt Computerterminal, normale Steuerung, Steuerungseinstellungen und Ponder.
+- [[Computer-Steuerungspulte]] erklärt Crafting, Multiblocks und den Schutz vor mehreren eingebetteten Computern.
+- [[API-Schnellreferenz]] trennt direkte `aeroworks`-API und externes Peripheral.
+- [[Programmierbare-Displays]] beschreibt Text-, Zahlen- und Pixelmodus.
 - [[Kombinierte-Eingabe]] erklärt Einrichtung und Bedienung des Halte-zu-Steuern-Modus.
-- [[API-Schnellreferenz]] fasst Sockets, Methoden, Ereignisse und Fehlerzustände zusammen.
 
-## Zwei Zugriffswege
+## Einen Zugriffsweg wählen
+
+Ein Steuerungspult-Multiblock benötigt genau **einen Steuerungsweg**:
 
 ### Eingebetteter Computer
 
-Ein Computer-Steuerungspult enthält einen normalen oder erweiterten CC:Tweaked-Computer. Im Terminal steht die globale API `aeroworks` bereit:
+Ein normales oder erweitertes Computer-Steuerungspult verwaltet den gesamten Multiblock. Im Terminal steht die globale API `aeroworks` bereit:
 
 ```lua
 local desks = aeroworks.getDesks()
@@ -22,15 +25,11 @@ assert(#desks > 0, "Kein Steuerungspult gefunden")
 aeroworks.setDisplayText(desks[1].id, "big", "123")
 ```
 
-Dafür sind weder Modem noch `peripheral.find` oder `peripheral.wrap` erforderlich. Dasselbe API-Objekt kann alternativ geladen werden:
-
-```lua
-local aeroworks = require("cc_aeroworks.aeroworks")
-```
+Dafür sind weder Modem noch `peripheral.find` oder `peripheral.wrap` erforderlich.
 
 ### Externer Computer
 
-Ein gewöhnlicher CC:Tweaked-Computer oder ein Wired Modem kann mit einem beliebigen Pult des Multiblocks verbunden werden:
+Alternativ wird ein gewöhnlicher CC:Tweaked-Computer direkt oder über ein Wired Modem mit **einem beliebigen Pult** verbunden:
 
 ```lua
 local console = peripheral.find("cc_aeroworks_control_desk")
@@ -41,7 +40,29 @@ for _, desk in ipairs(console.getDesks()) do
 end
 ```
 
-Eine einzige Verbindung reicht für den vollständigen direkt verbundenen Multiblock. Die älteren Einzelpultmethoden bleiben erhalten und beziehen sich weiterhin nur auf das physisch angeschlossene Pult.
+Eine einzige Verbindung reicht für den direkt verbundenen Multiblock. Weitere externe Computer dürfen dasselbe Peripheral-Netzwerk beobachten; die Ein-Computer-Regel betrifft eingebettete Computer-Steuerungspulte.
+
+## Bedienung in drei Zeilen
+
+| Aktion | Eingabe |
+|---|---|
+| Eingebetteten Computer öffnen | Schleichen + Rechtsklick mit leerer Haupthand auf ein beliebiges Pult |
+| Montierte Steuerung bedienen | Normaler Rechtsklick auf das Modul |
+| Steuerungseinstellungen öffnen | Create-Schraubenschlüssel + Rechtsklick auf eine horizontale Pultseite |
+
+Im Inventar oder Rezeptbetrachter kann über beiden Computer-Steuerungspultvarianten **W gehalten** werden, um die Create-Ponder-Erklärung zu öffnen.
+
+## Multiblock-Grundregeln
+
+Gleich ausgerichtete Steuerungspulte verbinden sich unmittelbar links und rechts zu einem linearen Multiblock. Normale Aeroworks-Pulte und beide Computer-Steuerungspultvarianten dürfen gemischt werden.
+
+- maximal 64 Mitglieder
+- keine automatische Chunk-Nachladung
+- teilweise geladene Netzwerke werden abgelehnt
+- höchstens ein eingebetteter Computer
+- ein versehentlich in Survival platziertes zweites Computerpult wird zu einem normalen Pult; der zusätzliche Computer wird mit ID und Label ausgeworfen
+- in Creative wird eine konfliktverursachende Platzierung abgebrochen, damit keine Computer-ID dupliziert wird
+- Konflikte aus Altwelten, Befehlen oder Strukturwerkzeugen bleiben als diagnostizierbarer Sicherheitszustand erhalten
 
 ## Wichtige Begriffe
 
@@ -54,40 +75,6 @@ Eine einzige Verbindung reicht für den vollständigen direkt verbundenen Multib
 | Direkte API | Globale `aeroworks`-API des eingebetteten Computers |
 | Peripheral API | `cc_aeroworks_control_desk` für externe Computer |
 
-## Multiblock-Grundregeln
-
-Gleich ausgerichtete Steuerungspulte verbinden sich unmittelbar links und rechts zu einem linearen Multiblock. Normale Aeroworks-Pulte und beide Computer-Steuerungspultvarianten dürfen gemischt werden.
-
-- Maximal 64 Mitglieder
-- Keine automatische Chunk-Nachladung
-- Teilweise geladene Netzwerke werden abgelehnt
-- Mehrere eingebettete Computer im selben Multiblock erzeugen einen Konflikt
-- Externe Peripheral-Zugriffe bleiben auch im Konfliktfall nutzbar
-
-## Minimalbeispiel
-
-Das folgende Programm spiegelt einen numerischen Eingang des ersten Pults auf das große Display des letzten Pults:
-
-```lua
-local console = peripheral.find("cc_aeroworks_control_desk")
-assert(console, "Kein Steuerungspult verbunden")
-
-local desks = console.getDesks()
-assert(#desks > 0, "Leerer Multiblock")
-
-local source = desks[1]
-local target = desks[#desks]
-
-while true do
-  local _, _, deskId, _, _, _, value =
-    os.pullEvent("cc_aeroworks_multiblock_input")
-
-  if deskId == source.id and type(value) == "number" then
-    console.setDeskDisplayNumber(target.id, "big", value, false)
-  end
-end
-```
-
 ## Projektstatus
 
-CC-Aeroworks befindet sich noch in einer frühen Integrationsphase. Compiler- und statische Prüfungen ersetzen keine vollständigen Ingame-Tests für Rendering, Persistenz, bewegte Konstruktionen oder reale Multiblocks.
+CC-Aeroworks befindet sich noch in einer frühen Integrationsphase. Compiler- und statische Prüfungen ersetzen keine vollständigen Ingame-Tests für Rendering, Persistenz, Ponder, bewegte Konstruktionen oder reale Multiblocks.

@@ -20,12 +20,12 @@ object ControlDeskItemOrientation {
     fun modifyBakingResult(event: ModelEvent.ModifyBakingResult) {
         listOf(COMPUTER_ITEM_MODEL, ADVANCED_ITEM_MODEL).forEach { location ->
             val model = event.models[location] ?: return@forEach
-            event.models[location] = GuiRotatedItemModel(model)
+            event.models[location] = VerticallyRotatedItemModel(model)
         }
     }
 }
 
-private class GuiRotatedItemModel(
+private class VerticallyRotatedItemModel(
     private val delegate: BakedModel
 ) : BakedModelWrapper<BakedModel>(delegate) {
     override fun applyTransform(
@@ -38,9 +38,19 @@ private class GuiRotatedItemModel(
             poseStack,
             applyLeftHandTransform
         )
-        if (transformType == ItemDisplayContext.GUI) {
+        if (transformType in ROTATED_CONTEXTS) {
             poseStack.mulPose(Axis.YP.rotationDegrees(180.0F))
         }
-        return if (transformed === delegate) this else GuiRotatedItemModel(transformed)
+        return if (transformed === delegate) this else VerticallyRotatedItemModel(transformed)
+    }
+
+    private companion object {
+        val ROTATED_CONTEXTS: Set<ItemDisplayContext> = setOf(
+            ItemDisplayContext.GUI,
+            ItemDisplayContext.FIRST_PERSON_LEFT_HAND,
+            ItemDisplayContext.FIRST_PERSON_RIGHT_HAND,
+            ItemDisplayContext.THIRD_PERSON_LEFT_HAND,
+            ItemDisplayContext.THIRD_PERSON_RIGHT_HAND
+        )
     }
 }

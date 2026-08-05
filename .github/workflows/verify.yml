@@ -47,6 +47,9 @@ jobs:
       - name: Validate repository contract
         run: python3 tools/verify-repository.py
 
+      - name: Validate guide and Ponder resources
+        run: python3 tools/verify-guide.py
+
       - name: Compile Gradle bootstrap
         run: javac --release 21 gradle/wrapper/GradleBootstrap.java
 
