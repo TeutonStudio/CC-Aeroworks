@@ -92,7 +92,7 @@ abstract class ConsoleVisualMixin(
                     displayDigits += CCAeroworksDigit(
                         display.socket,
                         DeskDisplayRenderer.pixelOffsetX(display.pixels.width, x),
-                        DeskDisplayRenderer.pixelOffsetZ(y),
+                        DeskDisplayRenderer.pixelOffsetZ(display.pixels.height, y),
                         instance
                     )
                     relight(instance)
