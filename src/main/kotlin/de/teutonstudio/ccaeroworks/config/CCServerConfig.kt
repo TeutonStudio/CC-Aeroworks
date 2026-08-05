@@ -1,0 +1,62 @@
+package de.teutonstudio.ccaeroworks.config
+
+import de.teutonstudio.ccaeroworks.display.DeskDisplayType
+import net.neoforged.neoforge.common.ModConfigSpec
+
+object CCServerConfig {
+    private val builder = ModConfigSpec.Builder()
+
+    @JvmField
+    val smallDisplayPixelWidth: ModConfigSpec.IntValue
+
+    @JvmField
+    val smallDisplayPixelHeight: ModConfigSpec.IntValue
+
+    @JvmField
+    val largeDisplayPixelWidth: ModConfigSpec.IntValue
+
+    @JvmField
+    val largeDisplayPixelHeight: ModConfigSpec.IntValue
+
+    @JvmField
+    val SPEC: ModConfigSpec
+
+    init {
+        builder
+            .comment("Pixel resolutions used by programmable desk displays. This server config is synced to clients.")
+            .push("display")
+
+        builder.comment("Two-digit display resolution.").push("small")
+        smallDisplayPixelWidth = builder
+            .comment("Exact horizontal pixel count.")
+            .defineInRange("width", DeskDisplayType.DEFAULT_SMALL_PIXEL_WIDTH, 1, 64)
+        smallDisplayPixelHeight = builder
+            .comment("Exact vertical pixel count.")
+            .defineInRange("height", DeskDisplayType.DEFAULT_SMALL_PIXEL_HEIGHT, 1, 32)
+        builder.pop()
+
+        builder.comment("Three-digit display resolution.").push("large")
+        largeDisplayPixelWidth = builder
+            .comment("Exact horizontal pixel count.")
+            .defineInRange("width", DeskDisplayType.DEFAULT_LARGE_PIXEL_WIDTH, 1, 64)
+        largeDisplayPixelHeight = builder
+            .comment("Exact vertical pixel count.")
+            .defineInRange("height", DeskDisplayType.DEFAULT_LARGE_PIXEL_HEIGHT, 1, 32)
+        builder.pop()
+
+        builder.pop()
+        SPEC = builder.build()
+    }
+
+    @JvmStatic
+    fun pixelWidth(type: DeskDisplayType): Int = when (type) {
+        DeskDisplayType.TWO_DIGIT -> smallDisplayPixelWidth.get()
+        DeskDisplayType.THREE_DIGIT -> largeDisplayPixelWidth.get()
+    }
+
+    @JvmStatic
+    fun pixelHeight(type: DeskDisplayType): Int = when (type) {
+        DeskDisplayType.TWO_DIGIT -> smallDisplayPixelHeight.get()
+        DeskDisplayType.THREE_DIGIT -> largeDisplayPixelHeight.get()
+    }
+}
