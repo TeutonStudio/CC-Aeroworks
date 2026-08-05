@@ -50,13 +50,19 @@ object CCServerConfig {
 
     @JvmStatic
     fun pixelWidth(type: DeskDisplayType): Int = when (type) {
-        DeskDisplayType.TWO_DIGIT -> smallDisplayPixelWidth.get()
-        DeskDisplayType.THREE_DIGIT -> largeDisplayPixelWidth.get()
+        DeskDisplayType.TWO_DIGIT -> smallDisplayPixelWidth.loadedOr(DeskDisplayType.DEFAULT_SMALL_PIXEL_WIDTH)
+        DeskDisplayType.THREE_DIGIT -> largeDisplayPixelWidth.loadedOr(DeskDisplayType.DEFAULT_LARGE_PIXEL_WIDTH)
     }
 
     @JvmStatic
     fun pixelHeight(type: DeskDisplayType): Int = when (type) {
-        DeskDisplayType.TWO_DIGIT -> smallDisplayPixelHeight.get()
-        DeskDisplayType.THREE_DIGIT -> largeDisplayPixelHeight.get()
+        DeskDisplayType.TWO_DIGIT -> smallDisplayPixelHeight.loadedOr(DeskDisplayType.DEFAULT_SMALL_PIXEL_HEIGHT)
+        DeskDisplayType.THREE_DIGIT -> largeDisplayPixelHeight.loadedOr(DeskDisplayType.DEFAULT_LARGE_PIXEL_HEIGHT)
+    }
+
+    private fun ModConfigSpec.IntValue.loadedOr(defaultValue: Int): Int = try {
+        get()
+    } catch (_: IllegalStateException) {
+        defaultValue
     }
 }
