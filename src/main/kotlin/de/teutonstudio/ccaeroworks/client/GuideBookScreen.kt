@@ -2,6 +2,7 @@ package de.teutonstudio.ccaeroworks.client
 
 import de.teutonstudio.ccaeroworks.client.guide.GuideBookContent
 import de.teutonstudio.ccaeroworks.client.guide.GuideEntry
+import de.teutonstudio.ccaeroworks.client.guide.PixelEditorPanel
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
@@ -11,6 +12,7 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
     private var sectionIndex: Int = 0
     private var scroll: Int = 0
     private var measuredContentHeight: Int = 0
+    private val pixelEditorPanel = PixelEditorPanel()
 
     override fun isPauseScreen(): Boolean = false
 
@@ -31,7 +33,7 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
         if (layout.width >= 380) graphics.drawString(font, "API DOCS", layout.right - 62, layout.top + 11, MUTED, false)
 
         renderSidebar(graphics, layout, mouseX, mouseY)
-        renderSection(graphics, layout)
+        renderSection(graphics, layout, mouseX, mouseY)
         renderFooter(graphics, layout, mouseX, mouseY)
         // There are no vanilla widgets to render. Calling super.render() would invoke
         // Screen.renderBackground() and apply the blur shader after drawing this UI.
@@ -67,7 +69,7 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
         }
     }
 
-    private fun renderSection(graphics: GuiGraphics, layout: Layout) {
+    private fun renderSection(graphics: GuiGraphics, layout: Layout, mouseX: Int, mouseY: Int) {
         val x = layout.contentLeft + 14
         val width = layout.right - x - 14
         val clipTop = layout.headerBottom + 7
@@ -79,14 +81,22 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
         graphics.drawString(font, Component.translatable(section.titleKey), x, y, GOLD, false)
         y += 18
         section.entries.forEach { entry ->
-            y += renderEntry(graphics, entry, x, y, width)
+            y += renderEntry(graphics, entry, x, y, width, mouseX, mouseY)
         }
         measuredContentHeight = y + scroll - clipTop
         graphics.disableScissor()
         clampScroll(layout)
     }
 
-    private fun renderEntry(graphics: GuiGraphics, entry: GuideEntry, x: Int, y: Int, width: Int): Int = when (entry) {
+    private fun renderEntry(
+        graphics: GuiGraphics,
+        entry: GuideEntry,
+        x: Int,
+        y: Int,
+        width: Int,
+        mouseX: Int,
+        mouseY: Int
+    ): Int = when (entry) {
         is GuideEntry.Text -> drawWrapped(graphics, Component.translatable(entry.key), x, y, width, TEXT, 10) + 6
         is GuideEntry.Note -> renderCallout(graphics, entry.key, x, y, width, NOTE_BG, GOLD, NOTE_TEXT)
         is GuideEntry.Warning -> renderCallout(graphics, entry.key, x, y, width, WARNING_BG, WARNING, WARNING_TEXT)
@@ -101,6 +111,7 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
             }
             height + 7
         }
+        GuideEntry.PixelEditor -> pixelEditorPanel.render(graphics, font, x, y, width, mouseX, mouseY) + 7
     }
 
     private fun renderCallout(
@@ -148,8 +159,13 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
     }
 
     override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
-        if (button != 0) return super.mouseClicked(mouseX, mouseY, button)
         val layout = layout()
+        if (activeSectionHasPixelEditor() && layout.containsContent(mouseX, mouseY) &&
+            pixelEditorPanel.mouseClicked(mouseX, mouseY, button)
+        ) {
+            return true
+        }
+        if (button != 0) return super.mouseClicked(mouseX, mouseY, button)
         GuideBookContent.sections.indices.firstOrNull { index ->
             val y = layout.headerBottom + 9 + index * TAB_HEIGHT
             mouseX >= layout.left + 5 && mouseX < layout.contentLeft - 5 &&
@@ -175,6 +191,22 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
         return super.mouseClicked(mouseX, mouseY, button)
     }
 
+    override fun mouseDragged(
+        mouseX: Double,
+        mouseY: Double,
+        button: Int,
+        dragX: Double,
+        dragY: Double
+    ): Boolean {
+        if (activeSectionHasPixelEditor() && pixelEditorPanel.mouseDragged(mouseX, mouseY, button)) return true
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY)
+    }
+
+    override fun mouseReleased(mouseX: Double, mouseY: Double, button: Int): Boolean {
+        if (pixelEditorPanel.mouseReleased()) return true
+        return super.mouseReleased(mouseX, mouseY, button)
+    }
+
     override fun mouseScrolled(mouseX: Double, mouseY: Double, scrollX: Double, scrollY: Double): Boolean {
         val layout = layout()
         if (mouseX < layout.contentLeft || mouseX >= layout.right ||
@@ -186,6 +218,9 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
         clampScroll(layout)
         return true
     }
+
+    private fun activeSectionHasPixelEditor(): Boolean =
+        GuideBookContent.sections[sectionIndex].entries.any { it === GuideEntry.PixelEditor }
 
     private fun selectSection(index: Int) {
         sectionIndex = index.coerceIn(GuideBookContent.sections.indices)
@@ -230,6 +265,9 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
         val headerBottom: Int get() = top + 34
         val footerTop: Int get() = bottom - 26
         val contentLeft: Int get() = left + 116
+
+        fun containsContent(mouseX: Double, mouseY: Double): Boolean =
+            mouseX >= contentLeft && mouseX < right && mouseY >= headerBottom + 7 && mouseY < footerTop - 5
     }
 
     private data class NavBox(val x: Int, val y: Int, val width: Int, val height: Int) {
