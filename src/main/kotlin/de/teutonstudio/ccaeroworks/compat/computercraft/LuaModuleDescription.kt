@@ -8,9 +8,9 @@ data class LuaModuleSnapshot(
     val displayWidth: Int? = null,
     val displayText: String? = null,
     val displayPixels: List<String>? = null,
+    val socketName: String = de.teutonstudio.ccaeroworks.compat.aeroworks.DeskSockets.name(socket),
     val displayPixelWidth: Int? = null,
-    val displayPixelHeight: Int? = null,
-    val socketName: String = de.teutonstudio.ccaeroworks.compat.aeroworks.DeskSockets.name(socket)
+    val displayPixelHeight: Int? = null
 )
 
 object LuaModuleDescription {
