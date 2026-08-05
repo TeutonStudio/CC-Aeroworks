@@ -38,7 +38,7 @@ object AeroworksDeskAccess {
     @JvmStatic
     fun setDisplayPixels(desk: ConsoleBlockEntity, socket: Int, pixels: DeskDisplayPixels): DeskDisplayState? {
         val current = display(desk, socket) ?: return null
-        if (pixels.width != DeskDisplayPixels.pixelWidth(current.type) || pixels.height != DeskDisplayPixels.HEIGHT) return null
+        if (pixels.width != current.type.pixelWidth || pixels.height != current.type.pixelHeight) return null
         desk.setModuleName(socket, "", Component.literal(pixels.encode()))
         return current.copy(text = "", pixels = pixels)
     }
