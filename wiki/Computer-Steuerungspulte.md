@@ -1,6 +1,6 @@
 # Computer-Steuerungspulte
 
-Computer-Steuerungspulte verbinden ein Aeroworks-Steuerungspult dauerhaft mit einem CC:Tweaked-Computer. Dadurch kann das Pult seinen gesamten verbundenen Multiblock ohne externes Peripheral oder Modem verwalten.
+Computer-Steuerungspulte verbinden ein Aeroworks-Steuerungspult dauerhaft mit einem CC:Tweaked-Computer. Dadurch kann ein einziges Pult den gesamten verbundenen Multiblock ohne externes Peripheral oder Modem verwalten.
 
 ## Varianten
 
@@ -9,35 +9,36 @@ Computer-Steuerungspulte verbinden ein Aeroworks-Steuerungspult dauerhaft mit ei
 | Normaler CC:Tweaked-Computer | Computer-Steuerungspult |
 | Erweiterter CC:Tweaked-Computer | Erweitertes Computer-Steuerungspult |
 
-Die Computerfamilie bestimmt die Variante. Ein erweitertes Computer-Steuerungspult besitzt entsprechend die Eigenschaften des Advanced Computers.
+Die Computerfamilie bestimmt Terminal, Farbe und Kapazität. Beide Varianten verwenden dieselbe Multiblock- und Ponder-Logik.
 
 ## Crafting
 
 Lege genau diese beiden Gegenstände gemeinsam in ein beliebiges Craftingfeld mit mindestens zwei Plätzen:
 
-1. Ein normales Aeroworks-Steuerungspult
-2. Einen normalen oder erweiterten CC:Tweaked-Computer
+1. ein normales Aeroworks-Steuerungspult
+2. einen normalen oder erweiterten CC:Tweaked-Computer
 
 Die Position im Craftingfeld spielt keine Rolle. Zusätzliche Gegenstände machen das Rezept ungültig.
 
-Beim Crafting bleiben die wichtigen Komponenten beider Eingaben erhalten:
+Beim Crafting bleiben die Komponenten beider Eingaben erhalten:
 
 - Aeroworks-Modul- und Steuerungspultdaten
-- Computer-ID
+- Computer-ID und zugehöriges Dateisystem
 - Computerlabel
-- Terminalgröße und Kapazität
+- Terminalgröße
+- Speicherkapazität
 
-Das Rezept ist deshalb kein bloßer Austausch des Blocktyps. Ein bereits eingerichtetes Pult und ein bereits benannter Computer sollen ihre Daten behalten.
+## Bedienung
 
-## Terminal öffnen
+| Aktion | Eingabe |
+|---|---|
+| Terminal öffnen | Schleichen + Rechtsklick mit leerer Haupthand auf ein beliebiges geladenes Multiblockmitglied |
+| Montierte Steuerung bedienen | normaler Rechtsklick auf das Modul |
+| Steuerungseinstellungen öffnen | Create-Schraubenschlüssel + Rechtsklick auf eine horizontale Pultseite |
+| Pult drehen | Schraubenschlüssel auf Ober- oder Unterseite |
+| Ponder öffnen | W über einem der beiden Computerpultitems halten |
 
-Bei einem gültigen Multiblock mit genau einem eingebetteten Computer:
-
-1. Schleichen
-2. Leere Haupthand verwenden
-3. Ein beliebiges geladenes Mitglied des Multiblocks rechtsklicken
-
-Das Terminal des eingebetteten Computers wird geöffnet. Der Computer muss also nicht direkt angeklickt werden.
+Weitere Details stehen unter [[Bedienung]].
 
 ## Direkte `aeroworks`-API
 
@@ -58,20 +59,14 @@ Alternativ:
 local aeroworks = require("cc_aeroworks.aeroworks")
 ```
 
-Bei der direkten API ist kein Peripheral beteiligt. Diese Aufrufe gehören hier ausdrücklich nicht zum normalen Zugriffsweg:
-
-```lua
-peripheral.find(...)
-peripheral.wrap(...)
-peripheral.call(...)
-```
+Bei der direkten API ist kein Peripheral beteiligt. `peripheral.find`, `peripheral.wrap` und ein Modem sind nicht erforderlich.
 
 ## Pulte adressieren
 
 Fast alle direkten Methoden erwarten zuerst ein Pult. Zulässig sind:
 
 - der aktuelle 1-basierte Netzwerkindex, zum Beispiel `1`
-- die stabile Desk-ID aus `getDesks()`, zum Beispiel `"4d0f..."`
+- die stabile Desk-ID aus `getDesks()`
 
 Desk-IDs sind für dauerhafte Programme besser geeignet. Der Index kann sich nach Umbauten ändern.
 
@@ -80,24 +75,6 @@ local desks = aeroworks.getDesks()
 local target = desks[#desks]
 
 aeroworks.setDisplayNumber(target.id, "big", 42, true)
-```
-
-## Eigentümerpult finden
-
-In der direkten API markiert `owner = true` das Pult, dessen eingebetteter Computer das Programm ausführt:
-
-```lua
-local owner
-
-for _, desk in ipairs(aeroworks.getDesks()) do
-  if desk.owner then
-    owner = desk
-    break
-  end
-end
-
-assert(owner, "Eigentümerpult fehlt")
-print("Eigene Sockets:", aeroworks.getSocketCount(owner.id))
 ```
 
 ## Multiblocks
@@ -112,32 +89,53 @@ Die Pulte bilden eine lineare Reihe. Das Netzwerk lädt keine fehlenden Chunks n
 
 ```lua
 local network = aeroworks.getNetwork()
-
-print(network.state)
-print(network.memberCount)
-print(network.revision)
+print(network.state, network.memberCount, network.revision)
 ```
 
 Typische Zustände:
 
 | Zustand | Bedeutung |
 |---|---|
-| `active` | Genau ein eingebetteter Computer verwaltet den Multiblock |
-| `conflict` | Mehrere eingebettete Computer wurden gefunden |
-| `none` | Kein eingebetteter Computer; relevant für externe Peripheral-Zugriffe |
+| `active` | genau ein eingebetteter Computer verwaltet den Multiblock |
+| `none` | kein eingebetteter Computer; externer Peripheral-Zugriff ist möglich |
+| `conflict` | mehrere eingebettete Computer wurden gefunden |
 
-## Konflikt mit mehreren Computern
+## Genau ein eingebetteter Computer
 
-Mehrere Computer-Steuerungspulte im selben Multiblock werden nicht automatisch zusammengeführt. Jeder Computer behält seine eigene Computer-ID und sein eigenes Dateisystem.
+Ein Multiblock benötigt höchstens ein Computer-Steuerungspult. Alle übrigen Pulte bleiben normal. Alternativ kann vollständig auf ein Computer-Steuerungspult verzichtet und ein externer Computer verwendet werden.
 
-Im Konfliktzustand verweigert die direkte `aeroworks`-API den mehrdeutigen Zugriff. Ein externer Computer kann den Multiblock weiterhin über `cc_aeroworks_control_desk` verwenden.
+Mehrere **externe** Computer am selben Peripheral-Netzwerk bleiben erlaubt. Die Beschränkung betrifft eingebettete Computerpulte, deren Computer-ID und Dateisystem sonst nicht eindeutig zusammengeführt werden könnten.
 
-Behebung:
+## Versehentliche Doppelplatzierung
 
-1. Multiblock trennen, oder
-2. alle bis auf ein Computer-Steuerungspult durch normale Pulte ersetzen
+Wird in Survival ein weiteres Computer-Steuerungspult so platziert, dass der vollständig geladene Multiblock bereits einen eingebetteten Computer besitzt:
 
-## Eingaben verarbeiten
+1. das bereits vorhandene Computer-Steuerungspult bleibt Besitzer,
+2. das neu platzierte Pult wird zu einem normalen Aeroworks-Steuerungspult,
+3. montierte Module, Displayzustände und Pulteinstellungen bleiben erhalten,
+4. der zusätzliche CC:Tweaked-Computer wird als Item ausgeworfen,
+5. Computer-ID, Label, Terminalgröße und Speicherkapazität bleiben am ausgeworfenen Computer erhalten.
+
+Im Creative-Modus wird die Platzierung abgebrochen. Dadurch bleibt das kombinierte Item erhalten, ohne eine Computer-ID zu duplizieren.
+
+Die automatische Trennung wird nur für normale Spielerplatzierung in einem vollständig auflösbaren Multiblock ausgeführt. Konflikte aus Altwelten, `/setblock`, Strukturwerkzeugen oder teilweise geladenen Netzwerken bleiben als `conflict` sichtbar und müssen manuell behoben werden.
+
+## Externer Computer als Alternative
+
+Ein gewöhnlicher CC:Tweaked-Computer oder ein Wired Modem muss nur mit einem beliebigen Pult verbunden werden:
+
+```lua
+local console = peripheral.find("cc_aeroworks_control_desk")
+assert(console, "Kein Steuerungspult verbunden")
+
+for _, desk in ipairs(console.getDesks()) do
+  print(desk.index, desk.id, desk.variant)
+end
+```
+
+Dafür wird kein Computer-Steuerungspult benötigt. Die vollständige Gegenüberstellung steht in [[API-Schnellreferenz]].
+
+## Ereignisse
 
 Der eingebettete Computer erhält Eingabeereignisse für den gesamten Multiblock:
 
@@ -146,51 +144,27 @@ while true do
   local _, deskId, deskIndex, socket, socketName, moduleId, value, channel =
     os.pullEvent("cc_aeroworks_console_input")
 
-  print(
-    ("Desk %d, %s, %s, %s = %s"):format(
-      deskIndex,
-      socketName,
-      moduleId,
-      channel,
-      tostring(value)
-    )
-  )
+  print(deskIndex, socketName, moduleId, channel, value)
 end
 ```
 
 Wenn ein Kanal oder Modul entfernt wurde, ist `value` gleich `nil`.
 
-Strukturänderungen erzeugen ein getrenntes Ereignis:
+Strukturänderungen erzeugen:
 
 ```lua
 local _, state, memberCount, revision =
   os.pullEvent("cc_aeroworks_console_changed")
 ```
 
-## Beispiel: Eingang auf Display spiegeln
+## Ponder-Erklärung
 
-```lua
-local desks = aeroworks.getDesks()
-assert(#desks > 0, "Leerer Multiblock")
-
-local target = desks[#desks]
-
-while true do
-  local _, _, _, _, _, _, value =
-    os.pullEvent("cc_aeroworks_console_input")
-
-  if value == nil then
-    aeroworks.clearDisplay(target.id, "big")
-  elseif type(value) == "number" then
-    aeroworks.setDisplayNumber(target.id, "big", value, false)
-  end
-end
-```
+Beide Computerpultitems besitzen dieselbe Create-Ponder-Szene. Im Inventar oder Rezeptbetrachter **W halten**. Die Szene zeigt Aufbau, Bedienung, Einstellungen, externen Computer und Doppelplatzierung.
 
 ## Fehlerfälle
 
-- Mehr als 64 verbundene Pulte: Zugriff wird abgelehnt.
-- Nicht vollständig geladener Multiblock: Zugriff wird abgelehnt.
-- Unbekannte Desk-ID oder ungültiger Index: Lua-Fehler.
-- Ungültiger Socket: Lua-Fehler.
-- Mehrere eingebettete Computer: direkte API wird abgelehnt.
+- mehr als 64 verbundene Pulte: Zugriff wird abgelehnt
+- nicht vollständig geladener Multiblock: Zugriff wird abgelehnt
+- unbekannte Desk-ID oder ungültiger Index: Lua-Fehler
+- ungültiger Socket: Lua-Fehler
+- bestehender Mehrcomputer-Konflikt: direkte API wird abgelehnt; externes Peripheral bleibt nutzbar

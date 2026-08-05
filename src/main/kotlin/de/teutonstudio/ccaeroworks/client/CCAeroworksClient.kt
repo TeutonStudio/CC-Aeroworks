@@ -4,9 +4,11 @@ import com.mred231.aeroworks.content.controls.ModulePartials
 import com.mred231.aeroworks.foundation.input.InputSource
 import de.teutonstudio.ccaeroworks.client.creative.AeroworksCreativeSections
 import de.teutonstudio.ccaeroworks.client.display.DeskDisplayModels
+import de.teutonstudio.ccaeroworks.client.ponder.CCAeroworksPonderPlugin
 import de.teutonstudio.ccaeroworks.input.CombinedInputSource
 import de.teutonstudio.ccaeroworks.input.CombinedLeverController
 import de.teutonstudio.ccaeroworks.registry.CCBlockEntities
+import net.createmod.ponder.foundation.PonderIndex
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent
 import net.neoforged.neoforge.client.event.EntityRenderersEvent
@@ -29,6 +31,7 @@ object CCAeroworksClient {
         event.enqueueWork {
             ModulePartials.init()
             InputSource.displayName(CombinedInputSource.ID)
+            PonderIndex.addPlugin(CCAeroworksPonderPlugin())
         }
     }
 

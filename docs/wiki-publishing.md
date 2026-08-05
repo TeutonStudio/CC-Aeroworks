@@ -5,6 +5,7 @@ Die veröffentlichungsfertigen Wiki-Seiten liegen im Verzeichnis [`wiki/`](../wi
 ## Enthaltene Seiten
 
 - `Home.md`
+- `Bedienung.md`
 - `Computer-Steuerungspulte.md`
 - `Programmierbare-Displays.md`
 - `Kombinierte-Eingabe.md`
@@ -27,6 +28,7 @@ cd CC-Aeroworks.wiki
 cp ../CC-Aeroworks/wiki/*.md .
 
 git add Home.md \
+  Bedienung.md \
   Computer-Steuerungspulte.md \
   Programmierbare-Displays.md \
   Kombinierte-Eingabe.md \
@@ -59,4 +61,4 @@ git push
 - Vollständige und maschinennahe API-Verträge bleiben zusätzlich unter `docs/` im Hauptrepository.
 - Codebeispiele sollen mit aktuellen Methodennamen und Ereignisargumenten übereinstimmen.
 - Noch nicht ausgeführte Laufzeittests dürfen nicht als bestanden beschrieben werden.
-- Änderungen an Sockets, Displayformaten, Ereignissen oder Multiblockregeln müssen gleichzeitig in Wiki und Repository-Dokumentation aktualisiert werden.
+- Änderungen an Bedienung, Sockets, Displayformaten, Ereignissen oder Multiblockregeln müssen gleichzeitig in Wiki, Ingame-Handbuch und Repository-Dokumentation aktualisiert werden.

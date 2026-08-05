@@ -44,7 +44,11 @@ Alternativ steht dasselbe Objekt als Modul bereit:
 local aeroworks = require("cc_aeroworks.aeroworks")
 ```
 
-Mit Schleichen und Rechtsklick bei leerer Haupthand lässt sich das Terminal von jedem Mitglied eines gültigen Einzelcomputer-Multiblocks öffnen. Mehrere Computer-Steuerungspulte im selben Multiblock bleiben ein expliziter Konflikt; ihre Computer-IDs und Dateisysteme werden nicht automatisch zusammengeführt.
+Mit Schleichen und Rechtsklick bei leerer Haupthand lässt sich das Terminal von jedem Mitglied eines gültigen Einzelcomputer-Multiblocks öffnen. Ein normaler Rechtsklick bedient montierte Steuerungen; ein Create-Schraubenschlüssel auf einer horizontalen Pultseite öffnet die Steuerungseinstellungen.
+
+Pro Multiblock ist höchstens ein eingebetteter Computer vorgesehen. Wird in Survival versehentlich ein zweites Computerpult platziert, bleibt ein normales Aeroworks-Pult zurück und der zusätzliche Computer wird mit seinen Komponenten ausgeworfen. In Creative wird die konfliktverursachende Platzierung abgebrochen. Konflikte aus Altwelten, Befehlen oder Strukturwerkzeugen bleiben als diagnostizierbarer Sicherheitszustand erhalten.
+
+Beide Computerpultvarianten besitzen eine Create-Ponder-Erklärung, die über die übliche Ponder-Taste `W` geöffnet wird.
 
 ## Displays und kombinierte Eingabe
 
@@ -62,7 +66,8 @@ Das Projekt ist eine frühe Integrationsversion. Build-, Repository- und Testinf
 
 - Minecraft 1.21.1, NeoForge 21.1.228 und Java 21
 - Kotlin 2.2.20 mit KotlinForForge NeoForge 5.11.0
-- Create 6.0.10, Aeronautics/Aeroworks 1.3.0
+- Create 6.0.10 mit Ponder API 1.0.82
+- Aeronautics/Aeroworks 1.3.0
 - CC:Tweaked API-Baseline 1.119.0; Metadatenbereich bis vor 1.121
 
 ## Frischer Clone
@@ -73,6 +78,7 @@ Repositorydateien ohne Fremd-JARs prüfen:
 
 ```bash
 python3 tools/verify-repository.py
+python3 tools/verify-guide.py
 ./gradlew verifyDependencyManifest
 ```
 
@@ -90,7 +96,7 @@ Ein alternatives Verzeichnis wird mit `-Pmod_dependency_dir=/pfad/zu/mods` angeg
 
 ## Tests und CI
 
-Die unterstützten Profile und Release-Gates stehen in [`docs/runtime-test-matrix.md`](docs/runtime-test-matrix.md). Interaktive Basistests stehen in [`docs/manual-test-plan.md`](docs/manual-test-plan.md), die zusätzlichen Multiblockfälle in [`docs/multiblock-test-plan.md`](docs/multiblock-test-plan.md).
+Die unterstützten Profile und Release-Gates stehen in [`docs/runtime-test-matrix.md`](docs/runtime-test-matrix.md). Interaktive Basistests stehen in [`docs/manual-test-plan.md`](docs/manual-test-plan.md), zusätzliche Multiblockfälle in [`docs/multiblock-test-plan.md`](docs/multiblock-test-plan.md) und die neuen Bedienungs-, Ponder- und Doppelplatzierungsfälle in [`docs/computer-desk-guide-test-plan.md`](docs/computer-desk-guide-test-plan.md).
 
 ```bash
 python3 tools/run-integration-profile.py BASE-CLIENT \
@@ -101,7 +107,7 @@ python3 tools/run-integration-profile.py BASE-SERVER \
   --server-smoke
 ```
 
-`.github/workflows/verify.yml` prüft bei Push und Pull Request den Repositoryvertrag. Der geschützte Vollbuild benötigt rechtmäßig bereitgestellte Mod-JARs über die Repository-Secrets `MOD_DEPENDENCY_URL` und `MOD_DEPENDENCY_SHA256`.
+`.github/workflows/verify.yml` prüft bei Push und Pull Request den Repositoryvertrag sowie Buch-, Sprach-, Wiki- und Ponder-Ressourcen. Der geschützte Vollbuild benötigt rechtmäßig bereitgestellte Mod-JARs über die Repository-Secrets `MOD_DEPENDENCY_URL` und `MOD_DEPENDENCY_SHA256`.
 
 ## Dokumentation und Beispiele
 
@@ -111,6 +117,8 @@ python3 tools/run-integration-profile.py BASE-SERVER \
 - [Runtime-Testmatrix](docs/runtime-test-matrix.md)
 - [Manueller Testplan](docs/manual-test-plan.md)
 - [Multiblock-Testplan](docs/multiblock-test-plan.md)
+- [Computerpult-, Handbuch- und Ponder-Testplan](docs/computer-desk-guide-test-plan.md)
+- [Wiki-Veröffentlichung](docs/wiki-publishing.md)
 - [Lua-Beispiele](examples/cc/)
 
 Repository: `TeutonStudio/CC-Aeroworks`

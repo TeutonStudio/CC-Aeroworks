@@ -1,21 +1,28 @@
 # API-Schnellreferenz
 
-CC-Aeroworks besitzt zwei API-Zugriffswege. Beide greifen auf dieselben Steuerungspulte, Module, Eingaben und Displays zu, verwenden aber unterschiedliche Methodennamen.
+CC-Aeroworks besitzt zwei API-Zugriffswege. Beide greifen auf denselben Steuerungspult-Multiblock zu, verwenden aber unterschiedliche Methodennamen und Ereignisse.
 
-## Zugriffswege
+## Zugriffsweg wählen
 
-### Externer Computer
+| Eingebetteter Computer | Externer Computer |
+|---|---|
+| genau ein Computer-Steuerungspult im Multiblock | normaler CC:Tweaked-Computer direkt oder über Wired Modem |
+| globale `aeroworks`-API | Peripheral `cc_aeroworks_control_desk` |
+| kein Modem nötig | Verbindung zu einem beliebigen Pult genügt |
+| `cc_aeroworks_console_*`-Ereignisse | `cc_aeroworks_desk_*` und `cc_aeroworks_multiblock_*` |
+
+Ein eingebetteter und ein externer Computer sind Alternativen, keine gemeinsame Voraussetzung. Mehrere externe Computer dürfen dasselbe Peripheral-Netzwerk verwenden; höchstens ein **eingebetteter** Computer ist erlaubt.
+
+## Externer Computer
 
 ```lua
 local console = peripheral.find("cc_aeroworks_control_desk")
 assert(console, "Kein Steuerungspult verbunden")
 ```
 
-Peripheral-Typ: `cc_aeroworks_control_desk`
+Eine direkte Verbindung oder ein Wired Modem zu einem beliebigen Multiblockmitglied genügt.
 
-Eine direkte Verbindung oder ein Wired Modem zu einem beliebigen Mitglied genügt.
-
-### Eingebetteter Computer
+## Eingebetteter Computer
 
 ```lua
 local desks = aeroworks.getDesks()
@@ -29,44 +36,32 @@ local aeroworks = require("cc_aeroworks.aeroworks")
 
 Kein Peripheral und kein Modem erforderlich.
 
-## Sockets
+## Sockets und Deskparameter
 
-| Name | Index |
+| Socket | Index |
 |---|---:|
 | `left` | `0` |
 | `right` | `1` |
 | `big` | `2` |
 
-Alle Socketparameter akzeptieren Namen oder Indizes.
+Deskparameter akzeptieren:
 
-## Deskparameter
-
-Multiblockmethoden erwarten ein Desk als:
-
-- 1-basierten Netzwerkindex, oder
-- stabile Desk-ID aus `getDesks()`
+- den aktuellen 1-basierten Netzwerkindex oder
+- die stabile Desk-ID aus `getDesks()`.
 
 Für gespeicherte Konfigurationen ist die Desk-ID vorzuziehen.
 
 ## Netzwerk und Desks
 
-### Externes Peripheral
+Beide Zugriffswege bieten:
 
-```lua
-console.getNetwork()
-console.getDesks()
-console.getDesk(desk)
+```text
+getNetwork()
+getDesks()
+getDesk(desk)
 ```
 
-### Eingebetteter Computer
-
-```lua
-aeroworks.getNetwork()
-aeroworks.getDesks()
-aeroworks.getDesk(desk)
-```
-
-`getNetwork()` liefert ungefähr:
+`getNetwork()` liefert:
 
 ```lua
 {
@@ -76,7 +71,7 @@ aeroworks.getDesk(desk)
 }
 ```
 
-Ein Desk enthält mindestens:
+Ein Desk enthält unter anderem:
 
 ```lua
 {
@@ -96,7 +91,7 @@ Beim externen Peripheral markiert `attached` das physisch verbundene Pult. Bei d
 
 ## Einzelpultmethoden des externen Peripherals
 
-Diese Methoden beziehen sich nur auf das Pult, an dem das Peripheral physisch hängt:
+Diese Methoden beziehen sich auf das physisch angeschlossene Pult:
 
 ```text
 getSocketCount()
@@ -145,7 +140,7 @@ clearDeskDisplayPixels(desk, socket)
 
 ## Direkte Methoden des eingebetteten Computers
 
-Die direkte API verwendet keine `Desk`-Zwischenstücke in den Methodennamen. Das Desk ist stattdessen der erste Parameter:
+Das Desk ist jeweils der erste Parameter:
 
 ```text
 getNetwork()
@@ -168,25 +163,6 @@ getDisplayPixel(desk, socket, x, y)
 setDisplayPixel(desk, socket, x, y, enabled)
 setDisplayPixels(desk, socket, rows)
 clearDisplayPixels(desk, socket)
-```
-
-## Eingabewerte
-
-`getInput` liefert:
-
-- eine Zahl bei Modulen mit einem Kanal
-- eine Tabelle nach Kanal-ID bei Modulen mit mehreren Kanälen
-
-```lua
-local value = console.getDeskInput(deskId, "left")
-
-if type(value) == "table" then
-  for channel, channelValue in pairs(value) do
-    print(channel, channelValue)
-  end
-else
-  print(value)
-end
 ```
 
 ## Ereignisse
@@ -226,19 +202,14 @@ Der erste Eingabesnapshot erzeugt kein Ereignis. Wenn ein Kanal oder Modul entfe
 
 ## Displayvertrag
 
-### Text
+### Text und Zahlen
 
 - zwei oder drei Zeichen
 - erlaubt: `0-9`, Minus, Leerzeichen
-- andere Zeichen werden zu Leerzeichen
-
-### Zahlen
-
-- gegen null abgeschnitten
 - zweistellig: `-9..99`
 - dreistellig: `-99..999`
 - optionale Nullauffüllung
-- NaN und Unendlich erzeugen Fehler
+- NaN und Unendlich erzeugen Lua-Fehler
 
 ### Pixel
 
@@ -247,54 +218,18 @@ Der erste Eingabesnapshot erzeugt kein Ereignis. Wenn ein Kanal oder Modul entfe
 - Ursprung `(1,1)` links oben
 - `set...Pixels` erwartet fünf Strings aus `0` und `1`
 
-## Typische Beispiele
-
-### Alle Pulte auflisten
-
-```lua
-local console = peripheral.find("cc_aeroworks_control_desk")
-
-for _, desk in ipairs(console.getDesks()) do
-  print(
-    ("%d: %s, %s, %s"):format(
-      desk.index,
-      desk.id,
-      desk.variant,
-      desk.attached and "verbunden" or "entfernt"
-    )
-  )
-end
-```
-
-### Stabil per Desk-ID adressieren
-
-```lua
-local desks = console.getDesks()
-local savedId = desks[1].id
-
-console.setDeskDisplayText(savedId, "big", "42")
-```
-
-### Netzwerkänderungen behandeln
-
-```lua
-while true do
-  local _, _, state, memberCount, revision =
-    os.pullEvent("cc_aeroworks_multiblock_changed")
-
-  print(state, memberCount, revision)
-end
-```
-
 ## Fehlerzustände
 
 | Fehler | Verhalten |
 |---|---|
-| Mehr als 64 Pulte | Zugriff wird abgelehnt |
+| mehr als 64 Pulte | Zugriff wird abgelehnt |
 | Multiblock teilweise geladen | Zugriff wird abgelehnt |
-| Ungültiger Deskindex | Lua-Fehler |
-| Unbekannte Desk-ID | Lua-Fehler |
-| Ungültiger Socket | Lua-Fehler |
-| Mehrere eingebettete Computer | Direkte API wird abgelehnt |
+| ungültiger Deskindex oder unbekannte Desk-ID | Lua-Fehler |
+| ungültiger Socket | Lua-Fehler |
+| mehrere eingebettete Computer | direkte API wird abgelehnt; externe Peripheral-Methoden bleiben nutzbar |
 
-Im Konfliktfall bleiben die externen Peripheral-Methoden nutzbar.
+Normale Survival-Platzierung verhindert neue Mehrcomputer-Konflikte automatisch: Das neu platzierte Computerpult wird zum normalen Pult und sein Computer ausgeworfen. Konflikte aus Altwelten, Befehlen oder Strukturwerkzeugen bleiben diagnostizierbar.
+
+## Bedienung und Ponder
+
+Die Interaktionen stehen unter [[Bedienung]]. Über beiden Computerpultitems kann **W gehalten** werden, um die Create-Ponder-Erklärung zu öffnen.

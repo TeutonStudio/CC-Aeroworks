@@ -1,5 +1,7 @@
 package de.teutonstudio.ccaeroworks.client
 
+import de.teutonstudio.ccaeroworks.client.guide.GuideBookContent
+import de.teutonstudio.ccaeroworks.client.guide.GuideEntry
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
@@ -38,16 +40,22 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
     private fun renderSidebar(graphics: GuiGraphics, layout: Layout, mouseX: Int, mouseY: Int) {
         graphics.fill(layout.left, layout.headerBottom, layout.contentLeft - 1, layout.footerTop, SIDEBAR)
         graphics.fill(layout.contentLeft - 1, layout.headerBottom, layout.contentLeft, layout.footerTop, BORDER_DARK)
-        SECTIONS.forEachIndexed { index, section ->
+        GuideBookContent.sections.forEachIndexed { index, section ->
             val y = layout.headerBottom + 9 + index * TAB_HEIGHT
-            val hovered = mouseX in (layout.left + 5) until (layout.contentLeft - 5) && mouseY in y until (y + TAB_HEIGHT - 2)
+            val hovered = mouseX in (layout.left + 5) until (layout.contentLeft - 5) &&
+                mouseY in y until (y + TAB_HEIGHT - 2)
             if (index == sectionIndex || hovered) {
                 graphics.fill(
-                    layout.left + 5, y, layout.contentLeft - 5, y + TAB_HEIGHT - 2,
+                    layout.left + 5,
+                    y,
+                    layout.contentLeft - 5,
+                    y + TAB_HEIGHT - 2,
                     if (index == sectionIndex) SELECTED else HOVER
                 )
             }
-            if (index == sectionIndex) graphics.fill(layout.left + 5, y, layout.left + 8, y + TAB_HEIGHT - 2, CYAN)
+            if (index == sectionIndex) {
+                graphics.fill(layout.left + 5, y, layout.left + 8, y + TAB_HEIGHT - 2, CYAN)
+            }
             graphics.drawString(
                 font,
                 Component.translatable(section.labelKey),
@@ -67,7 +75,7 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
         graphics.enableScissor(layout.contentLeft, clipTop, layout.right, clipBottom)
 
         var y = clipTop - scroll
-        val section = SECTIONS[sectionIndex]
+        val section = GuideBookContent.sections[sectionIndex]
         graphics.drawString(font, Component.translatable(section.titleKey), x, y, GOLD, false)
         y += 18
         section.entries.forEach { entry ->
@@ -78,16 +86,12 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
         clampScroll(layout)
     }
 
-    private fun renderEntry(graphics: GuiGraphics, entry: Entry, x: Int, y: Int, width: Int): Int = when (entry) {
-        is Entry.Text -> drawWrapped(graphics, Component.translatable(entry.key), x, y, width, TEXT, 10) + 6
-        is Entry.Note -> {
-            val height = wrappedHeight(Component.translatable(entry.key), width - 15, 10)
-            graphics.fill(x, y, x + width, y + height + 10, NOTE_BG)
-            graphics.fill(x, y, x + 3, y + height + 10, GOLD)
-            drawWrapped(graphics, Component.translatable(entry.key), x + 9, y + 5, width - 15, NOTE_TEXT, 10)
-            height + 16
-        }
-        is Entry.Code -> {
+    private fun renderEntry(graphics: GuiGraphics, entry: GuideEntry, x: Int, y: Int, width: Int): Int = when (entry) {
+        is GuideEntry.Text -> drawWrapped(graphics, Component.translatable(entry.key), x, y, width, TEXT, 10) + 6
+        is GuideEntry.Note -> renderCallout(graphics, entry.key, x, y, width, NOTE_BG, GOLD, NOTE_TEXT)
+        is GuideEntry.Warning -> renderCallout(graphics, entry.key, x, y, width, WARNING_BG, WARNING, WARNING_TEXT)
+        is GuideEntry.InputHint -> renderCallout(graphics, entry.key, x, y, width, INPUT_BG, CYAN, TEXT)
+        is GuideEntry.Code -> {
             val lines = entry.lines.size
             val height = lines * 11 + 10
             graphics.fill(x, y, x + width, y + height, CODE_BG)
@@ -99,6 +103,24 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
         }
     }
 
+    private fun renderCallout(
+        graphics: GuiGraphics,
+        key: String,
+        x: Int,
+        y: Int,
+        width: Int,
+        background: Int,
+        accent: Int,
+        color: Int
+    ): Int {
+        val component = Component.translatable(key)
+        val height = wrappedHeight(component, width - 15, 10)
+        graphics.fill(x, y, x + width, y + height + 10, background)
+        graphics.fill(x, y, x + 3, y + height + 10, accent)
+        drawWrapped(graphics, component, x + 9, y + 5, width - 15, color, 10)
+        return height + 16
+    }
+
     private fun renderFooter(graphics: GuiGraphics, layout: Layout, mouseX: Int, mouseY: Int) {
         graphics.fill(layout.left, layout.footerTop, layout.right, layout.bottom, FOOTER)
         graphics.fill(layout.left, layout.footerTop, layout.right, layout.footerTop + 1, BORDER_DARK)
@@ -106,11 +128,11 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
         val next = NavBox(layout.contentLeft + 45, layout.footerTop + 5, 28, 15)
         val close = NavBox(layout.right - 55, layout.footerTop + 5, 43, 15)
         drawNav(graphics, previous, "<", mouseX, mouseY, sectionIndex > 0)
-        drawNav(graphics, next, ">", mouseX, mouseY, sectionIndex < SECTIONS.lastIndex)
+        drawNav(graphics, next, ">", mouseX, mouseY, sectionIndex < GuideBookContent.sections.lastIndex)
         drawNav(graphics, close, Component.translatable("gui.done").string, mouseX, mouseY, true)
         graphics.drawString(
             font,
-            "${sectionIndex + 1} / ${SECTIONS.size}",
+            "${sectionIndex + 1} / ${GuideBookContent.sections.size}",
             layout.contentLeft + 84,
             layout.footerTop + 8,
             MUTED,
@@ -128,9 +150,10 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
     override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
         if (button != 0) return super.mouseClicked(mouseX, mouseY, button)
         val layout = layout()
-        SECTIONS.indices.firstOrNull { index ->
+        GuideBookContent.sections.indices.firstOrNull { index ->
             val y = layout.headerBottom + 9 + index * TAB_HEIGHT
-            mouseX >= layout.left + 5 && mouseX < layout.contentLeft - 5 && mouseY >= y && mouseY < y + TAB_HEIGHT - 2
+            mouseX >= layout.left + 5 && mouseX < layout.contentLeft - 5 &&
+                mouseY >= y && mouseY < y + TAB_HEIGHT - 2
         }?.let {
             selectSection(it)
             return true
@@ -139,7 +162,9 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
             selectSection(sectionIndex - 1)
             return true
         }
-        if (NavBox(layout.contentLeft + 45, layout.footerTop + 5, 28, 15).contains(mouseX, mouseY) && sectionIndex < SECTIONS.lastIndex) {
+        if (NavBox(layout.contentLeft + 45, layout.footerTop + 5, 28, 15).contains(mouseX, mouseY) &&
+            sectionIndex < GuideBookContent.sections.lastIndex
+        ) {
             selectSection(sectionIndex + 1)
             return true
         }
@@ -152,7 +177,9 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
 
     override fun mouseScrolled(mouseX: Double, mouseY: Double, scrollX: Double, scrollY: Double): Boolean {
         val layout = layout()
-        if (mouseX < layout.contentLeft || mouseX >= layout.right || mouseY < layout.headerBottom || mouseY >= layout.footerTop) {
+        if (mouseX < layout.contentLeft || mouseX >= layout.right ||
+            mouseY < layout.headerBottom || mouseY >= layout.footerTop
+        ) {
             return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY)
         }
         scroll = (scroll - (scrollY * 18.0).toInt()).coerceAtLeast(0)
@@ -161,7 +188,7 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
     }
 
     private fun selectSection(index: Int) {
-        sectionIndex = index.coerceIn(SECTIONS.indices)
+        sectionIndex = index.coerceIn(GuideBookContent.sections.indices)
         scroll = 0
     }
 
@@ -170,13 +197,24 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
         scroll = Mth.clamp(scroll, 0, (measuredContentHeight - viewport).coerceAtLeast(0))
     }
 
-    private fun drawWrapped(graphics: GuiGraphics, component: Component, x: Int, y: Int, width: Int, color: Int, lineHeight: Int): Int {
+    private fun drawWrapped(
+        graphics: GuiGraphics,
+        component: Component,
+        x: Int,
+        y: Int,
+        width: Int,
+        color: Int,
+        lineHeight: Int
+    ): Int {
         val lines = font.split(component, width)
-        lines.forEachIndexed { index, line -> graphics.drawString(font, line, x, y + index * lineHeight, color, false) }
+        lines.forEachIndexed { index, line ->
+            graphics.drawString(font, line, x, y + index * lineHeight, color, false)
+        }
         return lines.size * lineHeight
     }
 
-    private fun wrappedHeight(component: Component, width: Int, lineHeight: Int): Int = font.split(component, width).size * lineHeight
+    private fun wrappedHeight(component: Component, width: Int, lineHeight: Int): Int =
+        font.split(component, width).size * lineHeight
 
     private fun layout(): Layout {
         val panelWidth = (width - 24).coerceIn(280, 440)
@@ -199,14 +237,6 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
             mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height
     }
 
-    private sealed interface Entry {
-        data class Text(val key: String) : Entry
-        data class Note(val key: String) : Entry
-        data class Code(val lines: List<String>) : Entry
-    }
-
-    private data class Section(val labelKey: String, val titleKey: String, val entries: List<Entry>)
-
     private companion object {
         const val TAB_HEIGHT: Int = 19
         const val PANEL: Int = 0xFF101820.toInt()
@@ -216,6 +246,8 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
         const val FOOTER: Int = 0xFF0C141B.toInt()
         const val CODE_BG: Int = 0xFF071117.toInt()
         const val NOTE_BG: Int = 0xFF282316.toInt()
+        const val WARNING_BG: Int = 0xFF321919.toInt()
+        const val INPUT_BG: Int = 0xFF102832.toInt()
         const val SELECTED: Int = 0xFF173746.toInt()
         const val HOVER: Int = 0xFF234958.toInt()
         const val BUTTON: Int = 0xFF172733.toInt()
@@ -223,46 +255,11 @@ class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title"
         const val BORDER_DARK: Int = 0xFF294652.toInt()
         const val CYAN: Int = 0xFF68D4EB.toInt()
         const val GOLD: Int = 0xFFFFC66D.toInt()
+        const val WARNING: Int = 0xFFFF7676.toInt()
         const val TEXT: Int = 0xFFE7F3F6.toInt()
         const val NOTE_TEXT: Int = 0xFFFFE2A6.toInt()
+        const val WARNING_TEXT: Int = 0xFFFFCACA.toInt()
         const val MUTED: Int = 0xFF91A8AF.toInt()
         const val DISABLED: Int = 0xFF526269.toInt()
-
-        val SECTIONS: List<Section> = listOf(
-            Section("guide.cc_aeroworks.tab.start", "guide.cc_aeroworks.start.title", listOf(
-                Entry.Text("guide.cc_aeroworks.start.text"),
-                Entry.Code(listOf("local desk = peripheral.find(", "  \"cc_aeroworks_control_desk\")", "assert(desk, \"No Control Desk found\")")),
-                Entry.Note("guide.cc_aeroworks.start.note")
-            )),
-            Section("guide.cc_aeroworks.tab.modules", "guide.cc_aeroworks.modules.title", listOf(
-                Entry.Text("guide.cc_aeroworks.modules.text"),
-                Entry.Code(listOf("getSocketCount() / getSockets()", "getModules()", "getModule(\"left\")", "getModule(\"right\") / getModule(\"big\")")),
-                Entry.Note("guide.cc_aeroworks.modules.note")
-            )),
-            Section("guide.cc_aeroworks.tab.inputs", "guide.cc_aeroworks.inputs.title", listOf(
-                Entry.Text("guide.cc_aeroworks.inputs.text"),
-                Entry.Code(listOf("getInputs()", "getInput(socket)", "os.pullEvent(\"cc_aeroworks_desk_input\")")),
-                Entry.Note("guide.cc_aeroworks.inputs.note")
-            )),
-            Section("guide.cc_aeroworks.tab.displays", "guide.cc_aeroworks.displays.title", listOf(
-                Entry.Text("guide.cc_aeroworks.displays.text"),
-                Entry.Code(listOf("getDisplays() / getDisplay(\"big\")", "setDisplayText(\"left\", text)", "setDisplayNumber(\"big\", value, zeroPad)", "clearDisplay(socket) / clearDisplays()")),
-                Entry.Note("guide.cc_aeroworks.displays.note")
-            )),
-            Section("guide.cc_aeroworks.tab.pixels", "guide.cc_aeroworks.pixels.title", listOf(
-                Entry.Text("guide.cc_aeroworks.pixels.text"),
-                Entry.Code(listOf("getDisplaySize(socket)", "getDisplayPixel(socket, x, y)", "setDisplayPixel(socket, x, y, enabled)", "setDisplayPixels(socket, rows)", "clearDisplayPixels(socket)")),
-                Entry.Note("guide.cc_aeroworks.pixels.note")
-            )),
-            Section("guide.cc_aeroworks.tab.controls", "guide.cc_aeroworks.controls.title", listOf(
-                Entry.Text("guide.cc_aeroworks.controls.text"),
-                Entry.Code(listOf("Lever / Throttle  -> Mouse Y", "Joystick X        -> Mouse X", "Joystick Y        -> Mouse Y")),
-                Entry.Note("guide.cc_aeroworks.controls.note")
-            )),
-            Section("guide.cc_aeroworks.tab.example", "guide.cc_aeroworks.example.title", listOf(
-                Entry.Text("guide.cc_aeroworks.example.text"),
-                Entry.Code(listOf("local desk = peripheral.find(", "  \"cc_aeroworks_control_desk\")", "while true do", "  local _,_,socket,_,value = os.pullEvent(", "    \"cc_aeroworks_desk_input\")", "  desk.setDisplayNumber(\"big\", value, false)", "end"))
-            ))
-        )
     }
 }
