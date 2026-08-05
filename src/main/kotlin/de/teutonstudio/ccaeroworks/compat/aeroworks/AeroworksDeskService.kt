@@ -97,8 +97,8 @@ object AeroworksDeskService {
     fun getDisplaySize(desk: ConsoleBlockEntity, rawSocket: Any?): Map<String, Int> {
         val display = requiredDisplay(desk, parseSocket(desk, rawSocket))
         return linkedMapOf(
-            "width" to DeskDisplayPixels.pixelWidth(display.type),
-            "height" to DeskDisplayPixels.HEIGHT
+            "width" to display.type.pixelWidth,
+            "height" to display.type.pixelHeight
         )
     }
 
@@ -211,7 +211,9 @@ object AeroworksDeskService {
                 values = values,
                 displayWidth = display?.type?.width,
                 displayText = display?.text,
-                displayPixels = display?.pixels?.rows()
+                displayPixels = display?.pixels?.rows(),
+                displayPixelWidth = display?.type?.pixelWidth,
+                displayPixelHeight = display?.type?.pixelHeight
             )
         )
     }
@@ -223,8 +225,10 @@ object AeroworksDeskService {
         "width" to display.type.width,
         "text" to display.text,
         "mode" to if (display.pixels == null) "text" else "pixels",
-        "pixelWidth" to DeskDisplayPixels.pixelWidth(display.type),
-        "pixelHeight" to DeskDisplayPixels.HEIGHT,
+        "pixelWidth" to display.type.pixelWidth,
+        "pixelHeight" to display.type.pixelHeight,
+        "PIXEL_WIDTH" to display.type.pixelWidth,
+        "PIXEL_HEIGHT" to display.type.pixelHeight,
         "pixels" to (display.pixels ?: DeskDisplayPixels.blank(display.type)).rows()
     )
 }
