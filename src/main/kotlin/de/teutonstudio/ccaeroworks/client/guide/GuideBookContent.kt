@@ -6,6 +6,7 @@ sealed interface GuideEntry {
     data class Warning(val key: String) : GuideEntry
     data class InputHint(val key: String) : GuideEntry
     data class Code(val lines: List<String>) : GuideEntry
+    data object PixelEditor : GuideEntry
 }
 
 data class GuideSection(
@@ -86,6 +87,15 @@ object GuideBookContent {
                     )
                 ),
                 GuideEntry.Note("guide.cc_aeroworks.displays.note")
+            )
+        ),
+        GuideSection(
+            "guide.cc_aeroworks.tab.pixel_editor",
+            "guide.cc_aeroworks.pixel_editor.title",
+            listOf(
+                GuideEntry.Text("guide.cc_aeroworks.pixel_editor.text"),
+                GuideEntry.PixelEditor,
+                GuideEntry.Note("guide.cc_aeroworks.pixel_editor.note")
             )
         ),
         GuideSection(
