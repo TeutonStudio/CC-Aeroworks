@@ -63,7 +63,7 @@ class PixelEditorState {
     fun fill() {
         pixelsByType[displayType] = DeskDisplayPixels.fromRows(
             displayType,
-            List(DeskDisplayPixels.HEIGHT) { "1".repeat(DeskDisplayPixels.pixelWidth(displayType)) }
+            List(pixels.height) { "1".repeat(pixels.width) }
         )
         lastEditedPixel = null
     }
