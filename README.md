@@ -52,7 +52,7 @@ Beide Computerpultvarianten besitzen eine Create-Ponder-Erklärung, die über di
 
 ## Displays und kombinierte Eingabe
 
-Die Displays unterstützen Ziffern sowie `7x5`- beziehungsweise `11x5`-Pixelraster. Das zweistellige Display passt in kleine und große Slots, das dreistellige ausschließlich in große Slots.
+Die Displays unterstützen Ziffern sowie frei beschreibbare Pixelraster. Standardmäßig besitzt das zweistellige Display `7x5` und das dreistellige `11x5` Pixel. Breite und Höhe beider Größen können in `cc_aeroworks-server.toml` exakt eingestellt werden; die wirksamen Werte stehen in Lua über `getDisplaySize`, `pixelWidth`, `pixelHeight`, `PIXEL_WIDTH` und `PIXEL_HEIGHT` bereit. Das zweistellige Display passt in kleine und große Slots, das dreistellige ausschließlich in große Slots.
 
 Für Lever, Joystick und Throttle Quadrants kann im Aeroworks-Modulbildschirm der Input Type `Kombiniert` gewählt werden. Anschließend wird im mittleren Eingabefeld die Aktivierungstaste erfasst und beim Steuern gehalten.
 
@@ -113,6 +113,7 @@ python3 tools/run-integration-profile.py BASE-SERVER \
 
 - [Peripheral- und direkte API](docs/cc-peripheral-api.md)
 - [Einführung zur Programmierung](docs/peripheral-programming.md)
+- [Konfiguration](docs/configuration.md)
 - [Integrations-Testharness](docs/integration-test-harness.md)
 - [Runtime-Testmatrix](docs/runtime-test-matrix.md)
 - [Manueller Testplan](docs/manual-test-plan.md)
