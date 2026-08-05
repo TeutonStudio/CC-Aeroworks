@@ -187,7 +187,29 @@ Texte werden links beginnend auf zwei beziehungsweise drei Zeichen begrenzt. Zul
 
 Zahlen werden gegen null abgeschnitten und auf `-9..99` beziehungsweise `-99..999` begrenzt. `zeroPad` füllt die Ziffern rechts vom Vorzeichen mit Nullen. NaN und Unendlich erzeugen einen Lua-Fehler.
 
-Der Pixelmodus verwendet beim Zweisteller `7x5`, beim Dreisteller `11x5`. Koordinaten beginnen bei `(1,1)` links oben. `setDisplayPixels` erwartet genau fünf Strings aus `0` und `1`.
+Die Pixelauflösung ist serverseitig getrennt für das kleine zweistellige und das große dreistellige Display konfigurierbar. Die Standardwerte bleiben `7x5` beziehungsweise `11x5`. `getDisplaySize` liefert die aktuell wirksame Auflösung:
+
+```lua
+local size = console.getDisplaySize("big")
+print(size.width, size.height)
+```
+
+`getDisplay`, `getDisplays`, `getModule` und `getModules` liefern bei Displays zusätzlich:
+
+```lua
+{
+  pixelWidth = 11,
+  pixelHeight = 5,
+  PIXEL_WIDTH = 11,
+  PIXEL_HEIGHT = 5
+}
+```
+
+Die Felder in Großbuchstaben sind als Displaykonstanten für Lua-Programme vorgesehen; die kleingeschriebenen Felder bleiben für tabellenorientierten Code verfügbar. Die konkreten Zahlen im Beispiel hängen von der Serverkonfiguration ab.
+
+Koordinaten beginnen bei `(1,1)` links oben. `setDisplayPixels` erwartet genau `PIXEL_HEIGHT` Strings aus `0` und `1`, jeweils exakt `PIXEL_WIDTH` Zeichen breit. Text- und Zahlenschreiben wechselt in den Textmodus; Pixelmethoden wechseln in den Pixelmodus.
+
+Eine Änderung der Serverauflösung migriert vorhandene Pixelraster nicht automatisch. Ein Raster mit alter Länge wird erst wieder sichtbar, nachdem es in der neuen Größe geschrieben wurde.
 
 ## Ereignisse
 
