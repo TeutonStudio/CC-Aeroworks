@@ -33,26 +33,42 @@ class LuaModuleDescriptionTest {
         assertEquals("right", result["socketName"])
     }
 
-    @Test fun `describes text and pixel displays distinctly`() {
+    @Test fun `describes text and pixel displays with resolution constants`() {
         val text = LuaModuleDescription.describe(
-            LuaModuleSnapshot(2, "cc_aeroworks:three_digit_display", "display", displayWidth = 3, displayText = "007")
+            LuaModuleSnapshot(
+                2,
+                "cc_aeroworks:three_digit_display",
+                "display",
+                displayWidth = 3,
+                displayText = "007",
+                displayPixelWidth = 13,
+                displayPixelHeight = 7
+            )
         )
         assertEquals(3, text["width"])
         assertEquals("007", text["text"])
         assertEquals("text", text["mode"])
+        assertEquals(13, text["pixelWidth"])
+        assertEquals(7, text["pixelHeight"])
+        assertEquals(13, text["PIXEL_WIDTH"])
+        assertEquals(7, text["PIXEL_HEIGHT"])
 
-        val pixels = listOf("10000000001", "00000000000")
+        val pixels = listOf("1000000000001", "0000000000000")
         val pixelResult = LuaModuleDescription.describe(
             LuaModuleSnapshot(
                 2,
                 "cc_aeroworks:three_digit_display",
                 "display",
                 displayWidth = 3,
-                displayPixels = pixels
+                displayPixels = pixels,
+                displayPixelWidth = 13,
+                displayPixelHeight = 7
             )
         )
         assertEquals("pixels", pixelResult["mode"])
         assertEquals(pixels, pixelResult["pixels"])
         assertEquals(true, pixelResult["display"])
+        assertEquals(13, pixelResult["PIXEL_WIDTH"])
+        assertEquals(7, pixelResult["PIXEL_HEIGHT"])
     }
 }
