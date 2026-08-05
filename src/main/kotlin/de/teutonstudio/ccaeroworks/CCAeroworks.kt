@@ -6,6 +6,7 @@ import de.teutonstudio.ccaeroworks.compat.computercraft.ControlDeskPeripheralSta
 import de.teutonstudio.ccaeroworks.computer.CCLuaApis
 import de.teutonstudio.ccaeroworks.computer.ComputerConsoleInteractionHandler
 import de.teutonstudio.ccaeroworks.config.CCClientConfig
+import de.teutonstudio.ccaeroworks.config.CCServerConfig
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockSkinUpdater
 import de.teutonstudio.ccaeroworks.network.CCPayloads
@@ -42,6 +43,7 @@ class CCAeroworks(modEventBus: IEventBus, modContainer: ModContainer) {
         CCLuaApis.register()
 
         modContainer.registerConfig(ModConfig.Type.CLIENT, CCClientConfig.SPEC, "cc_aeroworks-client.toml")
+        modContainer.registerConfig(ModConfig.Type.SERVER, CCServerConfig.SPEC, "cc_aeroworks-server.toml")
         NeoForge.EVENT_BUS.register(ControlDeskPeripheralState)
         NeoForge.EVENT_BUS.register(ConsoleMultiblockManager)
         NeoForge.EVENT_BUS.register(ConsoleMultiblockSkinUpdater)
