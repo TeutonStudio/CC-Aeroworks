@@ -13,13 +13,13 @@ Die Clientdatei ist `config/cc_aeroworks-client.toml`.
 
 Die Aktivierungstaste wird pro Achse direkt im Aeroworks-Modulbildschirm gespeichert. Nach Auswahl des Input Types `Kombiniert` zeigt das mittlere Eingabefeld nicht mehr die Mausachse, sondern die Aktivierungstaste. Linksklick startet die Tastenerfassung, Rechtsklick löscht sie. Beim erstmaligen Umschalten auf `Kombiniert` wird eine leere Belegung mit `K` vorbelegt.
 
-Ein Linksklick auf das vorhandene Modussymbol schaltet bei Lever, Joystick und jeder Achse des Throttle Quadrant zyklisch `Buttons -> Analog -> Kombiniert -> Buttons`. Beim Throttle Quadrant besitzen `red`, `amber`, `green` und `blue` jeweils eine Aktivierungstaste. Der Joystick besitzt Bindings für `x` und `y`: links/rechts verwendet Maus X, vor/zurück Maus Y. Sind beide Joystick-Achsen auf dieselbe Taste gelegt, werden X und Y bei gehaltener Taste parallel gesteuert. Gleiches gilt für mehrere Quadrant-Kanäle mit identischer Taste. Intern wird die freie Aeroworks-Input-Source `cc_aeroworks.combined` gespeichert; es wird kein fremder Enumwert ergänzt.
+Ein Linksklick auf das vorhandene Modussymbol schaltet bei Lever, Joystick und jeder Achse des Throttle Quadrant zyklisch `Buttons -> Analog -> Kombiniert -> Buttons`. Beim Throttle Quadrant besitzen `red`, `amber`, `green` und `blue` jeweils eine eigene Aktivierungstaste. Der Joystick besitzt Bindings für `x` und `y`: links/rechts verwendet Maus X, vor/zurück Maus Y. Sind beide Joystick-Achsen auf dieselbe Taste gelegt, werden X und Y bei gehaltener Taste parallel gesteuert. Gleiches gilt für mehrere Quadrant-Kanäle mit identischer Taste. Intern wird die freie Aeroworks-Input-Source `cc_aeroworks.combined` gespeichert; es wird kein fremder Enumwert ergänzt.
 
 Maus Y ist für `Kombiniert` fest vorgegeben. Die Aktivierungstaste stammt aus der vorhandenen, von Aeroworks persistent gespeicherten negativen Tastenbindung der jeweiligen Achse. Eine globale Minecraft-Keybinding-Zuordnung ist dafür nicht mehr erforderlich.
 
 ## Server und Displayauflösung
 
-Die Serverdatei ist `config/cc_aeroworks-server.toml`. Auf einem Dedicated Server liegt sie im jeweiligen Weltordner unter `serverconfig/cc_aeroworks-server.toml` und wird an verbundene Clients synchronisiert.
+Die Serverdatei heißt `cc_aeroworks-server.toml`. Sie liegt weltbezogen unter `<welt>/serverconfig/cc_aeroworks-server.toml` und wird an verbundene Clients synchronisiert.
 
 - `display.small.width`: exakte Pixelbreite des zweistelligen Displays; Standard `7`, Bereich 1 bis 64.
 - `display.small.height`: exakte Pixelhöhe des zweistelligen Displays; Standard `5`, Bereich 1 bis 32.
