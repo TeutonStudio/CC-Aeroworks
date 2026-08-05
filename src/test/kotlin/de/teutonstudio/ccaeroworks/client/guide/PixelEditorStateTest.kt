@@ -14,16 +14,18 @@ class PixelEditorStateTest {
         state.setPixel(0, 0, true)
 
         state.selectDisplayType(DeskDisplayType.THREE_DIGIT)
-        assertEquals(11, state.width)
+        assertEquals(DeskDisplayType.THREE_DIGIT.pixelWidth, state.width)
+        assertEquals(DeskDisplayType.THREE_DIGIT.pixelHeight, state.height)
         assertFalse(state.pixels.get(0, 0))
-        state.setPixel(10, 4, true)
+        state.setPixel(state.width - 1, state.height - 1, true)
 
         state.selectDisplayType(DeskDisplayType.TWO_DIGIT)
-        assertEquals(7, state.width)
+        assertEquals(DeskDisplayType.TWO_DIGIT.pixelWidth, state.width)
+        assertEquals(DeskDisplayType.TWO_DIGIT.pixelHeight, state.height)
         assertTrue(state.pixels.get(0, 0))
 
         state.selectDisplayType(DeskDisplayType.THREE_DIGIT)
-        assertTrue(state.pixels.get(10, 4))
+        assertTrue(state.pixels.get(state.width - 1, state.height - 1))
     }
 
     @Test
@@ -47,7 +49,7 @@ class PixelEditorStateTest {
         state.invert()
         assertTrue(state.pixels.rows().all { row -> row.all { it == '0' } })
 
-        state.setPixel(3, 2, true)
+        state.setPixel(state.width / 2, state.height / 2, true)
         state.clear()
         assertTrue(state.pixels.rows().all { row -> row.all { it == '0' } })
         assertEquals(null, state.lastEditedPixel)
