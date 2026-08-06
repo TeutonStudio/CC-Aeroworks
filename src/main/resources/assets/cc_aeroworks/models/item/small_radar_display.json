@@ -1,22 +1,7 @@
 {
-  "ambientocclusion": false,
+  "parent": "cc_aeroworks:item/template_small_display_panel",
   "textures": {
-    "base": "cc_aeroworks:block/display_base",
-    "segment": "cc_aeroworks:block/display_segment",
-    "particle": "cc_aeroworks:block/display_base"
-  },
-  "elements": [
-    { "from": [4.5, 0, 4.5], "to": [11.5, 2, 11.5], "faces": {
-      "down": {"texture": "#base"}, "up": {"texture": "#base"}, "north": {"texture": "#base"},
-      "south": {"texture": "#base"}, "west": {"texture": "#base"}, "east": {"texture": "#base"}
-    }},
-    { "from": [6.2, 2.02, 7.72], "to": [9.8, 2.25, 8.28], "shade": false, "faces": {
-      "down": {"texture": "#segment"}, "up": {"texture": "#segment"}, "north": {"texture": "#segment"},
-      "south": {"texture": "#segment"}, "west": {"texture": "#segment"}, "east": {"texture": "#segment"}
-    }},
-    { "from": [7.72, 2.02, 6.2], "to": [8.28, 2.25, 9.8], "shade": false, "faces": {
-      "down": {"texture": "#segment"}, "up": {"texture": "#segment"}, "north": {"texture": "#segment"},
-      "south": {"texture": "#segment"}, "west": {"texture": "#segment"}, "east": {"texture": "#segment"}
-    }}
-  ]
+    "frame": "cc_aeroworks:block/display_base",
+    "screen": "minecraft:block/green_concrete"
+  }
 }
