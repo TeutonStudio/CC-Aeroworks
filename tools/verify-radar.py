@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate optional radar resources, direct controller scenes and development dependencies."""
+"""Validate optional radar resources, adjacent-controller scenes and development dependencies."""
 
 from __future__ import annotations
 
@@ -40,10 +40,14 @@ def main() -> int:
         "ponder.cc_aeroworks.radar_direct.header",
         *(f"ponder.cc_aeroworks.radar_direct.text_{index}" for index in range(1, 6)),
     }
-    require(required_keys <= english.keys(), "Missing radar item or direct-controller Ponder translations")
+    require(required_keys <= english.keys(), "Missing radar item or adjacent-controller Ponder translations")
 
-    for obsolete in ("ponder.cc_aeroworks.radar_routing.header", "ponder.cc_aeroworks.radar_data_link.header"):
-        require(obsolete not in english, f"Legacy radar Ponder translation remains: {obsolete}")
+    for obsolete in (
+        "ponder.cc_aeroworks.radar_routing.header",
+        "ponder.cc_aeroworks.radar_data_link.header",
+        "message.cc_aeroworks.radar_controller_linked",
+    ):
+        require(obsolete not in english, f"Legacy radar translation remains: {obsolete}")
 
     for name in ("small_radar_display", "large_radar_display"):
         load_json(MODELS / "block/module" / f"{name}.json")
@@ -62,11 +66,11 @@ def main() -> int:
 
     plugin = read("src/main/java/de/teutonstudio/ccaeroworks/client/ponder/CCAeroworksPonderPlugin.java")
     scene = read("src/main/java/de/teutonstudio/ccaeroworks/client/ponder/RadarDisplayScenes.java")
-    require("RadarDisplayScenes::controllerConnection" in plugin, "Controller connection scene is not registered")
+    require("RadarDisplayScenes::controllerConnection" in plugin, "Controller scene is not registered")
     require("RadarDisplayScenes::directRadarDisplay" in plugin, "Direct radar scene is not registered")
     require('isLoaded("create_radar")' in plugin, "Radar Ponder registration is not optional")
     require(scene.count("showText(") == 10, "Radar Ponder scenes must contain ten explanation steps")
-    require('"create_radar", "data_link"' in scene, "Radar Ponder does not show the connection tool")
+    require('"create_radar", "data_link"' in scene, "Radar Ponder does not show native radar linking")
     require('"create_radar", "network_filterer"' in scene, "Radar Ponder does not show the Network Controller")
     require('"create_radar", "monitor"' not in scene, "Radar Ponder still depends on a monitor block")
     require("PonderText.get" in scene and '.text("' not in scene, "Radar Ponder text is not fully localized")
@@ -75,21 +79,21 @@ def main() -> int:
     common_mixins = set(mixins.get("mixins", []))
     require("ConsoleBlockEntityRadarMixin" in common_mixins, "Radar state mixin is missing")
     require(
-        "compat.CreateRadarNetworkControllerLinkMixin" in common_mixins,
-        "Optional Network Controller item mixin is missing",
-    )
-    require(
-        "compat.CreateRadarDataLinkMixin" not in common_mixins
+        "compat.CreateRadarNetworkControllerMixin" in common_mixins
+        and "compat.CreateRadarNetworkControllerLinkMixin" not in common_mixins
+        and "compat.CreateRadarDataLinkMixin" not in common_mixins
         and "compat.CreateRadarDataLinkItemMixin" not in common_mixins,
-        "Legacy Data Link mixins are still registered",
+        "Controller tick mixin is missing or a Data Link mixin remains",
     )
 
     snapshot = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/RadarDisplaySnapshot.kt")
     radar_mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/ConsoleBlockEntityRadarMixin.kt")
+    compat = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/createradar/CreateRadarCompat.kt")
     require('putString("id", this@RadarDisplayTrack.id)' in snapshot, "Radar track serialization is unsafe")
     require(snapshot.count("Tag.TAG_COMPOUND.toInt()") == 4, "Radar NBT tag IDs must be Int values")
-    require("RADAR_CONTROLLER_NBT_KEY" in radar_mixin, "Network Controller link is not persisted")
-    require("CreateRadarCompat.refreshDesk" in radar_mixin, "Direct radar data is not refreshed")
+    require("RADAR_CONTROLLER_NBT_KEY" not in radar_mixin, "Controller location is still persisted")
+    require("CreateRadarCompat" not in radar_mixin, "Radar refresh still depends on an Aeroworks desk tick")
+    require("refreshController" in compat and "findAdjacentControllers" in compat and "Direction.values()" in compat, "Adjacent controller scan is missing")
 
     metadata = read("src/main/templates/META-INF/neoforge.mods.toml")
     require('modId="create_radar"' in metadata, "Create: Radars metadata is missing")
@@ -102,7 +106,7 @@ def main() -> int:
         'modId="create_radar"\n    type="optional"\n'
         '    reason="Enables radar displays linked directly to a Create: Radars Network Controller."\n'
         '    versionRange="[0.4.9.4,)"' in metadata,
-        "Create: Radars metadata must describe direct controller displays and preserve the updated range",
+        "Create: Radars metadata must preserve the updated range",
     )
     require('1.4.1' not in metadata, "Aeroworks modpack version 1.4.1 leaked into mod metadata")
     require('versionRange="[0.4.9.4)"' not in metadata, "Metadata contains a malformed Maven range")
@@ -114,10 +118,7 @@ def main() -> int:
         if isinstance(dependency, dict)
     }
     require(dependencies.get("aeroworks", {}).get("version") == "1.3.0", "Aeroworks mod version is not pinned")
-    require(
-        dependencies.get("create_radar", {}).get("version") == "0.4.9.4-1.21.1",
-        "Create: Radars version is not pinned",
-    )
+    require(dependencies.get("create_radar", {}).get("version") == "0.4.9.4-1.21.1", "Create: Radars version is not pinned")
     require(dependencies.get("createbigcannons", {}).get("version") == "5.11.7", "CBC version is not pinned")
     require(dependencies.get("ritchiesprojectilelib", {}).get("version") == "2.1.2", "RPL version is not pinned")
     require(dependencies.get("jei", {}).get("version") == "19.27.0.340", "JEI version is not pinned")
@@ -138,13 +139,13 @@ def main() -> int:
     require(config.count("Int.MAX_VALUE") == 4, "All display dimensions must remain unbounded positive integers")
 
     docs = read("docs/create-radars-integration.md")
-    require("Network Controller" in docs, "Radar documentation does not explain the direct source")
-    require("kein Data-Link-Block" in docs and "kein Monitorblock" in docs, "Removed source blocks remain documented")
+    require("direkt angrenzenden Network Controller" in docs, "Radar docs do not explain automatic adjacency")
+    require("weder einen Data-Link-Item-Mixin" in docs and "kein Monitorblock" in docs, "Removed runtime paths remain documented")
     require("20 Ticks" in docs and "256" in docs and "runClient" in docs, "Radar documentation is incomplete")
 
     print(
-        "Validated optional radar items, direct Network Controller snapshots, two localized Ponder scenes, "
-        "official dependency metadata and removal of the monitor/Data Link block runtime path."
+        "Validated optional radar items, automatic adjacent Network Controller snapshots, localized Ponder scenes, "
+        "official dependency metadata and removal of controller-to-desk Data Link interaction."
     )
     return 0
 
