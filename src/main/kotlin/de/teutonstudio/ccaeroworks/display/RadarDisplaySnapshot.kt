@@ -38,7 +38,7 @@ enum class RadarDisplayTrackSprite {
         fun fromCategory(category: Any?): RadarDisplayTrackSprite = when (
             category?.toString()?.uppercase(Locale.ROOT)
         ) {
-            "SABLE", "CONTRAPTION" -> CONTRAPTION
+            "VS2", "SABLE", "CONTRAPTION" -> CONTRAPTION
             "PLAYER" -> PLAYER
             "PROJECTILE" -> PROJECTILE
             else -> ENTITY
