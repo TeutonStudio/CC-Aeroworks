@@ -4,6 +4,7 @@ import de.teutonstudio.ccaeroworks.CCAeroworks;
 import net.createmod.ponder.api.registration.PonderPlugin;
 import net.createmod.ponder.api.registration.PonderSceneRegistrationHelper;
 import net.minecraft.resources.ResourceLocation;
+import net.neoforged.fml.ModList;
 
 public class CCAeroworksPonderPlugin implements PonderPlugin {
     private static final ResourceLocation COMPUTER_CONTROL_DESK =
@@ -14,6 +15,10 @@ public class CCAeroworksPonderPlugin implements PonderPlugin {
         ResourceLocation.fromNamespaceAndPath(CCAeroworks.MOD_ID, "two_digit_display");
     private static final ResourceLocation THREE_DIGIT_DISPLAY =
         ResourceLocation.fromNamespaceAndPath(CCAeroworks.MOD_ID, "three_digit_display");
+    private static final ResourceLocation SMALL_RADAR_DISPLAY =
+        ResourceLocation.fromNamespaceAndPath(CCAeroworks.MOD_ID, "small_radar_display");
+    private static final ResourceLocation LARGE_RADAR_DISPLAY =
+        ResourceLocation.fromNamespaceAndPath(CCAeroworks.MOD_ID, "large_radar_display");
 
     @Override
     public String getModId() {
@@ -26,5 +31,10 @@ public class CCAeroworksPonderPlugin implements PonderPlugin {
             .addStoryBoard("computer_control_desk", ComputerControlDeskScenes::overview);
         helper.forComponents(TWO_DIGIT_DISPLAY, THREE_DIGIT_DISPLAY)
             .addStoryBoard("computer_control_desk", DisplayModuleScenes::overview);
+
+        if (ModList.get().isLoaded("create_radar")) {
+            helper.forComponents(SMALL_RADAR_DISPLAY, LARGE_RADAR_DISPLAY)
+                .addStoryBoard("computer_control_desk", RadarDisplayScenes::dataLink);
+        }
     }
 }
