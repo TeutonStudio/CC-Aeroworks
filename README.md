@@ -1,6 +1,6 @@
 # CC-Aeroworks
 
-CC-Aeroworks verbindet Create: Aeroworks Control Desks mit CC:Tweaked. Die Mod ergänzt programmierbare zwei- und dreistellige Displays, frei beschreibbare Pixelraster, kombinierte Maussteuerung sowie normale und erweiterte Computer-Steuerungspulte.
+CC-Aeroworks verbindet Create: Aeroworks Control Desks mit CC:Tweaked. Die Mod ergänzt programmierbare zwei- und dreistellige Displays, frei beschreibbare Pixelraster, kombinierte Maussteuerung, Computer-Steuerungspulte und optional zwei Create:-Radars-Anzeigen.
 
 ## Steuerungspult-Multiblocks
 
@@ -46,15 +46,27 @@ local aeroworks = require("cc_aeroworks.aeroworks")
 
 Mit Schleichen und Rechtsklick bei leerer Haupthand lässt sich das Terminal von jedem Mitglied eines gültigen Einzelcomputer-Multiblocks öffnen. Ein normaler Rechtsklick bedient montierte Steuerungen; ein Create-Schraubenschlüssel auf einer horizontalen Pultseite öffnet die Steuerungseinstellungen.
 
-Pro Multiblock ist höchstens ein eingebetteter Computer vorgesehen. Wird versehentlich ein zweites Computerpult platziert, bleibt ein normales Aeroworks-Pult zurück und der zusätzliche Computer wird mit seinen Komponenten ausgeworfen. Das gilt auch im Creative-Modus. Konflikte aus Altwelten, Befehlen oder Strukturwerkzeugen bleiben als diagnostizierbarer Sicherheitszustand erhalten.
+Pro Multiblock ist höchstens ein eingebetteter Computer vorgesehen. Wird versehentlich ein weiteres normales oder erweitertes Computerpult platziert, bleibt an dieser Stelle ein normales Aeroworks-Pult zurück und der zusätzliche CC:Tweaked-Computer wird mit ID, Label und Komponenten ausgeworfen. Das gilt in Survival und Creative. Konflikte aus Altwelten, Befehlen oder Strukturwerkzeugen bleiben als diagnostizierbarer Sicherheitszustand erhalten.
 
 Beide Computerpultvarianten besitzen eine Create-Ponder-Erklärung, die über die übliche Ponder-Taste `W` geöffnet wird.
 
-## Displays und kombinierte Eingabe
+## Programmierbare Displays
 
-Die Displays unterstützen Ziffern sowie `7x5`- beziehungsweise `11x5`-Pixelraster. Das zweistellige Display passt in kleine und große Slots, das dreistellige ausschließlich in große Slots.
+Die Displays unterstützen Ziffern sowie frei beschreibbare Pixelraster. Standardmäßig besitzt das zweistellige Display `7x5` und das dreistellige `11x5` Pixel. Breite und Höhe beider Größen können in `cc_aeroworks-server.toml` auf jede positive Ganzzahl eingestellt werden; die früheren künstlichen Grenzen von `64x32` wurden entfernt. Die wirksamen Werte stehen in Lua über `getDisplaySize`, `pixelWidth`, `pixelHeight`, `PIXEL_WIDTH` und `PIXEL_HEIGHT` bereit. Das zweistellige Display passt in kleine und große Slots, das dreistellige ausschließlich in große Slots.
 
-Ein normaler CC:Tweaked-Monitor lässt sich mit einer mechanischen Presse zur zweistelligen Anzeige pressen; ein erweiterter Monitor entsprechend zur dreistelligen Anzeige. Beide Anzeigen besitzen eine gemeinsame Create-Ponder-Erklärung für Herstellung und mögliche Anordnungen. Zwei kleine Anzeigen liefern zusammen `70` Pixel, eine große Anzeige `55` Pixel.
+Ein normaler CC:Tweaked-Monitor wird unter einer mechanischen Presse zum zweistelligen Display, ein erweiterter Monitor zum dreistelligen Display. Beide Displayitems besitzen eine gemeinsame Ponder-Erklärung für Herstellung und Socket-Anordnung. Zwei kleine Displays bieten zusammen mehr Pixel als ein großes Display, sofern die Standardauflösungen verwendet werden.
+
+Große Raster werden beim Rendern räumlich auf die Modulfläche skaliert. Speicherbedarf und Verarbeitungsaufwand wachsen dennoch mit der Pixelzahl, weil Mathematik leider keinen Respekt vor ambitionierten TOML-Dateien hat.
+
+## Optionale Create:-Radars-Anzeigen
+
+Mit Create: Radars 0.4.4 für Minecraft 1.21.1 werden eine kleine und eine große Radaranzeige freigeschaltet. Die kleine Variante passt in kleine und große Slots, die große nur in den großen Slot. Beide verwenden dieselben konfigurierten Rastergrößen wie die entsprechenden programmierbaren Displays.
+
+Die Anzeige funktioniert ausschließlich über einen echten Create: Radars Data Link: Seine Quellseite muss auf das Pult mit dem Radar-Display zeigen, sein Ziel auf einen verbundenen Radar-Monitor. Der Monitor liefert Radarzentrum, Reichweite, Kontakte und ausgewähltes Ziel. Ohne frische Verbindung zeigt das Display ein `X`. Beide Radaritems besitzen eine eigene Ponder-Erklärung, die Aufbau und Data-Link-Pflicht animiert zeigt.
+
+Details und Testfälle stehen in [`docs/create-radars-integration.md`](docs/create-radars-integration.md).
+
+## Kombinierte Eingabe
 
 Für Lever, Joystick und Throttle Quadrants kann im Aeroworks-Modulbildschirm der Input Type `Kombiniert` gewählt werden. Anschließend wird im mittleren Eingabefeld die Aktivierungstaste erfasst und beim Steuern gehalten.
 
@@ -62,7 +74,7 @@ Desk-Sockets heißen in Lua `left`, `right` und `big`; kompatible Indizes sind `
 
 ## Entwicklungsstand
 
-Das Projekt ist eine frühe Integrationsversion. Build-, Repository- und Testinfrastruktur sind vorhanden, die vollständige interaktive Laufzeitmatrix ist jedoch noch nicht ausgeführt. Der absichtlich blockierte Baselinebericht liegt unter [`docs/test-results/baseline-1.0.md`](docs/test-results/baseline-1.0.md). Ein Compilerlauf ersetzt weiterhin keine Prüfung von Rendering, Persistenz, Sable oder realen Multiblocks. Bedauerlich für alle, die auf optimistische Dateinamen gesetzt hatten.
+Das Projekt ist eine frühe Integrationsversion. Build-, Repository- und Testinfrastruktur sind vorhanden, die vollständige interaktive Laufzeitmatrix ist jedoch noch nicht ausgeführt. Der absichtlich blockierte Baselinebericht liegt unter [`docs/test-results/baseline-1.0.md`](docs/test-results/baseline-1.0.md). Ein Compilerlauf ersetzt weiterhin keine Prüfung von Rendering, Persistenz, Sable, Create: Radars oder realen Multiblocks.
 
 ## Entwicklungsumgebung
 
@@ -71,12 +83,11 @@ Das Projekt ist eine frühe Integrationsversion. Build-, Repository- und Testinf
 - Create 6.0.10 mit Ponder API 1.0.82
 - Aeronautics/Aeroworks 1.3.0
 - CC:Tweaked API-Baseline 1.119.0; Metadatenbereich bis vor 1.121
+- Create: Radars 0.4.4-1.21.1 optional
 
 ## Frischer Clone
 
-Der eingecheckte Bootstrap benötigt Java 21. `gradlew` lädt die festgelegte Gradle-Distribution und akzeptiert sie nur bei passender SHA-256-Prüfsumme.
-
-Repositorydateien ohne Fremd-JARs prüfen:
+Der eingecheckte Bootstrap benötigt Java 21. Repositorydateien ohne Fremd-JARs prüfen:
 
 ```bash
 python3 tools/verify-repository.py
@@ -98,29 +109,19 @@ Ein alternatives Verzeichnis wird mit `-Pmod_dependency_dir=/pfad/zu/mods` angeg
 
 ## Tests und CI
 
-Die unterstützten Profile und Release-Gates stehen in [`docs/runtime-test-matrix.md`](docs/runtime-test-matrix.md). Interaktive Basistests stehen in [`docs/manual-test-plan.md`](docs/manual-test-plan.md), zusätzliche Multiblockfälle in [`docs/multiblock-test-plan.md`](docs/multiblock-test-plan.md) und die neuen Bedienungs-, Ponder- und Doppelplatzierungsfälle in [`docs/computer-desk-guide-test-plan.md`](docs/computer-desk-guide-test-plan.md).
+Die unterstützten Profile und Release-Gates stehen in [`docs/runtime-test-matrix.md`](docs/runtime-test-matrix.md). Interaktive Basistests stehen in [`docs/manual-test-plan.md`](docs/manual-test-plan.md), zusätzliche Multiblockfälle in [`docs/multiblock-test-plan.md`](docs/multiblock-test-plan.md) und die Bedienungs-, Display- und Ponder-Fälle in [`docs/computer-desk-guide-test-plan.md`](docs/computer-desk-guide-test-plan.md).
 
-```bash
-python3 tools/run-integration-profile.py BASE-CLIENT \
-  --dependency-dir test-mods/base-cc-1.119
-
-python3 tools/run-integration-profile.py BASE-SERVER \
-  --dependency-dir test-mods/base-cc-1.119 \
-  --server-smoke
-```
-
-`.github/workflows/verify.yml` prüft bei Push und Pull Request den Repositoryvertrag sowie Buch-, Sprach-, Wiki- und Ponder-Ressourcen. Der geschützte Vollbuild benötigt rechtmäßig bereitgestellte Mod-JARs über die Repository-Secrets `MOD_DEPENDENCY_URL` und `MOD_DEPENDENCY_SHA256`.
+`.github/workflows/verify.yml` prüft bei Push und Pull Request den Repositoryvertrag sowie Buch-, Sprach-, Wiki-, Ponder- und Radar-Ressourcen. Der geschützte Vollbuild benötigt rechtmäßig bereitgestellte Mod-JARs über die Repository-Secrets `MOD_DEPENDENCY_URL` und `MOD_DEPENDENCY_SHA256`.
 
 ## Dokumentation und Beispiele
 
 - [Peripheral- und direkte API](docs/cc-peripheral-api.md)
 - [Einführung zur Programmierung](docs/peripheral-programming.md)
-- [Integrations-Testharness](docs/integration-test-harness.md)
+- [Konfiguration](docs/configuration.md)
+- [Create: Radars integration](docs/create-radars-integration.md)
 - [Runtime-Testmatrix](docs/runtime-test-matrix.md)
 - [Manueller Testplan](docs/manual-test-plan.md)
-- [Multiblock-Testplan](docs/multiblock-test-plan.md)
-- [Computerpult-, Handbuch- und Ponder-Testplan](docs/computer-desk-guide-test-plan.md)
-- [Wiki-Veröffentlichung](docs/wiki-publishing.md)
+- [Computerpult-, Display- und Ponder-Testplan](docs/computer-desk-guide-test-plan.md)
 - [Lua-Beispiele](examples/cc/)
 
 Repository: `TeutonStudio/CC-Aeroworks`
