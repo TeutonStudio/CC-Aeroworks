@@ -151,7 +151,7 @@ abstract class ConsoleVisualMixin(
             }
         }
 
-        val iterator = radarElements.iterator()
+        val iterator = radarElements.entries.iterator()
         while (iterator.hasNext()) {
             val entry = iterator.next()
             if (entry.key in desiredKeys) continue
@@ -177,21 +177,15 @@ abstract class ConsoleVisualMixin(
 
     @Unique
     private fun applyTransforms() {
-        val sockets = blockEntity.sockets()
-        val rotation = ConsoleBlock.rotationFor(blockEntity.blockState)
         val gameTime = blockEntity.level?.gameTime ?: 0L
-        displayElements.forEach { applyTransform(it, sockets, rotation, gameTime) }
-        radarElements.values.forEach { applyTransform(it, sockets, rotation, gameTime) }
+        displayElements.forEach { applyTransform(it, gameTime) }
+        radarElements.values.forEach { applyTransform(it, gameTime) }
     }
 
     @Unique
-    private fun applyTransform(
-        element: CCAeroworksDisplayElement,
-        sockets: List<*>,
-        rotation: org.joml.Quaternionf,
-        gameTime: Long
-    ) {
+    private fun applyTransform(element: CCAeroworksDisplayElement, gameTime: Long) {
         val socket = blockEntity.sockets().getOrNull(element.socket) ?: return
+        val rotation = ConsoleBlock.rotationFor(blockEntity.blockState)
         val instance = element.instance
         instance.setIdentityTransform()
             .translate(visualPosition)
