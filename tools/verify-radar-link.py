@@ -63,8 +63,12 @@ def main() -> int:
         'targets = "com.happysg.radar.block.controller.networkcontroller.NetworkFiltererBlockEntity"' in controller_mixin,
         "Controller mixin targets the wrong optional class",
     )
-    require('method = "headlessTick"' in controller_mixin, "Controller mixin does not use the five-tick source hook")
-    require("CreateRadarCompat.refreshController(this)" in controller_mixin, "Controller mixin does not refresh desks")
+    require(
+        'method = "tick(Lnet/minecraft/world/level/Level;' in controller_mixin,
+        "Controller mixin does not target the public static block ticker",
+    )
+    require("@Coerce Object controller" in controller_mixin, "Optional controller argument is not coerced safely")
+    require("CreateRadarCompat.refreshController(controller)" in controller_mixin, "Controller ticker does not refresh desks")
 
     compat = read(COMPAT)
     required_tokens = (
@@ -78,6 +82,9 @@ def main() -> int:
         "for (direction in Direction.values())",
         "desk.blockPos.relative(direction)",
         "controllers.putIfAbsent(candidate.blockPos, candidate)",
+        "controllers += tickingController",
+        'private const val NETWORK_CONTROLLER_BLOCK_ID: String = "create_radar:network_filterer"',
+        "BuiltInRegistries.BLOCK.getKey(candidate.blockState.block)",
         'invokeDeclared(controller, "getRadar", level)',
         'readField(controller, "radarCache")',
         'invoke(radar, "getTracks")',
@@ -85,6 +92,8 @@ def main() -> int:
         'invoke(radar, "isRunning")',
         'invoke(radar, "getWorldPos")',
         "filter(AeroworksDeskAccess::hasRadarDisplay)",
+        "detectedDestinations.ifEmpty { network.desks }",
+        "destination.notifyUpdate()",
         "state == ConsoleNetworkState.ACTIVE || state == ConsoleNetworkState.NONE",
         "RadarDisplaySnapshot.MAX_SYNCED_TRACKS",
     )
@@ -105,8 +114,9 @@ def main() -> int:
         "getTargetPosition",
         "getSourcePosition",
         "fun capture(",
+        "sendBlockUpdated(",
     ):
-        require(forbidden not in compat, f"Removed Data Link behavior remains: {forbidden}")
+        require(forbidden not in compat, f"Removed or unreliable radar behavior remains: {forbidden}")
 
     state_access = read(STATE_ACCESS)
     desk_mixin = read(DESK_MIXIN)
@@ -120,6 +130,7 @@ def main() -> int:
     module_types = read(MODULE_TYPES)
     for token in (
         "moduleTypeIdentities(moduleType)",
+        "declaredFieldIdentities(moduleType)",
         "matchesModuleIdentity",
         '"summary"',
         '"getSummary"',
@@ -172,8 +183,8 @@ def main() -> int:
     require("keine Controllerposition gespeichert" in test_plan, "Regression plan does not forbid persisted links")
 
     print(
-        "Validated automatic adjacent Network Controller discovery, single-owner desk updates, direct radar snapshots, "
-        "multi-display routing and complete removal of controller-to-desk Data Link interaction."
+        "Validated the public Network Controller ticker hook, automatic adjacency discovery, synced desk snapshots, "
+        "module identity fallback and complete removal of controller-to-desk Data Link interaction."
     )
     return 0
 
