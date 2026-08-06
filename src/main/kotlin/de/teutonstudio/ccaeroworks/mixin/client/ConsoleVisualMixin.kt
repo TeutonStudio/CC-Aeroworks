@@ -38,6 +38,9 @@ abstract class ConsoleVisualMixin(
     @field:Unique
     private var displayKey: String = ""
 
+    @field:Unique
+    private var radarKey: String = ""
+
     @Inject(
         method = ["<init>(Ldev/engine_room/flywheel/api/visualization/VisualizationContext;Lcom/mred231/aeroworks/content/controls/ConsoleBlockEntity;F)V"],
         at = [At("TAIL")]
@@ -127,9 +130,15 @@ abstract class ConsoleVisualMixin(
     @Unique
     private fun reconcileRadarElements() {
         val gameTime = blockEntity.level?.gameTime ?: 0L
-        val desiredKeys = mutableSetOf<String>()
+        val surfaces = AeroworksDeskAccess.radarSurfaces(blockEntity)
+        val nextKey = buildString {
+            surfaces.forEach { append(RadarSurfaceRenderer.key(it, gameTime)).append(';') }
+        }
+        if (nextKey == radarKey) return
+        radarKey = nextKey
 
-        AeroworksDeskAccess.radarSurfaces(blockEntity).forEach { surface ->
+        val desiredKeys = mutableSetOf<String>()
+        surfaces.forEach { surface ->
             RadarSurfaceRenderer.elements(surface, gameTime).forEach { desired ->
                 val key = "${surface.socket}:${surface.type}:${desired.key}"
                 desiredKeys += key
