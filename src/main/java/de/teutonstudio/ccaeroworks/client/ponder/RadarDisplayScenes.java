@@ -60,12 +60,11 @@ public class RadarDisplayScenes {
             .placeNearTarget();
         scene.idle(90);
 
-        scene.overlay().showControls(util.vector().blockSurface(sourceDesk, Direction.SOUTH), Pointing.UP, 60)
-            .withItem(dataLinkStack());
+        scene.effects().indicateSuccess(sourceDesk);
         scene.overlay().showText(80)
             .attachKeyFrame()
             .text(PonderText.get("ponder.cc_aeroworks.radar_controller.text_4"))
-            .pointAt(util.vector().blockSurface(sourceDesk, Direction.SOUTH))
+            .pointAt(util.vector().centerOf(sourceDesk))
             .placeNearTarget();
         scene.idle(90);
 
