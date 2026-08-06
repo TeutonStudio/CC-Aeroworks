@@ -101,6 +101,28 @@ object CCModuleTypes {
         for (methodName in listOf("id", "getId", "key", "getKey", "registryName", "getRegistryName", "summary", "getSummary")) {
             invokeInstanceIdentity(moduleType, methodName)?.toString()?.let { yield(it) }
         }
+
+        for (identity in declaredFieldIdentities(moduleType)) {
+            yield(identity)
+        }
+    }
+
+    private fun declaredFieldIdentities(moduleType: ModuleType): Sequence<String> = sequence {
+        var current: Class<*>? = moduleType.javaClass
+        while (current != null) {
+            val type = current
+            for (field in type.declaredFields) {
+                if (Modifier.isStatic(field.modifiers)) continue
+                val fieldName = field.name.lowercase(Locale.ROOT)
+                if (listOf("id", "key", "name", "summary", "registry", "model").none(fieldName::contains)) continue
+                val value = runCatching {
+                    field.trySetAccessible()
+                    field.get(moduleType)
+                }.getOrNull() ?: continue
+                yield(value.toString())
+            }
+            current = type.superclass
+        }
     }
 
     private fun invokeRegistryIdentity(moduleType: ModuleType, methodName: String): Any? = runCatching {
