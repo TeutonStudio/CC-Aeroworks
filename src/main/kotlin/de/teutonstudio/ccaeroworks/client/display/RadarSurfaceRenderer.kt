@@ -25,7 +25,8 @@ object RadarSurfaceRenderer {
         val model: PartialModel,
         val x: Double = 0.0,
         val z: Double = 0.0,
-        val spinning: Boolean = false
+        val spinning: Boolean = false,
+        val translucent: Boolean = false
     )
 
     @JvmStatic
@@ -37,7 +38,6 @@ object RadarSurfaceRenderer {
     ) {
         val sockets = desk.sockets()
         val rotation = ConsoleBlock.rotationFor(desk.blockState)
-        val consumer = buffers.getBuffer(RenderType.translucent())
         val gameTime = desk.level?.gameTime ?: 0L
 
         AeroworksDeskAccess.radarSurfaces(desk).forEach { surface ->
@@ -58,14 +58,17 @@ object RadarSurfaceRenderer {
                 }
                 rendered.translate(element.x, 0.0, element.z)
                 rendered.light<SuperByteBuffer>(light)
-                rendered.renderInto(poseStack, consumer)
+                rendered.renderInto(
+                    poseStack,
+                    buffers.getBuffer(if (element.translucent) RenderType.translucent() else RenderType.cutout())
+                )
             }
         }
     }
 
     @JvmStatic
     fun key(surface: RadarSurfaceState): String =
-        "${surface.socket}:${surface.type}:${surface.snapshot?.hashCode() ?: 0}"
+        "${surface.socket}:${surface.type}:${surface.snapshot?.contentHash() ?: 0}"
 
     @JvmStatic
     fun sweepAngle(gameTime: Long): Float =
@@ -75,8 +78,8 @@ object RadarSurfaceRenderer {
     fun elements(surface: RadarSurfaceState, gameTime: Long): List<Element> {
         val models = DeskDisplayModels.radar(surface.type)
         val elements = mutableListOf(
-            Element(models.filler),
-            Element(models.circle)
+            Element(models.filler, translucent = true),
+            Element(models.circle, translucent = true)
         )
         val snapshot = surface.snapshot
         if (!RadarDisplaySnapshot.isFresh(snapshot, gameTime)) {
@@ -85,7 +88,7 @@ object RadarSurfaceRenderer {
         }
 
         val active = requireNotNull(snapshot)
-        elements += Element(models.sweep, spinning = true)
+        elements += Element(models.sweep, spinning = true, translucent = true)
         for (track in active.tracks) {
             val projected = project(surface.type, active, track.position.x, track.position.z) ?: continue
             elements += Element(
