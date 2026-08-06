@@ -14,6 +14,12 @@
   "message.cc_aeroworks.console_too_large": "Der Steuerungspult-Multiblock ist größer als 64 Blöcke.",
   "message.cc_aeroworks.console_partially_loaded": "Der Steuerungspult-Multiblock ist nicht vollständig geladen.",
   "message.cc_aeroworks.computer_ejected": "Dieser Multiblock besitzt bereits einen Computer. Der zusätzliche Computer wurde ausgeworfen.",
+  "message.cc_aeroworks.radar_monitor_selected": "Radarmonitor ausgewählt. Rechtsklicke nun eine freie Seite des Steuerungspults.",
+  "message.cc_aeroworks.radar_select_monitor_first": "Wähle zuerst einen Create:-Radars-Monitor aus.",
+  "message.cc_aeroworks.radar_monitor_invalid": "Der ausgewählte Radarmonitor ist nicht mehr verfügbar.",
+  "message.cc_aeroworks.radar_link_created": "Radar-Data-Link verbunden.",
+  "message.cc_aeroworks.radar_link_failed": "Der Radar-Data-Link konnte nicht konfiguriert werden.",
+  "message.cc_aeroworks.radar_link_cleared": "Radarmonitor-Auswahl gelöscht.",
   "creative_section.cc_aeroworks.aeroworks": "Aeroworks",
   "creative_section.cc_aeroworks.cc_aeroworks": "CC-Aeroworks",
   "book.cc_aeroworks.page_1": "CC-Aeroworks\n\nWähle einen Zugriffsweg:\n\n1. Ein Computer-Steuerungspult mit direkter aeroworks-API.\n\n2. Ein externer Computer an einem beliebigen Pult mit Peripheral-API.",
@@ -94,8 +100,8 @@
   "ponder.cc_aeroworks.display_modules.text_6": "Zwei kleine Anzeigen bieten bei Standardauflösung zusammen 70 Pixel; eine große Anzeige bietet 55 Pixel.",
   "ponder.cc_aeroworks.radar_display.header": "Radaranzeigen verwenden",
   "ponder.cc_aeroworks.radar_display.text_1": "Montiere eine kleine oder große Radaranzeige in einem passenden Socket des Steuerungspults.",
-  "ponder.cc_aeroworks.radar_display.text_2": "Ein Create: Radars Data Link muss das Steuerungspult als Quelle verwenden.",
-  "ponder.cc_aeroworks.radar_display.text_3": "Verbinde das andere Ende mit einem Create: Radars Monitor in einem funktionierenden Radarnetzwerk.",
+  "ponder.cc_aeroworks.radar_display.text_2": "Rechtsklicke zuerst mit dem Data Link einen Create:-Radars-Monitor, um dessen Controller auszuwählen.",
+  "ponder.cc_aeroworks.radar_display.text_3": "Rechtsklicke danach eine freie Pultseite; CC-Aeroworks platziert und konfiguriert den Data Link.",
   "ponder.cc_aeroworks.radar_display.text_4": "Die Anzeige empfängt nahe Kontakte automatisch und markiert das ausgewählte Ziel.",
   "ponder.cc_aeroworks.radar_display.text_5": "Ein X bedeutet, dass kein aktuelles Radarsignal über den Data Link verfügbar ist."
 }
