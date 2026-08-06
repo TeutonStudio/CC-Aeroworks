@@ -96,6 +96,7 @@ class ComputerControlDeskBlockEntity(
         }
 
         publishConsoleEvents(computer)
+        PeripheralNetworkRuntimes.tick(this)
     }
 
     fun createServerComputer(): ServerComputer {
