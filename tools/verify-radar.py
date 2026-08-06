@@ -81,15 +81,14 @@ def main() -> int:
     atlas = load_json(BLOCK_ATLAS)
     atlas_sources = atlas.get("sources")
     require(isinstance(atlas_sources, list), "The Minecraft block atlas must contain a sources list")
-    stitched_sprites = {
-        source.get("sprite")
-        for source in atlas_sources
-        if isinstance(source, dict)
-        and source.get("type") == "single"
-        and source.get("resource") == source.get("sprite")
-    }
-    required_sprites = set(translucent_models.values()) | set(cutout_models.values())
-    require(required_sprites <= stitched_sprites, "Create: Radars monitor sprites are not stitched into the block atlas")
+    require(
+        {
+            "type": "directory",
+            "source": "monitor_sprite",
+            "prefix": "monitor_sprite",
+        } in atlas_sources,
+        "Create: Radars monitor sprites are not collected through an optional-safe atlas directory source",
+    )
 
     mixins = load_json(ROOT / "src/main/resources/cc_aeroworks.mixins.json")
     common_mixins = set(mixins.get("mixins", []))
@@ -111,6 +110,7 @@ def main() -> int:
     surface = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/RadarSurfaceRenderer.kt")
     fallback = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/DeskDisplayRenderer.kt")
     flywheel = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ConsoleVisualMixin.kt")
+    computer_renderer = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/ComputerControlDeskRenderer.kt")
 
     require("enum class RadarLinkStatus" in snapshot, "Radar link failures are still collapsed into one boolean")
     for status in (
@@ -147,6 +147,11 @@ def main() -> int:
     require("RadarSurfaceRenderer.render" in fallback, "Classic renderer does not draw radar surfaces")
     require("RadarSurfaceRenderer.elements" in flywheel, "Flywheel does not use the shared radar surface elements")
     require("RadarSurfaceRenderer.sweepAngle" in flywheel, "Flywheel sweep is not animated")
+    require(
+        "DeskDisplayRenderer.render(blockEntity" in computer_renderer
+        and "display-only fallback" in computer_renderer,
+        "Computer control desks still lose all display surfaces when the Aeroworks renderer delegate fails",
+    )
     require(not (ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/display/RadarDisplayRaster.kt").exists(), "Obsolete pixel radar renderer still exists")
 
     metadata = read("src/main/templates/META-INF/neoforge.mods.toml")
@@ -168,10 +173,11 @@ def main() -> int:
     docs = read("docs/create-radars-integration.md")
     require("direkt angrenzenden Network Controller" in docs, "Radar docs do not explain automatic adjacency")
     require("Blockatlas" in docs, "Radar docs do not explain the cross-mod sprite atlas bridge")
+    require("display-only" in docs, "Radar docs do not disclose the computer desk fallback boundary")
     require("RadarDisplayRaster" in docs and "Pixelmatrix" in docs, "Radar docs do not retire the pixel renderer")
     require("20 Ticks" in docs and "256" in docs and "runClient" in docs, "Radar documentation is incomplete")
 
-    print("Validated radar diagnostics, throttled snapshots and stitched Create: Radars monitor sprites.")
+    print("Validated radar diagnostics, throttled snapshots, atlas sprites and computer-desk fallback rendering.")
     return 0
 
 
