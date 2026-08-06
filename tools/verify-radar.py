@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate optional Create: Radars resources without requiring third-party JARs."""
+"""Validate optional radar resources and their local development runtime."""
 
 from __future__ import annotations
 
@@ -134,10 +134,16 @@ def main() -> int:
         and dependencies.get("ritchiesprojectilelib", {}).get("required") is False,
         "Ritchie's Projectile Library is not registered as the optional CBC runtime library",
     )
+    require(
+        dependencies.get("jei", {}).get("version") == "19.27.0.340"
+        and dependencies.get("jei", {}).get("required") is False,
+        "JEI is not registered as an optional development dependency",
+    )
 
     build = read("build.gradle")
     properties = read("gradle.properties")
     require("https://cursemaven.com" in build, "CurseMaven repository is missing")
+    require("https://maven.blamejared.com" in build, "Official JEI Maven repository is missing")
     require(
         'localRuntime("curse.maven:create-radars-1152836:${create_radars_curse_file_id}")' in build,
         "Create: Radars is not included in local Gradle runtimes",
@@ -151,10 +157,15 @@ def main() -> int:
         "Ritchie's Projectile Library is not included in local Gradle runtimes",
     )
     require(
+        'localRuntime("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")' in build,
+        "JEI is not included in local Gradle runtimes",
+    )
+    require(
         "create_radar-*.jar" in build
         and "createbigcannons-*.jar" in build
-        and "ritchiesprojectilelib-*.jar" in build,
-        "Automatically resolved radar runtime JARs are not excluded from the generic dependency file tree",
+        and "ritchiesprojectilelib-*.jar" in build
+        and "jei-*.jar" in build,
+        "Automatically resolved development JARs are not excluded from the generic dependency file tree",
     )
     require(
         "create_radars_version=0.4.4-1.21.1" in properties
@@ -171,6 +182,10 @@ def main() -> int:
         and "ritchies_projectile_lib_curse_file_id=7587771" in properties,
         "Ritchie's Projectile Library development runtime artifact is not pinned",
     )
+    require(
+        "jei_version=19.27.0.340" in properties,
+        "JEI development runtime artifact is not pinned",
+    )
 
     config = read("src/main/kotlin/de/teutonstudio/ccaeroworks/config/CCServerConfig.kt")
     require(config.count("Int.MAX_VALUE") == 4, "All four display dimensions must use the unbounded integer maximum")
@@ -184,8 +199,16 @@ def main() -> int:
         "CBC or RPL radar dependency documentation is missing",
     )
 
+    dependency_docs = read("libs/README.md")
+    require(
+        "Just Enough Items" in dependency_docs
+        and "19.27.0.340" in dependency_docs
+        and "Crafting- und Create-Verarbeitungsrezepte" in dependency_docs,
+        "JEI recipe inspection documentation is missing",
+    )
+
     print(
-        "Validated optional Create: Radars items, creative visibility, CBC/RPL development runtime, recipes, "
+        "Validated optional Create: Radars items, creative visibility, CBC/RPL/JEI development runtime, recipes, "
         "models, mixins, NBT interop, Ponder scene, metadata and display limits."
     )
     return 0
