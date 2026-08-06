@@ -61,6 +61,8 @@ class CCAeroworks(modEventBus: IEventBus, modContainer: ModContainer) {
         const val MULTIBLOCK_CHANGED_EVENT: String = "cc_aeroworks_multiblock_changed"
         const val CONSOLE_INPUT_EVENT: String = "cc_aeroworks_console_input"
         const val CONSOLE_CHANGED_EVENT: String = "cc_aeroworks_console_changed"
+        const val PERIPHERAL_ATTACHED_EVENT: String = "cc_aeroworks_peripheral_attached"
+        const val PERIPHERAL_DETACHED_EVENT: String = "cc_aeroworks_peripheral_detached"
 
         @JvmField
         val LOGGER: Logger = LoggerFactory.getLogger("CC-Aeroworks")

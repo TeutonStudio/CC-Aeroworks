@@ -1,80 +1,88 @@
 # CC-Aeroworks Wiki
 
-CC-Aeroworks verbindet die Steuerungspulte aus Create: Aeroworks mit CC:Tweaked. Die Mod ergänzt eingebettete Computer-Steuerungspulte, programmierbare zwei- und dreistellige Displays und eine kombinierte Maussteuerung für Lever, Joystick und Throttle Quadrants.
+CC-Aeroworks verbindet die Steuerungspulte aus Create: Aeroworks mit CC:Tweaked. Die Mod ergänzt adressierbare Pultadapter, ein netzwerkweites Peripheral-Verzeichnis für eingebettete Computer, programmierbare Displays, kombinierte Maussteuerung und optionale Create:-Radars-Anzeigen.
 
 ## Einstieg
 
-- [[Bedienung]] erklärt Computerterminal, normale Steuerung, Steuerungseinstellungen und Ponder.
-- [[Computer-Steuerungspulte]] erklärt Crafting, Multiblocks und den Schutz vor mehreren eingebetteten Computern.
-- [[API-Schnellreferenz]] trennt direkte `aeroworks`-API und externes Peripheral.
+- [[Bedienung]] erklärt Terminal, normale Steuerung, Einstellungen und Ponder.
+- [[Computer-Steuerungspulte]] erklärt Crafting, Computerposition und Netzwerkregeln.
+- [[Peripheral-Netzwerk]] erklärt Desk-Adapter, Typauflösung und Geräteadressen.
+- [[API-Schnellreferenz]] listet alle Lua-Methoden und Rückgabeformen.
 - [[Programmierbare-Displays]] beschreibt Text-, Zahlen- und Pixelmodus.
-- [[Kombinierte-Eingabe]] erklärt Einrichtung und Bedienung des Halte-zu-Steuern-Modus.
+- [[Radar-Routing]] erklärt automatische Verbindungen zwischen Data Link und Radaranzeige.
+- [[Kombinierte-Eingabe]] erklärt den Halte-zu-Steuern-Modus.
 
-## Einen Zugriffsweg wählen
-
-Ein Steuerungspult-Multiblock benötigt genau **einen Steuerungsweg**:
+## Zwei Zugriffsebenen
 
 ### Eingebetteter Computer
 
-Ein normales oder erweitertes Computer-Steuerungspult verwaltet den gesamten Multiblock. Im Terminal steht die globale API `aeroworks` bereit:
+Ein normales oder erweitertes Computer-Steuerungspult stellt die globale API `peripherals` bereit. Es darf an jeder Position der Pultreihe stehen.
 
 ```lua
-local desks = aeroworks.getDesks()
-assert(#desks > 0, "Kein Steuerungspult gefunden")
+local desks = peripherals.find("ControlDesk")
+local desk = desks["12,64,-7"]
+assert(desk, "Zielpult fehlt")
 
-aeroworks.setDisplayText(desks[1].id, "big", "123")
+desk.setDisplayText("big", "123")
 ```
 
-Dafür sind weder Modem noch `peripheral.find` oder `peripheral.wrap` erforderlich.
+Ein im gesamten Verbund genau einmal vorkommendes Gerät ist direkt über seinen Typ erreichbar:
+
+```lua
+local modem = peripherals.find("endermodem")
+assert(modem, "Kein EnderModem vorhanden")
+modem.open(42)
+```
 
 ### Externer Computer
 
-Alternativ wird ein gewöhnlicher CC:Tweaked-Computer direkt oder über ein Wired Modem mit **einem beliebigen Pult** verbunden:
+Ein gewöhnlicher CC:Tweaked-Computer oder ein Wired Modem verbindet sich mit jedem Pult als eigenem lokalen `ControlDesk`-Peripheral:
 
 ```lua
-local console = peripheral.find("cc_aeroworks_control_desk")
-assert(console, "Kein Steuerungspult verbunden")
+local desk = peripheral.find("ControlDesk")
+assert(desk, "Kein lokales Steuerungspult verbunden")
 
-for _, desk in ipairs(console.getDesks()) do
-  print(desk.index, desk.id, desk.variant)
-end
+print(desk.getInput("left"))
+desk.setDisplayText("big", "123")
 ```
 
-Eine einzige Verbindung reicht für den direkt verbundenen Multiblock. Weitere externe Computer dürfen dasselbe Peripheral-Netzwerk beobachten; die Ein-Computer-Regel betrifft eingebettete Computer-Steuerungspulte.
+Der lokale Adapter sieht ausschließlich dieses Pult. Mehrere Pulte in einem Wired-Modem-Netz bleiben mehrere normale CC:Tweaked-Peripherals.
 
 ## Bedienung in drei Zeilen
 
 | Aktion | Eingabe |
 |---|---|
-| Eingebetteten Computer öffnen | Schleichen + Rechtsklick mit leerer Haupthand auf ein beliebiges Pult |
-| Montierte Steuerung bedienen | Normaler Rechtsklick auf das Modul |
+| Eingebetteten Computer öffnen | Schleichen + Rechtsklick mit leerer Haupthand auf ein geladenes Pult |
+| Montierte Steuerung bedienen | normaler Rechtsklick auf das Modul |
 | Steuerungseinstellungen öffnen | Create-Schraubenschlüssel + Rechtsklick auf eine horizontale Pultseite |
 
-Im Inventar oder Rezeptbetrachter kann über beiden Computer-Steuerungspultvarianten **W gehalten** werden, um die Create-Ponder-Erklärung zu öffnen.
+Über Computerpult-, Display- und Radaritem kann im Inventar oder Rezeptbetrachter **W gehalten** werden, um die passenden Ponder-Erklärungen zu öffnen.
 
-## Multiblock-Grundregeln
+## Netzwerkregeln
 
-Gleich ausgerichtete Steuerungspulte verbinden sich unmittelbar links und rechts zu einem linearen Multiblock. Normale Aeroworks-Pulte und beide Computer-Steuerungspultvarianten dürfen gemischt werden.
+Gleich ausgerichtete Steuerungspulte verbinden sich unmittelbar links und rechts zu einer linearen Reihe. Normale Aeroworks-Pulte und beide Computerpultvarianten dürfen gemischt werden.
 
-- maximal 64 Mitglieder
-- keine automatische Chunk-Nachladung
-- teilweise geladene Netzwerke werden abgelehnt
-- höchstens ein eingebetteter Computer
-- ein versehentlich in Survival platziertes zweites Computerpult wird zu einem normalen Pult; der zusätzliche Computer wird mit ID und Label ausgeworfen
-- in Creative wird eine konfliktverursachende Platzierung abgebrochen, damit keine Computer-ID dupliziert wird
-- Konflikte aus Altwelten, Befehlen oder Strukturwerkzeugen bleiben als diagnostizierbarer Sicherheitszustand erhalten
+- maximal 64 Mitglieder,
+- keine automatische Chunk-Nachladung,
+- teilweise geladene Netzwerke werden abgelehnt,
+- höchstens ein eingebetteter Computer,
+- jeder Desk behält stabile ID, Position, Module, Displays und Anschlussseiten,
+- ein versehentlich platziertes zweites Computerpult wird zu einem normalen Pult; der zusätzliche Computer wird mit seinen Daten ausgeworfen,
+- Konflikte aus Altwelten, Befehlen oder Strukturwerkzeugen bleiben diagnostizierbar.
 
 ## Wichtige Begriffe
 
 | Begriff | Bedeutung |
 |---|---|
-| Desk | Ein einzelnes Steuerungspult im Multiblock |
+| Desk | Ein einzelnes adressierbares Steuerungspult |
+| Desk-Handle | Lua-Objekt für Module, Displays und lokale Nachbargeräte eines Pults |
 | Socket | Ein Modulplatz: `left`, `right` oder `big` |
-| Desk-ID | Stabile UUID eines Pults; robuster als der Netzwerkindex |
-| Netzwerkindex | Aktuelle 1-basierte Position eines Pults im Multiblock |
-| Direkte API | Globale `aeroworks`-API des eingebetteten Computers |
-| Peripheral API | `cc_aeroworks_control_desk` für externe Computer |
+| Desk-ID | Stabile UUID eines Pults |
+| Desk-Adresse | Aktuelle Weltposition als `x,y,z` |
+| Peripheral-Adresse | Desk-Adresse plus Anschlussseite, zum Beispiel `12,64,-7/north` |
+| `peripherals` | Globale Graph-API des eingebetteten Computers |
+| `ControlDesk` | Lokaler Peripheral-Typ jedes einzelnen Pults |
 
 ## Projektstatus
 
-CC-Aeroworks befindet sich noch in einer frühen Integrationsphase. Compiler- und statische Prüfungen ersetzen keine vollständigen Ingame-Tests für Rendering, Persistenz, Ponder, bewegte Konstruktionen oder reale Multiblocks.
+Die Repositoryprüfungen validieren API-Vertrag, Übersetzungen, Ponder-Struktur, Radarressourcen, Rezepte und Dokumentation. Ein vollständiger Modbuild und dedizierter Server-Smoke-Test benötigen das rechtmäßig bereitgestellte Abhängigkeitspaket des Projekts.

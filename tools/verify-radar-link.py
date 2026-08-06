@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the Create: Radars Data Link interaction used by radar desk displays."""
+"""Validate Create: Radars source selection and desk-network routing."""
 
 from __future__ import annotations
 
@@ -34,66 +34,59 @@ def load_json(path: Path) -> dict:
 def main() -> int:
     mixins = load_json(MIXIN_CONFIG)
     common_mixins = set(mixins.get("mixins", []))
-    require(
-        "compat.CreateRadarDataLinkItemMixin" in common_mixins,
-        "Create: Radars Data Link item compatibility mixin is not registered",
-    )
-    require(
-        "compat.CreateRadarDataLinkMixin" in common_mixins,
-        "Create: Radars Data Link block entity capture mixin is not registered",
-    )
+    require("compat.CreateRadarDataLinkItemMixin" in common_mixins, "Data Link item mixin is missing")
+    require("compat.CreateRadarDataLinkMixin" in common_mixins, "Data Link entity mixin is missing")
 
     item_mixin = read(ITEM_MIXIN)
     require(
         'targets = "com.happysg.radar.block.datalink.DataLinkBlockItem"' in item_mixin,
         "Data Link item mixin targets the wrong optional class",
     )
-    require(
-        '@Inject(method = "useOn", at = @At("HEAD"), cancellable = true, require = 0)' in item_mixin,
-        "Data Link item mixin must intercept useOn optionally and cancellably",
-    )
-    require(
-        "CreateRadarCompat.handleDataLinkUse(context)" in item_mixin,
-        "Data Link item mixin does not delegate to CreateRadarCompat",
-    )
+    require("CreateRadarCompat.handleDataLinkUse(context)" in item_mixin, "Data Link item is not delegated")
 
     entity_mixin = read(ENTITY_MIXIN)
     require(
         'targets = "com.happysg.radar.block.datalink.DataLinkBlockEntity"' in entity_mixin,
-        "Radar snapshot mixin targets the wrong Data Link block entity",
+        "Radar snapshot mixin targets the wrong optional class",
     )
-    require(
-        "CreateRadarCompat.capture(this)" in entity_mixin,
-        "Radar snapshot mixin does not capture configured Data Links",
-    )
+    require("CreateRadarCompat.capture(this)" in entity_mixin, "Data Link snapshots are not captured")
 
     compat = read(COMPAT)
-    for token in (
+    required_tokens = (
         "fun handleDataLinkUse(context: UseOnContext): InteractionResult?",
-        "player.isShiftKeyDown && selection.contains(SELECTED_MONITOR_KEY)",
         "clickedEntity != null && isMonitor(clickedEntity)",
-        "val desk = clickedEntity as? ConsoleBlockEntity ?: return null",
-        "if (!AeroworksDeskAccess.hasRadarDisplay(desk)) return null",
-        "if (!selection.contains(SELECTED_MONITOR_KEY))",
-        "selectedDimension == currentDimension",
+        "val sourceDesk = clickedEntity as? ConsoleBlockEntity ?: return null",
+        "val route = resolveRadarRoute(sourceDesk)",
+        "if (route.state != ConsoleNetworkState.ACTIVE)",
+        "if (route.destinations.isEmpty())",
+        "if (route.destinations.size > 1)",
         "val placeContext = BlockPlaceContext(context)",
-        "val placement = dataLinkItem.place(placeContext)",
         'invokeBlockPos(dataLink, "target", monitorPos)',
         "fun capture(dataLink: Any)",
-        'invoke(dataLink, "getSourcePosition")',
-        'invoke(dataLink, "getTargetPosition")',
-    ):
-        require(token in compat, f"Radar Data Link compatibility is missing contract token: {token}")
+        "val destination = route.destinations.singleOrNull() ?: return",
+        "ConsoleMultiblockManager.resolve(level, sourceDesk.blockPos)",
+        "network.state == ConsoleNetworkState.ACTIVE",
+        "network.members.map { it.desk }",
+        "filter(AeroworksDeskAccess::hasRadarDisplay)",
+        "routeFailureKey(route.state)",
+    )
+    for token in required_tokens:
+        require(token in compat, f"Radar routing is missing contract token: {token}")
 
     require(
         compat.index("clickedEntity != null && isMonitor(clickedEntity)")
-        < compat.index("val desk = clickedEntity as? ConsoleBlockEntity ?: return null"),
-        "Monitor selection must be handled before the desk placement path",
+        < compat.index("val sourceDesk = clickedEntity as? ConsoleBlockEntity ?: return null"),
+        "Monitor selection must be handled before desk placement",
     )
     require(
-        compat.index("if (!AeroworksDeskAccess.hasRadarDisplay(desk)) return null")
-        < compat.index("val dataLinkItem = context.itemInHand.item as? BlockItem ?: return null"),
-        "CC-Aeroworks must not intercept Data Link placement on desks without a radar display",
+        "if (!AeroworksDeskAccess.hasRadarDisplay(desk)) return null" not in compat,
+        "Data Link placement is still restricted to the display's own desk",
+    )
+    require(
+        'message.cc_aeroworks.console_conflict' in compat
+        and 'message.cc_aeroworks.console_too_large' in compat
+        and 'message.cc_aeroworks.console_partially_loaded' in compat,
+        "Invalid radar topology does not reuse localized network diagnostics",
     )
 
     english = load_json(LANG / "en_us.json")
@@ -106,42 +99,30 @@ def main() -> int:
         "message.cc_aeroworks.radar_link_created",
         "message.cc_aeroworks.radar_link_failed",
         "message.cc_aeroworks.radar_link_cleared",
+        "message.cc_aeroworks.radar_route_missing",
+        "message.cc_aeroworks.radar_route_ambiguous",
     }
-    require(required_messages <= english.keys(), "Radar Data Link interaction messages are incomplete")
-    require(
-        "monitor" in english["ponder.cc_aeroworks.radar_display.text_2"].lower()
-        and "desk" in english["ponder.cc_aeroworks.radar_display.text_3"].lower(),
-        "English radar Ponder instructions must select the monitor before the desk",
-    )
-    require(
-        "monitor" in german["ponder.cc_aeroworks.radar_display.text_2"].lower()
-        and "pult" in german["ponder.cc_aeroworks.radar_display.text_3"].lower(),
-        "German radar Ponder instructions must select the monitor before the desk",
-    )
+    require(required_messages <= english.keys(), "Radar routing messages are incomplete")
 
     ponder = read(PONDER)
-    require(
-        ponder.index("First right-click a Create: Radars monitor")
-        < ponder.index("Then right-click a free side of the desk"),
-        "Radar Ponder scene shows the Data Link clicks in the wrong order",
-    )
-    require("monitorStack()" in ponder, "Radar Ponder scene does not show the monitor item")
+    require("automaticRouting" in ponder, "Automatic radar routing scene is missing")
+    require("dataLinkCompatibility" in ponder, "Data Link compatibility scene is missing")
+    require("PonderText.get" in ponder, "Radar Ponder text is not localized")
+    require("monitorStack()" in ponder and "dataLinkStack()" in ponder, "Radar source items are not shown")
 
     docs = read(DOCS)
+    lower_docs = docs.lower()
+    require("automatisch" in lower_docs, "Radar docs do not explain automatic routing")
+    require("genau eine" in lower_docs, "Radar docs do not explain the unique-target rule")
+    require("verschiedenen pulten" in lower_docs, "Radar docs do not explain cross-desk routing")
     require(
-        "Data Link verbinden" in docs
-        and "Radar-Monitor rechtsklicken" in docs
-        and "freie Seite des Steuerungspults rechtsklicken" in docs,
-        "Radar Data Link documentation does not describe the working two-click sequence",
-    )
-    require(
-        "übrigen Create:-Radars-Verbindungsarten werden nicht verändert" in docs,
-        "Documentation does not preserve the original Create: Radars Data Link paths",
+        "mehrere computer" in lower_docs and "abgelehnt" in lower_docs,
+        "Radar docs do not explain that invalid computer ownership disables routing",
     )
 
     print(
-        "Validated optional Data Link item interception, monitor-first desk placement, translations, "
-        "Ponder sequence, snapshot capture and documentation."
+        "Validated optional Data Link interception, monitor-first setup, active computer-owned network routing, "
+        "unique-target selection, localized Ponder guidance and documentation."
     )
     return 0
 

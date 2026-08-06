@@ -1,142 +1,205 @@
 # Steuerungspulte mit CC:Tweaked programmieren
 
-## Externer Computer
+## Lokales Pult an einem externen Computer
 
-Ein gewöhnlicher Computer oder ein Wired Modem wird mit einem beliebigen Steuerungspult des Multiblocks verbunden.
+Ein gewöhnlicher Computer oder ein Wired Modem sieht jedes direkt verbundene Steuerungspult als eigenen Adapter:
 
 ```lua
-local console = peripheral.find("cc_aeroworks_control_desk")
-assert(console, "Kein Steuerungspult verbunden")
+local desk = peripheral.find("ControlDesk")
+assert(desk, "Kein lokales Steuerungspult verbunden")
 ```
 
-Die bisherigen Methoden wie `getInput("left")` adressieren weiterhin das physisch angeschlossene Pult. Für den gesamten Multiblock wird zuerst ein Desk gewählt:
+Dieser Adapter arbeitet nur auf seinem Pult:
 
 ```lua
-local desks = console.getDesks()
-
-for _, desk in ipairs(desks) do
-  print(
-    ("Desk %d: %s (%s)"):format(
-      desk.index,
-      desk.id,
-      desk.variant
-    )
-  )
+for _, module in ipairs(desk.getModules()) do
+  print(module.socketName, module.id)
 end
 
-local first = desks[1]
-local last = desks[#desks]
-
-local input = console.getDeskInput(first.id, "left")
-console.setDeskDisplayNumber(last.id, "big", input, false)
+local value = desk.getInput("left")
+desk.setDisplayNumber("big", value, false)
 ```
 
-Der Deskparameter kann der 1-basierte Index oder die stabile ID sein. IDs sind vorzuziehen, wenn ein Programm Umbauten überstehen soll.
+Mehrere Pulte in einem Wired-Modem-Netz bleiben mehrere normale CC:Tweaked-Peripherals. Das globale Multiblock-Verzeichnis gehört ausschließlich zum eingebetteten Computer.
 
-## Eingabeereignisse des gesamten Multiblocks
+## Eingebetteter Computer und `peripherals`
+
+Der Computer im Computer-Steuerungspult stellt die globale API `peripherals` bereit:
+
+```lua
+local network = peripherals.getNetwork()
+print(network.state, network.deskCount, network.peripheralCount)
+```
+
+Die Modulform ist gleichwertig:
+
+```lua
+local peripherals = require("cc_aeroworks.peripherals")
+```
+
+### Alle Pulte adressieren
+
+```lua
+local desks = peripherals.find("ControlDesk")
+
+for address, desk in pairs(desks) do
+  local info = desk.getInfo()
+  print(address, info.id, info.variant, info.computer)
+end
+```
+
+`ControlDesk` liefert immer eine Tabelle. Schlüssel sind kanonische Weltpositionen wie `12,64,-7`.
+
+```lua
+local panel = desks["12,64,-7"]
+assert(panel, "Zielpult fehlt")
+panel.setDisplayText("big", "123")
+```
+
+Die Desk-ID bleibt die stabile Identität; die Position ist die aktuelle Netzwerkadresse.
+
+## Eine Peripheral-Gattung finden
+
+Kommt ein Typ im gesamten Pultnetz genau einmal vor, wird direkt sein Methoden-Handle zurückgegeben:
+
+```lua
+local modem = peripherals.find("endermodem")
+assert(modem, "Kein EnderModem gefunden")
+modem.open(42)
+```
+
+Ein namespaced Typ wie `advanced_peripherals:ender_modem` ist auch über `ender_modem`, `EnderModem` oder `endermodem` erreichbar.
+
+Bei mehreren Treffern liefert `find` eine Tabelle:
+
+```lua
+local modems = peripherals.find("endermodem")
+
+for address, modem in pairs(modems) do
+  local info = modem.getPeripheralInfo()
+  print(address, info.deskAddress, info.side)
+end
+```
+
+Programme, die immer eine Sammlung benötigen, verwenden `findAll`:
+
+```lua
+for address, modem in pairs(peripherals.findAll("endermodem")) do
+  print(address)
+end
+```
+
+Ohne Treffer liefert `find` `nil`, `findAll` dagegen `{}`.
+
+## Suche an einem einzelnen Pult
+
+```lua
+local desk = peripherals.find("ControlDesk")["12,64,-7"]
+
+local modem = desk.find("endermodem")
+local north = desk.wrap("north")
+
+for address, device in pairs(desk.getPeripherals()) do
+  print(address, device.getPeripheralInfo().type)
+end
+```
+
+## Koordinatenzugriff
+
+```lua
+local desk = peripherals.wrap(12, 64, -7)
+local sameDesk = peripherals.wrap({ x = 12, y = 64, z = -7 })
+local device = peripherals.wrap(12, 64, -8)
+```
+
+Stellt ein Block mehrere Peripherals bereit, wird der Typ ergänzt:
+
+```lua
+local radar = peripherals.wrap(12, 64, -8, "radar")
+```
+
+## Displays
+
+```lua
+local desks = peripherals.find("ControlDesk")
+local displayDesk = desks["12,64,-7"]
+
+displayDesk.setDisplayText("big", "42")
+displayDesk.setDisplayNumber("big", -7, true)
+```
+
+Pixelraster dürfen die Auflösung nicht fest annehmen:
+
+```lua
+local size = displayDesk.getDisplaySize("big")
+local rows = {}
+
+for y = 1, size.height do
+  rows[y] = string.rep(y == 1 or y == size.height and "1" or "0", size.width)
+end
+
+displayDesk.setDisplayPixels("big", rows)
+```
+
+Ein robusteres Rahmenbeispiel:
+
+```lua
+local size = displayDesk.getDisplaySize("big")
+local rows = {}
+
+for y = 1, size.height do
+  local row = {}
+  for x = 1, size.width do
+    row[x] = (x == 1 or x == size.width or y == 1 or y == size.height) and "1" or "0"
+  end
+  rows[y] = table.concat(row)
+end
+
+displayDesk.setDisplayPixels("big", rows)
+```
+
+## Peripheral-Ereignisse
+
+Nach der initialen Graphauflösung meldet eine Aktualisierung neue und entfernte Geräte:
 
 ```lua
 while true do
-  local _, peripheralName, deskId, deskIndex, socket, moduleId, value, channel, socketName =
-    os.pullEvent("cc_aeroworks_multiblock_input")
+  local event, address, primaryType = os.pullEvent()
 
-  if value == nil then
-    print(("Desk %d, %s: Kanal entfernt"):format(deskIndex, socketName))
-  else
-    print(
-      ("Desk %d, %s, %s = %s"):format(
-        deskIndex,
-        socketName,
-        channel,
-        tostring(value)
-      )
-    )
+  if event == "cc_aeroworks_peripheral_attached" then
+    print("Verbunden:", address, primaryType)
+  elseif event == "cc_aeroworks_peripheral_detached" then
+    print("Getrennt:", address, primaryType)
   end
 end
 ```
 
-Eine Strukturänderung wird getrennt gemeldet:
+Nach einer Capability-Änderung ohne Block- oder Nachbarupdate kann der Graph explizit erneuert werden:
 
 ```lua
-local _, peripheralName, state, memberCount, revision =
-  os.pullEvent("cc_aeroworks_multiblock_changed")
+peripherals.refresh()
 ```
 
-## Eingebetteter Computer
-
-Im Computer-Steuerungspult ist kein `peripheral.find` nötig. Die API ist direkt global vorhanden:
+Lokale Eingaben eines direkt angeschlossenen `ControlDesk` verwenden weiterhin:
 
 ```lua
-local desks = aeroworks.getDesks()
-local owner
-
-for _, desk in ipairs(desks) do
-  if desk.owner then
-    owner = desk
-  end
-end
-
-assert(owner, "Besitzerpult fehlt")
-print("Eigene Socketanzahl:", aeroworks.getSocketCount(owner.id))
-aeroworks.setDisplayText(owner.id, "big", "ON")
+local _, peripheralName, socket, moduleId, value, channel, socketName =
+  os.pullEvent("cc_aeroworks_desk_input")
 ```
 
-Die folgende Schreibweise ist gleichwertig:
+## Diagnose
 
 ```lua
-local aeroworks = require("cc_aeroworks.aeroworks")
+local network = peripherals.getNetwork()
+print(textutils.serialize(network))
+print(textutils.serialize(peripherals.getTypes()))
 ```
 
-Ein vollständiges Dashboard:
+Globale Graphzugriffe werden als Lua-Fehler abgelehnt bei:
 
-```lua
-local desks = aeroworks.getDesks()
-assert(#desks > 0, "Leerer Steuerungspult-Multiblock")
+- mehreren eingebetteten Computern,
+- teilweise geladenen Pultreihen,
+- mehr als 64 verbundenen Pulten,
+- einem Computer außerhalb des aufgelösten Besitzerverbunds.
 
-while true do
-  local _, deskId, deskIndex, socket, socketName, moduleId, value, channel =
-    os.pullEvent("cc_aeroworks_console_input")
-
-  local target = desks[#desks]
-  if value == nil then
-    aeroworks.clearDisplay(target.id, "big")
-  elseif type(value) == "number" then
-    aeroworks.setDisplayNumber(target.id, "big", value, false)
-  end
-end
-```
-
-## Text und Pixel
-
-```lua
-console.setDeskDisplayText(1, "big", "42")
-console.setDeskDisplayNumber(1, "big", -7, true)
-
-console.setDeskDisplayPixels(1, "big", {
-  "11111111111",
-  "10000000001",
-  "10111111101",
-  "10000000001",
-  "11111111111",
-})
-```
-
-Im eingebetteten Computer werden dieselben Operationen ohne `Desk` im Methodennamen verwendet:
-
-```lua
-aeroworks.setDisplayText(1, "big", "42")
-aeroworks.setDisplayPixel(1, "big", 1, 1, true)
-```
-
-## Topologiefehler
-
-`getNetwork()` zeigt den aktuellen Zustand:
-
-```lua
-local network = console.getNetwork()
-print(network.state, network.memberCount, network.revision)
-```
-
-- `too_large` und `partially_loaded` werden als Lua-Fehler behandelt.
-- `conflict` bedeutet mehrere Computer-Steuerungspulte. Externe Peripheral-Zugriffe funktionieren weiterhin.
-- Die direkte API eines eingebetteten Computers verweigert den Konfliktzustand, damit kein Computer zufällig zum Besitzer erklärt wird.
+Ein fehlender Peripheral-Typ ist dagegen kein Topologiefehler und liefert einfach `nil`.

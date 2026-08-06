@@ -1,28 +1,28 @@
 # Bedienung
 
-CC-Aeroworks unterscheidet drei Interaktionen, die bewusst nicht dieselbe Maustaste mit denselben Voraussetzungen verwenden. Das verhindert, dass beim Öffnen des Computers gleichzeitig ein Hebel bewegt oder das Pult gedreht wird. Ein seltenes Beispiel dafür, dass zusätzliche Regeln tatsächlich weniger Chaos erzeugen.
+CC-Aeroworks unterscheidet Terminalzugriff, Modulbedienung und Einstellungen bewusst voneinander. Das verhindert, dass beim Öffnen des Computers gleichzeitig ein Hebel bewegt oder das Pult gedreht wird. Selten führt mehr Struktur tatsächlich zu weniger Chaos.
 
 ## Schnellübersicht
 
 | Aktion | Eingabe | Voraussetzung |
 |---|---|---|
-| Computerterminal öffnen | Schleichen + Rechtsklick | leere Haupthand, aktiver Multiblock mit einem eingebetteten Computer |
+| Computerterminal öffnen | Schleichen + Rechtsklick | leere Haupthand, aktives Pultnetz mit einem eingebetteten Computer |
 | Steuerung bedienen | normaler Rechtsklick | montiertes Aeroworks-Modul direkt ansehen |
 | Steuerungseinstellungen öffnen | Schraubenschlüssel + Rechtsklick | horizontale Seite eines Steuerungspults anklicken |
 | Pult drehen | Schraubenschlüssel + Rechtsklick | Ober- oder Unterseite anklicken |
-| Ponder-Erklärung öffnen | W halten | Maus über normalem oder erweitertem Computer-Steuerungspult |
+| Ponder-Erklärung öffnen | W halten | Maus über Computerpult-, Display- oder Radaritem |
 
 ## Computer öffnen
 
-Bei einem gültigen Multiblock mit genau einem eingebetteten Computer:
+Bei einem gültigen Pultnetz mit genau einem eingebetteten Computer:
 
 1. Haupthand leeren.
 2. Schleichen.
-3. Ein beliebiges geladenes Pult des Multiblocks rechtsklicken.
+3. Ein beliebiges geladenes Pult des Netzwerks rechtsklicken.
 
-Das angeklickte Pult muss nicht selbst das Computer-Steuerungspult sein. Der Computer wird eingeschaltet und sein Terminal geöffnet.
+Das angeklickte Pult muss nicht selbst das Computer-Steuerungspult sein. Der Computer wird eingeschaltet und sein Terminal geöffnet. Seine Position links, mittig oder rechts verändert den Peripheral-Graphen nicht.
 
-Bei einem externen Computer wird stattdessen dessen normales CC:Tweaked-Terminal verwendet. Das Steuerungspult ist dann ein Peripheral und besitzt kein eigenes zu öffnendes Terminal.
+Ein externer Computer verwendet stattdessen sein normales CC:Tweaked-Terminal. Jedes direkt oder über ein Wired Modem verbundene Pult erscheint dort als eigener lokaler `ControlDesk`-Adapter. Ein einzelner Adapter vertritt nicht automatisch den gesamten Multiblock.
 
 ## Steuerung bedienen
 
@@ -44,13 +44,13 @@ Ober- und Unterseite bleiben für die normale Create-Schraubenschlüsselrotation
 
 Im Modus **Kombiniert** zeigt das mittlere Feld die Aktivierungstaste. Linksklick startet die Erfassung; Rechtsklick löscht die Belegung.
 
-## Ein Computer pro Multiblock
+## Ein eingebetteter Computer pro Netzwerk
 
-Für einen eingebetteten Zugriffsweg wird genau ein Computer-Steuerungspult benötigt. Alle anderen Mitglieder bleiben normale Aeroworks-Steuerungspulte.
+Für die globale `peripherals`-API wird genau ein Computer-Steuerungspult benötigt. Alle anderen Mitglieder dürfen normale Aeroworks-Steuerungspulte sein.
 
-Alternativ genügt ein externer Computer an einem beliebigen Mitglied. Ein eingebetteter Computer und ein externer Computer sind keine gemeinsame Voraussetzung.
+Externe Computer sind davon unabhängig. Sie können einzelne Desk-Adapter direkt oder über ein Wired-Modem-Netz verwenden. Die Ein-Computer-Regel betrifft ausschließlich eingebettete Computer-Steuerungspulte im selben Pultnetz.
 
-Wird in Survival versehentlich ein zweites Computer-Steuerungspult an denselben vollständig geladenen Multiblock gesetzt:
+Wird in Survival versehentlich ein zweites Computer-Steuerungspult an dieselbe vollständig geladene Reihe gesetzt:
 
 - das neu platzierte Pult wird zu einem normalen Aeroworks-Pult,
 - seine Aeroworks-Module und Einstellungen bleiben erhalten,
@@ -61,14 +61,23 @@ Im Creative-Modus wird die konfliktverursachende Platzierung abgebrochen, damit 
 
 ## Ponder
 
-Beide Computer-Steuerungspultvarianten besitzen dieselbe Create-Ponder-Szene. Sie zeigt:
+Die Erklärung ist auf acht lokalisierte Storyboards verteilt:
 
-- Aufbau eines linearen Multiblocks,
-- genau einen eingebetteten Computer,
-- Terminalzugriff von jedem Pult,
-- normale Steuerung,
-- Öffnen der Steuerungseinstellungen,
-- externen Computer als Alternative,
-- Verhalten bei versehentlicher Doppelplatzierung.
+### Computer-Steuerungspulte
 
-Die Szene wird über die übliche Ponder-Taste **W** aus Inventar oder Rezeptbetrachter geöffnet.
+1. Aufbau des Desk-Adapter-Netzwerks und beliebige Computerposition,
+2. netzwerkweite Peripheral-Suche mit direkter Rückgabe eindeutiger Typen,
+3. Diagnose von Mehrcomputer-, Lade- und Größenfehlern.
+
+### Displays
+
+4. Herstellung programmierbarer Displays,
+5. Socketkompatibilität und Montage,
+6. Text-, Zahlen- und Pixelprogrammierung über Desk-Handles.
+
+### Radar
+
+7. automatisches Routing zwischen verschiedenen Pulten,
+8. Create:-Radars-Data-Link als optionaler Quellenadapter.
+
+Die Szenen werden über die übliche Ponder-Taste **W** aus Inventar oder Rezeptbetrachter geöffnet. Radar-Szenen werden nur registriert, wenn Create: Radars geladen ist.

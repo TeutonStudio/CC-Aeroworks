@@ -25,7 +25,9 @@ object CCLuaApis {
     fun register() {
         if (registered) return
         ComputerCraftAPI.registerAPIFactory { system ->
-            system.getComponent(CCComputerComponents.CONSOLE)?.let(::ComputerConsoleLuaApi)
+            system.getComponent(CCComputerComponents.CONSOLE)?.let { access ->
+                ComputerConsoleLuaApi(access, system)
+            }
         }
         registered = true
     }

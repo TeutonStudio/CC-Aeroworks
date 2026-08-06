@@ -28,13 +28,19 @@ public class CCAeroworksPonderPlugin implements PonderPlugin {
     @Override
     public void registerScenes(PonderSceneRegistrationHelper<ResourceLocation> helper) {
         helper.forComponents(COMPUTER_CONTROL_DESK, ADVANCED_COMPUTER_CONTROL_DESK)
-            .addStoryBoard("computer_control_desk", ComputerControlDeskScenes::overview);
+            .addStoryBoard("computer_control_desk", ComputerControlDeskScenes::network)
+            .addStoryBoard("computer_control_desk", ComputerControlDeskScenes::peripheralSearch)
+            .addStoryBoard("computer_control_desk", ComputerControlDeskScenes::diagnostics);
+
         helper.forComponents(TWO_DIGIT_DISPLAY, THREE_DIGIT_DISPLAY)
-            .addStoryBoard("computer_control_desk", DisplayModuleScenes::overview);
+            .addStoryBoard("computer_control_desk", DisplayModuleScenes::crafting)
+            .addStoryBoard("computer_control_desk", DisplayModuleScenes::mounting)
+            .addStoryBoard("computer_control_desk", DisplayModuleScenes::programming);
 
         if (ModList.get().isLoaded("create_radar")) {
             helper.forComponents(SMALL_RADAR_DISPLAY, LARGE_RADAR_DISPLAY)
-                .addStoryBoard("computer_control_desk", RadarDisplayScenes::dataLink);
+                .addStoryBoard("computer_control_desk", RadarDisplayScenes::automaticRouting)
+                .addStoryBoard("computer_control_desk", RadarDisplayScenes::dataLinkCompatibility);
         }
     }
 }

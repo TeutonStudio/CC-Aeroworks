@@ -3,8 +3,10 @@
 - [[Startseite|Home]]
 - [[Bedienung]]
 - [[Computer-Steuerungspulte]]
+- [[Peripheral-Netzwerk]]
 - [[API-Schnellreferenz]]
 - [[Programmierbare-Displays]]
+- [[Radar-Routing]]
 - [[Kombinierte-Eingabe]]
 
 ---

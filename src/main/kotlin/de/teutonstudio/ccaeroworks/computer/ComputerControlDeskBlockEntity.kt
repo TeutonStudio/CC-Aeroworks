@@ -53,6 +53,9 @@ class ComputerControlDeskBlockEntity(
     val deskId: UUID
         get() = (this as DeskIdentityAccess).ccaeroworks_getDeskId()
 
+    var radarDestinationDeskId: String? = null
+        private set
+
     private var instanceId: UUID? = null
     private var computerId: Int = -1
     private var label: String? = null
@@ -72,6 +75,14 @@ class ComputerControlDeskBlockEntity(
 
     val isAdvanced: Boolean
         get() = family == ComputerFamily.ADVANCED
+
+    fun setRadarDestinationDeskId(value: String?) {
+        val normalized = value?.takeIf(String::isNotBlank)
+        if (radarDestinationDeskId == normalized) return
+        radarDestinationDeskId = normalized
+        setChanged()
+        sendData()
+    }
 
     override fun tick() {
         super.tick()
@@ -96,6 +107,7 @@ class ComputerControlDeskBlockEntity(
         }
 
         publishConsoleEvents(computer)
+        PeripheralNetworkRuntimes.tick(this)
     }
 
     fun createServerComputer(): ServerComputer {
@@ -212,6 +224,7 @@ class ComputerControlDeskBlockEntity(
             tag.putInt(NBT_TERMINAL_WIDTH, it.width())
             tag.putInt(NBT_TERMINAL_HEIGHT, it.height())
         }
+        radarDestinationDeskId?.let { tag.putString(NBT_RADAR_DESTINATION_DESK_ID, it) }
         tag.putBoolean(NBT_POWERED, powered)
     }
 
@@ -225,6 +238,7 @@ class ComputerControlDeskBlockEntity(
         } else {
             null
         }
+        radarDestinationDeskId = tag.getString(NBT_RADAR_DESTINATION_DESK_ID).takeIf(String::isNotEmpty)
         powered = tag.getBoolean(NBT_POWERED)
         if (!clientPacket) startOn = powered
     }
@@ -235,6 +249,7 @@ class ComputerControlDeskBlockEntity(
         builder.set(ModRegistry.DataComponents.STORAGE_CAPACITY.get(), storageCapacity.takeIf { it > 0 }?.let(::StorageCapacity))
         builder.set(ModRegistry.DataComponents.TERMINAL_SIZE.get(), terminalSize)
         builder.set(CCDataComponents.COMPUTER_POWERED.get(), powered)
+        builder.set(CCDataComponents.RADAR_DESTINATION_DESK_ID.get(), radarDestinationDeskId)
         builder.set(DataComponents.CUSTOM_NAME, label?.let { Component.literal(it) })
     }
 
@@ -247,6 +262,7 @@ class ComputerControlDeskBlockEntity(
         )
         terminalSize = component.get(ModRegistry.DataComponents.TERMINAL_SIZE.get())
         powered = component.get(CCDataComponents.COMPUTER_POWERED.get()) ?: false
+        radarDestinationDeskId = component.get(CCDataComponents.RADAR_DESTINATION_DESK_ID.get())
         startOn = powered
         label = component.get(DataComponents.CUSTOM_NAME)?.string
     }
@@ -269,6 +285,7 @@ class ComputerControlDeskBlockEntity(
         stack.set(ModRegistry.DataComponents.TERMINAL_SIZE.get(), terminalSize)
         stack.set(CCDataComponents.DESK_ID.get(), deskId.toString())
         stack.set(CCDataComponents.COMPUTER_POWERED.get(), powered)
+        stack.set(CCDataComponents.RADAR_DESTINATION_DESK_ID.get(), radarDestinationDeskId)
         stack.set(DataComponents.CUSTOM_NAME, label?.let { Component.literal(it) })
     }
 
@@ -370,5 +387,6 @@ class ComputerControlDeskBlockEntity(
         private const val NBT_TERMINAL_WIDTH = "CCAeroworksTerminalWidth"
         private const val NBT_TERMINAL_HEIGHT = "CCAeroworksTerminalHeight"
         private const val NBT_POWERED = "CCAeroworksPowered"
+        private const val NBT_RADAR_DESTINATION_DESK_ID = "CCAeroworksRadarDestinationDeskId"
     }
 }

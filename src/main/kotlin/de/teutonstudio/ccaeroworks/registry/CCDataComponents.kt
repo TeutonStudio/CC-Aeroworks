@@ -36,5 +36,17 @@ object CCDataComponents {
         }
     )
 
+    @JvmField
+    val RADAR_DESTINATION_DESK_ID: DeferredHolder<DataComponentType<*>, DataComponentType<String>> =
+        COMPONENTS.register(
+            "radar_destination_desk_id",
+            Supplier<DataComponentType<String>> {
+                DataComponentType.builder<String>()
+                    .persistent(Codec.STRING)
+                    .networkSynchronized(ByteBufCodecs.STRING_UTF8)
+                    .build()
+            }
+        )
+
     fun register(bus: IEventBus) = COMPONENTS.register(bus)
 }
