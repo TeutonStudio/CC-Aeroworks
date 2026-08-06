@@ -3,7 +3,7 @@
     {
       "type": "directory",
       "source": "monitor_sprite",
-      "prefix": "monitor_sprite"
+      "prefix": "monitor_sprite/"
     }
   ]
 }
