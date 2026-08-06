@@ -30,11 +30,12 @@ class PeripheralTypeNamesTest {
     }
 
     @Test
-    fun `ControlDesk collection type accepts canonical spellings only`() {
+    fun `ControlDesk collection type accepts all adapter aliases`() {
         assertTrue(PeripheralTypeNames.isControlDesk("ControlDesk"))
         assertTrue(PeripheralTypeNames.isControlDesk("control_desk"))
         assertTrue(PeripheralTypeNames.isControlDesk("control-desk"))
-        assertFalse(PeripheralTypeNames.isControlDesk("cc_aeroworks:control_desk"))
+        assertTrue(PeripheralTypeNames.isControlDesk("cc_aeroworks:control_desk"))
+        assertTrue(PeripheralTypeNames.isControlDesk("cc_aeroworks_control_desk"))
         assertFalse(PeripheralTypeNames.isControlDesk("desk"))
     }
 }
