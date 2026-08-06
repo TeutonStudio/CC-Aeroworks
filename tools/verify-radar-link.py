@@ -56,16 +56,19 @@ def main() -> int:
         "fun handleDataLinkUse(context: UseOnContext): InteractionResult?",
         "clickedEntity != null && isMonitor(clickedEntity)",
         "val sourceDesk = clickedEntity as? ConsoleBlockEntity ?: return null",
-        "val destinations = radarDestinations(sourceDesk)",
-        "if (destinations.isEmpty())",
-        "if (destinations.size > 1)",
+        "val route = resolveRadarRoute(sourceDesk)",
+        "if (route.state != ConsoleNetworkState.ACTIVE)",
+        "if (route.destinations.isEmpty())",
+        "if (route.destinations.size > 1)",
         "val placeContext = BlockPlaceContext(context)",
         'invokeBlockPos(dataLink, "target", monitorPos)',
         "fun capture(dataLink: Any)",
-        "val destination = radarDestinations(sourceDesk).singleOrNull() ?: return",
+        "val destination = route.destinations.singleOrNull() ?: return",
         "ConsoleMultiblockManager.resolve(level, sourceDesk.blockPos)",
-        "network.members.map",
+        "network.state == ConsoleNetworkState.ACTIVE",
+        "network.members.map { it.desk }",
         "filter(AeroworksDeskAccess::hasRadarDisplay)",
+        "routeFailureKey(route.state)",
     )
     for token in required_tokens:
         require(token in compat, f"Radar routing is missing contract token: {token}")
@@ -78,6 +81,12 @@ def main() -> int:
     require(
         "if (!AeroworksDeskAccess.hasRadarDisplay(desk)) return null" not in compat,
         "Data Link placement is still restricted to the display's own desk",
+    )
+    require(
+        'message.cc_aeroworks.console_conflict' in compat
+        and 'message.cc_aeroworks.console_too_large' in compat
+        and 'message.cc_aeroworks.console_partially_loaded' in compat,
+        "Invalid radar topology does not reuse localized network diagnostics",
     )
 
     english = load_json(LANG / "en_us.json")
@@ -105,10 +114,11 @@ def main() -> int:
     require("automatisch" in docs.lower(), "Radar docs do not explain automatic routing")
     require("genau eine" in docs.lower(), "Radar docs do not explain the unique-target rule")
     require("verschiedenen pulten" in docs.lower(), "Radar docs do not explain cross-desk routing")
+    require("genau ein eingebetteter computer" in docs.lower(), "Radar docs do not require an active owner")
 
     print(
-        "Validated optional Data Link interception, monitor-first setup, unique-target network routing, "
-        "localized Ponder guidance and documentation."
+        "Validated optional Data Link interception, monitor-first setup, active computer-owned network routing, "
+        "unique-target selection, localized Ponder guidance and documentation."
     )
     return 0
 
