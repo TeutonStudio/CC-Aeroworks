@@ -37,6 +37,11 @@ repositories {
         url = 'https://maven.createmod.net'
         content { includeGroup('net.createmod.ponder') }
     }
+    maven {
+        name = 'BlameJared'
+        url = 'https://maven.blamejared.com'
+        content { includeGroup('mezz.jei') }
+    }
     exclusiveContent {
         forRepository {
             maven {
@@ -118,13 +123,15 @@ dependencies {
         exclude: [
             'create_radar-*.jar', 'create-radar-*.jar', 'create_radars-*.jar', 'create-radars-*.jar',
             'createbigcannons-*.jar', 'create-big-cannons-*.jar',
-            'ritchiesprojectilelib-*.jar', 'ritchies-projectile-lib-*.jar'
+            'ritchiesprojectilelib-*.jar', 'ritchies-projectile-lib-*.jar',
+            'jei-*.jar'
         ]
     )
     compileOnly("net.createmod.ponder:ponder-neoforge:${ponder_version}+mc${minecraft_version}")
     localRuntime("curse.maven:create-radars-1152836:${create_radars_curse_file_id}")
     localRuntime("curse.maven:create-big-cannons-646668:${create_big_cannons_curse_file_id}")
     localRuntime("curse.maven:ritchies-projectile-library-1279407:${ritchies_projectile_lib_curse_file_id}")
+    localRuntime("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.4'
