@@ -48,7 +48,7 @@ Adds a CC:Tweaked peripheral, desk displays, combined lever control, and optiona
 [[dependencies.${mod_id}]]
     modId="aeroworks"
     type="required"
-    versionRange="[1.4.1)"
+    versionRange="[1.4.1,)"
     ordering="AFTER"
     side="BOTH"
 
@@ -92,7 +92,7 @@ Adds a CC:Tweaked peripheral, desk displays, combined lever control, and optiona
     modId="create_radar"
     type="optional"
     reason="Enables the small and large Data Link radar displays."
-    versionRange="[0.4.9.4)"
+    versionRange="[0.4.9.4,)"
     ordering="AFTER"
     side="BOTH"
 

@@ -80,6 +80,20 @@ def main() -> int:
     metadata = read("src/main/templates/META-INF/neoforge.mods.toml")
     require('modId="create_radar"' in metadata, "Create: Radars metadata is missing")
     require('modId="createbigcannons"' in metadata, "Create Big Cannons metadata is missing")
+    require(
+        'modId="aeroworks"\n    type="required"\n    versionRange="[1.4.1,)"' in metadata,
+        "Aeroworks metadata must preserve the updated 1.4.1 lower bound",
+    )
+    require(
+        'modId="create_radar"\n    type="optional"\n'
+        '    reason="Enables the small and large Data Link radar displays."\n'
+        '    versionRange="[0.4.9.4,)"' in metadata,
+        "Create: Radars metadata must preserve the updated 0.4.9.4 lower bound",
+    )
+    require(
+        'versionRange="[1.4.1)"' not in metadata and 'versionRange="[0.4.9.4)"' not in metadata,
+        "Metadata contains malformed single-bound Maven version ranges",
+    )
 
     manifest = load_json(ROOT / "libs/dependencies.json")
     dependencies = {
@@ -87,6 +101,11 @@ def main() -> int:
         for dependency in manifest.get("dependencies", [])
         if isinstance(dependency, dict)
     }
+    require(dependencies.get("aeroworks", {}).get("version") == "1.4.1", "Aeroworks version is not pinned")
+    require(
+        dependencies.get("create_radar", {}).get("version") == "0.4.9.4-1.21.1",
+        "Create: Radars version is not pinned",
+    )
     require(dependencies.get("createbigcannons", {}).get("version") == "5.11.7", "CBC version is not pinned")
     require(dependencies.get("ritchiesprojectilelib", {}).get("version") == "2.1.2", "RPL version is not pinned")
     require(dependencies.get("jei", {}).get("version") == "19.27.0.340", "JEI version is not pinned")
@@ -100,7 +119,14 @@ def main() -> int:
         "mezz.jei:jei-${minecraft_version}-neoforge",
     ):
         require(token in build, f"Missing optional local runtime: {token}")
-    require("create_radars_version=0.4.4-1.21.1" in properties, "Create: Radars version is not pinned")
+    require(
+        "create_radars_version=0.4.9.4-1.21.1" in properties,
+        "Create: Radars version is not pinned to the updated runtime",
+    )
+    require(
+        "create_radars_curse_file_id=8227753" in properties,
+        "Create: Radars CurseForge file ID is not pinned to 0.4.9.4",
+    )
 
     config = read("src/main/kotlin/de/teutonstudio/ccaeroworks/config/CCServerConfig.kt")
     require(config.count("Int.MAX_VALUE") == 4, "All display dimensions must remain unbounded positive integers")
@@ -112,7 +138,7 @@ def main() -> int:
 
     print(
         "Validated optional radar items, recipes, models, mixins, NBT interop, two localized Ponder scenes, "
-        "network routing documentation and development dependencies."
+        "updated dependency metadata, network routing documentation and development dependencies."
     )
     return 0
 
