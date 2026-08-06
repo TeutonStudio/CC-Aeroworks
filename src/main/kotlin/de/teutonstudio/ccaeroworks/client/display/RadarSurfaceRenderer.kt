@@ -69,8 +69,10 @@ object RadarSurfaceRenderer {
     }
 
     @JvmStatic
-    fun key(surface: RadarSurfaceState): String =
-        "${surface.socket}:${surface.type}:${surface.facing}:${surface.snapshot?.contentHash() ?: 0}"
+    fun key(surface: RadarSurfaceState, gameTime: Long): String =
+        "${surface.socket}:${surface.type}:${surface.facing}:" +
+            "${surface.snapshot?.contentHash() ?: 0}:" +
+            RadarDisplaySnapshot.effectiveStatus(surface.snapshot, gameTime)
 
     @JvmStatic
     fun sweepAngle(gameTime: Long): Float =
