@@ -12,8 +12,10 @@ import dan200.computercraft.api.lua.LuaFunction
 import dan200.computercraft.api.lua.MethodResult
 import dan200.computercraft.api.peripheral.IComputerAccess
 import dan200.computercraft.api.peripheral.IPeripheral
+import dan200.computercraft.api.peripheral.NotAttachedException
 import dan200.computercraft.api.peripheral.PeripheralCapability
 import dan200.computercraft.api.peripheral.WorkMonitor
+import dan200.computercraft.core.computer.GuardedLuaContext
 import dan200.computercraft.core.methods.PeripheralMethod
 import dan200.computercraft.shared.computer.core.ServerContext
 import de.teutonstudio.ccaeroworks.CCAeroworks
@@ -25,6 +27,7 @@ import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.server.level.ServerLevel
 import java.util.Locale
+import java.util.WeakHashMap
 
 internal data class DeskNetworkNode(
     val member: ConsoleMember,
@@ -70,7 +73,12 @@ internal object PeripheralTypeNames {
         types.forEach { type -> addAll(lookupKeys(type)) }
     }
 
-    fun isControlDesk(value: String): Boolean = compact(value.trim().lowercase(Locale.ROOT)) == "controldesk"
+    fun isControlDesk(value: String): Boolean {
+        val lower = value.trim().lowercase(Locale.ROOT)
+        if (lower.isEmpty()) return false
+        val path = lower.substringAfter(':', lower)
+        return compact(path) == "controldesk" || compact(lower) == "ccaeroworkscontroldesk"
+    }
 
     private fun compact(value: String): String = separators.replace(value, "")
 }
@@ -132,6 +140,27 @@ internal object PeripheralNetworkBuilder {
     fun address(pos: BlockPos): String = "${pos.x},${pos.y},${pos.z}"
 }
 
+internal object PeripheralNetworkRuntimes {
+    private val runtimes = WeakHashMap<ComputerControlDeskBlockEntity, MutableSet<PeripheralNetworkRuntime>>()
+
+    @Synchronized
+    fun register(owner: ComputerControlDeskBlockEntity, runtime: PeripheralNetworkRuntime) {
+        runtimes.getOrPut(owner, ::linkedSetOf).add(runtime)
+    }
+
+    @Synchronized
+    fun unregister(owner: ComputerControlDeskBlockEntity, runtime: PeripheralNetworkRuntime) {
+        val current = runtimes[owner] ?: return
+        current.remove(runtime)
+        if (current.isEmpty()) runtimes.remove(owner)
+    }
+
+    fun tick(owner: ComputerControlDeskBlockEntity) {
+        val current = synchronized(this) { runtimes[owner]?.toList().orEmpty() }
+        current.forEach(PeripheralNetworkRuntime::tick)
+    }
+}
+
 internal class PeripheralNetworkRuntime(
     private val access: ComputerConsoleAccess,
     private val system: IComputerSystem
@@ -139,12 +168,22 @@ internal class PeripheralNetworkRuntime(
     private var graph: PeripheralNetworkGraph? = null
     private val bindings = linkedMapOf<String, PeripheralBinding>()
     private var initialized = false
+    private var lastScanTick = Long.MIN_VALUE
+
+    init {
+        access.owner()?.let { PeripheralNetworkRuntimes.register(it, this) }
+    }
 
     @Synchronized
     fun graph(force: Boolean = false): PeripheralNetworkGraph {
         val owner = access.owner()
             ?: throw LuaException("The computer control desk is no longer loaded")
+        val level = owner.level as? ServerLevel
+            ?: throw LuaException("The computer control desk is not in a server level")
+        if (!force && graph != null && lastScanTick == level.gameTime) return graph!!
+
         val next = PeripheralNetworkBuilder.build(owner)
+        lastScanTick = level.gameTime
         if (!force && graph?.revision == next.revision && sameTargets(graph, next)) {
             return graph!!
         }
@@ -155,7 +194,7 @@ internal class PeripheralNetworkRuntime(
         while (iterator.hasNext()) {
             val (address, binding) = iterator.next()
             val node = desired[address]
-            if (node == null || node.target !== binding.node.target) {
+            if (node == null || !samePeripheral(binding.node, node)) {
                 detached += binding.node
                 binding.close()
                 iterator.remove()
@@ -171,22 +210,28 @@ internal class PeripheralNetworkRuntime(
         }
         graph = next
         if (initialized) {
-            detached.forEach { node ->
-                system.queueEvent(CCAeroworks.PERIPHERAL_DETACHED_EVENT, node.address, node.primaryType)
-            }
-            attached.forEach { node ->
-                system.queueEvent(CCAeroworks.PERIPHERAL_ATTACHED_EVENT, node.address, node.primaryType)
-            }
+            detached.forEach(::queueDetached)
+            attached.forEach(::queueAttached)
         }
         initialized = true
         return next
     }
 
+    fun tick() {
+        val owner = access.owner() ?: return
+        val level = owner.level as? ServerLevel ?: return
+        if (level.gameTime % GRAPH_REFRESH_INTERVAL != 0L) return
+        try {
+            graph()
+        } catch (_: LuaException) {
+            invalidateGraph(queueEvents = true)
+        }
+    }
+
     @Synchronized
     fun close() {
-        bindings.values.forEach(PeripheralBinding::close)
-        bindings.clear()
-        graph = null
+        access.owner()?.let { PeripheralNetworkRuntimes.unregister(it, this) }
+        invalidateGraph(queueEvents = false)
         initialized = false
     }
 
@@ -319,11 +364,41 @@ internal class PeripheralNetworkRuntime(
     fun availablePeripherals(): Map<String, IPeripheral> =
         bindings.mapValuesTo(linkedMapOf()) { it.value.node.target }
 
+    @Synchronized
+    private fun invalidateGraph(queueEvents: Boolean) {
+        val detached = bindings.values.map { it.node }
+        bindings.values.forEach(PeripheralBinding::close)
+        bindings.clear()
+        graph = null
+        lastScanTick = Long.MIN_VALUE
+        if (queueEvents && initialized) detached.forEach(::queueDetached)
+    }
+
+    private fun queueAttached(node: PeripheralNetworkNode) {
+        system.queueEvent("peripheral", node.address)
+        system.queueEvent(CCAeroworks.PERIPHERAL_ATTACHED_EVENT, node.address, node.primaryType)
+    }
+
+    private fun queueDetached(node: PeripheralNetworkNode) {
+        system.queueEvent("peripheral_detach", node.address)
+        system.queueEvent(CCAeroworks.PERIPHERAL_DETACHED_EVENT, node.address, node.primaryType)
+    }
+
     private fun sameTargets(previous: PeripheralNetworkGraph?, next: PeripheralNetworkGraph): Boolean {
         if (previous == null || previous.peripherals.size != next.peripherals.size) return false
         val old = previous.peripherals.associateBy { it.address }
-        return next.peripherals.all { node -> old[node.address]?.target === node.target }
+        return next.peripherals.all { node ->
+            old[node.address]?.let { previousNode -> samePeripheral(previousNode, node) } == true
+        }
     }
+
+    private fun samePeripheral(first: PeripheralNetworkNode, second: PeripheralNetworkNode): Boolean =
+        first.primaryType == second.primaryType &&
+            first.types == second.types &&
+            equivalent(first.target, second.target)
+
+    private fun equivalent(first: IPeripheral, second: IPeripheral): Boolean =
+        first === second || runCatching { first.equals(second) && second.equals(first) }.getOrDefault(false)
 
     private data class ParsedPosition(val pos: BlockPos, val type: String?)
 
@@ -340,8 +415,10 @@ internal class PeripheralNetworkRuntime(
                 val value = first[name] as? Number
                     ?: throw LuaException("Position table must contain numeric '$name'")
                 val number = value.toDouble()
-                if (!number.isFinite() || number % 1.0 != 0.0) {
-                    throw LuaException("Position coordinate '$name' must be an integer")
+                if (!number.isFinite() || number % 1.0 != 0.0 ||
+                    number < Int.MIN_VALUE.toDouble() || number > Int.MAX_VALUE.toDouble()
+                ) {
+                    throw LuaException("Position coordinate '$name' must be a 32-bit integer")
                 }
                 return number.toInt()
             }
@@ -359,16 +436,22 @@ internal class PeripheralNetworkRuntime(
         "z" to pos.z,
         "dimension" to dimension
     )
+
+    companion object {
+        private const val GRAPH_REFRESH_INTERVAL = 5L
+    }
 }
 
 internal class PeripheralBinding(
     private val runtime: PeripheralNetworkRuntime,
     private val system: IComputerSystem,
     val node: PeripheralNetworkNode
-) : IComputerAccess {
+) : IComputerAccess, GuardedLuaContext.Guard {
     private val methods: Map<String, PeripheralMethod> =
-        ServerContext.get(system.level.server).peripheralMethods().getSelfMethods(node.target)
+        ServerContext.get(system.getLevel().server).peripheralMethods().getSelfMethods(node.target)
+    private val mounts = linkedSetOf<String>()
     private var attached = true
+    private var contextWrapper: GuardedLuaContext? = null
 
     init {
         node.target.attach(this)
@@ -377,38 +460,95 @@ internal class PeripheralBinding(
     val methodNames: Set<String> get() = methods.keys
 
     fun call(context: ILuaContext, name: String, arguments: IArguments): MethodResult {
-        if (!attached) throw LuaException("Peripheral '${node.address}' is detached")
         val method = methods[name] ?: throw LuaException("No such method $name")
-        return method.apply(node.target, context, this, arguments).adjustError(1)
+        val guarded = synchronized(this) {
+            checkAttached()
+            val current = contextWrapper
+            if (current != null && current.wraps(context)) {
+                current
+            } else {
+                GuardedLuaContext(context, this).also { contextWrapper = it }
+            }
+        }
+        return method.apply(node.target, guarded, this, arguments).adjustError(1)
     }
 
-    fun info(): Map<String, Any> = runtime.describePeripheral(node)
+    fun info(): Map<String, Any> {
+        checkAttached()
+        return runtime.describePeripheral(node)
+    }
 
+    @Synchronized
     fun close() {
         if (!attached) return
-        attached = false
-        node.target.detach(this)
+        try {
+            node.target.detach(this)
+        } finally {
+            mounts.toList().forEach { location -> runCatching { system.unmount(location) } }
+            mounts.clear()
+            attached = false
+            contextWrapper = null
+        }
     }
 
-    override fun mount(desiredLocation: String, mount: Mount, driveName: String): String? =
-        system.mount(desiredLocation, mount, driveName)
+    override fun checkValid(): Boolean = synchronized(this) { attached }
 
-    override fun mountWritable(desiredLocation: String, mount: WritableMount, driveName: String): String? =
-        system.mountWritable(desiredLocation, mount, driveName)
+    @Synchronized
+    override fun mount(desiredLocation: String, mount: Mount, driveName: String): String? {
+        checkAttached()
+        return system.mount(desiredLocation, mount, driveName)?.also(mounts::add)
+    }
 
-    override fun unmount(location: String?) = system.unmount(location)
+    @Synchronized
+    override fun mountWritable(desiredLocation: String, mount: WritableMount, driveName: String): String? {
+        checkAttached()
+        return system.mountWritable(desiredLocation, mount, driveName)?.also(mounts::add)
+    }
 
-    override fun getID(): Int = system.id
+    @Synchronized
+    override fun unmount(location: String?) {
+        checkAttached()
+        system.unmount(location)
+        if (location != null) mounts.remove(location)
+    }
 
-    override fun queueEvent(event: String, vararg arguments: Any?) = system.queueEvent(event, *arguments)
+    override fun getID(): Int {
+        checkAttached()
+        return system.getID()
+    }
 
-    override fun getAttachmentName(): String = node.address
+    override fun queueEvent(event: String, vararg arguments: Any?) {
+        checkAttached()
+        system.queueEvent(event, *arguments)
+    }
 
-    override fun getAvailablePeripherals(): Map<String, IPeripheral> = runtime.availablePeripherals()
+    override fun getAttachmentName(): String {
+        checkAttached()
+        return node.address
+    }
 
-    override fun getAvailablePeripheral(name: String): IPeripheral? = runtime.availablePeripherals()[name]
+    override fun getAvailablePeripherals(): Map<String, IPeripheral> {
+        checkAttached()
+        return linkedMapOf<String, IPeripheral>().apply {
+            putAll(system.getAvailablePeripherals())
+            putAll(runtime.availablePeripherals())
+        }
+    }
 
-    override fun getMainThreadMonitor(): WorkMonitor = system.mainThreadMonitor
+    override fun getAvailablePeripheral(name: String): IPeripheral? {
+        checkAttached()
+        return runtime.availablePeripherals()[name] ?: system.getAvailablePeripheral(name)
+    }
+
+    override fun getMainThreadMonitor(): WorkMonitor {
+        checkAttached()
+        return system.getMainThreadMonitor()
+    }
+
+    @Synchronized
+    private fun checkAttached() {
+        if (!attached) throw NotAttachedException()
+    }
 }
 
 internal class PeripheralLuaHandle(private val binding: PeripheralBinding) : IDynamicLuaObject {
