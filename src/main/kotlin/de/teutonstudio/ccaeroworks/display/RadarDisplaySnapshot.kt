@@ -11,20 +11,20 @@ data class RadarDisplayTrack(
     val velocity: Vec3
 ) {
     fun toTag(): CompoundTag = CompoundTag().apply {
-        putString("id", id)
+        putString("id", this@RadarDisplayTrack.id)
         put("position", position.toTag())
         put("velocity", velocity.toTag())
     }
 
     companion object {
         fun fromTag(tag: CompoundTag): RadarDisplayTrack? {
-            if (!tag.contains("position", Tag.TAG_COMPOUND)) return null
+            if (!tag.contains("position", Tag.TAG_COMPOUND.toInt())) return null
             val id = tag.getString("id")
             if (id.isEmpty()) return null
             return RadarDisplayTrack(
                 id,
                 tag.getCompound("position").toVec3(),
-                if (tag.contains("velocity", Tag.TAG_COMPOUND)) {
+                if (tag.contains("velocity", Tag.TAG_COMPOUND.toInt())) {
                     tag.getCompound("velocity").toVec3()
                 } else {
                     Vec3.ZERO
@@ -60,7 +60,7 @@ data class RadarDisplaySnapshot(
             RadarDisplaySnapshot(false, center, 0.0, null, emptyList(), updatedAt)
 
         fun fromTag(tag: CompoundTag): RadarDisplaySnapshot {
-            val tracksTag = tag.getList("tracks", Tag.TAG_COMPOUND)
+            val tracksTag = tag.getList("tracks", Tag.TAG_COMPOUND.toInt())
             val tracks = buildList {
                 for (index in 0 until minOf(tracksTag.size, MAX_SYNCED_TRACKS)) {
                     RadarDisplayTrack.fromTag(tracksTag.getCompound(index))?.let(::add)
@@ -68,7 +68,7 @@ data class RadarDisplaySnapshot(
             }
             return RadarDisplaySnapshot(
                 connected = tag.getBoolean("connected"),
-                center = if (tag.contains("center", Tag.TAG_COMPOUND)) {
+                center = if (tag.contains("center", Tag.TAG_COMPOUND.toInt())) {
                     tag.getCompound("center").toVec3()
                 } else {
                     Vec3.ZERO
