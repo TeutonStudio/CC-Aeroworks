@@ -46,13 +46,15 @@ local aeroworks = require("cc_aeroworks.aeroworks")
 
 Mit Schleichen und Rechtsklick bei leerer Haupthand lässt sich das Terminal von jedem Mitglied eines gültigen Einzelcomputer-Multiblocks öffnen. Ein normaler Rechtsklick bedient montierte Steuerungen; ein Create-Schraubenschlüssel auf einer horizontalen Pultseite öffnet die Steuerungseinstellungen.
 
-Pro Multiblock ist höchstens ein eingebetteter Computer vorgesehen. Wird in Survival versehentlich ein zweites Computerpult platziert, bleibt ein normales Aeroworks-Pult zurück und der zusätzliche Computer wird mit seinen Komponenten ausgeworfen. In Creative wird die konfliktverursachende Platzierung abgebrochen. Konflikte aus Altwelten, Befehlen oder Strukturwerkzeugen bleiben als diagnostizierbarer Sicherheitszustand erhalten.
+Pro Multiblock ist höchstens ein eingebetteter Computer vorgesehen. Wird versehentlich ein weiteres normales oder erweitertes Computerpult platziert, bleibt an dieser Stelle ein normales Aeroworks-Pult zurück und der zusätzliche CC:Tweaked-Computer wird mit ID, Label und Komponenten ausgeworfen. Das gilt in Survival und Creative. Konflikte aus Altwelten, Befehlen oder Strukturwerkzeugen bleiben als diagnostizierbarer Sicherheitszustand erhalten.
 
 Beide Computerpultvarianten besitzen eine Create-Ponder-Erklärung, die über die übliche Ponder-Taste `W` geöffnet wird.
 
 ## Programmierbare Displays
 
 Die Displays unterstützen Ziffern sowie frei beschreibbare Pixelraster. Standardmäßig besitzt das zweistellige Display `7x5` und das dreistellige `11x5` Pixel. Breite und Höhe beider Größen können in `cc_aeroworks-server.toml` auf jede positive Ganzzahl eingestellt werden; die früheren künstlichen Grenzen von `64x32` wurden entfernt. Die wirksamen Werte stehen in Lua über `getDisplaySize`, `pixelWidth`, `pixelHeight`, `PIXEL_WIDTH` und `PIXEL_HEIGHT` bereit. Das zweistellige Display passt in kleine und große Slots, das dreistellige ausschließlich in große Slots.
+
+Ein normaler CC:Tweaked-Monitor wird unter einer mechanischen Presse zum zweistelligen Display, ein erweiterter Monitor zum dreistelligen Display. Beide Displayitems besitzen eine gemeinsame Ponder-Erklärung für Herstellung und Socket-Anordnung. Zwei kleine Displays bieten zusammen mehr Pixel als ein großes Display, sofern die Standardauflösungen verwendet werden.
 
 Große Raster werden beim Rendern räumlich auf die Modulfläche skaliert. Speicherbedarf und Verarbeitungsaufwand wachsen dennoch mit der Pixelzahl, weil Mathematik leider keinen Respekt vor ambitionierten TOML-Dateien hat.
 
@@ -107,9 +109,9 @@ Ein alternatives Verzeichnis wird mit `-Pmod_dependency_dir=/pfad/zu/mods` angeg
 
 ## Tests und CI
 
-Die unterstützten Profile und Release-Gates stehen in [`docs/runtime-test-matrix.md`](docs/runtime-test-matrix.md). Interaktive Basistests stehen in [`docs/manual-test-plan.md`](docs/manual-test-plan.md), zusätzliche Multiblockfälle in [`docs/multiblock-test-plan.md`](docs/multiblock-test-plan.md) und die Bedienungs- und Ponder-Fälle in [`docs/computer-desk-guide-test-plan.md`](docs/computer-desk-guide-test-plan.md).
+Die unterstützten Profile und Release-Gates stehen in [`docs/runtime-test-matrix.md`](docs/runtime-test-matrix.md). Interaktive Basistests stehen in [`docs/manual-test-plan.md`](docs/manual-test-plan.md), zusätzliche Multiblockfälle in [`docs/multiblock-test-plan.md`](docs/multiblock-test-plan.md) und die Bedienungs-, Display- und Ponder-Fälle in [`docs/computer-desk-guide-test-plan.md`](docs/computer-desk-guide-test-plan.md).
 
-`.github/workflows/verify.yml` prüft bei Push und Pull Request den Repositoryvertrag sowie Buch-, Sprach-, Wiki- und Ponder-Ressourcen. Der geschützte Vollbuild benötigt rechtmäßig bereitgestellte Mod-JARs über die Repository-Secrets `MOD_DEPENDENCY_URL` und `MOD_DEPENDENCY_SHA256`.
+`.github/workflows/verify.yml` prüft bei Push und Pull Request den Repositoryvertrag sowie Buch-, Sprach-, Wiki-, Ponder- und Radar-Ressourcen. Der geschützte Vollbuild benötigt rechtmäßig bereitgestellte Mod-JARs über die Repository-Secrets `MOD_DEPENDENCY_URL` und `MOD_DEPENDENCY_SHA256`.
 
 ## Dokumentation und Beispiele
 
@@ -119,6 +121,7 @@ Die unterstützten Profile und Release-Gates stehen in [`docs/runtime-test-matri
 - [Create: Radars integration](docs/create-radars-integration.md)
 - [Runtime-Testmatrix](docs/runtime-test-matrix.md)
 - [Manueller Testplan](docs/manual-test-plan.md)
+- [Computerpult-, Display- und Ponder-Testplan](docs/computer-desk-guide-test-plan.md)
 - [Lua-Beispiele](examples/cc/)
 
 Repository: `TeutonStudio/CC-Aeroworks`
