@@ -111,10 +111,14 @@ def main() -> int:
     require("monitorStack()" in ponder and "dataLinkStack()" in ponder, "Radar source items are not shown")
 
     docs = read(DOCS)
-    require("automatisch" in docs.lower(), "Radar docs do not explain automatic routing")
-    require("genau eine" in docs.lower(), "Radar docs do not explain the unique-target rule")
-    require("verschiedenen pulten" in docs.lower(), "Radar docs do not explain cross-desk routing")
-    require("genau ein eingebetteter computer" in docs.lower(), "Radar docs do not require an active owner")
+    lower_docs = docs.lower()
+    require("automatisch" in lower_docs, "Radar docs do not explain automatic routing")
+    require("genau eine" in lower_docs, "Radar docs do not explain the unique-target rule")
+    require("verschiedenen pulten" in lower_docs, "Radar docs do not explain cross-desk routing")
+    require(
+        "mehrere computer" in lower_docs and "abgelehnt" in lower_docs,
+        "Radar docs do not explain that invalid computer ownership disables routing",
+    )
 
     print(
         "Validated optional Data Link interception, monitor-first setup, active computer-owned network routing, "
