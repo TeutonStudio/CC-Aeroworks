@@ -13,6 +13,7 @@ import net.createmod.catnip.render.CachedBuffers
 import net.createmod.catnip.render.SuperByteBuffer
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.client.renderer.RenderType
+import net.minecraft.core.Direction
 
 object RadarSurfaceRenderer {
     private const val TRACK_POSITION_SCALE = 0.75
@@ -68,7 +69,7 @@ object RadarSurfaceRenderer {
 
     @JvmStatic
     fun key(surface: RadarSurfaceState): String =
-        "${surface.socket}:${surface.type}:${surface.snapshot?.contentHash() ?: 0}"
+        "${surface.socket}:${surface.type}:${surface.facing}:${surface.snapshot?.contentHash() ?: 0}"
 
     @JvmStatic
     fun sweepAngle(gameTime: Long): Float =
@@ -90,7 +91,7 @@ object RadarSurfaceRenderer {
         val active = requireNotNull(snapshot)
         elements += Element(models.sweep, spinning = true, translucent = true)
         for (track in active.tracks) {
-            val projected = project(surface.type, active, track.position.x, track.position.z) ?: continue
+            val projected = project(surface, active, track.position.x, track.position.z) ?: continue
             elements += Element(
                 model = DeskDisplayModels.radarTrack(track.sprite),
                 x = projected.first,
@@ -108,23 +109,36 @@ object RadarSurfaceRenderer {
     }
 
     private fun project(
-        type: RadarDisplayType,
+        surface: RadarSurfaceState,
         snapshot: RadarDisplaySnapshot,
         worldX: Double,
         worldZ: Double
     ): Pair<Double, Double>? {
         if (snapshot.range <= 0.0) return null
-        val normalizedX = (worldX - snapshot.center.x) / snapshot.range
-        val normalizedZ = (worldZ - snapshot.center.z) / snapshot.range
+
+        val relativeX = worldX - snapshot.center.x
+        val relativeZ = worldZ - snapshot.center.z
+        val axisZ = surface.facing.axis == Direction.Axis.Z
+
+        var normalizedX = (if (axisZ) relativeX else relativeZ) / snapshot.range
+        if (surface.facing == Direction.NORTH || surface.facing == Direction.EAST) {
+            normalizedX = -normalizedX
+        }
+
+        var normalizedZ = (if (axisZ) relativeZ else relativeX) / snapshot.range
+        if (surface.facing == Direction.NORTH || surface.facing == Direction.WEST) {
+            normalizedZ = -normalizedZ
+        }
+
         if (normalizedX * normalizedX + normalizedZ * normalizedZ > 1.0) return null
 
-        val halfWidth = when (type) {
+        val halfWidth = when (surface.type) {
             RadarDisplayType.SMALL -> SMALL_HALF_WIDTH
             RadarDisplayType.LARGE -> LARGE_HALF_WIDTH
         }
         return Pair(
             normalizedX * halfWidth * TRACK_POSITION_SCALE,
-            -normalizedZ * HALF_HEIGHT * TRACK_POSITION_SCALE
+            normalizedZ * HALF_HEIGHT * TRACK_POSITION_SCALE
         )
     }
 }
