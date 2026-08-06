@@ -77,6 +77,32 @@
       "sha256": null,
       "source": "Official Create: Radars distribution page",
       "notes": "Optional runtime for the small and large Data Link radar displays. The compatibility code uses a pseudo mixin and reflection, so the JAR is not required to compile the base mod."
+    },
+    {
+      "name": "Create Big Cannons",
+      "modId": "createbigcannons",
+      "version": "5.11.7",
+      "required": false,
+      "filenamePattern": "(?i)^create[-_ ]?big[-_ ]?cannons?[^/]*5\\.11\\.7[^/]*1\\.21\\.1[^/]*\\.jar$",
+      "filenameExamples": [
+        "createbigcannons-5.11.7+mc.1.21.1.jar"
+      ],
+      "sha256": null,
+      "source": "Official Create Big Cannons distribution page",
+      "notes": "Optional dependency used by Create: Radars. Automatically resolved for local Gradle runtimes together with Ritchie's Projectile Library."
+    },
+    {
+      "name": "Ritchie's Projectile Library",
+      "modId": "ritchiesprojectilelib",
+      "version": "2.1.2",
+      "required": false,
+      "filenamePattern": "(?i)^ritchies[-_ ]?projectile[-_ ]?(?:lib|library)[^/]*2\\.1\\.2[^/]*1\\.21\\.1[^/]*\\.jar$",
+      "filenameExamples": [
+        "ritchiesprojectilelib-2.1.2-mc.1.21.1-neoforge.jar"
+      ],
+      "sha256": null,
+      "source": "Official Ritchie's Projectile Library distribution page",
+      "notes": "Required runtime library of Create Big Cannons 5.11.7. Automatically resolved for local Gradle runtimes."
     }
   ]
 }
