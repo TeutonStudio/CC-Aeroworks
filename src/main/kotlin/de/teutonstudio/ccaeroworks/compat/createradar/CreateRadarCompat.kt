@@ -144,10 +144,18 @@ object CreateRadarCompat {
             return placement
         }
 
-        val dataLink = level.getBlockEntity(placedPos)
-        val configured = dataLink != null &&
-            isDataLink(dataLink) &&
-            invokeBlockPos(dataLink, "target", monitorPos) &&
+        val dataLink = level.getBlockEntity(placedPos)?.takeIf(::isDataLink)
+        if (dataLink == null) {
+            level.removeBlock(placedPos, false)
+            if (!player.abilities.instabuild) stack.grow(1)
+            player.displayClientMessage(
+                Component.translatable("message.cc_aeroworks.radar_link_failed"),
+                true
+            )
+            return InteractionResult.FAIL
+        }
+
+        val configured = invokeBlockPos(dataLink, "target", monitorPos) &&
             invoke(dataLink, "getSourcePosition") == sourceDesk.blockPos &&
             invoke(dataLink, "getTargetPosition") == monitorPos
         if (!configured) {
