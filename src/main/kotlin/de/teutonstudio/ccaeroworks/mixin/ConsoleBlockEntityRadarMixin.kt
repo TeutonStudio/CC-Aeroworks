@@ -87,7 +87,6 @@ abstract class ConsoleBlockEntityRadarMixin : RadarDeskStateAccess {
         }
     }
 
-    @Unique
     private data class RadarRasterCache(
         val snapshot: RadarDisplaySnapshot?,
         val width: Int,
