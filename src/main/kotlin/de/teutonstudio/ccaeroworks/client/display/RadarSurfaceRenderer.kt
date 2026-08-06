@@ -37,7 +37,7 @@ object RadarSurfaceRenderer {
     ) {
         val sockets = desk.sockets()
         val rotation = ConsoleBlock.rotationFor(desk.blockState)
-        val consumer = buffers.getBuffer(RenderType.cutout())
+        val consumer = buffers.getBuffer(RenderType.translucent())
         val gameTime = desk.level?.gameTime ?: 0L
 
         AeroworksDeskAccess.radarSurfaces(desk).forEach { surface ->
