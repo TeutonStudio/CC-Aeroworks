@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate Create: Radars source selection and desk-network routing."""
+"""Validate Create: Radars native links and CC-Aeroworks desk-network routing."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ MIXIN_CONFIG = ROOT / "src/main/resources/cc_aeroworks.mixins.json"
 ITEM_MIXIN = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/mixin/compat/CreateRadarDataLinkItemMixin.java"
 ENTITY_MIXIN = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/mixin/compat/CreateRadarDataLinkMixin.java"
 COMPAT = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/compat/createradar/CreateRadarCompat.kt"
+MODULE_TYPES = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/registry/CCModuleTypes.kt"
 PONDER = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/client/ponder/RadarDisplayScenes.java"
 DOCS = ROOT / "docs/create-radars-integration.md"
 
@@ -54,32 +55,48 @@ def main() -> int:
     compat = read(COMPAT)
     required_tokens = (
         "fun handleDataLinkUse(context: UseOnContext): InteractionResult?",
+        "private val NATIVE_SELECTION_KEYS",
+        '"SelectedFiltererPos"',
+        '"SelectedMountPos"',
+        "val stack = context.itemInHand",
+        "val existingSelection = stack.tag",
+        "if (hasNativeSelection(existingSelection))",
+        "clearMonitorSelection(stack)",
         "clickedEntity != null && isMonitor(clickedEntity)",
+        "val selection = stack.getOrCreateTag()",
         "val sourceDesk = clickedEntity as? ConsoleBlockEntity ?: return null",
         "val route = resolveRadarRoute(sourceDesk)",
-        "if (route.state != ConsoleNetworkState.ACTIVE)",
+        "if (!isRoutable(route.state))",
         "if (route.destinations.isEmpty())",
         "if (route.destinations.size > 1)",
         "val placeContext = BlockPlaceContext(context)",
         'invokeBlockPos(dataLink, "target", monitorPos)',
+        'invoke(dataLink, "getSourcePosition") == sourceDesk.blockPos',
+        'invoke(dataLink, "getTargetPosition") == monitorPos',
+        "level.removeBlock(placedPos, false)",
+        "stack.grow(1)",
         "fun capture(dataLink: Any)",
         "val destination = route.destinations.singleOrNull() ?: return",
         "ConsoleMultiblockManager.resolve(level, sourceDesk.blockPos)",
-        "network.state == ConsoleNetworkState.ACTIVE",
         "network.members.map { it.desk }",
         "filter(AeroworksDeskAccess::hasRadarDisplay)",
+        "state == ConsoleNetworkState.ACTIVE || state == ConsoleNetworkState.NONE",
         "routeFailureKey(route.state)",
     )
     for token in required_tokens:
         require(token in compat, f"Radar routing is missing contract token: {token}")
 
     require(
-        compat.index("clickedEntity != null && isMonitor(clickedEntity)")
-        < compat.index("val sourceDesk = clickedEntity as? ConsoleBlockEntity ?: return null"),
-        "Monitor selection must be handled before desk placement",
+        compat.index("if (hasNativeSelection(existingSelection))")
+        < compat.index("clickedEntity != null && isMonitor(clickedEntity)"),
+        "Native Create: Radars selections must bypass monitor interception",
     )
     require(
-        "if (!AeroworksDeskAccess.hasRadarDisplay(desk)) return null" not in compat,
+        "player.persistentData" not in compat,
+        "CC-Aeroworks monitor selection must be stored on the Data Link item, not the player",
+    )
+    require(
+        'if (!AeroworksDeskAccess.hasRadarDisplay(desk)) return null' not in compat,
         "Data Link placement is still restricted to the display's own desk",
     )
     require(
@@ -87,6 +104,22 @@ def main() -> int:
         and 'message.cc_aeroworks.console_too_large' in compat
         and 'message.cc_aeroworks.console_partially_loaded' in compat,
         "Invalid radar topology does not reuse localized network diagnostics",
+    )
+
+    module_types = read(MODULE_TYPES)
+    for token in (
+        "moduleTypeIdentities(moduleType)",
+        "matchesModuleIdentity",
+        '"summary"',
+        '"getSummary"',
+        "CCAeroworks.MOD_ID",
+        "RadarDisplayType.SMALL.modulePath",
+        "RadarDisplayType.LARGE.modulePath",
+    ):
+        require(token in module_types, f"Stable radar module classification is missing: {token}")
+    require(
+        "moduleType === SMALL_RADAR" in module_types and "moduleType === LARGE_RADAR" in module_types,
+        "Fast canonical radar module classification is missing",
     )
 
     english = load_json(LANG / "en_us.json")
@@ -115,14 +148,17 @@ def main() -> int:
     require("automatisch" in lower_docs, "Radar docs do not explain automatic routing")
     require("genau eine" in lower_docs, "Radar docs do not explain the unique-target rule")
     require("verschiedenen pulten" in lower_docs, "Radar docs do not explain cross-desk routing")
+    require("kein eingebetteter computer" in lower_docs, "Radar docs still require an embedded computer")
+    require("network controller" in lower_docs, "Radar docs do not preserve native Network Controller links")
+    require("itemstack" in lower_docs, "Radar docs do not explain item-local monitor selection")
     require(
         "mehrere computer" in lower_docs and "abgelehnt" in lower_docs,
-        "Radar docs do not explain that invalid computer ownership disables routing",
+        "Radar docs do not explain that conflicting computer ownership disables routing",
     )
 
     print(
-        "Validated optional Data Link interception, monitor-first setup, active computer-owned network routing, "
-        "unique-target selection, localized Ponder guidance and documentation."
+        "Validated native Create: Radars selection passthrough, item-local monitor selection, rollback-safe placement, "
+        "computer-optional desk routing, stable radar module classification and localized documentation."
     )
     return 0
 
