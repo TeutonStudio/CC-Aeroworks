@@ -20,6 +20,7 @@ def read(relative: str) -> str:
 def main() -> int:
     api = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerConsoleLuaApi.kt")
     graph = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralNetwork.kt")
+    computer = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerControlDeskBlockEntity.kt")
     local = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ControlDeskPeripheral.kt")
     state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ControlDeskPeripheralState.kt")
     docs = read("docs/cc-peripheral-api.md")
@@ -41,17 +42,24 @@ def main() -> int:
         "targetPos in deskPositions",
         "peripheral.additionalTypes",
         "PeripheralTypeNames.aliases(types)",
-        "ServerContext.get(system.level.server).peripheralMethods().getSelfMethods(node.target)",
-        "method.apply(node.target, context, this, arguments)",
+        "ServerContext.get(system.getLevel().server).peripheralMethods().getSelfMethods(node.target)",
+        "GuardedLuaContext(context, this)",
+        "method.apply(node.target, guarded, this, arguments)",
         "node.target.attach(this)",
         "node.target.detach(this)",
+        "NotAttachedException()",
         "system.mount(",
+        "system.unmount(",
         "system.queueEvent(",
+        'system.queueEvent("peripheral", node.address)',
+        'system.queueEvent("peripheral_detach", node.address)',
         "getAvailablePeripherals",
         "getMainThreadMonitor",
+        "GRAPH_REFRESH_INTERVAL = 5L",
     ):
         require(token in graph, f"Peripheral graph is missing runtime contract token: {token}")
 
+    require("PeripheralNetworkRuntimes.tick(this)" in computer, "Computer tick does not refresh the peripheral graph")
     require("handles.isEmpty() -> null" in graph, "find does not return nil for zero matches")
     require("handles.size == 1 -> handles.values.first()" in graph, "find does not return the direct unique handle")
     require("else -> handles" in graph, "find does not return a collection for multiple matches")
@@ -86,8 +94,8 @@ def main() -> int:
     require("getPeripheralInfo" in docs, "Peripheral handle metadata is undocumented")
 
     print(
-        "Validated local ControlDesk adapters, multiblock scanning, unique type lookup, real peripheral delegation, "
-        "events, documentation and Lua examples."
+        "Validated local ControlDesk adapters, automatic multiblock scanning, unique type lookup, guarded real "
+        "peripheral delegation, lifecycle events, documentation and Lua examples."
     )
     return 0
 
