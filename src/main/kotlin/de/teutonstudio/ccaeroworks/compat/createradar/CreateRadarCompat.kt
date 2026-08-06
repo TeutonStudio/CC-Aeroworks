@@ -7,15 +7,9 @@ import de.teutonstudio.ccaeroworks.display.RadarDisplayTrack
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import net.minecraft.core.BlockPos
-import net.minecraft.core.component.DataComponents
-import net.minecraft.nbt.CompoundTag
-import net.minecraft.nbt.Tag
-import net.minecraft.network.chat.Component
+import net.minecraft.core.Direction
 import net.minecraft.server.level.ServerLevel
-import net.minecraft.world.InteractionResult
-import net.minecraft.world.item.ItemStack
-import net.minecraft.world.item.component.CustomData
-import net.minecraft.world.item.context.UseOnContext
+import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.phys.Vec3
 import net.neoforged.fml.ModList
 
@@ -24,114 +18,57 @@ object CreateRadarCompat {
 
     private const val NETWORK_CONTROLLER_CLASS: String =
         "com.happysg.radar.block.controller.networkcontroller.NetworkFiltererBlockEntity"
-    private const val SELECTED_FILTERER_KEY: String = "SelectedFiltererPos"
-    private const val UPDATE_INTERVAL: Long = 5
 
     @JvmStatic
-    fun handleControllerLink(context: UseOnContext): InteractionResult? {
-        if (!ModList.get().isLoaded(MOD_ID)) return null
-        val player = context.player ?: return null
-        if (player.isShiftKeyDown) return null
-
-        val sourceDesk = context.level.getBlockEntity(context.clickedPos) as? ConsoleBlockEntity ?: return null
-        val stack = context.itemInHand
-        val selectedController = readSelectedController(itemData(stack)) ?: return null
-
-        if (context.level.isClientSide) {
-            return InteractionResult.sidedSuccess(true)
-        }
-
-        val level = context.level as? ServerLevel ?: return InteractionResult.FAIL
-        if (!level.isLoaded(selectedController)) {
-            clearControllerSelection(stack)
-            player.displayClientMessage(
-                Component.translatable("message.cc_aeroworks.radar_controller_invalid"),
-                true
-            )
-            return InteractionResult.FAIL
-        }
-
-        val controller = level.getBlockEntity(selectedController)
-        if (controller == null || !hasClass(controller, NETWORK_CONTROLLER_CLASS)) {
-            clearControllerSelection(stack)
-            player.displayClientMessage(
-                Component.translatable("message.cc_aeroworks.radar_controller_invalid"),
-                true
-            )
-            return InteractionResult.FAIL
-        }
-
-        val route = resolveDeskNetwork(sourceDesk)
-        if (!isRoutable(route.state)) {
-            clearControllerSelection(stack)
-            player.displayClientMessage(Component.translatable(routeFailureKey(route.state)), true)
-            return InteractionResult.FAIL
-        }
-
-        val destinations = route.desks.filter(AeroworksDeskAccess::hasRadarDisplay)
-        if (destinations.isEmpty()) {
-            clearControllerSelection(stack)
-            player.displayClientMessage(
-                Component.translatable("message.cc_aeroworks.radar_display_missing"),
-                true
-            )
-            return InteractionResult.FAIL
-        }
-
-        val link = RadarControllerLink(
-            selectedController,
-            level.dimension().location().toString()
-        )
-
-        // A desk network has one controller source. Re-linking deliberately replaces
-        // the previous source instead of leaving several desks to race each other.
-        route.desks.forEach { desk ->
-            val deskAccess = desk as? RadarDeskStateAccess ?: return@forEach
-            if (deskAccess.ccaeroworks_getRadarControllerLink() != null) {
-                deskAccess.ccaeroworks_setRadarControllerLink(null)
-                desk.setChanged()
-                level.sendBlockUpdated(desk.blockPos, desk.blockState, desk.blockState, 3)
-            }
-        }
-        (sourceDesk as? RadarDeskStateAccess)?.ccaeroworks_setRadarControllerLink(link)
-        clearControllerSelection(stack)
-
-        sourceDesk.setChanged()
-        level.sendBlockUpdated(sourceDesk.blockPos, sourceDesk.blockState, sourceDesk.blockState, 3)
-        refreshDesk(sourceDesk, force = true)
-
-        player.displayClientMessage(
-            Component.translatable(
-                "message.cc_aeroworks.radar_controller_linked",
-                destinations.size
-            ),
-            true
-        )
-        return InteractionResult.sidedSuccess(false)
-    }
-
-    @JvmStatic
-    fun refreshDesk(desk: ConsoleBlockEntity) {
-        refreshDesk(desk, force = false)
-    }
-
-    private fun refreshDesk(desk: ConsoleBlockEntity, force: Boolean) {
+    fun refreshController(controller: Any) {
         if (!ModList.get().isLoaded(MOD_ID)) return
-        val level = desk.level as? ServerLevel ?: return
-        if (!force && level.gameTime % UPDATE_INTERVAL != 0L) return
+        val controllerEntity = controller as? BlockEntity ?: return
+        val level = controllerEntity.level as? ServerLevel ?: return
 
-        val access = desk as? RadarDeskStateAccess ?: return
-        val link = access.ccaeroworks_getRadarControllerLink() ?: return
-        val route = resolveDeskNetwork(desk)
-        if (!isRoutable(route.state)) return
+        val networks = adjacentDeskNetworks(level, controllerEntity.blockPos)
+        networks.forEach { network ->
+            refreshNetwork(level, controllerEntity, network)
+        }
+    }
 
-        val destinations = route.desks.filter(AeroworksDeskAccess::hasRadarDisplay)
+    private fun adjacentDeskNetworks(
+        level: ServerLevel,
+        controllerPos: BlockPos
+    ): List<RadarDeskNetwork> {
+        val networks = linkedMapOf<List<Long>, RadarDeskNetwork>()
+        for (direction in Direction.values()) {
+            val desk = level.getBlockEntity(controllerPos.relative(direction)) as? ConsoleBlockEntity ?: continue
+            val network = resolveDeskNetwork(desk)
+            val key = network.desks.map { it.blockPos.asLong() }.sorted()
+            networks.putIfAbsent(key, network)
+        }
+        return networks.values.toList()
+    }
+
+    private fun refreshNetwork(
+        level: ServerLevel,
+        tickingController: BlockEntity,
+        network: RadarDeskNetwork
+    ) {
+        val destinations = network.desks.filter(AeroworksDeskAccess::hasRadarDisplay)
         if (destinations.isEmpty()) return
 
-        val snapshot = readControllerSnapshot(level, link)
+        val controllers = findAdjacentControllers(level, network.desks)
+        val updateOwner = controllers.minByOrNull { it.blockPos.asLong() } ?: return
+        if (updateOwner.blockPos != tickingController.blockPos) return
+
+        val snapshot = if (isRoutable(network.state) && controllers.size == 1) {
+            readControllerSnapshot(level, updateOwner)
+        } else {
+            RadarDisplaySnapshot.disconnected(
+                Vec3.atCenterOf(tickingController.blockPos),
+                level.gameTime
+            )
+        }
+
         destinations.forEach { destination ->
-            val destinationAccess = destination as? RadarDeskStateAccess ?: return@forEach
-            destinationAccess.ccaeroworks_setRadarSnapshot(snapshot)
+            val access = destination as? RadarDeskStateAccess ?: return@forEach
+            access.ccaeroworks_setRadarSnapshot(snapshot)
             destination.setChanged()
             level.sendBlockUpdated(
                 destination.blockPos,
@@ -142,20 +79,29 @@ object CreateRadarCompat {
         }
     }
 
+    private fun findAdjacentControllers(
+        level: ServerLevel,
+        desks: List<ConsoleBlockEntity>
+    ): List<BlockEntity> {
+        val controllers = linkedMapOf<BlockPos, BlockEntity>()
+        for (desk in desks) {
+            for (direction in Direction.values()) {
+                val position = desk.blockPos.relative(direction)
+                if (!level.isLoaded(position)) continue
+                val candidate = level.getBlockEntity(position) ?: continue
+                if (hasClass(candidate, NETWORK_CONTROLLER_CLASS)) {
+                    controllers.putIfAbsent(candidate.blockPos, candidate)
+                }
+            }
+        }
+        return controllers.values.toList()
+    }
+
     private fun readControllerSnapshot(
         level: ServerLevel,
-        link: RadarControllerLink
+        controller: BlockEntity
     ): RadarDisplaySnapshot {
-        val fallbackCenter = Vec3.atCenterOf(link.position)
-        if (link.dimension != level.dimension().location().toString() || !level.isLoaded(link.position)) {
-            return RadarDisplaySnapshot.disconnected(fallbackCenter, level.gameTime)
-        }
-
-        val controller = level.getBlockEntity(link.position)
-        if (controller == null || !hasClass(controller, NETWORK_CONTROLLER_CLASS)) {
-            return RadarDisplaySnapshot.disconnected(fallbackCenter, level.gameTime)
-        }
-
+        val fallbackCenter = Vec3.atCenterOf(controller.blockPos)
         val radar = invokeDeclared(controller, "getRadar", level)
             ?: readField(controller, "radarCache")
             ?: (readField(controller, "radarPosCache") as? BlockPos)
@@ -194,41 +140,6 @@ object CreateRadarCompat {
     private fun isRoutable(state: ConsoleNetworkState): Boolean =
         state == ConsoleNetworkState.ACTIVE || state == ConsoleNetworkState.NONE
 
-    private fun routeFailureKey(state: ConsoleNetworkState): String = when (state) {
-        ConsoleNetworkState.CONFLICT -> "message.cc_aeroworks.console_conflict"
-        ConsoleNetworkState.TOO_LARGE -> "message.cc_aeroworks.console_too_large"
-        ConsoleNetworkState.PARTIALLY_LOADED -> "message.cc_aeroworks.console_partially_loaded"
-        else -> "message.cc_aeroworks.radar_display_missing"
-    }
-
-    private fun itemData(stack: ItemStack): CompoundTag? =
-        stack.get(DataComponents.CUSTOM_DATA)?.copyTag()
-
-    private fun readSelectedController(selection: CompoundTag?): BlockPos? {
-        selection ?: return null
-        if (selection.contains(SELECTED_FILTERER_KEY, Tag.TAG_LONG.toInt())) {
-            return BlockPos.of(selection.getLong(SELECTED_FILTERER_KEY))
-        }
-        if (!selection.contains(SELECTED_FILTERER_KEY, Tag.TAG_COMPOUND.toInt())) return null
-
-        val position = selection.getCompound(SELECTED_FILTERER_KEY)
-        fun coordinate(upper: String, lower: String): Int =
-            if (position.contains(upper)) position.getInt(upper) else position.getInt(lower)
-        return BlockPos(
-            coordinate("X", "x"),
-            coordinate("Y", "y"),
-            coordinate("Z", "z")
-        )
-    }
-
-    private fun clearControllerSelection(stack: ItemStack) {
-        val data = itemData(stack) ?: return
-        if (!data.contains(SELECTED_FILTERER_KEY)) return
-        CustomData.update(DataComponents.CUSTOM_DATA, stack) { selection ->
-            selection.remove(SELECTED_FILTERER_KEY)
-        }
-    }
-
     private fun readTracks(radar: Any, center: Vec3): List<RadarDisplayTrack> {
         val values = invoke(radar, "getTracks") as? Iterable<*> ?: return emptyList()
         return values.mapNotNull { raw ->
@@ -253,8 +164,8 @@ object CreateRadarCompat {
             val method = type.declaredMethods.firstOrNull { candidate ->
                 candidate.name == methodName &&
                     candidate.parameterCount == arguments.size &&
-                    candidate.parameterTypes.zip(arguments).all { (type, argument) ->
-                        type.isAssignableFrom(argument.javaClass)
+                    candidate.parameterTypes.zip(arguments).all { (parameterType, argument) ->
+                        parameterType.isAssignableFrom(argument.javaClass)
                     }
             }
             if (method != null) {
