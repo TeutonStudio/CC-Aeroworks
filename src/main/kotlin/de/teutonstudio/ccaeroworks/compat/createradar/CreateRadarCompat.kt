@@ -29,6 +29,7 @@ object CreateRadarCompat {
     private const val SNAPSHOT_HEARTBEAT_TICKS: Long = 15L
 
     private val lastStatusByController = WeakHashMap<BlockEntity, RadarLinkStatus>()
+    private val lastFailureByController = WeakHashMap<BlockEntity, String>()
 
     @JvmStatic
     fun refreshController(controller: Any) {
@@ -117,6 +118,9 @@ object CreateRadarCompat {
         status: RadarLinkStatus
     ) {
         val previous = lastStatusByController.put(controller, status)
+        if (status == RadarLinkStatus.ACTIVE) {
+            lastFailureByController.remove(controller)
+        }
         if (previous == status) return
         CCAeroworks.LOGGER.info(
             "[CC-Aeroworks] Radar link at {} changed from {} to {} (network={}, controllers={}, desks={})",
@@ -127,6 +131,34 @@ object CreateRadarCompat {
             controllerCount,
             network.desks.size
         )
+    }
+
+    private fun reportAccessFailure(
+        controller: BlockEntity,
+        stage: String,
+        cause: Throwable? = null
+    ) {
+        val signature = buildString {
+            append(stage)
+            append(':').append(cause?.javaClass?.name.orEmpty())
+            append(':').append(cause?.message.orEmpty())
+        }
+        if (lastFailureByController.put(controller, signature) == signature) return
+
+        if (cause == null) {
+            CCAeroworks.LOGGER.warn(
+                "[CC-Aeroworks] Create: Radars API is unavailable at {} during {}",
+                controller.blockPos,
+                stage
+            )
+        } else {
+            CCAeroworks.LOGGER.warn(
+                "[CC-Aeroworks] Create: Radars access failed at {} during {}",
+                controller.blockPos,
+                stage,
+                cause
+            )
+        }
     }
 
     private fun findAdjacentControllers(
@@ -161,13 +193,8 @@ object CreateRadarCompat {
         val radar = when (val resolution = resolveRadar(level, controller)) {
             is RadarResolution.Found -> resolution.radar
             is RadarResolution.Failure -> {
-                resolution.cause?.let {
-                    CCAeroworks.LOGGER.debug(
-                        "[CC-Aeroworks] Create: Radars access failed at {} during {}",
-                        controller.blockPos,
-                        resolution.stage,
-                        it
-                    )
+                if (resolution.status == RadarLinkStatus.API_INCOMPATIBLE) {
+                    reportAccessFailure(controller, resolution.stage, resolution.cause)
                 }
                 return RadarDisplaySnapshot.disconnected(
                     fallbackCenter,
@@ -177,27 +204,43 @@ object CreateRadarCompat {
             }
         }
 
-        val center = when (val worldPosition = invokeLookup(radar, "getWorldPos").value) {
+        val worldPositionLookup = invokeLookup(radar, "getWorldPos")
+        if (!worldPositionLookup.found || worldPositionLookup.error != null) {
+            return apiFailure(
+                level,
+                controller,
+                fallbackCenter,
+                "IRadar#getWorldPos",
+                worldPositionLookup.error
+            )
+        }
+        val center = when (val worldPosition = worldPositionLookup.value) {
             is BlockPos -> Vec3.atCenterOf(worldPosition)
             is Vec3 -> worldPosition
-            else -> fallbackCenter
-        }
-
-        val rangeLookup = invokeLookup(radar, "getRange")
-        val runningLookup = invokeLookup(radar, "isRunning")
-        if (
-            !rangeLookup.found || rangeLookup.error != null ||
-            !runningLookup.found || runningLookup.error != null
-        ) {
-            return RadarDisplaySnapshot.disconnected(
-                center,
-                level.gameTime,
-                RadarLinkStatus.API_INCOMPATIBLE
+            else -> return apiFailure(
+                level,
+                controller,
+                fallbackCenter,
+                "IRadar#getWorldPos result"
             )
         }
 
-        val range = (rangeLookup.value as? Number)?.toDouble()?.coerceAtLeast(0.0) ?: 0.0
-        if (runningLookup.value != true) {
+        val rangeLookup = invokeLookup(radar, "getRange")
+        if (!rangeLookup.found || rangeLookup.error != null) {
+            return apiFailure(level, controller, center, "IRadar#getRange", rangeLookup.error)
+        }
+        val rangeValue = rangeLookup.value as? Number
+            ?: return apiFailure(level, controller, center, "IRadar#getRange result")
+        val range = rangeValue.toDouble().coerceAtLeast(0.0)
+
+        val runningLookup = invokeLookup(radar, "isRunning")
+        if (!runningLookup.found || runningLookup.error != null) {
+            return apiFailure(level, controller, center, "IRadar#isRunning", runningLookup.error)
+        }
+        val running = runningLookup.value as? Boolean
+            ?: return apiFailure(level, controller, center, "IRadar#isRunning result")
+
+        if (!running) {
             return RadarDisplaySnapshot.disconnected(
                 center,
                 level.gameTime,
@@ -212,9 +255,18 @@ object CreateRadarCompat {
             )
         }
 
+        val tracks = when (val result = readTracks(radar, center)) {
+            is TrackReadResult.Success -> result.tracks
+            is TrackReadResult.Failure -> return apiFailure(
+                level,
+                controller,
+                center,
+                result.stage,
+                result.cause
+            )
+        }
         val selected = readFieldLookup(controller, "activeTrackCache").value
             ?.let { invokeAny(it, "getId", "id") as? String }
-        val tracks = readTracks(radar, center)
 
         return RadarDisplaySnapshot(
             connected = true,
@@ -224,6 +276,21 @@ object CreateRadarCompat {
             tracks = tracks,
             updatedAt = level.gameTime,
             status = RadarLinkStatus.ACTIVE
+        )
+    }
+
+    private fun apiFailure(
+        level: ServerLevel,
+        controller: BlockEntity,
+        center: Vec3,
+        stage: String,
+        cause: Throwable? = null
+    ): RadarDisplaySnapshot {
+        reportAccessFailure(controller, stage, cause)
+        return RadarDisplaySnapshot.disconnected(
+            center,
+            level.gameTime,
+            RadarLinkStatus.API_INCOMPATIBLE
         )
     }
 
@@ -276,9 +343,15 @@ object CreateRadarCompat {
     private fun isRoutable(state: ConsoleNetworkState): Boolean =
         state == ConsoleNetworkState.ACTIVE || state == ConsoleNetworkState.NONE
 
-    private fun readTracks(radar: Any, center: Vec3): List<RadarDisplayTrack> {
-        val values = invokeLookup(radar, "getTracks").value as? Iterable<*> ?: return emptyList()
-        return values.mapNotNull { raw ->
+    private fun readTracks(radar: Any, center: Vec3): TrackReadResult {
+        val lookup = invokeLookup(radar, "getTracks")
+        if (!lookup.found || lookup.error != null) {
+            return TrackReadResult.Failure("IRadar#getTracks", lookup.error)
+        }
+        val values = lookup.value as? Iterable<*>
+            ?: return TrackReadResult.Failure("IRadar#getTracks result")
+
+        val tracks = values.mapNotNull { raw ->
             raw ?: return@mapNotNull null
             val id = (invokeAny(raw, "getId", "id") as? String)
                 ?.takeIf(String::isNotEmpty)
@@ -295,6 +368,8 @@ object CreateRadarCompat {
         }
             .sortedBy { it.position.distanceToSqr(center) }
             .take(RadarDisplaySnapshot.MAX_SYNCED_TRACKS)
+
+        return TrackReadResult.Success(tracks)
     }
 
     private fun invokeAny(instance: Any, vararg methodNames: String): Any? {
@@ -397,6 +472,11 @@ object CreateRadarCompat {
             val stage: String,
             val cause: Throwable? = null
         ) : RadarResolution
+    }
+
+    private sealed interface TrackReadResult {
+        data class Success(val tracks: List<RadarDisplayTrack>) : TrackReadResult
+        data class Failure(val stage: String, val cause: Throwable? = null) : TrackReadResult
     }
 
     private data class RadarDeskNetwork(
