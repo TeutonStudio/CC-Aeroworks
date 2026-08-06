@@ -7,9 +7,11 @@ import de.teutonstudio.ccaeroworks.display.RadarDisplayTrack
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import net.minecraft.core.BlockPos
+import net.minecraft.nbt.CompoundTag
 import net.minecraft.network.chat.Component
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.item.BlockItem
+import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.context.BlockPlaceContext
 import net.minecraft.world.item.context.UseOnContext
 import net.minecraft.world.level.block.entity.BlockEntity
@@ -24,15 +26,32 @@ object CreateRadarCompat {
     private const val SELECTED_MONITOR_DIMENSION_KEY: String = "CCAeroworksRadarMonitorDimension"
     private const val UPDATE_INTERVAL: Long = 5
 
+    private val NATIVE_SELECTION_KEYS: Set<String> = setOf(
+        "SelectedFiltererPos",
+        "SelectedMountPos",
+        "SelectedYawPos",
+        "SelectedPitchPos",
+        "SelectedFiringPos"
+    )
+
     @JvmStatic
     fun handleDataLinkUse(context: UseOnContext): InteractionResult? {
         if (!ModList.get().isLoaded(MOD_ID)) return null
         val player = context.player ?: return null
         val level = context.level
-        val selection = player.persistentData
+        val stack = context.itemInHand
+        val existingSelection = stack.tag
 
-        if (player.isShiftKeyDown && selection.contains(SELECTED_MONITOR_KEY)) {
-            clearMonitorSelection(selection)
+        // Create: Radars owns every interaction after one of its native first-click
+        // selections. In particular, Network Controller -> Monitor must reach the
+        // original DataLinkBlockItem instead of being mistaken for our monitor-first mode.
+        if (hasNativeSelection(existingSelection)) {
+            clearMonitorSelection(stack)
+            return null
+        }
+
+        if (player.isShiftKeyDown && hasMonitorSelection(existingSelection)) {
+            clearMonitorSelection(stack)
             if (!level.isClientSide) {
                 player.displayClientMessage(
                     Component.translatable("message.cc_aeroworks.radar_link_cleared"),
@@ -45,6 +64,7 @@ object CreateRadarCompat {
         val clickedEntity = level.getBlockEntity(context.clickedPos)
         if (clickedEntity != null && isMonitor(clickedEntity)) {
             val controller = monitorController(clickedEntity) as? BlockEntity ?: clickedEntity
+            val selection = stack.getOrCreateTag()
             selection.putLong(SELECTED_MONITOR_KEY, controller.blockPos.asLong())
             selection.putString(SELECTED_MONITOR_DIMENSION_KEY, level.dimension().location().toString())
             if (!level.isClientSide) {
@@ -58,7 +78,7 @@ object CreateRadarCompat {
 
         val sourceDesk = clickedEntity as? ConsoleBlockEntity ?: return null
         val route = resolveRadarRoute(sourceDesk)
-        if (route.state != ConsoleNetworkState.ACTIVE) {
+        if (!isRoutable(route.state)) {
             if (!level.isClientSide) {
                 player.displayClientMessage(Component.translatable(routeFailureKey(route.state)), true)
             }
@@ -83,7 +103,8 @@ object CreateRadarCompat {
             return InteractionResult.sidedSuccess(level.isClientSide)
         }
 
-        if (!selection.contains(SELECTED_MONITOR_KEY)) {
+        val selection = stack.tag
+        if (!hasMonitorSelection(selection)) {
             if (!level.isClientSide) {
                 player.displayClientMessage(
                     Component.translatable("message.cc_aeroworks.radar_select_monitor_first"),
@@ -93,7 +114,7 @@ object CreateRadarCompat {
             return InteractionResult.sidedSuccess(level.isClientSide)
         }
 
-        val selectedDimension = selection.getString(SELECTED_MONITOR_DIMENSION_KEY)
+        val selectedDimension = selection!!.getString(SELECTED_MONITOR_DIMENSION_KEY)
         val currentDimension = level.dimension().location().toString()
         val monitorPos = BlockPos.of(selection.getLong(SELECTED_MONITOR_KEY))
         val monitor = if (selectedDimension == currentDimension && level.isLoaded(monitorPos)) {
@@ -102,7 +123,7 @@ object CreateRadarCompat {
             null
         }
         if (monitor == null || !isMonitor(monitor)) {
-            clearMonitorSelection(selection)
+            clearMonitorSelection(stack)
             if (!level.isClientSide) {
                 player.displayClientMessage(
                     Component.translatable("message.cc_aeroworks.radar_monitor_invalid"),
@@ -112,20 +133,26 @@ object CreateRadarCompat {
             return InteractionResult.sidedSuccess(level.isClientSide)
         }
 
-        val dataLinkItem = context.itemInHand.item as? BlockItem ?: return null
+        val dataLinkItem = stack.item as? BlockItem ?: return null
         val placeContext = BlockPlaceContext(context)
         val placedPos = placeContext.clickedPos
         val placement = dataLinkItem.place(placeContext)
         if (!placement.consumesAction()) return placement
 
         if (level.isClientSide) {
-            clearMonitorSelection(selection)
+            clearMonitorSelection(stack)
             return placement
         }
 
         val dataLink = level.getBlockEntity(placedPos)
-        val configured = dataLink != null && isDataLink(dataLink) && invokeBlockPos(dataLink, "target", monitorPos)
+        val configured = dataLink != null &&
+            isDataLink(dataLink) &&
+            invokeBlockPos(dataLink, "target", monitorPos) &&
+            invoke(dataLink, "getSourcePosition") == sourceDesk.blockPos &&
+            invoke(dataLink, "getTargetPosition") == monitorPos
         if (!configured) {
+            level.removeBlock(placedPos, false)
+            if (!player.abilities.instabuild) stack.grow(1)
             player.displayClientMessage(
                 Component.translatable("message.cc_aeroworks.radar_link_failed"),
                 true
@@ -133,7 +160,7 @@ object CreateRadarCompat {
             return InteractionResult.FAIL
         }
 
-        clearMonitorSelection(selection)
+        clearMonitorSelection(stack)
         dataLink.setChanged()
         level.sendBlockUpdated(placedPos, dataLink.blockState, dataLink.blockState, 3)
         player.displayClientMessage(
@@ -154,7 +181,7 @@ object CreateRadarCompat {
         if (!level.isLoaded(sourcePos)) return
         val sourceDesk = level.getBlockEntity(sourcePos) as? ConsoleBlockEntity ?: return
         val route = resolveRadarRoute(sourceDesk)
-        if (route.state != ConsoleNetworkState.ACTIVE) return
+        if (!isRoutable(route.state)) return
         val destination = route.destinations.singleOrNull() ?: return
 
         val targetPos = invoke(dataLink, "getTargetPosition") as? BlockPos
@@ -180,13 +207,16 @@ object CreateRadarCompat {
     private fun resolveRadarRoute(sourceDesk: ConsoleBlockEntity): RadarRouteResolution {
         val level = sourceDesk.level ?: return RadarRouteResolution(ConsoleNetworkState.NONE, emptyList())
         val network = ConsoleMultiblockManager.resolve(level, sourceDesk.blockPos)
-        val destinations = if (network.state == ConsoleNetworkState.ACTIVE) {
+        val destinations = if (isRoutable(network.state)) {
             network.members.map { it.desk }.filter(AeroworksDeskAccess::hasRadarDisplay)
         } else {
             emptyList()
         }
         return RadarRouteResolution(network.state, destinations)
     }
+
+    private fun isRoutable(state: ConsoleNetworkState): Boolean =
+        state == ConsoleNetworkState.ACTIVE || state == ConsoleNetworkState.NONE
 
     private fun routeFailureKey(state: ConsoleNetworkState): String = when (state) {
         ConsoleNetworkState.CONFLICT -> "message.cc_aeroworks.console_conflict"
@@ -195,7 +225,16 @@ object CreateRadarCompat {
         else -> "message.cc_aeroworks.radar_route_missing"
     }
 
-    private fun clearMonitorSelection(selection: net.minecraft.nbt.CompoundTag) {
+    private fun hasNativeSelection(selection: CompoundTag?): Boolean =
+        selection != null && NATIVE_SELECTION_KEYS.any { key -> selection.contains(key) }
+
+    private fun hasMonitorSelection(selection: CompoundTag?): Boolean =
+        selection != null &&
+            selection.contains(SELECTED_MONITOR_KEY) &&
+            selection.contains(SELECTED_MONITOR_DIMENSION_KEY)
+
+    private fun clearMonitorSelection(stack: ItemStack) {
+        val selection = stack.tag ?: return
         selection.remove(SELECTED_MONITOR_KEY)
         selection.remove(SELECTED_MONITOR_DIMENSION_KEY)
     }
