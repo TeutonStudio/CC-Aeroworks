@@ -18,6 +18,21 @@ CC-Aeroworks verwendet keine CBC- oder RPL-Klassen direkt. Ohne Create: Radars b
 - `cc_aeroworks:large_radar_display` passt ausschließlich in große Aeroworks-Sockets.
 - Beide verwenden die konfigurierte kleine beziehungsweise große Pixelauflösung.
 
+## Herstellung
+
+Keines der vier Displayitems besitzt ein Werkbankrezept. Die normalen programmierbaren Displays werden weiterhin über ihre vorhandenen mechanischen Pressrezepte aus einem normalen beziehungsweise erweiterten CC:Tweaked-Monitor hergestellt.
+
+Die Radarvarianten entstehen ausschließlich mit einem Create-Einsatzgerät:
+
+- `cc_aeroworks:two_digit_display` auf dem Depot oder Förderband und `create_radar:monitor` im Einsatzgerät ergeben `cc_aeroworks:small_radar_display`.
+- `cc_aeroworks:three_digit_display` auf dem Depot oder Förderband und `create_radar:monitor` im Einsatzgerät ergeben `cc_aeroworks:large_radar_display`.
+
+Der Create:-Radars-Monitor wird dabei verbraucht. Beide Rezepte sind `create:deploying`-Rezepte und werden nur geladen, wenn `create_radar` vorhanden ist. JEI zeigt entsprechend keine Werkbankrezepte für die Displays, sondern die mechanische Herstellung und die beiden Einsatzgerät-Umwandlungen.
+
+## Itemdarstellung
+
+Die vier Inventarmodelle verwenden eigenständige Flachbildschirmgehäuse statt der dünnen Einbaugeometrie der Pultmodule. Kleine und große Varianten unterscheiden sich durch die Gehäusebreite. Normale Displays besitzen eine dunkle Bildschirmfläche, Radarvarianten eine grüne Bildschirmfläche. Die im Pult montierten Modulmodelle bleiben unverändert.
+
 ## Aufbau
 
 1. Radar-Display in das Steuerungspult einsetzen.
@@ -43,6 +58,11 @@ Die veröffentlichte CC-Aeroworks-Mod bleibt davon unberührt: Die Fremdmods wer
 
 ## Manuelle Prüfung
 
+- JEI: keine Werkbankrezepte für die vier Displayitems.
+- JEI: normales und erweitertes Display zeigen nur ihre mechanische Pressherstellung.
+- JEI: kleines Radar-Display zeigt `two_digit_display` plus `create_radar:monitor` als Einsatzgerät-Rezept.
+- JEI: großes Radar-Display zeigt `three_digit_display` plus `create_radar:monitor` als Einsatzgerät-Rezept.
+- Inventar und JEI: alle vier Items sind als flache Bildschirme erkennbar; große Varianten sind sichtbar breiter.
 - Start ohne Create: Radars: keine Radar-Items im Aeroworks-Tab oder in der Kreativsuche, keine Radarrezepte, kein Mixinfehler.
 - Start mit Create: Radars 0.4.4, Create Big Cannons 5.11.7 und Ritchie's Projectile Library 2.1.2 für Minecraft 1.21.1: beide Items im Abschnitt `Aeroworks`, IDs weiterhin unter `cc_aeroworks`, Ponder-Szene sichtbar.
 - `./gradlew runClient`: alle drei optionalen Radar-Laufzeitmods werden ohne manuell kopierte JARs geladen.
