@@ -103,6 +103,19 @@
       "sha256": null,
       "source": "Official Ritchie's Projectile Library distribution page",
       "notes": "Required runtime library of Create Big Cannons 5.11.7. Automatically resolved for local Gradle runtimes."
+    },
+    {
+      "name": "Just Enough Items",
+      "modId": "jei",
+      "version": "19.27.0.340",
+      "required": false,
+      "filenamePattern": "(?i)^jei[-_ ]?1\\.21\\.1[-_ ]?neoforge[-_ ]?19\\.27\\.0\\.340\\.jar$",
+      "filenameExamples": [
+        "jei-1.21.1-neoforge-19.27.0.340.jar"
+      ],
+      "sha256": null,
+      "source": "Official Just Enough Items Maven repository",
+      "notes": "Development-only recipe viewer automatically resolved for local Gradle runtimes. It is not a published CC-Aeroworks dependency."
     }
   ]
 }
