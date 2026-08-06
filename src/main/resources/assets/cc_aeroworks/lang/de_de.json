@@ -2,6 +2,8 @@
   "mod.cc_aeroworks.name": "CC-Aeroworks",
   "item.cc_aeroworks.two_digit_display": "Zweistellige Pultanzeige",
   "item.cc_aeroworks.three_digit_display": "Dreistellige Pultanzeige",
+  "item.cc_aeroworks.small_radar_display": "Kleine Radaranzeige",
+  "item.cc_aeroworks.large_radar_display": "Große Radaranzeige",
   "item.cc_aeroworks.guide_book": "CC-Aeroworks API-Handbuch",
   "block.cc_aeroworks.computer_control_desk": "Computer-Steuerungspult",
   "block.cc_aeroworks.advanced_computer_control_desk": "Erweitertes Computer-Steuerungspult",
@@ -83,5 +85,11 @@
   "ponder.cc_aeroworks.computer_control_desk.text_5": "Mit einem Schraubenschlüssel auf eine horizontale Pultseite rechtsklicken, um die Steuerungseinstellungen zu öffnen.",
   "ponder.cc_aeroworks.computer_control_desk.text_6": "Alternativ genügt ein externer Computer an einem beliebigen Pult; ein eingebetteter Computer ist dann nicht nötig.",
   "ponder.cc_aeroworks.computer_control_desk.text_7": "Ein Multiblock darf nur einen eingebetteten Computer enthalten.",
-  "ponder.cc_aeroworks.computer_control_desk.text_8": "Bei versehentlicher Platzierung wird das neue Pult normal und sein Computer ausgeworfen."
+  "ponder.cc_aeroworks.computer_control_desk.text_8": "Bei versehentlicher Platzierung wird das neue Pult normal und sein Computer ausgeworfen.",
+  "ponder.cc_aeroworks.radar_display.header": "Radaranzeigen verwenden",
+  "ponder.cc_aeroworks.radar_display.text_1": "Montiere eine kleine oder große Radaranzeige in einem passenden Socket des Steuerungspults.",
+  "ponder.cc_aeroworks.radar_display.text_2": "Ein Create: Radars Data Link muss das Steuerungspult als Quelle verwenden.",
+  "ponder.cc_aeroworks.radar_display.text_3": "Verbinde das andere Ende mit einem Create: Radars Monitor in einem funktionierenden Radarnetzwerk.",
+  "ponder.cc_aeroworks.radar_display.text_4": "Die Anzeige empfängt nahe Kontakte automatisch und markiert das ausgewählte Ziel.",
+  "ponder.cc_aeroworks.radar_display.text_5": "Ein X bedeutet, dass kein aktuelles Radarsignal über den Data Link verfügbar ist."
 }

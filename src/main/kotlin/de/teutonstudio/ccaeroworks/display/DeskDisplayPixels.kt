@@ -6,8 +6,7 @@ data class DeskDisplayPixels(
     private val bits: String
 ) {
     init {
-        require(width > 0 && height > 0)
-        require(bits.length == width * height)
+        require(bits.length == safePixelCount(width, height))
         require(bits.all { it == '0' || it == '1' })
     }
 
@@ -35,8 +34,11 @@ data class DeskDisplayPixels(
         fun pixelHeight(type: DeskDisplayType): Int = type.pixelHeight
 
         @JvmStatic
-        fun blank(type: DeskDisplayType): DeskDisplayPixels =
-            DeskDisplayPixels(type.pixelWidth, type.pixelHeight, "0".repeat(type.pixelWidth * type.pixelHeight))
+        fun blank(type: DeskDisplayType): DeskDisplayPixels {
+            val width = type.pixelWidth
+            val height = type.pixelHeight
+            return DeskDisplayPixels(width, height, "0".repeat(safePixelCount(width, height)))
+        }
 
         @JvmStatic
         fun fromRows(type: DeskDisplayType, rows: List<String>): DeskDisplayPixels {
@@ -54,8 +56,16 @@ data class DeskDisplayPixels(
             val bits = stored.removePrefix(PREFIX)
             val width = type.pixelWidth
             val height = type.pixelHeight
-            return bits.takeIf { it.length == width * height && it.all { bit -> bit == '0' || bit == '1' } }
+            val expected = safePixelCount(width, height)
+            return bits.takeIf { it.length == expected && it.all { bit -> bit == '0' || bit == '1' } }
                 ?.let { DeskDisplayPixels(width, height, it) }
+        }
+
+        private fun safePixelCount(width: Int, height: Int): Int {
+            require(width > 0 && height > 0) { "display dimensions must be positive" }
+            val count = width.toLong() * height.toLong()
+            require(count <= Int.MAX_VALUE) { "display raster exceeds the JVM string limit" }
+            return count.toInt()
         }
     }
 }

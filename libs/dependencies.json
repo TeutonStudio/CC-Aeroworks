@@ -67,6 +67,16 @@
       "sha256": null,
       "source": "Official Drive By Wire distribution page",
       "notes": "Optional compatibility runtime."
+    },
+    {
+      "name": "Create: Radars",
+      "modId": "create_radar",
+      "version": "0.4.4-1.21.1",
+      "required": false,
+      "filenamePattern": "(?i)^create[-_ ]?radars?[^/]*0\\.4\\.4[^/]*1\\.21\\.1[^/]*\\.jar$",
+      "sha256": null,
+      "source": "Official Create: Radars distribution page",
+      "notes": "Optional runtime for the small and large Data Link radar displays. The compatibility code uses a pseudo mixin and reflection, so the JAR is not required to compile the base mod."
     }
   ]
 }

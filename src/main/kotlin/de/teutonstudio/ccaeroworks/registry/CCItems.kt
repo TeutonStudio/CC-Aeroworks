@@ -28,6 +28,18 @@ object CCItems {
     )
 
     @JvmField
+    val SMALL_RADAR_DISPLAY: DeferredItem<ModuleItem> = ITEMS.register(
+        "small_radar_display",
+        Supplier { ModuleItem(CCModuleTypes.SMALL_RADAR, Item.Properties()) }
+    )
+
+    @JvmField
+    val LARGE_RADAR_DISPLAY: DeferredItem<ModuleItem> = ITEMS.register(
+        "large_radar_display",
+        Supplier { ModuleItem(CCModuleTypes.LARGE_RADAR, Item.Properties()) }
+    )
+
+    @JvmField
     val COMPUTER_CONTROL_DESK: DeferredItem<BlockItem> = ITEMS.register(
         "computer_control_desk",
         Supplier { BlockItem(CCBlocks.COMPUTER_CONTROL_DESK.get(), Item.Properties().stacksTo(1)) }

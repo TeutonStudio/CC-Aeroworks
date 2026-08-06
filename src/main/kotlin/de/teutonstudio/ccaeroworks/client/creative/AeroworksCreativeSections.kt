@@ -2,6 +2,7 @@ package de.teutonstudio.ccaeroworks.client.creative
 
 import com.mred231.aeroworks.Aeroworks
 import de.teutonstudio.ccaeroworks.CCAeroworks
+import de.teutonstudio.ccaeroworks.compat.createradar.CreateRadarCompat
 import de.teutonstudio.ccaeroworks.mixin.client.CreativeModeInventoryScreenAccessor
 import de.teutonstudio.ccaeroworks.mixin.client.CreativeModeTabAccessor
 import de.teutonstudio.ccaeroworks.registry.CCItems
@@ -12,6 +13,7 @@ import net.minecraft.util.Mth
 import net.minecraft.world.item.CreativeModeTab
 import net.minecraft.world.item.ItemStack
 import net.neoforged.bus.api.SubscribeEvent
+import net.neoforged.fml.ModList
 import net.neoforged.neoforge.client.event.ScreenEvent
 import kotlin.math.roundToInt
 
@@ -25,7 +27,10 @@ object AeroworksCreativeSections {
     @JvmStatic
     fun arrange(tab: CreativeModeTab) {
         if (tab !== Aeroworks.MAIN_TAB.get()) return
-        val items = tab.displayItems.filterNot(ItemStack::isEmpty)
+        val createRadarLoaded = ModList.get().isLoaded(CreateRadarCompat.MOD_ID)
+        val items = tab.displayItems
+            .filterNot(ItemStack::isEmpty)
+            .filterNot { !createRadarLoaded && isRadarDisplay(it) }
         val (registeredBridgeItems, aeroworksItems) = items.partition {
             BuiltInRegistries.ITEM.getKey(it.item).namespace == CCAeroworks.MOD_ID
         }
@@ -33,6 +38,10 @@ object AeroworksCreativeSections {
         appendMissing(bridgeItems, CCItems.COMPUTER_CONTROL_DESK.get().defaultInstance)
         appendMissing(bridgeItems, CCItems.ADVANCED_COMPUTER_CONTROL_DESK.get().defaultInstance)
         appendMissing(bridgeItems, CCItems.GUIDE_BOOK.get().defaultInstance)
+        if (createRadarLoaded) {
+            appendMissing(bridgeItems, CCItems.SMALL_RADAR_DISPLAY.get().defaultInstance)
+            appendMissing(bridgeItems, CCItems.LARGE_RADAR_DISPLAY.get().defaultInstance)
+        }
 
         val arranged = mutableListOf<ItemStack>()
         sectionRows.clear()
@@ -70,6 +79,9 @@ object AeroworksCreativeSections {
             )
         }
     }
+
+    private fun isRadarDisplay(stack: ItemStack): Boolean =
+        stack.item === CCItems.SMALL_RADAR_DISPLAY.get() || stack.item === CCItems.LARGE_RADAR_DISPLAY.get()
 
     private fun appendMissing(target: MutableList<ItemStack>, stack: ItemStack) {
         if (target.none { ItemStack.isSameItemSameComponents(it, stack) }) target += stack

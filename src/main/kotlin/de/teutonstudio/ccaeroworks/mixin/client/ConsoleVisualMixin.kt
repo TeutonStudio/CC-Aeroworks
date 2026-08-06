@@ -73,7 +73,7 @@ abstract class ConsoleVisualMixin(
 
     @Unique
     private fun rebuildDigits() {
-        val displays = AeroworksDeskAccess.displays(blockEntity)
+        val displays = AeroworksDeskAccess.renderedDisplays(blockEntity)
         val nextKey = displays.joinToString(separator = ";", postfix = ";") {
             "${it.socket}:${it.text}:${it.pixels?.encode().orEmpty()}"
         }
@@ -91,7 +91,7 @@ abstract class ConsoleVisualMixin(
                         .createInstance()
                     displayDigits += CCAeroworksDigit(
                         display.socket,
-                        DeskDisplayRenderer.pixelOffsetX(display.pixels.width, x),
+                        DeskDisplayRenderer.pixelOffsetX(display.type, display.pixels.width, x),
                         DeskDisplayRenderer.pixelOffsetZ(display.pixels.height, y),
                         instance
                     )

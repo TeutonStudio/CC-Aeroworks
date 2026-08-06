@@ -2,6 +2,8 @@
   "mod.cc_aeroworks.name": "CC-Aeroworks",
   "item.cc_aeroworks.two_digit_display": "Two-Digit Desk Display",
   "item.cc_aeroworks.three_digit_display": "Three-Digit Desk Display",
+  "item.cc_aeroworks.small_radar_display": "Small Radar Display",
+  "item.cc_aeroworks.large_radar_display": "Large Radar Display",
   "item.cc_aeroworks.guide_book": "CC-Aeroworks API Guide",
   "block.cc_aeroworks.computer_control_desk": "Computer Control Desk",
   "block.cc_aeroworks.advanced_computer_control_desk": "Advanced Computer Control Desk",
@@ -83,5 +85,11 @@
   "ponder.cc_aeroworks.computer_control_desk.text_5": "Right-click a horizontal desk side with a Wrench to open control settings.",
   "ponder.cc_aeroworks.computer_control_desk.text_6": "Alternatively, one external computer connected to any desk is enough; no embedded computer is required.",
   "ponder.cc_aeroworks.computer_control_desk.text_7": "A multiblock may contain only one embedded computer.",
-  "ponder.cc_aeroworks.computer_control_desk.text_8": "If placed accidentally, the new desk becomes normal and its computer is ejected."
+  "ponder.cc_aeroworks.computer_control_desk.text_8": "If placed accidentally, the new desk becomes normal and its computer is ejected.",
+  "ponder.cc_aeroworks.radar_display.header": "Using Radar Displays",
+  "ponder.cc_aeroworks.radar_display.text_1": "Mount a small or large Radar Display in a compatible control desk socket.",
+  "ponder.cc_aeroworks.radar_display.text_2": "A Create: Radars Data Link must use the control desk as its source.",
+  "ponder.cc_aeroworks.radar_display.text_3": "Connect the other end to a Create: Radars monitor that belongs to a working radar network.",
+  "ponder.cc_aeroworks.radar_display.text_4": "The display receives nearby tracks automatically and marks the selected contact.",
+  "ponder.cc_aeroworks.radar_display.text_5": "An X means that no fresh Data Link radar signal is available."
 }

@@ -16,9 +16,7 @@ Unter Windows:
 gradlew.bat -Pmod_dependency_dir=C:\mods\cc-aeroworks verifyModDependencies
 ```
 
-## Pflichtartefakte
-
-Für die Baseline werden genau diese Versionen erwartet:
+## Abhängigkeiten
 
 | Mod | Mod-ID | Version | Status |
 |---|---|---:|---|
@@ -28,6 +26,7 @@ Für die Baseline werden genau diese Versionen erwartet:
 | CC: Tweaked | `computercraft` | 1.119.0 | erforderlich |
 | Sable | `sable` | 2.0.1 | erforderlich |
 | Drive By Wire | `drive_by_wire` | 0.2.9 | optional |
+| Create: Radars | `create_radar` | 0.4.4-1.21.1 | optional |
 
 Das offizielle Create-Aeronautics-Artefakt für diese Baseline heißt:
 
@@ -35,9 +34,7 @@ Das offizielle Create-Aeronautics-Artefakt für diese Baseline heißt:
 create-aeronautics-bundled-1.21.1-1.3.0.jar
 ```
 
-Der Präfix `create-` und der Zusatz `bundled` sind Teil des offiziellen Dateinamens. Die Validierung akzeptiert zusätzlich gleichwertig benannte Aeronautics-1.3.0-Artefakte, sofern Modname und Version eindeutig enthalten sind.
-
-Create Aeronautics benötigt neben Create auch Sable zur Laufzeit. Sable ist daher für den Baseline-Client und -Server ein Pflichtartefakt, auch wenn CC-Aeroworks seine eigene Sable-Kompatibilität nur optional aktiviert.
+Create Aeronautics benötigt neben Create auch Sable zur Laufzeit. Sable ist daher für den Baseline-Client und -Server ein Pflichtartefakt. Create: Radars ist nur für die beiden Radar-Displaymodule und deren Laufzeittest nötig; die Basis-Mod kompiliert und startet ohne dieses optionale JAR.
 
 Die maschinenlesbaren Dateimuster und bekannte offizielle Beispieldateinamen stehen in [`dependencies.json`](dependencies.json). Dateinamen dürfen den üblichen Plattformzusatz enthalten, müssen aber Modname und Version eindeutig enthalten. Source-, API- oder Development-JARs sind nicht zulässig.
 
@@ -45,13 +42,9 @@ Die maschinenlesbaren Dateimuster und bekannte offizielle Beispieldateinamen ste
 
 `dependencies.json` unterstützt pro Artefakt eine feste SHA-256-Prüfsumme. Die Felder bleiben zunächst `null`, weil verschiedene offizielle Distributionsplattformen identische Modversionen mit unterschiedlich benannten oder neu signierten Dateien ausliefern können. Sobald die vom Team verwendeten Zielartefakte festgelegt sind, werden deren SHA-256-Werte eingetragen und damit verbindlich.
 
-Lokale Prüfsumme bestimmen:
-
 ```bash
 sha256sum libs/*.jar
 ```
-
-PowerShell:
 
 ```powershell
 Get-FileHash -Algorithm SHA256 .\libs\*.jar
@@ -59,13 +52,11 @@ Get-FileHash -Algorithm SHA256 .\libs\*.jar
 
 ## CC:Tweaked-Kompatibilitätstest
 
-CC:Tweaked 1.120.0 wird in einem **separaten** Abhängigkeitsverzeichnis getestet. Lege 1.119.0 und 1.120.0 niemals gleichzeitig in denselben Classpath. Beispiel:
+CC:Tweaked 1.120.0 wird in einem **separaten** Abhängigkeitsverzeichnis getestet. Lege 1.119.0 und 1.120.0 niemals gleichzeitig in denselben Classpath.
 
 ```bash
 ./gradlew -Pmod_dependency_dir=libs-cc-1.120 clean test build
 ```
-
-Der Standardbuild bleibt auf 1.119.0 festgelegt, bis die Kompatibilitätsmatrix vollständig ausgeführt und dokumentiert wurde.
 
 ## Erwartete Befehle
 
@@ -75,4 +66,4 @@ Der Standardbuild bleibt auf 1.119.0 festgelegt, bis die Kompatibilitätsmatrix 
 ./gradlew runClient
 ```
 
-Fehlt ein Pflichtartefakt oder passen mehrere Dateien auf dasselbe Muster, bricht `verifyModDependencies` mit einer gezielten Meldung ab.
+Fehlt ein Pflichtartefakt oder passen mehrere Dateien auf dasselbe Muster, bricht `verifyModDependencies` mit einer gezielten Meldung ab. Optionale Artefakte werden geprüft, sobald eine passende JAR vorhanden ist.

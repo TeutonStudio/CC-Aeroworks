@@ -28,20 +28,20 @@ object CCServerConfig {
 
         builder.comment("Two-digit display resolution.").push("small")
         smallDisplayPixelWidth = builder
-            .comment("Exact horizontal pixel count.")
-            .defineInRange("width", DeskDisplayType.DEFAULT_SMALL_PIXEL_WIDTH, 1, 64)
+            .comment("Exact horizontal pixel count. There is no artificial upper bound beyond a positive signed integer.")
+            .defineInRange("width", DeskDisplayType.DEFAULT_SMALL_PIXEL_WIDTH, 1, Int.MAX_VALUE)
         smallDisplayPixelHeight = builder
-            .comment("Exact vertical pixel count.")
-            .defineInRange("height", DeskDisplayType.DEFAULT_SMALL_PIXEL_HEIGHT, 1, 32)
+            .comment("Exact vertical pixel count. There is no artificial upper bound beyond a positive signed integer.")
+            .defineInRange("height", DeskDisplayType.DEFAULT_SMALL_PIXEL_HEIGHT, 1, Int.MAX_VALUE)
         builder.pop()
 
         builder.comment("Three-digit display resolution.").push("large")
         largeDisplayPixelWidth = builder
-            .comment("Exact horizontal pixel count.")
-            .defineInRange("width", DeskDisplayType.DEFAULT_LARGE_PIXEL_WIDTH, 1, 64)
+            .comment("Exact horizontal pixel count. There is no artificial upper bound beyond a positive signed integer.")
+            .defineInRange("width", DeskDisplayType.DEFAULT_LARGE_PIXEL_WIDTH, 1, Int.MAX_VALUE)
         largeDisplayPixelHeight = builder
-            .comment("Exact vertical pixel count.")
-            .defineInRange("height", DeskDisplayType.DEFAULT_LARGE_PIXEL_HEIGHT, 1, 32)
+            .comment("Exact vertical pixel count. There is no artificial upper bound beyond a positive signed integer.")
+            .defineInRange("height", DeskDisplayType.DEFAULT_LARGE_PIXEL_HEIGHT, 1, Int.MAX_VALUE)
         builder.pop()
 
         builder.pop()

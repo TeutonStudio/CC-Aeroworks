@@ -9,7 +9,9 @@
     "ConsoleBlockSkinMixin",
     "ConsoleDeskBlockConnectionMixin",
     "ConsoleBlockEntityInvoker",
-    "ConsoleBlockEntityDeskIdMixin"
+    "ConsoleBlockEntityDeskIdMixin",
+    "ConsoleBlockEntityRadarMixin",
+    "compat.CreateRadarDataLinkMixin"
   ],
   "client": [
     "client.AbstractContainerScreenAccessor",

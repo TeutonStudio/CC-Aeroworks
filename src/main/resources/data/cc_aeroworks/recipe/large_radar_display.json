@@ -1,0 +1,13 @@
+{
+  "neoforge:conditions": [
+    {"type": "neoforge:mod_loaded", "modid": "create_radar"}
+  ],
+  "type": "minecraft:crafting_shapeless",
+  "category": "redstone",
+  "ingredients": [
+    {"item": "cc_aeroworks:three_digit_display"},
+    {"item": "minecraft:compass"},
+    {"item": "minecraft:redstone"}
+  ],
+  "result": {"id": "cc_aeroworks:large_radar_display", "count": 1}
+}

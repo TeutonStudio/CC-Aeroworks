@@ -2,9 +2,12 @@ package de.teutonstudio.ccaeroworks.compat.aeroworks
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import com.mred231.aeroworks.content.controls.MountedModule
+import de.teutonstudio.ccaeroworks.compat.createradar.RadarDeskStateAccess
 import de.teutonstudio.ccaeroworks.display.DeskDisplayFormatter
 import de.teutonstudio.ccaeroworks.display.DeskDisplayPixels
 import de.teutonstudio.ccaeroworks.display.DeskDisplayState
+import de.teutonstudio.ccaeroworks.display.RadarDisplayRaster
+import de.teutonstudio.ccaeroworks.display.RadarDisplayType
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 import net.minecraft.network.chat.Component
 
@@ -26,6 +29,30 @@ object AeroworksDeskAccess {
     @JvmStatic
     fun displays(desk: ConsoleBlockEntity): List<DeskDisplayState> =
         (0 until desk.socketCount()).mapNotNull { display(desk, it) }
+
+    @JvmStatic
+    fun radarDisplayType(desk: ConsoleBlockEntity, socket: Int): RadarDisplayType? =
+        module(desk, socket)?.let { CCModuleTypes.radarDisplayType(it.type()) }
+
+    @JvmStatic
+    fun hasRadarDisplay(desk: ConsoleBlockEntity): Boolean =
+        (0 until desk.socketCount()).any { radarDisplayType(desk, it) != null }
+
+    @JvmStatic
+    fun renderedDisplays(desk: ConsoleBlockEntity): List<DeskDisplayState> {
+        val snapshot = (desk as? RadarDeskStateAccess)?.ccaeroworks_getRadarSnapshot()
+        val gameTime = desk.level?.gameTime ?: 0L
+        return (0 until desk.socketCount()).mapNotNull { socket ->
+            display(desk, socket) ?: radarDisplayType(desk, socket)?.let { radarType ->
+                DeskDisplayState(
+                    socket = socket,
+                    type = radarType.displayType,
+                    text = "",
+                    pixels = RadarDisplayRaster.render(radarType, snapshot, gameTime)
+                )
+            }
+        }
+    }
 
     @JvmStatic
     fun setDisplayText(desk: ConsoleBlockEntity, socket: Int, text: String): DeskDisplayState? {
