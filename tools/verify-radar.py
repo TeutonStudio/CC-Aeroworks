@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate adjacent radar controllers and direct Create: Radars monitor surfaces."""
+"""Validate adjacent radar controllers, diagnostics and Create: Radars monitor surfaces."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 LANG = ROOT / "src/main/resources/assets/cc_aeroworks/lang"
 MODELS = ROOT / "src/main/resources/assets/cc_aeroworks/models"
 RECIPES = ROOT / "src/main/resources/data/cc_aeroworks/recipe"
+BLOCK_ATLAS = ROOT / "src/main/resources/assets/minecraft/atlases/blocks.json"
 
 
 def require(condition: bool, message: str) -> None:
@@ -77,6 +78,19 @@ def main() -> int:
         require(model.get("textures", {}).get("sprite") == texture, f"{model_name} uses the wrong Create: Radars texture")
     load_json(MODELS / "block/module/radar_disconnected.json")
 
+    atlas = load_json(BLOCK_ATLAS)
+    atlas_sources = atlas.get("sources")
+    require(isinstance(atlas_sources, list), "The Minecraft block atlas must contain a sources list")
+    stitched_sprites = {
+        source.get("sprite")
+        for source in atlas_sources
+        if isinstance(source, dict)
+        and source.get("type") == "single"
+        and source.get("resource") == source.get("sprite")
+    }
+    required_sprites = set(translucent_models.values()) | set(cutout_models.values())
+    require(required_sprites <= stitched_sprites, "Create: Radars monitor sprites are not stitched into the block atlas")
+
     mixins = load_json(ROOT / "src/main/resources/cc_aeroworks.mixins.json")
     common_mixins = set(mixins.get("mixins", []))
     require("ConsoleBlockEntityRadarMixin" in common_mixins, "Radar state mixin is missing")
@@ -98,19 +112,40 @@ def main() -> int:
     fallback = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/DeskDisplayRenderer.kt")
     flywheel = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ConsoleVisualMixin.kt")
 
+    require("enum class RadarLinkStatus" in snapshot, "Radar link failures are still collapsed into one boolean")
+    for status in (
+        "ACTIVE",
+        "MULTIPLE_CONTROLLERS",
+        "NETWORK_UNAVAILABLE",
+        "RADAR_NOT_LINKED",
+        "RADAR_NOT_RUNNING",
+        "INVALID_RANGE",
+        "API_INCOMPATIBLE",
+        "STALE",
+    ):
+        require(status in snapshot, f"Missing radar link status: {status}")
+    require('putString("status"' in snapshot, "Radar link status is not synchronized")
+    require("fun contentHash()" in snapshot, "Radar snapshots do not expose a stable content hash")
     require("enum class RadarDisplayTrackSprite" in snapshot, "Track sprite categories are not synchronized")
     require('putString("sprite"' in snapshot, "Track sprite categories are not serialized")
+
+    require("SNAPSHOT_INTERVAL_TICKS" in compat, "Controller snapshot collection is not throttled")
+    require("SNAPSHOT_HEARTBEAT_TICKS" in compat, "Unchanged snapshots do not have a bounded heartbeat")
+    require("shouldSynchronize" in compat, "Snapshot changes are not compared before notifyUpdate")
+    require("logStatusTransition" in compat, "Radar link status transitions are not logged")
     require("RadarDisplayTrackSprite.fromCategory" in compat, "Create: Radars categories are not mapped")
     require('invokeAny(raw, "getPosition", "position")' in compat, "Track position compatibility fallback is missing")
+    require("RadarResolution.Failure" in compat, "Reflective radar access still erases failure causes")
     require("RADAR_CONTROLLER_NBT_KEY" not in radar_mixin, "Controller location is still persisted")
     require("getRadarPixels" not in state_access and "RadarRasterCache" not in state_access, "Radar state still exposes pixel raster APIs")
     require("radarSurfaces" in desk_access and "RadarSurfaceState" in desk_access, "Desk radar surfaces are not exposed")
-    require("radarSmallFiller" in models and "radarTrackSelected" in models, "Direct radar partial models are not registered")
-    require("RenderType.translucent()" in surface, "Classic radar surface does not preserve alpha")
+    require("radarSmallFiller" in models and "radarTrackSelected" in models, "Radar surface partial models are not registered")
+    require("contentHash()" in surface, "Flywheel radar instances still rebuild for timestamp-only changes")
+    require("element.translucent" in surface, "Classic radar layers are not split between translucent and cutout buffers")
     require("models.sweep" in surface and "spinning = true" in surface, "Radar sweep is not rendered directly")
     require("DeskDisplayModels.radarTrack(track.sprite)" in surface, "Track sprites are not rendered directly")
-    require("RadarSurfaceRenderer.render" in fallback, "Classic renderer does not draw direct radar surfaces")
-    require("RadarSurfaceRenderer.elements" in flywheel, "Flywheel does not use the direct radar surface elements")
+    require("RadarSurfaceRenderer.render" in fallback, "Classic renderer does not draw radar surfaces")
+    require("RadarSurfaceRenderer.elements" in flywheel, "Flywheel does not use the shared radar surface elements")
     require("RadarSurfaceRenderer.sweepAngle" in flywheel, "Flywheel sweep is not animated")
     require(not (ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/display/RadarDisplayRaster.kt").exists(), "Obsolete pixel radar renderer still exists")
 
@@ -132,11 +167,11 @@ def main() -> int:
 
     docs = read("docs/create-radars-integration.md")
     require("direkt angrenzenden Network Controller" in docs, "Radar docs do not explain automatic adjacency")
-    require("Direkte Monitoroberfläche" in docs, "Radar docs do not explain direct surface rendering")
+    require("Blockatlas" in docs, "Radar docs do not explain the cross-mod sprite atlas bridge")
     require("RadarDisplayRaster" in docs and "Pixelmatrix" in docs, "Radar docs do not retire the pixel renderer")
     require("20 Ticks" in docs and "256" in docs and "runClient" in docs, "Radar documentation is incomplete")
 
-    print("Validated adjacent controller snapshots and direct translucent Create: Radars monitor surfaces.")
+    print("Validated radar diagnostics, throttled snapshots and stitched Create: Radars monitor sprites.")
     return 0
 
 
