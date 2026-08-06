@@ -31,7 +31,9 @@ Der Create:-Radars-Monitor wird verbraucht. Beide Rezepte sind `create:deploying
 
 ## Automatisches Routing im Pultnetz
 
-Radarquelle, Computer-Steuerungspult und Radaranzeige dürfen an **verschiedenen Pulten** desselben linearen Pultnetzes liegen. Der Data Link liefert den Radar-Snapshot an das Pult, an dessen Seite er montiert ist. CC-Aeroworks löst anschließend den vollständigen Pultverbund auf und routet die Daten automatisch zu dessen Radaranzeige.
+Radarquelle und Radaranzeige dürfen an **verschiedenen Pulten** desselben linearen Pultnetzes liegen. Der Data Link liefert den Radar-Snapshot an das Pult, an dessen Seite er montiert ist. CC-Aeroworks löst anschließend den vollständigen Pultverbund auf und routet die Daten automatisch zu dessen Radaranzeige.
+
+Für reine Radarweiterleitung ist **kein eingebetteter Computer** erforderlich. Ein Netzwerk ohne Computer und ein Netzwerk mit genau einem Computer sind beide zulässig. Mehrere eingebettete Computer bilden weiterhin einen Konflikt und werden abgelehnt. Teilweise geladene Netzwerke und Netzwerke mit mehr als 64 Pulten bleiben ebenfalls gesperrt.
 
 Für die automatische Route muss im vollständig geladenen Netzwerk **genau eine** kleine oder große Radaranzeige vorhanden sein:
 
@@ -39,25 +41,50 @@ Für die automatische Route muss im vollständig geladenen Netzwerk **genau eine
 - Genau eine Radaranzeige: Quelle und Ziel werden automatisch verbunden.
 - Mehrere Radaranzeigen: Die Route ist mehrdeutig und wird nicht zufällig gewählt.
 
-Dafür ist kein Lua-Programm erforderlich. Die Position des eingebetteten Computers innerhalb der Pultreihe beeinflusst die Route nicht. Mehrere Computer, teilweise geladene Netzwerke und Netzwerke mit mehr als 64 Pulten werden wie bei der Peripheral-API abgelehnt.
+Dafür ist kein Lua-Programm erforderlich. Falls ein Computer-Steuerungspult vorhanden ist, beeinflusst dessen Position innerhalb der Pultreihe die Route nicht.
 
-## Data Link verbinden
+## Zwei getrennte Data-Link-Modi
 
-CC-Aeroworks ergänzt den vorhandenen Create:-Radars-Data-Link um einen eng begrenzten Monitor-zuerst-Ablauf:
+CC-Aeroworks ergänzt Create: Radars, ersetzt dessen vorhandene Verbindungsabläufe aber nicht.
+
+### Native Create:-Radars-Verbindungen
+
+Hat der Data-Link-Gegenstand bereits eine native Auswahl von Create: Radars, greift CC-Aeroworks nicht ein. Dazu gehören insbesondere:
+
+- Network Controller → Monitor,
+- Network Controller → Radar,
+- Waffenhalterung → Yaw-, Pitch- oder Feuercontroller.
+
+Die nativen Auswahl-Tags wie `SelectedFiltererPos` und `SelectedMountPos` werden vor jeder Monitorbehandlung geprüft. Ein Monitor-Klick mit einer solchen Auswahl wird vollständig an den originalen `DataLinkBlockItem` von Create: Radars weitergereicht.
+
+### CC-Aeroworks-Radarpult
+
+Der zusätzliche Monitor-zuerst-Ablauf beginnt ausschließlich mit einem Data-Link-Gegenstand ohne native Auswahl:
 
 1. Im Ziel-Pultnetz genau eine Radaranzeige montieren.
-2. Mit dem Data-Link-Gegenstand einen verbundenen Create:-Radars-Monitor rechtsklicken. Bei einem Mehrblockmonitor wird dessen Controller gespeichert.
+2. Mit einem ansonsten unbenutzten Data-Link-Gegenstand einen verbundenen Create:-Radars-Monitor rechtsklicken. Bei einem Mehrblockmonitor wird dessen Controller gespeichert.
 3. Mit demselben Gegenstand eine freie Seite eines beliebigen Pults im Zielnetz rechtsklicken.
 4. CC-Aeroworks platziert dort den originalen Data-Link-Block und setzt den gewählten Monitorcontroller als Ziel.
 5. Die erfassten Radardaten werden automatisch zur einzigen Radaranzeige des Pultnetzes weitergeleitet.
 
-Schleichen und Rechtsklick mit dem Data-Link-Gegenstand löscht eine begonnene Monitorauswahl. Die übrigen Create:-Radars-Verbindungsarten werden nicht verändert und weiterhin von Create: Radars verarbeitet.
+Die gewählte Monitorposition wird auf dem konkreten Data-Link-**Itemstack** gespeichert, nicht im dauerhaften Spielerdatensatz. Verschiedene Data-Link-Gegenstände teilen daher keinen unsichtbaren Auswahlzustand. Schleichen und Rechtsklick mit dem ausgewählten Gegenstand löscht die begonnene Monitorauswahl.
+
+Nach der Platzierung prüft CC-Aeroworks sowohl die Quellposition als auch die Zielposition des erzeugten Data Links. Scheitert die Konfiguration, wird der Block entfernt und das verbrauchte Item im Überlebensmodus erstattet.
 
 Der Data Link bleibt eine echte Quellenkomponente. CC-Aeroworks durchsucht nicht eigenmächtig die Welt nach Radarblöcken und erzeugt keine Kontakte ohne eine gültige Quelle.
 
+## Erkennung der Radarmodule
+
+Die schnelle Erkennung verwendet weiterhin die von CC-Aeroworks registrierten `ModuleType`-Objekte. Zusätzlich werden stabile Modulmerkmale ausgewertet:
+
+- Registry-ID `cc_aeroworks:small_radar_display` beziehungsweise `cc_aeroworks:large_radar_display`,
+- Übersetzungsschlüssel `item.cc_aeroworks.small_radar_display` beziehungsweise `item.cc_aeroworks.large_radar_display`.
+
+Damit bleibt die Erkennung funktionsfähig, wenn Aeroworks einen logisch identischen Modultyp nach Laden oder Synchronisierung nicht als dieselbe JVM-Objektinstanz liefert.
+
 ## Synchronisierung
 
-Ein optionaler Item-Mixin fängt die Kombination aus Create:-Radars-Data-Link, ausgewähltem Monitor und einem Pultnetz mit eindeutigem Radarziel ab. Die Platzierung verwendet weiterhin den originalen Data-Link-Block; anschließend wird dessen öffentliches `target(BlockPos)` auf den Monitorcontroller gesetzt.
+Ein optionaler Item-Mixin fängt nur die Kombination aus einem unbenutzten Create:-Radars-Data-Link, ausgewähltem Monitor und einem Pultnetz mit eindeutigem Radarziel ab. Die Platzierung verwendet weiterhin den originalen Data-Link-Block; anschließend wird dessen öffentliches `target(BlockPos)` auf den Monitorcontroller gesetzt.
 
 Der BlockEntity-Mixin beobachtet die Rückkehrpunkte von `DataLinkBlockEntity.updateGatheredData`. Alle fünf Spielticks entsteht ein flüchtiger Snapshot mit:
 
@@ -74,7 +101,7 @@ Die Integration referenziert keine Create:-Radars-Klasse in normalen Methodensig
 
 Die beiden Radaritems besitzen zwei vollständig lokalisierte Storyboards:
 
-1. **Automatisches Routing** erklärt Quelle und Ziel an verschiedenen Pulten, die unabhängige Computerposition und die Regel für genau eine Radaranzeige.
+1. **Automatisches Routing** erklärt Quelle und Ziel an verschiedenen Pulten und die Regel für genau eine Radaranzeige.
 2. **Data-Link-Kompatibilität** zeigt den Monitor-zuerst-Ablauf, die Platzierung an einem beliebigen Pult und den getrennten Zustand bei veralteten Daten.
 
 ## Entwicklungsclient
@@ -86,14 +113,20 @@ Lokal in `libs/` liegende offizielle JARs dieser Mods werden aus dem allgemeinen
 ## Manuelle Prüfung
 
 - Start ohne Create: Radars: keine Radaritems in Kreativsuche oder Aeroworks-Abschnitt, keine Radarrezepte und kein Mixinfehler.
-- Data Link auf einen verbundenen Radar-Monitor rechtsklicken: Auswahlmeldung erscheint; am Monitor wird kein Block platziert.
+- Network Controller mit dem Data Link auswählen, danach einen Monitor anklicken: Der native Create:-Radars-Link wird erzeugt; keine CC-Aeroworks-Monitorauswahl erscheint.
+- Network Controller mit Radar oder weiteren nativen Endpunkten verbinden: ursprüngliches Create:-Radars-Verhalten bleibt erhalten.
+- Unbenutzten Data Link auf einen verbundenen Radar-Monitor rechtsklicken: CC-Aeroworks-Auswahlmeldung erscheint; am Monitor wird kein Block platziert.
 - Danach eine freie Seite eines beliebigen Pults im Zielnetz rechtsklicken: Data Link wird platziert und auf den Monitorcontroller gesetzt.
+- Pultnetz ohne eingebetteten Computer und mit genau einer Radaranzeige: Routing funktioniert.
+- Pultnetz mit genau einem eingebetteten Computer und genau einer Radaranzeige: Routing funktioniert unabhängig von der Computerposition.
 - Quelle und einzige Radaranzeige an verschiedenen Pulten: Kontakte erscheinen automatisch auf der Anzeige.
-- Computer-Steuerungspult links, mittig und rechts: identisches Routing.
 - Keine Radaranzeige: verständliche Fehlermeldung und keine von CC-Aeroworks übernommene Platzierung.
 - Zwei Radaranzeigen: Mehrdeutigkeitsmeldung und keine zufällige Route.
+- Zwei Computer-Steuerungspulte: Konfliktmeldung und keine Radarroute.
 - Monitor in anderer Dimension oder ungültiger Monitor: Auswahl wird verworfen.
+- Zwei verschiedene Data-Link-Itemstacks: Monitorauswahl wird nicht zwischen den Gegenständen geteilt.
 - Schleichen und Rechtsklick nach einer Monitorauswahl: Auswahl wird gelöscht.
+- Erzwungener Konfigurationsfehler: platzierter Link wird entfernt und das Item erstattet.
 - Data Link auf unverbundenen Monitor: Anzeige bleibt `X`.
 - Aktiver Monitor: Zentrum und Kontakte sichtbar; ausgewählter Kontakt ist markiert.
 - Data Link entfernen: spätestens nach 20 Ticks wieder `X`.
