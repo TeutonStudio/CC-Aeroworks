@@ -96,7 +96,7 @@ Wird der Controller selbst entfernt, bleibt kein Tickgeber zurück; der Renderer
 
 RadarDisplays werden nicht mehr durch `RadarDisplayRaster` in boolesche Pultpixel umgerechnet. Der klassische BlockEntity-Renderer und der Flywheel-Visual verwenden stattdessen dieselbe Liste flacher Oberflächenelemente.
 
-Create: Radars bindet seine Monitor-PNGs normalerweise als direkte Renderertexturen. Ein normales gebackenes Modell kann diese Dateien nicht automatisch als Blockatlas-Sprites auflösen. CC-Aeroworks ergänzt deshalb `assets/minecraft/atlases/blocks.json` um einzelne Spritequellen. Diese **Blockatlas-Brücke** stitcht die vorhandenen Dateien aus dem Namespace `create_radar` in den Blockatlas, ohne die fremden PNGs zu kopieren.
+Create: Radars bindet seine Monitor-PNGs normalerweise als direkte Renderertexturen. Ein normales gebackenes Modell kann diese Dateien nicht automatisch als Blockatlas-Sprites auflösen. CC-Aeroworks ergänzt deshalb `assets/minecraft/atlases/blocks.json` um eine Verzeichnisquelle für `textures/monitor_sprite`. Diese **Blockatlas-Brücke** sammelt die vorhandenen Dateien aus allen geladenen Namespaces, einschließlich `create_radar`, ohne fremde PNGs zu kopieren. Ist Create: Radars nicht geladen, bleibt das Verzeichnis leer und verlangt keine einzelnen Fremdressourcen.
 
 Die Oberfläche verwendet dadurch die originalen Create:-Radars-Monitorressourcen für:
 
@@ -109,6 +109,8 @@ Die Oberfläche verwendet dadurch die originalen Create:-Radars-Monitorressource
 Hintergrund, Kreis und Sweep laufen im transparenten Renderpfad; Tracks und Statusmarkierung verwenden Cutout. Die Trackpositionen werden kontinuierlich auf die kleine beziehungsweise große Modulfläche projiziert. Die Pixelauflösung der programmierbaren Zwei- und Dreisteller beeinflusst RadarDisplays nicht mehr.
 
 Der Flywheel-Schlüssel verwendet nur den inhaltlichen Snapshot-Hash. Das reine Fortschreiben von `updatedAt` löscht und erzeugt daher nicht mehr alle Radarinstanzen neu.
+
+Das ComputerControlDesk verwendet weiterhin bevorzugt den nativen Aeroworks-`ConsoleRenderer`, damit Modulgehäuse und native Geometrie erhalten bleiben. Kann dessen Konstruktor nach einer Aeroworks-Änderung nicht mehr reflektiv erzeugt werden, zeichnet ein **display-only fallback** zumindest Text-, Pixel- und Radaroberflächen explizit. Die native animierte Modulgeometrie bleibt in diesem Fehlerfall vom Aeroworks-Delegate abhängig und muss im Entwicklungsclient geprüft werden.
 
 ## Ponder-Erklärungen
 
@@ -140,5 +142,6 @@ Lokal in `libs/` liegende offizielle JARs dieser Mods werden aus dem allgemeinen
 - Ein oder mehrere RadarDisplays im Netz: alle zeigen dieselbe Quelle.
 - Radar entfernen: spätestens nach fünf Ticks erscheint `X`; Controller entfernen: spätestens nach 20 Ticks.
 - Zwei Computer-Steuerungspulte, teilweise geladenes oder überlanges Netz: Status `NETWORK_UNAVAILABLE`.
+- ComputerControlDesk mit absichtlich inkompatiblem Renderer-Delegate: display-only fallback zeigt die dynamischen Anzeigen weiter und protokolliert den fehlenden nativen Modulpfad.
 - Rechtsklick mit Data Link auf ein Pult: ausschließlich natives Create:-Radars-Verhalten; CC-Aeroworks greift nicht ein.
 - Fallback-Renderer und Flywheel-Renderer getrennt prüfen.
