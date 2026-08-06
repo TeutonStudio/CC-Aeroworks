@@ -1,6 +1,6 @@
 # Create: Radars integration
 
-Die Integration ist optional und wird nur aktiv, wenn Create: Radars mit der Mod-ID `create_radar` geladen ist. CC-Aeroworks registriert die Item-IDs immer stabil, blendet die Radar-Displays ohne Create: Radars jedoch aus dem Aeroworks-Creative-Tab aus und lädt ihre Rezepte nur unter der NeoForge-Bedingung `neoforge:mod_loaded`.
+Die Integration ist optional und wird nur aktiv, wenn Create: Radars mit der Mod-ID `create_radar` geladen ist. CC-Aeroworks registriert die Item-IDs immer stabil. Ohne Create: Radars werden die Radar-Displays sowohl aus dem Aeroworks-Creative-Tab als auch aus der globalen Kreativsuche entfernt; ihre Rezepte laden nur unter der NeoForge-Bedingung `neoforge:mod_loaded`. Mit geladener Abhängigkeit erscheinen beide Displays im Abschnitt `Aeroworks` des Aeroworks-Tabs, behalten aber ihre IDs im Namespace `cc_aeroworks`.
 
 ## Displays
 
@@ -23,10 +23,17 @@ Der optionale Pseudo-Mixin beobachtet die Rückkehrpunkte von `DataLinkBlockEnti
 
 Die Integration referenziert keine Create:-Radars-Klasse in normalen Methodensignaturen. Ohne die optionale Mod wird der `@Pseudo`-Mixin übersprungen und der Reflexionsadapter nie aufgerufen.
 
+## Entwicklungsclient
+
+`./gradlew runClient` löst Create: Radars automatisch über das Modrinth-Maven als `localRuntime` auf. Die verwendete Version steht in `gradle.properties` unter `create_radars_version`. Ein lokal in `libs/` liegendes offizielles Create:-Radars-JAR wird aus dem allgemeinen Datei-Classpath ausgeschlossen, damit nicht zwei Kopien mit derselben Mod-ID geladen werden.
+
+Die veröffentlichte CC-Aeroworks-Mod bleibt davon unberührt: Create: Radars wird nicht in das eigene JAR eingebettet und bleibt in den NeoForge-Metadaten optional.
+
 ## Manuelle Prüfung
 
-- Start ohne Create: Radars: keine Radar-Items im Creative-Tab, keine Radarrezepte, kein Mixinfehler.
-- Start mit Create: Radars 0.4.4 für Minecraft 1.21.1: beide Items und Ponder-Szene sichtbar.
+- Start ohne Create: Radars: keine Radar-Items im Aeroworks-Tab oder in der Kreativsuche, keine Radarrezepte, kein Mixinfehler.
+- Start mit Create: Radars 0.4.4 für Minecraft 1.21.1: beide Items im Abschnitt `Aeroworks`, IDs weiterhin unter `cc_aeroworks`, Ponder-Szene sichtbar.
+- `./gradlew runClient`: Create: Radars wird ohne manuell kopiertes Radar-JAR geladen.
 - Display ohne Data Link: `X`.
 - Data Link auf falsches Ziel: `X`.
 - Data Link auf unverbundenen Monitor: `X`.
