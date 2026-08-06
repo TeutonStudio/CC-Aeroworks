@@ -30,9 +30,7 @@ object AeroworksCreativeSections {
         val createRadarLoaded = ModList.get().isLoaded(CreateRadarCompat.MOD_ID)
         val accessor = tab as CreativeModeTabAccessor
         if (!createRadarLoaded) {
-            accessor.ccaeroworks_setSearchTabDisplayItems(
-                tab.searchTabDisplayItems.filterNot(::isRadarDisplay)
-            )
+            accessor.ccaeroworks_getSearchTabDisplayItems().removeIf(::isRadarDisplay)
         }
 
         val items = tab.displayItems
