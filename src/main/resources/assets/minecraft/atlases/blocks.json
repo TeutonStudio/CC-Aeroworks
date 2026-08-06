@@ -1,44 +1,9 @@
 {
   "sources": [
     {
-      "type": "single",
-      "resource": "create_radar:monitor_sprite/radar_bg_filler",
-      "sprite": "create_radar:monitor_sprite/radar_bg_filler"
-    },
-    {
-      "type": "single",
-      "resource": "create_radar:monitor_sprite/radar_bg_circle",
-      "sprite": "create_radar:monitor_sprite/radar_bg_circle"
-    },
-    {
-      "type": "single",
-      "resource": "create_radar:monitor_sprite/radar_sweep",
-      "sprite": "create_radar:monitor_sprite/radar_sweep"
-    },
-    {
-      "type": "single",
-      "resource": "create_radar:monitor_sprite/entity_hitbox",
-      "sprite": "create_radar:monitor_sprite/entity_hitbox"
-    },
-    {
-      "type": "single",
-      "resource": "create_radar:monitor_sprite/player",
-      "sprite": "create_radar:monitor_sprite/player"
-    },
-    {
-      "type": "single",
-      "resource": "create_radar:monitor_sprite/projectile",
-      "sprite": "create_radar:monitor_sprite/projectile"
-    },
-    {
-      "type": "single",
-      "resource": "create_radar:monitor_sprite/contraption_hitbox",
-      "sprite": "create_radar:monitor_sprite/contraption_hitbox"
-    },
-    {
-      "type": "single",
-      "resource": "create_radar:monitor_sprite/target_selected",
-      "sprite": "create_radar:monitor_sprite/target_selected"
+      "type": "directory",
+      "source": "monitor_sprite",
+      "prefix": "monitor_sprite"
     }
   ]
 }
