@@ -42,6 +42,11 @@ def main() -> int:
         "targetPos in deskPositions",
         "peripheral.additionalTypes",
         "PeripheralTypeNames.aliases(types)",
+        "existing.pos == targetPos",
+        "existing.types == types",
+        "equivalent(existing.target, peripheral)",
+        "UUID.nameUUIDFromBytes",
+        '"id" to current.networkId',
         "ServerContext.get(system.getLevel().server).peripheralMethods().getSelfMethods(node.target)",
         "GuardedLuaContext(context, this)",
         "method.apply(node.target, guarded, this, arguments)",
@@ -94,8 +99,8 @@ def main() -> int:
     require("getPeripheralInfo" in docs, "Peripheral handle metadata is undocumented")
 
     print(
-        "Validated local ControlDesk adapters, automatic multiblock scanning, unique type lookup, guarded real "
-        "peripheral delegation, lifecycle events, documentation and Lua examples."
+        "Validated local ControlDesk adapters, stable network IDs, physical peripheral deduplication, automatic "
+        "multiblock scanning, unique type lookup, guarded delegation, lifecycle events, docs and Lua examples."
     )
     return 0
 
