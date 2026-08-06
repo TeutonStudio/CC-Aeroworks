@@ -91,7 +91,7 @@ Adds a CC:Tweaked peripheral, desk displays, combined lever control, and optiona
 [[dependencies.${mod_id}]]
     modId="create_radar"
     type="optional"
-    reason="Enables the small and large Data Link radar displays."
+    reason="Enables radar displays linked directly to a Create: Radars Network Controller."
     versionRange="[0.4.9.4,)"
     ordering="AFTER"
     side="BOTH"

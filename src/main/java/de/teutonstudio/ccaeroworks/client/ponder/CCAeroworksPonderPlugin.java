@@ -39,8 +39,8 @@ public class CCAeroworksPonderPlugin implements PonderPlugin {
 
         if (ModList.get().isLoaded("create_radar")) {
             helper.forComponents(SMALL_RADAR_DISPLAY, LARGE_RADAR_DISPLAY)
-                .addStoryBoard("computer_control_desk", RadarDisplayScenes::automaticRouting)
-                .addStoryBoard("computer_control_desk", RadarDisplayScenes::dataLinkCompatibility);
+                .addStoryBoard("computer_control_desk", RadarDisplayScenes::controllerConnection)
+                .addStoryBoard("computer_control_desk", RadarDisplayScenes::directRadarDisplay);
         }
     }
 }

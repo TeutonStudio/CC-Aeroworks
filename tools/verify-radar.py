@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate optional radar resources, routing scenes and local development dependencies."""
+"""Validate optional radar resources, direct controller scenes and development dependencies."""
 
 from __future__ import annotations
 
@@ -35,12 +35,15 @@ def main() -> int:
     required_keys = {
         "item.cc_aeroworks.small_radar_display",
         "item.cc_aeroworks.large_radar_display",
-        "ponder.cc_aeroworks.radar_routing.header",
-        *(f"ponder.cc_aeroworks.radar_routing.text_{index}" for index in range(1, 7)),
-        "ponder.cc_aeroworks.radar_data_link.header",
-        *(f"ponder.cc_aeroworks.radar_data_link.text_{index}" for index in range(1, 6)),
+        "ponder.cc_aeroworks.radar_controller.header",
+        *(f"ponder.cc_aeroworks.radar_controller.text_{index}" for index in range(1, 6)),
+        "ponder.cc_aeroworks.radar_direct.header",
+        *(f"ponder.cc_aeroworks.radar_direct.text_{index}" for index in range(1, 6)),
     }
-    require(required_keys <= english.keys(), "Missing radar item or Ponder translations")
+    require(required_keys <= english.keys(), "Missing radar item or direct-controller Ponder translations")
+
+    for obsolete in ("ponder.cc_aeroworks.radar_routing.header", "ponder.cc_aeroworks.radar_data_link.header"):
+        require(obsolete not in english, f"Legacy radar Ponder translation remains: {obsolete}")
 
     for name in ("small_radar_display", "large_radar_display"):
         load_json(MODELS / "block/module" / f"{name}.json")
@@ -59,23 +62,34 @@ def main() -> int:
 
     plugin = read("src/main/java/de/teutonstudio/ccaeroworks/client/ponder/CCAeroworksPonderPlugin.java")
     scene = read("src/main/java/de/teutonstudio/ccaeroworks/client/ponder/RadarDisplayScenes.java")
-    require("RadarDisplayScenes::automaticRouting" in plugin, "Automatic radar routing scene is not registered")
-    require("RadarDisplayScenes::dataLinkCompatibility" in plugin, "Data Link compatibility scene is not registered")
+    require("RadarDisplayScenes::controllerConnection" in plugin, "Controller connection scene is not registered")
+    require("RadarDisplayScenes::directRadarDisplay" in plugin, "Direct radar scene is not registered")
     require('isLoaded("create_radar")' in plugin, "Radar Ponder registration is not optional")
-    require(scene.count("showText(") == 11, "Radar Ponder scenes must contain eleven explanation steps")
-    require('"create_radar", "data_link"' in scene, "Radar Ponder does not show the Data Link")
+    require(scene.count("showText(") == 10, "Radar Ponder scenes must contain ten explanation steps")
+    require('"create_radar", "data_link"' in scene, "Radar Ponder does not show the connection tool")
+    require('"create_radar", "network_filterer"' in scene, "Radar Ponder does not show the Network Controller")
+    require('"create_radar", "monitor"' not in scene, "Radar Ponder still depends on a monitor block")
     require("PonderText.get" in scene and '.text("' not in scene, "Radar Ponder text is not fully localized")
 
     mixins = load_json(ROOT / "src/main/resources/cc_aeroworks.mixins.json")
     common_mixins = set(mixins.get("mixins", []))
-    require("ConsoleBlockEntityRadarMixin" in common_mixins, "Radar snapshot mixin is missing")
-    require("compat.CreateRadarDataLinkMixin" in common_mixins, "Optional Data Link mixin is missing")
+    require("ConsoleBlockEntityRadarMixin" in common_mixins, "Radar state mixin is missing")
+    require(
+        "compat.CreateRadarNetworkControllerLinkMixin" in common_mixins,
+        "Optional Network Controller item mixin is missing",
+    )
+    require(
+        "compat.CreateRadarDataLinkMixin" not in common_mixins
+        and "compat.CreateRadarDataLinkItemMixin" not in common_mixins,
+        "Legacy Data Link mixins are still registered",
+    )
 
     snapshot = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/RadarDisplaySnapshot.kt")
     radar_mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/ConsoleBlockEntityRadarMixin.kt")
     require('putString("id", this@RadarDisplayTrack.id)' in snapshot, "Radar track serialization is unsafe")
     require(snapshot.count("Tag.TAG_COMPOUND.toInt()") == 4, "Radar NBT tag IDs must be Int values")
-    require("Tag.TAG_COMPOUND.toInt()" in radar_mixin, "Radar mixin NBT tag IDs must be Int values")
+    require("RADAR_CONTROLLER_NBT_KEY" in radar_mixin, "Network Controller link is not persisted")
+    require("CreateRadarCompat.refreshDesk" in radar_mixin, "Direct radar data is not refreshed")
 
     metadata = read("src/main/templates/META-INF/neoforge.mods.toml")
     require('modId="create_radar"' in metadata, "Create: Radars metadata is missing")
@@ -86,15 +100,12 @@ def main() -> int:
     )
     require(
         'modId="create_radar"\n    type="optional"\n'
-        '    reason="Enables the small and large Data Link radar displays."\n'
+        '    reason="Enables radar displays linked directly to a Create: Radars Network Controller."\n'
         '    versionRange="[0.4.9.4,)"' in metadata,
-        "Create: Radars metadata must preserve the updated 0.4.9.4 lower bound",
+        "Create: Radars metadata must describe direct controller displays and preserve the updated range",
     )
     require('1.4.1' not in metadata, "Aeroworks modpack version 1.4.1 leaked into mod metadata")
-    require(
-        'versionRange="[0.4.9.4)"' not in metadata,
-        "Metadata contains a malformed single-bound Maven version range",
-    )
+    require('versionRange="[0.4.9.4)"' not in metadata, "Metadata contains a malformed Maven range")
 
     manifest = load_json(ROOT / "libs/dependencies.json")
     dependencies = {
@@ -120,26 +131,20 @@ def main() -> int:
         "mezz.jei:jei-${minecraft_version}-neoforge",
     ):
         require(token in build, f"Missing optional local runtime: {token}")
-    require(
-        "create_radars_version=0.4.9.4-1.21.1" in properties,
-        "Create: Radars version is not pinned to the updated runtime",
-    )
-    require(
-        "create_radars_curse_file_id=8227753" in properties,
-        "Create: Radars CurseForge file ID is not pinned to 0.4.9.4",
-    )
+    require("create_radars_version=0.4.9.4-1.21.1" in properties, "Create: Radars runtime version drifted")
+    require("create_radars_curse_file_id=8227753" in properties, "Create: Radars CurseForge ID drifted")
 
     config = read("src/main/kotlin/de/teutonstudio/ccaeroworks/config/CCServerConfig.kt")
     require(config.count("Int.MAX_VALUE") == 4, "All display dimensions must remain unbounded positive integers")
 
     docs = read("docs/create-radars-integration.md")
-    require("automatisch" in docs.lower(), "Radar documentation does not explain automatic routing")
-    require("Data Link" in docs and "20 Ticks" in docs and "256" in docs, "Radar documentation is incomplete")
-    require("runClient" in docs, "Radar local runtime documentation is missing")
+    require("Network Controller" in docs, "Radar documentation does not explain the direct source")
+    require("kein Data-Link-Block" in docs and "kein Monitorblock" in docs, "Removed source blocks remain documented")
+    require("20 Ticks" in docs and "256" in docs and "runClient" in docs, "Radar documentation is incomplete")
 
     print(
-        "Validated optional radar items, recipes, models, mixins, NBT interop, two localized Ponder scenes, "
-        "official Aeroworks mod metadata, updated Create: Radars dependencies and network routing documentation."
+        "Validated optional radar items, direct Network Controller snapshots, two localized Ponder scenes, "
+        "official dependency metadata and removal of the monitor/Data Link block runtime path."
     )
     return 0
 

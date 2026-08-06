@@ -76,7 +76,7 @@
       "filenamePattern": "(?i)^create[-_ ]?radars?[^/]*0\\.4\\.9\\.4[^/]*1\\.21\\.1[^/]*\\.jar$",
       "sha256": null,
       "source": "Official Create: Radars distribution page",
-      "notes": "Optional runtime for the small and large Data Link radar displays. Gradle resolves CurseForge file 8227753 for local development runs."
+      "notes": "Optional runtime for Radar Displays linked directly to a Create: Radars Network Controller. Gradle resolves CurseForge file 8227753 for local development runs."
     },
     {
       "name": "Create Big Cannons",

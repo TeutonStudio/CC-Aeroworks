@@ -11,13 +11,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Pseudo
 @Mixin(targets = "com.happysg.radar.block.datalink.DataLinkBlockItem", remap = false)
-public abstract class CreateRadarDataLinkItemMixin {
+public abstract class CreateRadarNetworkControllerLinkMixin {
     @Inject(method = "useOn", at = @At("HEAD"), cancellable = true, require = 0)
-    private void ccaeroworks$linkRadarDisplay(
+    private void ccaeroworks$linkNetworkControllerToDesk(
         UseOnContext context,
         CallbackInfoReturnable<InteractionResult> callback
     ) {
-        InteractionResult result = CreateRadarCompat.handleDataLinkUse(context);
+        InteractionResult result = CreateRadarCompat.handleControllerLink(context);
         if (result != null) {
             callback.setReturnValue(result);
         }
