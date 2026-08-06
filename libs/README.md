@@ -26,7 +26,7 @@ gradlew.bat -Pmod_dependency_dir=C:\mods\cc-aeroworks verifyModDependencies
 | CC: Tweaked | `computercraft` | 1.119.0 | erforderlich |
 | Sable | `sable` | 2.0.1 | erforderlich |
 | Drive By Wire | `drive_by_wire` | 0.2.9 | optional |
-| Create: Radars | `create_radar` | 0.4.4-1.21.1 | optional |
+| Create: Radars | `create_radar` | 0.4.4-1.21.1 | automatisch für Entwicklungsruns |
 
 Das offizielle Create-Aeronautics-Artefakt für diese Baseline heißt:
 
@@ -34,7 +34,7 @@ Das offizielle Create-Aeronautics-Artefakt für diese Baseline heißt:
 create-aeronautics-bundled-1.21.1-1.3.0.jar
 ```
 
-Create Aeronautics benötigt neben Create auch Sable zur Laufzeit. Sable ist daher für den Baseline-Client und -Server ein Pflichtartefakt. Create: Radars ist nur für die beiden Radar-Displaymodule und deren Laufzeittest nötig; die Basis-Mod kompiliert und startet ohne dieses optionale JAR.
+Create Aeronautics benötigt neben Create auch Sable zur Laufzeit. Sable ist daher für den Baseline-Client und -Server ein Pflichtartefakt. Create: Radars wird für `runClient` und die übrigen lokalen Gradle-Runtime-Classpaths automatisch über Modrinths Maven als `localRuntime` aufgelöst. Ein manuell in `libs/` abgelegtes offizielles Create:-Radars-JAR wird aus dem allgemeinen Datei-Classpath ausgeschlossen, damit die Mod-ID `create_radar` nicht doppelt geladen wird.
 
 Die maschinenlesbaren Dateimuster und bekannte offizielle Beispieldateinamen stehen in [`dependencies.json`](dependencies.json). Dateinamen dürfen den üblichen Plattformzusatz enthalten, müssen aber Modname und Version eindeutig enthalten. Source-, API- oder Development-JARs sind nicht zulässig.
 
@@ -66,4 +66,4 @@ CC:Tweaked 1.120.0 wird in einem **separaten** Abhängigkeitsverzeichnis geteste
 ./gradlew runClient
 ```
 
-Fehlt ein Pflichtartefakt oder passen mehrere Dateien auf dasselbe Muster, bricht `verifyModDependencies` mit einer gezielten Meldung ab. Optionale Artefakte werden geprüft, sobald eine passende JAR vorhanden ist.
+Fehlt ein Pflichtartefakt oder passen mehrere Dateien auf dasselbe Muster, bricht `verifyModDependencies` mit einer gezielten Meldung ab. Optionale lokale Artefakte werden geprüft, sobald eine passende JAR vorhanden ist. Create: Radars benötigt für `runClient` keine lokale Datei.
