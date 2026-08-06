@@ -26,7 +26,9 @@ import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.server.level.ServerLevel
+import java.nio.charset.StandardCharsets
 import java.util.Locale
+import java.util.UUID
 import java.util.WeakHashMap
 
 internal data class DeskNetworkNode(
@@ -52,6 +54,7 @@ internal data class PeripheralNetworkNode(
 }
 
 internal data class PeripheralNetworkGraph(
+    val networkId: String,
     val revision: Long,
     val state: ConsoleNetworkState,
     val desks: List<DeskNetworkNode>,
@@ -101,8 +104,10 @@ internal object PeripheralNetworkBuilder {
             throw LuaException("This computer does not own the connected control desk network")
         }
 
+        val dimension = level.dimension().location().toString()
         val deskPositions = snapshot.members.mapTo(hashSetOf()) { it.pos }
         val desks = snapshot.members.map { member -> DeskNetworkNode(member, address(member.pos)) }
+        val networkId = stableNetworkId(dimension, desks)
         val peripherals = mutableListOf<PeripheralNetworkNode>()
         for (desk in desks) {
             for (side in Direction.values()) {
@@ -116,6 +121,13 @@ internal object PeripheralNetworkBuilder {
                 val types = linkedSetOf(peripheral.type).apply {
                     addAll(peripheral.additionalTypes)
                 }
+                val duplicate = peripherals.any { existing ->
+                    existing.pos == targetPos &&
+                        existing.types == types &&
+                        equivalent(existing.target, peripheral)
+                }
+                if (duplicate) continue
+
                 peripherals += PeripheralNetworkNode(
                     desk = desk,
                     pos = targetPos.immutable(),
@@ -129,15 +141,29 @@ internal object PeripheralNetworkBuilder {
             }
         }
         return PeripheralNetworkGraph(
+            networkId = networkId,
             revision = snapshot.revision,
             state = snapshot.state,
             desks = desks,
             peripherals = peripherals,
-            dimension = level.dimension().location().toString()
+            dimension = dimension
         )
     }
 
     fun address(pos: BlockPos): String = "${pos.x},${pos.y},${pos.z}"
+
+    private fun stableNetworkId(dimension: String, desks: List<DeskNetworkNode>): String {
+        val identity = buildString {
+            append(dimension)
+            desks.map(DeskNetworkNode::id).sorted().forEach { id ->
+                append('|').append(id)
+            }
+        }
+        return UUID.nameUUIDFromBytes(identity.toByteArray(StandardCharsets.UTF_8)).toString()
+    }
+
+    private fun equivalent(first: IPeripheral, second: IPeripheral): Boolean =
+        first === second || runCatching { first.equals(second) && second.equals(first) }.getOrDefault(false)
 }
 
 internal object PeripheralNetworkRuntimes {
@@ -300,6 +326,7 @@ internal class PeripheralNetworkRuntime(
     fun describeNetwork(): Map<String, Any> {
         val current = graph()
         return linkedMapOf(
+            "id" to current.networkId,
             "state" to current.state.name.lowercase(Locale.ROOT),
             "revision" to current.revision,
             "dimension" to current.dimension,
