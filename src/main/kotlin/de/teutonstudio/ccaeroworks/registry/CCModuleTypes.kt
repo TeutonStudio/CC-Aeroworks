@@ -10,6 +10,8 @@ import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.display.DeskDisplayType
 import de.teutonstudio.ccaeroworks.display.RadarDisplayType
 import net.minecraft.world.phys.Vec3
+import java.lang.reflect.Modifier
+import java.util.Locale
 
 object CCModuleTypes {
     private val INTERNAL_SOCKET: SocketType = SocketTypes.register(
@@ -50,16 +52,71 @@ object CCModuleTypes {
     fun register() = Unit
 
     @JvmStatic
-    fun displayType(moduleType: ModuleType): DeskDisplayType? = when (moduleType) {
-        TWO_DIGIT -> DeskDisplayType.TWO_DIGIT
-        THREE_DIGIT -> DeskDisplayType.THREE_DIGIT
-        else -> null
+    fun displayType(moduleType: ModuleType): DeskDisplayType? {
+        if (moduleType === TWO_DIGIT || moduleType == TWO_DIGIT) return DeskDisplayType.TWO_DIGIT
+        if (moduleType === THREE_DIGIT || moduleType == THREE_DIGIT) return DeskDisplayType.THREE_DIGIT
+        return moduleTypeIdentities(moduleType)
+            .mapNotNull(::displayTypeFromIdentity)
+            .firstOrNull()
     }
 
     @JvmStatic
-    fun radarDisplayType(moduleType: ModuleType): RadarDisplayType? = when (moduleType) {
-        SMALL_RADAR -> RadarDisplayType.SMALL
-        LARGE_RADAR -> RadarDisplayType.LARGE
+    fun radarDisplayType(moduleType: ModuleType): RadarDisplayType? {
+        if (moduleType === SMALL_RADAR || moduleType == SMALL_RADAR) return RadarDisplayType.SMALL
+        if (moduleType === LARGE_RADAR || moduleType == LARGE_RADAR) return RadarDisplayType.LARGE
+        return moduleTypeIdentities(moduleType)
+            .mapNotNull(::radarDisplayTypeFromIdentity)
+            .firstOrNull()
+    }
+
+    private fun displayTypeFromIdentity(rawIdentity: String): DeskDisplayType? = when {
+        matchesModuleIdentity(rawIdentity, DeskDisplayType.TWO_DIGIT.modulePath) -> DeskDisplayType.TWO_DIGIT
+        matchesModuleIdentity(rawIdentity, DeskDisplayType.THREE_DIGIT.modulePath) -> DeskDisplayType.THREE_DIGIT
         else -> null
     }
+
+    private fun radarDisplayTypeFromIdentity(rawIdentity: String): RadarDisplayType? = when {
+        matchesModuleIdentity(rawIdentity, RadarDisplayType.SMALL.modulePath) -> RadarDisplayType.SMALL
+        matchesModuleIdentity(rawIdentity, RadarDisplayType.LARGE.modulePath) -> RadarDisplayType.LARGE
+        else -> null
+    }
+
+    private fun matchesModuleIdentity(rawIdentity: String, modulePath: String): Boolean {
+        val identity = rawIdentity.lowercase(Locale.ROOT)
+        val registryId = "${CCAeroworks.MOD_ID}:$modulePath"
+        val summaryKey = "item.${CCAeroworks.MOD_ID}.$modulePath"
+        return identity == registryId ||
+            identity == summaryKey ||
+            identity.contains(registryId) ||
+            identity.contains(summaryKey)
+    }
+
+    private fun moduleTypeIdentities(moduleType: ModuleType): Sequence<String> = sequence {
+        yield(moduleType.toString())
+
+        for (methodName in listOf("id", "getId", "key", "getKey", "registryName", "getRegistryName")) {
+            invokeRegistryIdentity(moduleType, methodName)?.toString()?.let { yield(it) }
+        }
+
+        for (methodName in listOf("id", "getId", "key", "getKey", "registryName", "getRegistryName", "summary", "getSummary")) {
+            invokeInstanceIdentity(moduleType, methodName)?.toString()?.let { yield(it) }
+        }
+    }
+
+    private fun invokeRegistryIdentity(moduleType: ModuleType, methodName: String): Any? = runCatching {
+        val method = ModuleTypes::class.java.methods.firstOrNull { candidate ->
+            candidate.name == methodName &&
+                Modifier.isStatic(candidate.modifiers) &&
+                candidate.parameterCount == 1 &&
+                candidate.parameterTypes[0].isAssignableFrom(moduleType.javaClass)
+        } ?: return@runCatching null
+        method.invoke(null, moduleType)
+    }.getOrNull()
+
+    private fun invokeInstanceIdentity(moduleType: ModuleType, methodName: String): Any? = runCatching {
+        val method = moduleType.javaClass.methods.firstOrNull { candidate ->
+            candidate.name == methodName && candidate.parameterCount == 0
+        } ?: return@runCatching null
+        method.invoke(moduleType)
+    }.getOrNull()
 }
