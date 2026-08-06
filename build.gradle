@@ -40,11 +40,11 @@ repositories {
     exclusiveContent {
         forRepository {
             maven {
-                name = 'Modrinth'
-                url = 'https://api.modrinth.com/maven'
+                name = 'CurseMaven'
+                url = 'https://cursemaven.com'
             }
         }
-        filter { includeGroup('maven.modrinth') }
+        filter { includeGroup('curse.maven') }
     }
 }
 
@@ -118,7 +118,7 @@ dependencies {
         exclude: ['create_radar-*.jar', 'create-radar-*.jar', 'create_radars-*.jar', 'create-radars-*.jar']
     )
     compileOnly("net.createmod.ponder:ponder-neoforge:${ponder_version}+mc${minecraft_version}")
-    localRuntime("maven.modrinth:create-radars:${create_radars_version}")
+    localRuntime("curse.maven:create-radars-1152836:${create_radars_curse_file_id}")
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.4'
