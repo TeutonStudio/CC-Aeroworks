@@ -81,8 +81,8 @@ def main() -> int:
     require('modId="create_radar"' in metadata, "Create: Radars metadata is missing")
     require('modId="createbigcannons"' in metadata, "Create Big Cannons metadata is missing")
     require(
-        'modId="aeroworks"\n    type="required"\n    versionRange="[1.4.1,)"' in metadata,
-        "Aeroworks metadata must preserve the updated 1.4.1 lower bound",
+        'modId="aeroworks"\n    type="required"\n    versionRange="[1.3.0,1.3.1)"' in metadata,
+        "Aeroworks metadata must target the official 1.3.0 mod release",
     )
     require(
         'modId="create_radar"\n    type="optional"\n'
@@ -90,9 +90,10 @@ def main() -> int:
         '    versionRange="[0.4.9.4,)"' in metadata,
         "Create: Radars metadata must preserve the updated 0.4.9.4 lower bound",
     )
+    require('1.4.1' not in metadata, "Aeroworks modpack version 1.4.1 leaked into mod metadata")
     require(
-        'versionRange="[1.4.1)"' not in metadata and 'versionRange="[0.4.9.4)"' not in metadata,
-        "Metadata contains malformed single-bound Maven version ranges",
+        'versionRange="[0.4.9.4)"' not in metadata,
+        "Metadata contains a malformed single-bound Maven version range",
     )
 
     manifest = load_json(ROOT / "libs/dependencies.json")
@@ -101,7 +102,7 @@ def main() -> int:
         for dependency in manifest.get("dependencies", [])
         if isinstance(dependency, dict)
     }
-    require(dependencies.get("aeroworks", {}).get("version") == "1.4.1", "Aeroworks version is not pinned")
+    require(dependencies.get("aeroworks", {}).get("version") == "1.3.0", "Aeroworks mod version is not pinned")
     require(
         dependencies.get("create_radar", {}).get("version") == "0.4.9.4-1.21.1",
         "Create: Radars version is not pinned",
@@ -138,7 +139,7 @@ def main() -> int:
 
     print(
         "Validated optional radar items, recipes, models, mixins, NBT interop, two localized Ponder scenes, "
-        "updated dependency metadata, network routing documentation and development dependencies."
+        "official Aeroworks mod metadata, updated Create: Radars dependencies and network routing documentation."
     )
     return 0
 

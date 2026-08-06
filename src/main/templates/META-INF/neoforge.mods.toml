@@ -48,7 +48,7 @@ Adds a CC:Tweaked peripheral, desk displays, combined lever control, and optiona
 [[dependencies.${mod_id}]]
     modId="aeroworks"
     type="required"
-    versionRange="[1.4.1,)"
+    versionRange="[1.3.0,1.3.1)"
     ordering="AFTER"
     side="BOTH"
 

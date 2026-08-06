@@ -23,20 +23,20 @@
       ],
       "sha256": null,
       "source": "Official Create: Aeronautics distribution page",
-      "notes": "Required by the updated Aeroworks baseline. The official 1.3.0 release is distributed as a create-aeronautics-bundled JAR."
+      "notes": "Required by the Create: Aeroworks 1.3.0 baseline. The official 1.3.0 release is distributed as a create-aeronautics-bundled JAR."
     },
     {
       "name": "Create: Aeroworks",
       "modId": "aeroworks",
-      "version": "1.4.1",
+      "version": "1.3.0",
       "required": true,
-      "filenamePattern": "(?i)^aeroworks[^/]*1\\.4\\.1[^/]*\\.jar$",
+      "filenamePattern": "(?i)^aeroworks[^/]*1\\.3\\.0[^/]*\\.jar$",
       "filenameExamples": [
-        "aeroworks-1.4.1.jar"
+        "aeroworks-1.3.0.jar"
       ],
       "sha256": null,
       "source": "Official Create: Aeroworks distribution page",
-      "notes": "The implementation and mixins in this repository target the updated 1.4.1 baseline."
+      "notes": "Targets the official Create: Aeroworks 1.3.0 mod release. Aeroworks modpack version numbers are not valid mod dependency versions."
     },
     {
       "name": "CC: Tweaked",
