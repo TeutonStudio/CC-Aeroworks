@@ -46,13 +46,15 @@ local aeroworks = require("cc_aeroworks.aeroworks")
 
 Mit Schleichen und Rechtsklick bei leerer Haupthand lässt sich das Terminal von jedem Mitglied eines gültigen Einzelcomputer-Multiblocks öffnen. Ein normaler Rechtsklick bedient montierte Steuerungen; ein Create-Schraubenschlüssel auf einer horizontalen Pultseite öffnet die Steuerungseinstellungen.
 
-Pro Multiblock ist höchstens ein eingebetteter Computer vorgesehen. Wird in Survival versehentlich ein zweites Computerpult platziert, bleibt ein normales Aeroworks-Pult zurück und der zusätzliche Computer wird mit seinen Komponenten ausgeworfen. In Creative wird die konfliktverursachende Platzierung abgebrochen. Konflikte aus Altwelten, Befehlen oder Strukturwerkzeugen bleiben als diagnostizierbarer Sicherheitszustand erhalten.
+Pro Multiblock ist höchstens ein eingebetteter Computer vorgesehen. Wird versehentlich ein zweites Computerpult platziert, bleibt ein normales Aeroworks-Pult zurück und der zusätzliche Computer wird mit seinen Komponenten ausgeworfen. Das gilt auch im Creative-Modus. Konflikte aus Altwelten, Befehlen oder Strukturwerkzeugen bleiben als diagnostizierbarer Sicherheitszustand erhalten.
 
 Beide Computerpultvarianten besitzen eine Create-Ponder-Erklärung, die über die übliche Ponder-Taste `W` geöffnet wird.
 
 ## Displays und kombinierte Eingabe
 
 Die Displays unterstützen Ziffern sowie `7x5`- beziehungsweise `11x5`-Pixelraster. Das zweistellige Display passt in kleine und große Slots, das dreistellige ausschließlich in große Slots.
+
+Ein normaler CC:Tweaked-Monitor lässt sich mit einer mechanischen Presse zur zweistelligen Anzeige pressen; ein erweiterter Monitor entsprechend zur dreistelligen Anzeige. Beide Anzeigen besitzen eine gemeinsame Create-Ponder-Erklärung für Herstellung und mögliche Anordnungen. Zwei kleine Anzeigen liefern zusammen `70` Pixel, eine große Anzeige `55` Pixel.
 
 Für Lever, Joystick und Throttle Quadrants kann im Aeroworks-Modulbildschirm der Input Type `Kombiniert` gewählt werden. Anschließend wird im mittleren Eingabefeld die Aktivierungstaste erfasst und beim Steuern gehalten.
 
