@@ -39,8 +39,8 @@
   "guide.cc_aeroworks.computers.title": "Computer-Steuerungspulte bedienen",
   "guide.cc_aeroworks.computers.text": "Normale und erweiterte Computer-Steuerungspulte behalten Computer-ID, Label, Terminalgröße und Pultmodule. Das Terminal kann von jedem geladenen Mitglied des aktiven Multiblocks geöffnet werden.",
   "guide.cc_aeroworks.computers.controls": "Terminal: Schleichen + Rechtsklick mit leerer Haupthand. Steuerung: normaler Rechtsklick. Einstellungen: Schraubenschlüssel auf eine horizontale Pultseite.",
-  "guide.cc_aeroworks.computers.warning": "Pro Multiblock ist höchstens ein eingebetteter Computer erlaubt. Bei versehentlicher Survival-Platzierung bleibt ein normales Pult zurück und der zusätzliche Computer wird mit seinen Daten ausgeworfen.",
-  "guide.cc_aeroworks.computers.note": "Im Creative-Modus wird eine konfliktverursachende Platzierung abgebrochen, damit keine Computer-ID dupliziert wird.",
+  "guide.cc_aeroworks.computers.warning": "Pro Multiblock ist höchstens ein eingebetteter Computer erlaubt. Bei versehentlicher Platzierung bleibt ein normales Pult zurück und der zusätzliche Computer wird mit seinen Daten ausgeworfen.",
+  "guide.cc_aeroworks.computers.note": "Auch im Creative-Modus wird das Pult aufgeteilt, statt einen Konflikt stehen zu lassen oder die Platzierung abzubrechen.",
   "guide.cc_aeroworks.network.title": "Direkte API und Peripheral-API",
   "guide.cc_aeroworks.network.text": "Im eingebetteten Computer steht aeroworks global bereit. Ein externer Computer verwendet cc_aeroworks_control_desk. Beide Wege sehen den gesamten direkt verbundenen Multiblock, unterscheiden sich aber bei Methodennamen und Ereignissen.",
   "guide.cc_aeroworks.network.note": "Desk-Indizes beginnen bei 1 und können sich nach Umbauten ändern. Für gespeicherte Ziele die stabile Desk-ID aus getDesks() verwenden.",
@@ -73,7 +73,7 @@
   "guide.cc_aeroworks.controls.note": "Loslassen, Menüöffnung, Fokusverlust oder ein ungültiges Ziel beendet die kombinierte Steuerung sofort.",
   "guide.cc_aeroworks.errors.title": "Netzwerkzustände und Diagnose",
   "guide.cc_aeroworks.errors.text": "active bedeutet genau einen eingebetteten Besitzer, none keinen eingebetteten Computer und conflict mehrere eingebettete Computer. Teilweise geladene oder mehr als 64 Pulte große Netzwerke werden abgelehnt.",
-  "guide.cc_aeroworks.errors.warning": "Konflikte aus Altwelten, Befehlen oder Strukturwerkzeugen bleiben als Sicherheitszustand erhalten. Normale Survival-Platzierung verhindert neue Konflikte automatisch.",
+  "guide.cc_aeroworks.errors.warning": "Konflikte aus Altwelten, Befehlen oder Strukturwerkzeugen bleiben als Sicherheitszustand erhalten. Normale Spielerplatzierung verhindert neue Konflikte automatisch.",
   "guide.cc_aeroworks.errors.note": "Bei unerwartetem Verhalten zuerst getNetwork(), getDesks() und die Desk-IDs ausgeben. Danach Socket, Modul-ID und Ereignisnamen prüfen.",
   "ponder.cc_aeroworks.computer_control_desk.header": "Computer-Steuerungspulte verwenden",
   "ponder.cc_aeroworks.computer_control_desk.text_1": "Gleich ausgerichtete Pulte verbinden sich links und rechts zu einem Multiblock.",
@@ -83,5 +83,12 @@
   "ponder.cc_aeroworks.computer_control_desk.text_5": "Mit einem Schraubenschlüssel auf eine horizontale Pultseite rechtsklicken, um die Steuerungseinstellungen zu öffnen.",
   "ponder.cc_aeroworks.computer_control_desk.text_6": "Alternativ genügt ein externer Computer an einem beliebigen Pult; ein eingebetteter Computer ist dann nicht nötig.",
   "ponder.cc_aeroworks.computer_control_desk.text_7": "Ein Multiblock darf nur einen eingebetteten Computer enthalten.",
-  "ponder.cc_aeroworks.computer_control_desk.text_8": "Bei versehentlicher Platzierung wird das neue Pult normal und sein Computer ausgeworfen."
+  "ponder.cc_aeroworks.computer_control_desk.text_8": "Bei versehentlicher Platzierung wird das neue Pult normal und sein Computer ausgeworfen.",
+  "ponder.cc_aeroworks.display_modules.header": "Pultanzeigen herstellen und anordnen",
+  "ponder.cc_aeroworks.display_modules.text_1": "Ein normaler Monitor wird unter der mechanischen Presse zur zweistelligen Anzeige.",
+  "ponder.cc_aeroworks.display_modules.text_2": "Ein erweiterter Monitor wird in derselben Presse zur dreistelligen Anzeige.",
+  "ponder.cc_aeroworks.display_modules.text_3": "Zwei kleine Anzeigen können gleichzeitig den linken und rechten Socket belegen.",
+  "ponder.cc_aeroworks.display_modules.text_4": "Eine kleine Anzeige passt auch in den großen Socket und damit in jeden Pult-Socket.",
+  "ponder.cc_aeroworks.display_modules.text_5": "Die große Anzeige passt nur in den großen Socket und bietet eine zusammenhängende Fläche mit drei Zeichen.",
+  "ponder.cc_aeroworks.display_modules.text_6": "Zwei kleine Anzeigen bieten zusammen 70 Pixel; eine große Anzeige bietet 55 Pixel."
 }
