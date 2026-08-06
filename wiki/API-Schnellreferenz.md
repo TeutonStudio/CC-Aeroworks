@@ -1,99 +1,34 @@
 # API-Schnellreferenz
 
-CC-Aeroworks besitzt zwei API-Zugriffswege. Beide greifen auf denselben Steuerungspult-Multiblock zu, verwenden aber unterschiedliche Methodennamen und Ereignisse.
-
-## Zugriffsweg wählen
+## Zugriffswege
 
 | Eingebetteter Computer | Externer Computer |
 |---|---|
-| genau ein Computer-Steuerungspult im Multiblock | normaler CC:Tweaked-Computer direkt oder über Wired Modem |
-| globale `aeroworks`-API | Peripheral `cc_aeroworks_control_desk` |
-| kein Modem nötig | Verbindung zu einem beliebigen Pult genügt |
-| `cc_aeroworks_console_*`-Ereignisse | `cc_aeroworks_desk_*` und `cc_aeroworks_multiblock_*` |
+| globale `peripherals`-API | lokales Peripheral `ControlDesk` |
+| sieht alle Pulte und deren Nachbargeräte | sieht nur das direkt verbundene Pult |
+| kein Modem erforderlich | direkt oder über Wired Modem |
+| `cc_aeroworks_peripheral_*`-Ereignisse | `cc_aeroworks_desk_input` |
 
-Ein eingebetteter und ein externer Computer sind Alternativen, keine gemeinsame Voraussetzung. Mehrere externe Computer dürfen dasselbe Peripheral-Netzwerk verwenden; höchstens ein **eingebetteter** Computer ist erlaubt.
+Die alte globale `aeroworks`-API und die netzwerkweiten `getDesk...`-Methoden sind nicht Teil des neuen Vertrags.
 
-## Externer Computer
-
-```lua
-local console = peripheral.find("cc_aeroworks_control_desk")
-assert(console, "Kein Steuerungspult verbunden")
-```
-
-Eine direkte Verbindung oder ein Wired Modem zu einem beliebigen Multiblockmitglied genügt.
-
-## Eingebetteter Computer
+## Lokales `ControlDesk`
 
 ```lua
-local desks = aeroworks.getDesks()
+local desk = peripheral.find("ControlDesk")
 ```
 
-Alternativ:
-
-```lua
-local aeroworks = require("cc_aeroworks.aeroworks")
-```
-
-Kein Peripheral und kein Modem erforderlich.
-
-## Sockets und Deskparameter
-
-| Socket | Index |
-|---|---:|
-| `left` | `0` |
-| `right` | `1` |
-| `big` | `2` |
-
-Deskparameter akzeptieren:
-
-- den aktuellen 1-basierten Netzwerkindex oder
-- die stabile Desk-ID aus `getDesks()`.
-
-Für gespeicherte Konfigurationen ist die Desk-ID vorzuziehen.
-
-## Netzwerk und Desks
-
-Beide Zugriffswege bieten:
+Zusätzliche Typnamen:
 
 ```text
-getNetwork()
-getDesks()
-getDesk(desk)
+control_desk
+cc_aeroworks:control_desk
+cc_aeroworks_control_desk
 ```
 
-`getNetwork()` liefert:
-
-```lua
-{
-  state = "none" | "active" | "conflict",
-  memberCount = 4,
-  revision = 12
-}
-```
-
-Ein Desk enthält unter anderem:
-
-```lua
-{
-  id = "stabile-uuid",
-  index = 1,
-  x = 10,
-  y = 64,
-  z = -5,
-  variant = "control_desk" | "computer" | "advanced_computer",
-  computer = false,
-  facing = "north",
-  loaded = true
-}
-```
-
-Beim externen Peripheral markiert `attached` das physisch verbundene Pult. Bei der direkten API markiert `owner` das Pult des eingebetteten Computers.
-
-## Einzelpultmethoden des externen Peripherals
-
-Diese Methoden beziehen sich auf das physisch angeschlossene Pult:
+Methoden:
 
 ```text
+getInfo()
 getSocketCount()
 getSockets()
 getModules()
@@ -113,123 +48,183 @@ setDisplayPixels(socket, rows)
 clearDisplayPixels(socket)
 ```
 
-## Multiblockmethoden des externen Peripherals
+## Globale `peripherals`-API
 
-```text
-getNetwork()
-getDesks()
-getDesk(desk)
-getDeskSocketCount(desk)
-getDeskSockets(desk)
-getDeskModules(desk)
-getDeskModule(desk, socket)
-getDeskInput(desk, socket)
-getDeskInputs(desk)
-getDeskDisplays(desk)
-getDeskDisplay(desk, socket)
-setDeskDisplayText(desk, socket, text)
-setDeskDisplayNumber(desk, socket, value, zeroPad?)
-clearDeskDisplay(desk, socket)
-clearDeskDisplays(desk)
-getDeskDisplaySize(desk, socket)
-getDeskDisplayPixel(desk, socket, x, y)
-setDeskDisplayPixel(desk, socket, x, y, enabled)
-setDeskDisplayPixels(desk, socket, rows)
-clearDeskDisplayPixels(desk, socket)
+```lua
+local peripherals = require("cc_aeroworks.peripherals")
 ```
 
-## Direkte Methoden des eingebetteten Computers
-
-Das Desk ist jeweils der erste Parameter:
+Methoden:
 
 ```text
-getNetwork()
+find(type)
+findAll(type)
+wrap(x, y, z, type?)
+wrap(position, type?)
 getDesks()
-getDesk(desk)
-getSocketCount(desk)
-getSockets(desk)
-getModules(desk)
-getModule(desk, socket)
-getInput(desk, socket)
-getInputs(desk)
-getDisplays(desk)
-getDisplay(desk, socket)
-setDisplayText(desk, socket, text)
-setDisplayNumber(desk, socket, value, zeroPad?)
-clearDisplay(desk, socket)
-clearDisplays(desk)
-getDisplaySize(desk, socket)
-getDisplayPixel(desk, socket, x, y)
-setDisplayPixel(desk, socket, x, y, enabled)
-setDisplayPixels(desk, socket, rows)
-clearDisplayPixels(desk, socket)
+getTypes()
+getNetwork()
+refresh()
 ```
+
+## Rückgabe von `find`
+
+| Trefferzahl | Ergebnis |
+|---:|---|
+| 0 | `nil` |
+| 1 | direktes Methoden-Handle |
+| 2 oder mehr | nach Pultposition und Seite adressierte Tabelle |
+
+```lua
+local modem = peripherals.find("endermodem")
+```
+
+`findAll(type)` liefert immer eine Tabelle.
+
+```lua
+for address, modem in pairs(peripherals.findAll("endermodem")) do
+  print(address)
+end
+```
+
+`ControlDesk` ist eine Ausnahme und liefert immer alle Pulte als Tabelle:
+
+```lua
+local desks = peripherals.find("ControlDesk")
+local desk = desks["12,64,-7"]
+```
+
+## Typnormalisierung
+
+Ein gemeldeter Typ wie
+
+```text
+advanced_peripherals:ender_modem
+```
+
+kann über folgende Namen gesucht werden:
+
+```text
+advanced_peripherals:ender_modem
+ender_modem
+EnderModem
+endermodem
+```
+
+Primärtyp und zusätzliche CC:Tweaked-Typen werden indexiert. Bei kollidierenden Kurzformen sollte die vollständige namespaced ID verwendet werden.
+
+## Desk-Handle
+
+Zusätzlich zu den lokalen Modul- und Displaymethoden besitzt ein Desk-Handle:
+
+```text
+getPeripherals()
+find(type)
+findAll(type)
+wrap(side)
+```
+
+Metadaten:
+
+```lua
+{
+  id = "stabile-uuid",
+  address = "12,64,-7",
+  index = 2,
+  x = 12,
+  y = 64,
+  z = -7,
+  dimension = "minecraft:overworld",
+  computer = false,
+  variant = "control_desk",
+  facing = "north",
+  loaded = true
+}
+```
+
+## Peripheral-Handle
+
+Das Handle delegiert die echten Methoden des Ziel-Peripherals. Zusätzliche Metadaten stehen über `getPeripheralInfo()` bereit, sofern das Ziel nicht selbst eine Methode dieses Namens definiert:
+
+```lua
+{
+  address = "12,64,-7/north",
+  type = "advanced_peripherals:ender_modem",
+  types = { "advanced_peripherals:ender_modem", "modem" },
+  deskId = "stabile-uuid",
+  deskAddress = "12,64,-7",
+  deskPosition = { x = 12, y = 64, z = -7, dimension = "minecraft:overworld" },
+  position = { x = 12, y = 64, z = -8, dimension = "minecraft:overworld" },
+  side = "north",
+  loaded = true
+}
+```
+
+## Koordinatenzugriff
+
+```lua
+local desk = peripherals.wrap(12, 64, -7)
+local sameDesk = peripherals.wrap({ x = 12, y = 64, z = -7 })
+local device = peripherals.wrap(12, 64, -8)
+local radar = peripherals.wrap(12, 64, -8, "radar")
+```
+
+Es werden keine Chunks geladen. Gesucht wird nur in der Dimension des eingebetteten Computers.
+
+## Netzwerkstatus
+
+```lua
+{
+  state = "active",
+  revision = 12,
+  dimension = "minecraft:overworld",
+  deskCount = 4,
+  peripheralCount = 3
+}
+```
+
+Globale Graphzugriffe werden abgelehnt bei:
+
+- mehreren eingebetteten Computern,
+- teilweise geladenen Pultreihen,
+- mehr als 64 Pulten,
+- einem Computer außerhalb des Besitzerverbunds.
 
 ## Ereignisse
 
-### Einzelpult eines externen Peripherals
+```lua
+local _, address, primaryType =
+  os.pullEvent("cc_aeroworks_peripheral_attached")
+```
+
+```lua
+local _, address, primaryType =
+  os.pullEvent("cc_aeroworks_peripheral_detached")
+```
+
+Lokales Pult:
 
 ```lua
 local _, peripheralName, socket, moduleId, value, channel, socketName =
   os.pullEvent("cc_aeroworks_desk_input")
 ```
 
-### Multiblock eines externen Peripherals
+## Sockets
 
-```lua
-local _, peripheralName, deskId, deskIndex, socket, moduleId, value, channel, socketName =
-  os.pullEvent("cc_aeroworks_multiblock_input")
-```
-
-```lua
-local _, peripheralName, state, memberCount, revision =
-  os.pullEvent("cc_aeroworks_multiblock_changed")
-```
-
-### Eingebetteter Computer
-
-```lua
-local _, deskId, deskIndex, socket, socketName, moduleId, value, channel =
-  os.pullEvent("cc_aeroworks_console_input")
-```
-
-```lua
-local _, state, memberCount, revision =
-  os.pullEvent("cc_aeroworks_console_changed")
-```
-
-Der erste Eingabesnapshot erzeugt kein Ereignis. Wenn ein Kanal oder Modul entfernt wurde, ist `value` gleich `nil`.
+| Socket | Index |
+|---|---:|
+| `left` | `0` |
+| `right` | `1` |
+| `big` | `2` |
 
 ## Displayvertrag
 
-### Text und Zahlen
+- Text: zwei beziehungsweise drei Zeichen.
+- Zahlen: zweistellig `-9..99`, dreistellig `-99..999`.
+- Pixelursprung: `(1,1)` links oben.
+- Rastergröße: über `getDisplaySize` lesen, nicht fest annehmen.
+- `setDisplayPixels`: exakt `height` Strings aus `0` und `1`, jeweils exakt `width` Zeichen.
 
-- zwei oder drei Zeichen
-- erlaubt: `0-9`, Minus, Leerzeichen
-- zweistellig: `-9..99`
-- dreistellig: `-99..999`
-- optionale Nullauffüllung
-- NaN und Unendlich erzeugen Lua-Fehler
+## Ponder
 
-### Pixel
-
-- zweistellig: `7x5`
-- dreistellig: `11x5`
-- Ursprung `(1,1)` links oben
-- `set...Pixels` erwartet fünf Strings aus `0` und `1`
-
-## Fehlerzustände
-
-| Fehler | Verhalten |
-|---|---|
-| mehr als 64 Pulte | Zugriff wird abgelehnt |
-| Multiblock teilweise geladen | Zugriff wird abgelehnt |
-| ungültiger Deskindex oder unbekannte Desk-ID | Lua-Fehler |
-| ungültiger Socket | Lua-Fehler |
-| mehrere eingebettete Computer | direkte API wird abgelehnt; externe Peripheral-Methoden bleiben nutzbar |
-
-Normale Survival-Platzierung verhindert neue Mehrcomputer-Konflikte automatisch: Das neu platzierte Computerpult wird zum normalen Pult und sein Computer ausgeworfen. Konflikte aus Altwelten, Befehlen oder Strukturwerkzeugen bleiben diagnostizierbar.
-
-## Bedienung und Ponder
-
-Die Interaktionen stehen unter [[Bedienung]]. Über beiden Computerpultitems kann **W gehalten** werden, um die Create-Ponder-Erklärung zu öffnen.
+Die Computerpulte besitzen getrennte Szenen für Netzwerkaufbau, Peripheral-Suche und Diagnose. Displays besitzen getrennte Szenen für Herstellung, Montage und Programmierung. Radar besitzt Szenen für automatisches Routing und Data-Link-Kompatibilität.
