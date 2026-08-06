@@ -85,7 +85,7 @@ def main() -> int:
         {
             "type": "directory",
             "source": "monitor_sprite",
-            "prefix": "monitor_sprite",
+            "prefix": "monitor_sprite/",
         } in atlas_sources,
         "Create: Radars monitor sprites are not collected through an optional-safe atlas directory source",
     )
@@ -127,12 +127,16 @@ def main() -> int:
     require('putString("status"' in snapshot, "Radar link status is not synchronized")
     require("fun contentHash()" in snapshot, "Radar snapshots do not expose a stable content hash")
     require("enum class RadarDisplayTrackSprite" in snapshot, "Track sprite categories are not synchronized")
+    require('"VS2", "SABLE", "CONTRAPTION"' in snapshot, "VS2 tracks are not mapped to the contraption sprite")
     require('putString("sprite"' in snapshot, "Track sprite categories are not serialized")
 
     require("SNAPSHOT_INTERVAL_TICKS" in compat, "Controller snapshot collection is not throttled")
     require("SNAPSHOT_HEARTBEAT_TICKS" in compat, "Unchanged snapshots do not have a bounded heartbeat")
     require("shouldSynchronize" in compat, "Snapshot changes are not compared before notifyUpdate")
     require("logStatusTransition" in compat, "Radar link status transitions are not logged")
+    require("reportAccessFailure" in compat, "Radar API failure details are not rate-limited")
+    require("TrackReadResult.Failure" in compat, "Missing getTracks compatibility is silently treated as an empty radar")
+    require("IRadar#getWorldPos" in compat and "IRadar#getRange" in compat and "IRadar#isRunning" in compat, "Radar API results are not type-checked")
     require("RadarDisplayTrackSprite.fromCategory" in compat, "Create: Radars categories are not mapped")
     require('invokeAny(raw, "getPosition", "position")' in compat, "Track position compatibility fallback is missing")
     require("RadarResolution.Failure" in compat, "Reflective radar access still erases failure causes")
