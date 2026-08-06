@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import com.mred231.aeroworks.content.controls.ConsoleRenderer
 import de.teutonstudio.ccaeroworks.CCAeroworks
+import de.teutonstudio.ccaeroworks.client.display.DeskDisplayRenderer
 import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer
@@ -22,7 +23,26 @@ class ComputerControlDeskRenderer(
         packedLight: Int,
         packedOverlay: Int
     ) {
-        delegate?.render(blockEntity, partialTick, poseStack, bufferSource, packedLight, packedOverlay)
+        val aeroworksRenderer = delegate
+        if (aeroworksRenderer != null) {
+            // ConsoleRendererMixin appends DeskDisplayRenderer to this native path, so do not
+            // draw the surfaces a second time when the Aeroworks delegate is available.
+            aeroworksRenderer.render(
+                blockEntity,
+                partialTick,
+                poseStack,
+                bufferSource,
+                packedLight,
+                packedOverlay
+            )
+            return
+        }
+
+        // A failed reflective constructor used to make every mounted display disappear on the
+        // computer desk. Keep the dynamic display and radar surfaces visible even when an
+        // Aeroworks update changes the renderer constructor. The static desk block model still
+        // renders normally; only native animated module geometry remains delegate-dependent.
+        DeskDisplayRenderer.render(blockEntity, poseStack, bufferSource, packedLight)
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -33,9 +53,14 @@ class ComputerControlDeskRenderer(
             val constructor = ConsoleRenderer::class.java.declaredConstructors.firstOrNull {
                 val parameters = it.parameterTypes
                 parameters.isEmpty() ||
-                    (parameters.size == 1 && parameters[0].isAssignableFrom(context.javaClass))
-            } ?: error("No compatible ConsoleRenderer constructor")
-            constructor.isAccessible = true
+                    (parameters.size == 1 && parameters[0].isInstance(context))
+            } ?: error(
+                "No compatible ConsoleRenderer constructor; available=" +
+                    ConsoleRenderer::class.java.declaredConstructors.joinToString { it.toGenericString() }
+            )
+            if (!constructor.trySetAccessible()) {
+                error("Cannot access ConsoleRenderer constructor ${constructor.toGenericString()}")
+            }
             val renderer = if (constructor.parameterCount == 0) {
                 constructor.newInstance()
             } else {
@@ -44,7 +69,7 @@ class ComputerControlDeskRenderer(
             renderer as BlockEntityRenderer<ConsoleBlockEntity>
         }.onFailure {
             CCAeroworks.LOGGER.error(
-                "[CC-Aeroworks] Could not create the Aeroworks console renderer for computer desks",
+                "[CC-Aeroworks] Could not create the Aeroworks console renderer for computer desks; using display-only fallback",
                 it
             )
         }.getOrNull()
