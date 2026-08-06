@@ -24,6 +24,7 @@ object RadarSurfaceRenderer {
 
     data class Element(
         val model: PartialModel,
+        val key: String,
         val x: Double = 0.0,
         val z: Double = 0.0,
         val spinning: Boolean = false,
@@ -79,27 +80,29 @@ object RadarSurfaceRenderer {
     fun elements(surface: RadarSurfaceState, gameTime: Long): List<Element> {
         val models = DeskDisplayModels.radar(surface.type)
         val elements = mutableListOf(
-            Element(models.filler, translucent = true),
-            Element(models.circle, translucent = true)
+            Element(models.filler, key = "filler", translucent = true),
+            Element(models.circle, key = "circle", translucent = true)
         )
         val snapshot = surface.snapshot
         if (!RadarDisplaySnapshot.isFresh(snapshot, gameTime)) {
-            elements += Element(DeskDisplayModels.radarDisconnected())
+            elements += Element(DeskDisplayModels.radarDisconnected(), key = "disconnected")
             return elements
         }
 
         val active = requireNotNull(snapshot)
-        elements += Element(models.sweep, spinning = true, translucent = true)
+        elements += Element(models.sweep, key = "sweep", spinning = true, translucent = true)
         for (track in active.tracks) {
             val projected = project(surface, active, track.position.x, track.position.z) ?: continue
             elements += Element(
                 model = DeskDisplayModels.radarTrack(track.sprite),
+                key = "track:${track.id}:${track.sprite}",
                 x = projected.first,
                 z = projected.second
             )
             if (track.id == active.selectedTrackId) {
                 elements += Element(
                     model = DeskDisplayModels.radarSelected(),
+                    key = "selected:${track.id}",
                     x = projected.first,
                     z = projected.second
                 )
