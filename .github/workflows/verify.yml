@@ -53,6 +53,9 @@ jobs:
       - name: Validate optional radar integration
         run: python3 tools/verify-radar.py
 
+      - name: Validate display recipes and item models
+        run: python3 tools/verify-display-recipes.py
+
       - name: Compile Gradle bootstrap
         run: javac --release 21 gradle/wrapper/GradleBootstrap.java
 
