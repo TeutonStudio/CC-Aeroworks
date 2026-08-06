@@ -102,6 +102,7 @@ def main() -> int:
     )
 
     snapshot = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/RadarDisplaySnapshot.kt")
+    surface_state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/RadarSurfaceState.kt")
     state_access = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/createradar/RadarDeskStateAccess.kt")
     radar_mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/ConsoleBlockEntityRadarMixin.kt")
     compat = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/createradar/CreateRadarCompat.kt")
@@ -111,6 +112,8 @@ def main() -> int:
     fallback = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/DeskDisplayRenderer.kt")
     flywheel = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ConsoleVisualMixin.kt")
     computer_renderer = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/ComputerControlDeskRenderer.kt")
+    interaction = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerConsoleInteractionHandler.kt")
+    test_plan = read("docs/radar-controller-test-plan.md")
 
     require("enum class RadarLinkStatus" in snapshot, "Radar link failures are still collapsed into one boolean")
     for status in (
@@ -142,19 +145,47 @@ def main() -> int:
     require("RadarResolution.Failure" in compat, "Reflective radar access still erases failure causes")
     require("RADAR_CONTROLLER_NBT_KEY" not in radar_mixin, "Controller location is still persisted")
     require("getRadarPixels" not in state_access and "RadarRasterCache" not in state_access, "Radar state still exposes pixel raster APIs")
-    require("radarSurfaces" in desk_access and "RadarSurfaceState" in desk_access, "Desk radar surfaces are not exposed")
+
+    require("val facing: Direction" in surface_state, "Radar surfaces do not carry the desk orientation")
+    require("BlockStateProperties.HORIZONTAL_FACING" in desk_access, "Desk orientation is not read from the block state")
+    require("RadarSurfaceState(socket, type, snapshot, facing)" in desk_access, "Desk orientation is not passed to radar surfaces")
+    require("radarSurfaces" in desk_access, "Desk radar surfaces are not exposed")
     require("radarSmallFiller" in models and "radarTrackSelected" in models, "Radar surface partial models are not registered")
     require("contentHash()" in surface, "Flywheel radar instances still rebuild for timestamp-only changes")
+    require("surface.facing.axis" in surface, "Radar tracks are not projected into desk-local axes")
+    require("surface.facing == Direction.NORTH" in surface and "surface.facing == Direction.WEST" in surface, "Desk-facing projection flips are incomplete")
+    require('"${surface.socket}:${surface.type}:${surface.facing}' in surface, "Radar instance keys do not include orientation")
     require("element.translucent" in surface, "Classic radar layers are not split between translucent and cutout buffers")
     require("models.sweep" in surface and "spinning = true" in surface, "Radar sweep is not rendered directly")
     require("DeskDisplayModels.radarTrack(track.sprite)" in surface, "Track sprites are not rendered directly")
     require("RadarSurfaceRenderer.render" in fallback, "Classic renderer does not draw radar surfaces")
     require("RadarSurfaceRenderer.elements" in flywheel, "Flywheel does not use the shared radar surface elements")
     require("RadarSurfaceRenderer.sweepAngle" in flywheel, "Flywheel sweep is not animated")
+
     require(
         "DeskDisplayRenderer.render(blockEntity" in computer_renderer
         and "display-only fallback" in computer_renderer,
         "Computer control desks still lose all display surfaces when the Aeroworks renderer delegate fails",
+    )
+    require(
+        'RADAR_NETWORK_CONTROLLER_ITEM = "create_radar:network_filterer"' in interaction,
+        "Computer desk placement helper does not target the Create: Radars Network Controller",
+    )
+    require(
+        "redirectNetworkControllerPlacement" in interaction
+        and "event.face != Direction.UP" in interaction
+        and "ComputerControlDeskBlockEntity" in interaction
+        and "BlockStateProperties.HORIZONTAL_FACING" in interaction
+        and "state.getValue(BlockStateProperties.HORIZONTAL_FACING).opposite" in interaction
+        and "BlockHitResult" in interaction
+        and "UseOnContext" in interaction,
+        "Network Controller top-click placement is not safely redirected behind computer desks",
+    )
+    require(
+        "Alle vier Pultausrichtungen" in test_plan
+        and "Rückseite frei" in test_plan
+        and "Rückseite belegt" in test_plan,
+        "Radar regression plan does not cover oriented projection and controller placement",
     )
     require(not (ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/display/RadarDisplayRaster.kt").exists(), "Obsolete pixel radar renderer still exists")
 
@@ -178,10 +209,12 @@ def main() -> int:
     require("direkt angrenzenden Network Controller" in docs, "Radar docs do not explain automatic adjacency")
     require("Blockatlas" in docs, "Radar docs do not explain the cross-mod sprite atlas bridge")
     require("display-only" in docs, "Radar docs do not disclose the computer desk fallback boundary")
+    require("Pultausrichtung" in docs, "Radar docs do not explain desk-local track projection")
+    require("Rückseitenplatzierung" in docs, "Radar docs do not explain the scoped controller placement helper")
     require("RadarDisplayRaster" in docs and "Pixelmatrix" in docs, "Radar docs do not retire the pixel renderer")
     require("20 Ticks" in docs and "256" in docs and "runClient" in docs, "Radar documentation is incomplete")
 
-    print("Validated radar diagnostics, throttled snapshots, atlas sprites and computer-desk fallback rendering.")
+    print("Validated radar diagnostics, throttled snapshots, oriented atlas surfaces and computer-desk integration.")
     return 0
 
 
