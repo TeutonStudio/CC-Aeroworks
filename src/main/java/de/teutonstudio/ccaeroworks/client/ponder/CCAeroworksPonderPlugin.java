@@ -11,6 +11,10 @@ public class CCAeroworksPonderPlugin implements PonderPlugin {
         ResourceLocation.fromNamespaceAndPath(CCAeroworks.MOD_ID, "computer_control_desk");
     private static final ResourceLocation ADVANCED_COMPUTER_CONTROL_DESK =
         ResourceLocation.fromNamespaceAndPath(CCAeroworks.MOD_ID, "advanced_computer_control_desk");
+    private static final ResourceLocation TWO_DIGIT_DISPLAY =
+        ResourceLocation.fromNamespaceAndPath(CCAeroworks.MOD_ID, "two_digit_display");
+    private static final ResourceLocation THREE_DIGIT_DISPLAY =
+        ResourceLocation.fromNamespaceAndPath(CCAeroworks.MOD_ID, "three_digit_display");
     private static final ResourceLocation SMALL_RADAR_DISPLAY =
         ResourceLocation.fromNamespaceAndPath(CCAeroworks.MOD_ID, "small_radar_display");
     private static final ResourceLocation LARGE_RADAR_DISPLAY =
@@ -25,6 +29,8 @@ public class CCAeroworksPonderPlugin implements PonderPlugin {
     public void registerScenes(PonderSceneRegistrationHelper<ResourceLocation> helper) {
         helper.forComponents(COMPUTER_CONTROL_DESK, ADVANCED_COMPUTER_CONTROL_DESK)
             .addStoryBoard("computer_control_desk", ComputerControlDeskScenes::overview);
+        helper.forComponents(TWO_DIGIT_DISPLAY, THREE_DIGIT_DISPLAY)
+            .addStoryBoard("computer_control_desk", DisplayModuleScenes::overview);
 
         if (ModList.get().isLoaded("create_radar")) {
             helper.forComponents(SMALL_RADAR_DISPLAY, LARGE_RADAR_DISPLAY)
