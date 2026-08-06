@@ -1,12 +1,24 @@
 package de.teutonstudio.ccaeroworks.multiblock
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import dan200.computercraft.shared.ModRegistry
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskIdentityAccess
+import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlock
 import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
+import de.teutonstudio.ccaeroworks.registry.CCItems
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
+import net.minecraft.core.component.DataComponentType
+import net.minecraft.core.component.DataComponents
+import net.minecraft.network.chat.Component
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.sounds.SoundEvents
+import net.minecraft.sounds.SoundSource
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
+import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.level.block.state.properties.BooleanProperty
@@ -198,7 +210,19 @@ object ConsoleMultiblockManager {
     @SubscribeEvent
     fun onPlace(event: BlockEvent.EntityPlaceEvent) {
         val level = event.level as? Level ?: return
-        if (AeroworksTypes.isControlDesk(event.placedBlock.block)) invalidate(level)
+        if (!AeroworksTypes.isControlDesk(event.placedBlock.block)) return
+        invalidate(level)
+
+        val serverLevel = level as? ServerLevel ?: return
+        if (event.placedBlock.block is ComputerControlDeskBlock) return
+        val player = event.entity as? Player ?: return
+        val placedPos = event.pos.immutable()
+
+        // A normal control desk can join two previously valid console networks. Resolve the
+        // resulting network after placement and collapse every duplicate embedded computer.
+        serverLevel.server.execute {
+            reconcileMergedComputers(serverLevel, placedPos, player)
+        }
     }
 
     @SubscribeEvent
@@ -230,5 +254,94 @@ object ConsoleMultiblockManager {
             caches.remove(level)
             generations.remove(level)
         }
+    }
+
+    private fun reconcileMergedComputers(
+        level: ServerLevel,
+        placedPos: BlockPos,
+        player: Player
+    ) {
+        invalidate(level)
+        val network = resolve(level, placedPos)
+        if (network.state != ConsoleNetworkState.CONFLICT) return
+
+        val preferredComputer = network.computers.minWithOrNull(
+            compareBy<ComputerControlDeskBlockEntity>(
+                { if (it.isAdvanced) 0 else 1 },
+                { network.memberAt(it.blockPos)?.index ?: Int.MAX_VALUE }
+            )
+        ) ?: return
+
+        var ejected = 0
+        network.computers
+            .filterNot { it.blockPos == preferredComputer.blockPos }
+            .forEach { duplicate ->
+                if (ejectComputer(level, duplicate)) ejected++
+            }
+
+        if (ejected == 0) return
+        invalidate(level)
+        resolve(level, preferredComputer.blockPos)
+        player.displayClientMessage(
+            Component.translatable("message.cc_aeroworks.computer_ejected"),
+            true
+        )
+    }
+
+    private fun ejectComputer(
+        level: ServerLevel,
+        desk: ComputerControlDeskBlockEntity
+    ): Boolean {
+        val pos = desk.blockPos
+        if (level.getBlockEntity(pos) !== desk) return false
+
+        val savedDesk = desk.saveWithFullMetadata(level.registryAccess())
+        val combinedStack = ItemStack(
+            if (desk.isAdvanced) CCItems.ADVANCED_COMPUTER_CONTROL_DESK.get()
+            else CCItems.COMPUTER_CONTROL_DESK.get()
+        )
+        desk.writeToItem(combinedStack)
+        val computerStack = standaloneComputer(combinedStack, desk.isAdvanced)
+
+        var replacement = AeroworksTypes.vanillaControlDeskBlock().defaultBlockState()
+        val currentState = desk.blockState
+        if (replacement.hasProperty(BlockStateProperties.HORIZONTAL_FACING) &&
+            currentState.hasProperty(BlockStateProperties.HORIZONTAL_FACING)
+        ) {
+            replacement = replacement.setValue(
+                BlockStateProperties.HORIZONTAL_FACING,
+                currentState.getValue(BlockStateProperties.HORIZONTAL_FACING)
+            )
+        }
+
+        if (!level.setBlock(pos, replacement, Block.UPDATE_ALL)) return false
+        val replacementEntity = level.getBlockEntity(pos) as? ConsoleBlockEntity
+        replacementEntity?.loadWithComponents(savedDesk, level.registryAccess())
+        replacementEntity?.setChanged()
+        level.sendBlockUpdated(pos, replacement, replacement, Block.UPDATE_ALL)
+
+        Block.popResource(level, pos.above(), computerStack)
+        level.playSound(null, pos, SoundEvents.ITEM_PICKUP, SoundSource.BLOCKS, 0.6f, 0.9f)
+        return true
+    }
+
+    private fun standaloneComputer(source: ItemStack, advanced: Boolean): ItemStack {
+        val result = ItemStack(
+            if (advanced) ModRegistry.Items.COMPUTER_ADVANCED.get()
+            else ModRegistry.Items.COMPUTER_NORMAL.get()
+        )
+        copyComponent(source, result, ModRegistry.DataComponents.COMPUTER_ID.get())
+        copyComponent(source, result, ModRegistry.DataComponents.STORAGE_CAPACITY.get())
+        copyComponent(source, result, ModRegistry.DataComponents.TERMINAL_SIZE.get())
+        copyComponent(source, result, DataComponents.CUSTOM_NAME)
+        return result
+    }
+
+    private fun <T> copyComponent(
+        source: ItemStack,
+        target: ItemStack,
+        type: DataComponentType<T>
+    ) {
+        source.get(type)?.let { target.set(type, it) }
     }
 }

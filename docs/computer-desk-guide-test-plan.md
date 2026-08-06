@@ -1,6 +1,6 @@
 # Computer-Steuerungspult-, Handbuch- und Ponder-Testplan
 
-Dieser Plan ergänzt `manual-test-plan.md` um die Interaktions-, Platzierungs- und Dokumentationsfälle der Computer-Steuerungspulte.
+Dieser Plan ergänzt `manual-test-plan.md` um die Interaktions-, Platzierungs-, Display- und Dokumentationsfälle der Computer-Steuerungspulte.
 
 ## `DESK-INTERACTION-01` Terminal öffnen
 
@@ -56,14 +56,16 @@ Dieser Plan ergänzt `manual-test-plan.md` um die Interaktions-, Platzierungs- u
 **Profil:** `BASE-CLIENT`
 
 1. Im Creative-Modus einen Multiblock mit eingebettetem Computer bauen.
-2. Ein zweites Computer-Steuerungspult daneben platzieren.
+2. Ein zweites normales und anschließend ein zweites erweitertes Computer-Steuerungspult daneben platzieren.
+3. Die zurückbleibenden Pulte, Drops und den Netzwerkzustand prüfen.
 
 **Erwartung:**
 
-- Die konfliktverursachende Platzierung wird entfernt.
-- Das kombinierte Item bleibt in der Creative-Hand.
-- Es entsteht kein zusätzlicher Computer-Drop und keine duplizierte Computer-ID.
-- Eine Actionbar-Meldung erklärt den Grund.
+- Die konfliktverursachende Platzierung bleibt als normales `aeroworks:control_desk` erhalten.
+- Genau der zusätzliche normale beziehungsweise erweiterte CC:Tweaked-Computer wird ausgeworfen.
+- Computer-ID, Label, Terminalgröße, Speicherkapazität und Dateisystem des ausgeworfenen Computers bleiben erhalten.
+- Der Multiblock ist anschließend wieder `active`, nicht `conflict`.
+- Eine Actionbar-Meldung erklärt den Computerauswurf.
 
 ## `DESK-DUPLICATE-03` Nicht-Spieler-Platzierung und Altwelt
 
@@ -80,7 +82,23 @@ Dieser Plan ergänzt `manual-test-plan.md` um die Interaktions-, Platzierungs- u
 - Die direkte API verweigert mehrdeutigen Zugriff.
 - Externe Peripheral-Methoden bleiben im Konfliktfall nutzbar.
 
-## `PONDER-01` Beide Varianten
+## `DISPLAY-RECIPE-01` Pressrezepte
+
+**Profil:** `BASE-CLIENT`, `BASE-SERVER`
+
+1. Einen normalen CC:Tweaked-Monitor auf ein Depot oder Förderband unter einer mechanischen Presse legen.
+2. Die Presse auslösen und das Ergebnis prüfen.
+3. Den Ablauf mit einem erweiterten CC:Tweaked-Monitor wiederholen.
+4. Beide Rezepte in einem Rezeptbetrachter prüfen.
+
+**Erwartung:**
+
+- `computercraft:monitor_normal` wird zu genau einer `cc_aeroworks:two_digit_display`.
+- `computercraft:monitor_advanced` wird zu genau einer `cc_aeroworks:three_digit_display`.
+- Normale und erweiterte Monitore werden nicht vertauscht.
+- Die vorhandenen Crafting-Rezepte der Displays bleiben zusätzlich verfügbar.
+
+## `PONDER-01` Beide Computerpultvarianten
 
 **Profil:** `BASE-CLIENT`
 
@@ -99,18 +117,37 @@ Dieser Plan ergänzt `manual-test-plan.md` um die Interaktions-, Platzierungs- u
 - Doppelplatzierung endet mit normalem Pult und Computerdrop.
 - Keine fehlende Struktur, fehlende Übersetzung oder BlockEntity-Ausnahme.
 
+## `PONDER-02` Beide Displayvarianten
+
+**Profil:** `BASE-CLIENT`
+
+1. Im Inventar W über `two_digit_display` halten und die Szene vollständig ansehen.
+2. Mit `three_digit_display` wiederholen.
+3. Deutsch und Englisch getrennt prüfen.
+
+**Erwartung:**
+
+- Beide Displayitems öffnen dieselbe Erklärungsszene.
+- Die Szene zeigt einen normalen Monitor unter der mechanischen Presse als Quelle des kleinen Displays.
+- Die Szene zeigt einen erweiterten Monitor unter derselben Presse als Quelle des großen Displays.
+- Zwei kleine Displays werden gemeinsam im linken und rechten Socket dargestellt.
+- Ein kleines Display wird zusätzlich im großen Socket gezeigt.
+- Das große Display wird ausschließlich für den großen Socket erklärt.
+- Der Flächenvergleich nennt `70` Pixel für zwei kleine Displays und `55` Pixel für ein großes Display.
+- Sechs lokalisierte Erklärungsschritte erscheinen ohne rohe Translation-Keys.
+
 ## `GUIDE-02` Überarbeitetes Ingame-Handbuch
 
 **Profil:** `BASE-CLIENT`
 
 1. API-Handbuch öffnen.
-2. Alle sieben Bereiche auswählen.
+2. Alle acht Bereiche auswählen.
 3. Bei kleiner und großer GUI-Skalierung scrollen und Vor/Zurück verwenden.
 4. Deutsch und Englisch prüfen.
 
 **Erwartung:**
 
-- Bereiche: Einstieg, Computerpulte, Netzwerk & API, Module, Displays, Steuerung, Fehlerhilfe.
+- Bereiche: Einstieg, Computerpulte, Netzwerk & API, Module, Displays, Pixel-Editor, Steuerung, Fehlerhilfe.
 - Hinweise, Warnungen, Eingabehinweise und Codeblöcke sind optisch unterscheidbar.
 - Direkte API und Peripheral-API werden nicht vermischt.
 - Bedienung und Doppelplatzierung entsprechen dem tatsächlichen Laufzeitverhalten.

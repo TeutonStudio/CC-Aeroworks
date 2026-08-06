@@ -1,0 +1,13 @@
+{
+  "type": "create:pressing",
+  "ingredients": [
+    {
+      "item": "computercraft:monitor_advanced"
+    }
+  ],
+  "results": [
+    {
+      "id": "cc_aeroworks:three_digit_display"
+    }
+  ]
+}

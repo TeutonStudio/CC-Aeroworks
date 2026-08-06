@@ -1,0 +1,13 @@
+{
+  "type": "create:pressing",
+  "ingredients": [
+    {
+      "item": "computercraft:monitor_normal"
+    }
+  ],
+  "results": [
+    {
+      "id": "cc_aeroworks:two_digit_display"
+    }
+  ]
+}
