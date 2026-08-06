@@ -107,7 +107,33 @@ def main() -> int:
     )
 
     metadata = read("src/main/templates/META-INF/neoforge.mods.toml")
-    require('modId="create_radar"' in metadata and 'type="optional"' in metadata, "Create: Radars metadata is not optional")
+    require(
+        'modId="create_radar"' in metadata and 'reason="Enables the small and large Data Link radar displays."' in metadata,
+        "Create: Radars metadata is not optional",
+    )
+    require(
+        'modId="createbigcannons"' in metadata
+        and 'versionRange="[5.11.7,5.12)"' in metadata
+        and 'reason="Supplies the Create Big Cannons runtime required by Create: Radars."' in metadata,
+        "Create Big Cannons metadata is not optional or has the wrong version range",
+    )
+
+    manifest = load_json(ROOT / "libs/dependencies.json")
+    dependencies = {
+        dependency.get("modId"): dependency
+        for dependency in manifest.get("dependencies", [])
+        if isinstance(dependency, dict)
+    }
+    require(
+        dependencies.get("createbigcannons", {}).get("version") == "5.11.7"
+        and dependencies.get("createbigcannons", {}).get("required") is False,
+        "Create Big Cannons is not registered as an optional local dependency",
+    )
+    require(
+        dependencies.get("ritchiesprojectilelib", {}).get("version") == "2.1.2"
+        and dependencies.get("ritchiesprojectilelib", {}).get("required") is False,
+        "Ritchie's Projectile Library is not registered as the optional CBC runtime library",
+    )
 
     build = read("build.gradle")
     properties = read("gradle.properties")
@@ -117,13 +143,33 @@ def main() -> int:
         "Create: Radars is not included in local Gradle runtimes",
     )
     require(
-        "create_radar-*.jar" in build and "create-radars-*.jar" in build,
-        "Local Create: Radars JARs are not excluded from the generic dependency file tree",
+        'localRuntime("curse.maven:create-big-cannons-646668:${create_big_cannons_curse_file_id}")' in build,
+        "Create Big Cannons is not included in local Gradle runtimes",
+    )
+    require(
+        'localRuntime("curse.maven:ritchies-projectile-library-1279407:${ritchies_projectile_lib_curse_file_id}")' in build,
+        "Ritchie's Projectile Library is not included in local Gradle runtimes",
+    )
+    require(
+        "create_radar-*.jar" in build
+        and "createbigcannons-*.jar" in build
+        and "ritchiesprojectilelib-*.jar" in build,
+        "Automatically resolved radar runtime JARs are not excluded from the generic dependency file tree",
     )
     require(
         "create_radars_version=0.4.4-1.21.1" in properties
         and "create_radars_curse_file_id=8041200" in properties,
         "Create: Radars development runtime artifact is not pinned",
+    )
+    require(
+        "create_big_cannons_version=5.11.7" in properties
+        and "create_big_cannons_curse_file_id=8303106" in properties,
+        "Create Big Cannons development runtime artifact is not pinned",
+    )
+    require(
+        "ritchies_projectile_lib_version=2.1.2" in properties
+        and "ritchies_projectile_lib_curse_file_id=7587771" in properties,
+        "Ritchie's Projectile Library development runtime artifact is not pinned",
     )
 
     config = read("src/main/kotlin/de/teutonstudio/ccaeroworks/config/CCServerConfig.kt")
@@ -133,10 +179,14 @@ def main() -> int:
     docs = read("docs/create-radars-integration.md")
     require("Data Link" in docs and "20 Ticks" in docs and "256" in docs, "Radar integration documentation is incomplete")
     require("Kreativsuche" in docs and "runClient" in docs, "Creative search or development runtime documentation is missing")
+    require(
+        "Create Big Cannons `5.11.7`" in docs and "Projectile Library `2.1.2`" in docs,
+        "CBC or RPL radar dependency documentation is missing",
+    )
 
     print(
-        "Validated optional Create: Radars items, creative visibility, development runtime, recipes, models, "
-        "mixins, NBT interop, Ponder scene, metadata and display limits."
+        "Validated optional Create: Radars items, creative visibility, CBC/RPL development runtime, recipes, "
+        "models, mixins, NBT interop, Ponder scene, metadata and display limits."
     )
     return 0
 
