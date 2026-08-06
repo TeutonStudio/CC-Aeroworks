@@ -33,6 +33,9 @@ abstract class ConsoleVisualMixin(
     private val displayElements: MutableList<CCAeroworksDisplayElement> = mutableListOf()
 
     @field:Unique
+    private val radarElements: MutableMap<String, CCAeroworksDisplayElement> = linkedMapOf()
+
+    @field:Unique
     private var displayKey: String = ""
 
     @Inject(
@@ -45,7 +48,8 @@ abstract class ConsoleVisualMixin(
         partialTick: Float,
         callback: CallbackInfo
     ) {
-        rebuildElements()
+        rebuildDisplayElements()
+        reconcileRadarElements()
         applyTransforms()
     }
 
@@ -54,38 +58,38 @@ abstract class ConsoleVisualMixin(
         at = [At("TAIL")]
     )
     private fun beginFrame(context: DynamicVisual.Context, callback: CallbackInfo) {
-        rebuildElements()
+        rebuildDisplayElements()
+        reconcileRadarElements()
         applyTransforms()
     }
 
     @Inject(method = ["updateLight(F)V"], at = [At("TAIL")])
     private fun updateDisplayLight(partialTick: Float, callback: CallbackInfo) {
         displayElements.forEach { relight(it.instance) }
+        radarElements.values.forEach { relight(it.instance) }
     }
 
     @Inject(method = ["collectCrumblingInstances(Ljava/util/function/Consumer;)V"], at = [At("TAIL")])
     private fun collectDisplayInstances(consumer: Consumer<Instance>, callback: CallbackInfo) {
         displayElements.forEach { consumer.accept(it.instance) }
+        radarElements.values.forEach { consumer.accept(it.instance) }
     }
 
     @Inject(method = ["_delete()V"], at = [At("TAIL")])
     private fun deleteDisplayInstances(callback: CallbackInfo) {
         displayElements.forEach { it.instance.delete() }
         displayElements.clear()
+        radarElements.values.forEach { it.instance.delete() }
+        radarElements.clear()
     }
 
     @Unique
-    private fun rebuildElements() {
+    private fun rebuildDisplayElements() {
         val displays = AeroworksDeskAccess.renderedDisplays(blockEntity)
-        val radarSurfaces = AeroworksDeskAccess.radarSurfaces(blockEntity)
         val nextKey = buildString {
             displays.forEach {
                 append(it.socket).append(':').append(it.text).append(':')
                     .append(it.pixels?.encode().orEmpty()).append(';')
-            }
-            append('|')
-            radarSurfaces.forEach {
-                append(RadarSurfaceRenderer.key(it)).append(';')
             }
         }
         if (nextKey == displayKey) return
@@ -97,7 +101,7 @@ abstract class ConsoleVisualMixin(
             if (display.pixels != null) {
                 for (y in 0 until display.pixels.height) for (x in 0 until display.pixels.width) {
                     if (!display.pixels.get(x, y)) continue
-                    addElement(
+                    displayElements += createElement(
                         socket = display.socket,
                         model = DeskDisplayModels.PIXEL,
                         x = DeskDisplayRenderer.pixelOffsetX(display.type, display.pixels.width, x),
@@ -108,7 +112,7 @@ abstract class ConsoleVisualMixin(
                 val text = display.text.padEnd(display.type.width, ' ')
                 repeat(display.type.width) { index ->
                     DeskDisplayModels.segments(text[index]).forEach { segment ->
-                        addElement(
+                        displayElements += createElement(
                             socket = display.socket,
                             model = segment.model,
                             x = DeskDisplayRenderer.digitOffset(display.type.width, index) + segment.x,
@@ -118,34 +122,57 @@ abstract class ConsoleVisualMixin(
                 }
             }
         }
+    }
 
+    @Unique
+    private fun reconcileRadarElements() {
         val gameTime = blockEntity.level?.gameTime ?: 0L
-        radarSurfaces.forEach { surface ->
-            RadarSurfaceRenderer.elements(surface, gameTime).forEach { element ->
-                addElement(
-                    socket = surface.socket,
-                    model = element.model,
-                    x = element.x,
-                    z = element.z,
-                    spinning = element.spinning
-                )
+        val desiredKeys = mutableSetOf<String>()
+
+        AeroworksDeskAccess.radarSurfaces(blockEntity).forEach { surface ->
+            RadarSurfaceRenderer.elements(surface, gameTime).forEach { desired ->
+                val key = "${surface.socket}:${surface.type}:${desired.key}"
+                desiredKeys += key
+                val existing = radarElements[key]
+                if (existing == null || existing.model !== desired.model) {
+                    existing?.instance?.delete()
+                    radarElements[key] = createElement(
+                        socket = surface.socket,
+                        model = desired.model,
+                        x = desired.x,
+                        z = desired.z,
+                        spinning = desired.spinning
+                    )
+                } else {
+                    existing.x = desired.x
+                    existing.z = desired.z
+                    existing.spinning = desired.spinning
+                }
             }
+        }
+
+        val iterator = radarElements.iterator()
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            if (entry.key in desiredKeys) continue
+            entry.value.instance.delete()
+            iterator.remove()
         }
     }
 
     @Unique
-    private fun addElement(
+    private fun createElement(
         socket: Int,
         model: PartialModel,
         x: Double,
         z: Double,
         spinning: Boolean = false
-    ) {
+    ): CCAeroworksDisplayElement {
         val instance = instancerProvider()
             .instancer(InstanceTypes.TRANSFORMED, Models.partial(model))
             .createInstance()
-        displayElements += CCAeroworksDisplayElement(socket, x, z, spinning, instance)
         relight(instance)
+        return CCAeroworksDisplayElement(socket, model, x, z, spinning, instance)
     }
 
     @Unique
@@ -153,35 +180,45 @@ abstract class ConsoleVisualMixin(
         val sockets = blockEntity.sockets()
         val rotation = ConsoleBlock.rotationFor(blockEntity.blockState)
         val gameTime = blockEntity.level?.gameTime ?: 0L
-        displayElements.forEach { element ->
-            val socket = sockets.getOrNull(element.socket) ?: return@forEach
-            val instance = element.instance
-            instance.setIdentityTransform()
-                .translate(visualPosition)
-                .translate(0.5f, 0.5f, 0.5f)
-                .rotate(rotation)
-                .translate(socket.offset().x - 0.5, socket.offset().y - 0.5, socket.offset().z - 0.5)
-                .rotate(socket.orientation())
-                .translate(-0.5f, 0.0f, -0.5f)
+        displayElements.forEach { applyTransform(it, sockets, rotation, gameTime) }
+        radarElements.values.forEach { applyTransform(it, sockets, rotation, gameTime) }
+    }
 
-            if (element.spinning) {
-                instance
-                    .translate(0.5f, 0.0f, 0.5f)
-                    .rotate(Axis.YP.rotationDegrees(RadarSurfaceRenderer.sweepAngle(gameTime)))
-                    .translate(-0.5f, 0.0f, -0.5f)
-            }
+    @Unique
+    private fun applyTransform(
+        element: CCAeroworksDisplayElement,
+        sockets: List<*>,
+        rotation: org.joml.Quaternionf,
+        gameTime: Long
+    ) {
+        val socket = blockEntity.sockets().getOrNull(element.socket) ?: return
+        val instance = element.instance
+        instance.setIdentityTransform()
+            .translate(visualPosition)
+            .translate(0.5f, 0.5f, 0.5f)
+            .rotate(rotation)
+            .translate(socket.offset().x - 0.5, socket.offset().y - 0.5, socket.offset().z - 0.5)
+            .rotate(socket.orientation())
+            .translate(-0.5f, 0.0f, -0.5f)
+
+        if (element.spinning) {
             instance
-                .translate(element.x, 0.0, element.z)
-                .setChanged()
+                .translate(0.5f, 0.0f, 0.5f)
+                .rotate(Axis.YP.rotationDegrees(RadarSurfaceRenderer.sweepAngle(gameTime)))
+                .translate(-0.5f, 0.0f, -0.5f)
         }
+        instance
+            .translate(element.x, 0.0, element.z)
+            .setChanged()
     }
 
     @Unique
     private data class CCAeroworksDisplayElement(
         val socket: Int,
-        val x: Double,
-        val z: Double,
-        val spinning: Boolean,
+        val model: PartialModel,
+        var x: Double,
+        var z: Double,
+        var spinning: Boolean,
         val instance: TransformedInstance
     )
 }
