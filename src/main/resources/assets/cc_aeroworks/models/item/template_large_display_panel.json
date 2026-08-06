@@ -60,12 +60,7 @@
       "to": [13.25, 11.75, 7.25],
       "shade": false,
       "faces": {
-        "down": {"texture": "#screen"},
-        "up": {"texture": "#screen"},
-        "north": {"texture": "#screen"},
-        "south": {"texture": "#screen"},
-        "west": {"texture": "#screen"},
-        "east": {"texture": "#screen"}
+        "north": {"texture": "#screen"}
       }
     },
     {
