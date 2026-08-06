@@ -151,16 +151,22 @@ def main() -> int:
     require("RadarSurfaceState(socket, type, snapshot, facing)" in desk_access, "Desk orientation is not passed to radar surfaces")
     require("radarSurfaces" in desk_access, "Desk radar surfaces are not exposed")
     require("radarSmallFiller" in models and "radarTrackSelected" in models, "Radar surface partial models are not registered")
-    require("contentHash()" in surface, "Flywheel radar instances still rebuild for timestamp-only changes")
+    require("contentHash()" in surface and "effectiveStatus" in surface, "Radar reconciliation keys omit content or freshness")
     require("surface.facing.axis" in surface, "Radar tracks are not projected into desk-local axes")
     require("surface.facing == Direction.NORTH" in surface and "surface.facing == Direction.WEST" in surface, "Desk-facing projection flips are incomplete")
     require('"${surface.socket}:${surface.type}:${surface.facing}' in surface, "Radar instance keys do not include orientation")
+    require('key = "track:${track.id}:${track.sprite}"' in surface, "Radar tracks do not expose stable element identities")
     require("element.translucent" in surface, "Classic radar layers are not split between translucent and cutout buffers")
     require("models.sweep" in surface and "spinning = true" in surface, "Radar sweep is not rendered directly")
     require("DeskDisplayModels.radarTrack(track.sprite)" in surface, "Track sprites are not rendered directly")
     require("RadarSurfaceRenderer.render" in fallback, "Classic renderer does not draw radar surfaces")
+
     require("RadarSurfaceRenderer.elements" in flywheel, "Flywheel does not use the shared radar surface elements")
     require("RadarSurfaceRenderer.sweepAngle" in flywheel, "Flywheel sweep is not animated")
+    require("radarElements: MutableMap" in flywheel, "Flywheel radar instances are not pooled by element identity")
+    require("RadarSurfaceRenderer.key(it, gameTime)" in flywheel, "Flywheel reconciles radar elements every frame without a state key")
+    require("existing.x = desired.x" in flywheel and "existing.z = desired.z" in flywheel, "Moving tracks recreate instances instead of updating transforms")
+    require("entry.value.instance.delete()" in flywheel and "iterator.remove()" in flywheel, "Removed radar elements leak Flywheel instances")
 
     require(
         "DeskDisplayRenderer.render(blockEntity" in computer_renderer
@@ -211,10 +217,11 @@ def main() -> int:
     require("display-only" in docs, "Radar docs do not disclose the computer desk fallback boundary")
     require("Pultausrichtung" in docs, "Radar docs do not explain desk-local track projection")
     require("Rückseitenplatzierung" in docs, "Radar docs do not explain the scoped controller placement helper")
+    require("Instanzpool" in docs, "Radar docs do not explain Flywheel instance reuse")
     require("RadarDisplayRaster" in docs and "Pixelmatrix" in docs, "Radar docs do not retire the pixel renderer")
     require("20 Ticks" in docs and "256" in docs and "runClient" in docs, "Radar documentation is incomplete")
 
-    print("Validated radar diagnostics, throttled snapshots, oriented atlas surfaces and computer-desk integration.")
+    print("Validated radar diagnostics, throttled snapshots, pooled oriented surfaces and computer-desk integration.")
     return 0
 
 
