@@ -108,9 +108,24 @@ Die Oberfläche verwendet dadurch die originalen Create:-Radars-Monitorressource
 
 Hintergrund, Kreis und Sweep laufen im transparenten Renderpfad; Tracks und Statusmarkierung verwenden Cutout. Die Trackpositionen werden kontinuierlich auf die kleine beziehungsweise große Modulfläche projiziert. Die Pixelauflösung der programmierbaren Zwei- und Dreisteller beeinflusst RadarDisplays nicht mehr.
 
-Der Flywheel-Schlüssel verwendet nur den inhaltlichen Snapshot-Hash. Das reine Fortschreiben von `updatedAt` löscht und erzeugt daher nicht mehr alle Radarinstanzen neu.
+Die **Pultausrichtung** ist Teil des Oberflächenzustands. Weltkoordinaten werden wie beim Create:-Radars-Monitor abhängig von `HORIZONTAL_FACING` in lokale Bildschirmachsen umgerechnet. Nord-, Ost-, Süd- und Westausrichtung zeigen dadurch denselben Welttrack an der jeweils korrekten Stelle der gedrehten Anzeige. Die Ausrichtung gehört außerdem zum Flywheel-Schlüssel, sodass eine echte Pultrotation die Instanzen aktualisiert.
+
+Der Flywheel-Schlüssel verwendet ansonsten nur den inhaltlichen Snapshot-Hash. Das reine Fortschreiben von `updatedAt` löscht und erzeugt daher nicht mehr alle Radarinstanzen neu.
 
 Das ComputerControlDesk verwendet weiterhin bevorzugt den nativen Aeroworks-`ConsoleRenderer`, damit Modulgehäuse und native Geometrie erhalten bleiben. Kann dessen Konstruktor nach einer Aeroworks-Änderung nicht mehr reflektiv erzeugt werden, zeichnet ein **display-only fallback** zumindest Text-, Pixel- und Radaroberflächen explizit. Die native animierte Modulgeometrie bleibt in diesem Fehlerfall vom Aeroworks-Delegate abhängig und muss im Entwicklungsclient geprüft werden.
+
+## Rückseitenplatzierung am ComputerControlDesk
+
+Die geerbte Aeroworks-Auswahlform kann bei einem Klick nahe der hinteren Kante zuerst die Oberseite treffen. Dadurch setzte Minecraft den Network Controller bislang häufig auf das ComputerControlDesk, obwohl der Spieler auf die Rückseite zielte.
+
+CC-Aeroworks ergänzt dafür eine eng begrenzte **Rückseitenplatzierung**:
+
+- nur beim `ComputerControlDesk`,
+- nur mit `create_radar:network_filterer` in der Haupthand,
+- nur bei einem Oberseitenklick,
+- nur wenn der Block direkt hinter dem Pult geladen und ersetzbar ist.
+
+In diesem Fall wird derselbe native `ItemStack.useOn(...)`-Pfad mit einem Treffer auf der Rückseite ausgeführt. Seitliche Klicks, normale Aeroworks-Pulte, andere Gegenstände und belegte Rückseiten bleiben unverändert. Es wird kein Block nachträglich verschoben und kein fremdes Create:-Radars-Item global gemixt. Für die Datenlogik bleiben weiterhin alle sechs direkt angrenzenden Positionen gültig.
 
 ## Ponder-Erklärungen
 
@@ -132,7 +147,10 @@ Lokal in `libs/` liegende offizielle JARs dieser Mods werden aus dem allgemeinen
 - Network Controller direkt an ein Pult stellen: RadarDisplay zeigt Hintergrund, Kreis und Sweep ohne schwarz-pinke Missing-Texture.
 - Einen Spieler, ein Projektil und eine normale Entität im Radarbereich erzeugen: die passenden Create:-Radars-Symbole erscheinen kontinuierlich auf der Modulfläche.
 - Ein Ziel am Network Controller auswählen: die Zielmarkierung erscheint über dem zugehörigen Track.
+- Dasselbe Pult nach Norden, Osten, Süden und Westen ausrichten: ein fester Welttrack bleibt in den korrekten lokalen Bildschirmachsen.
 - Controller an Vorder-, Rück-, Ober-, Unter- und freie Seitennachbarn setzen: jede direkte Nachbarschaft wird erkannt.
+- Network Controller auf die Oberseite eines ComputerControlDesk mit freier Rückseite setzen: der native Platzierungsaufruf landet hinter dem Pult.
+- Rückseite blockieren und denselben Klick wiederholen: keine Umleitung und kein Ersetzen des vorhandenen Blocks.
 - Controller nur diagonal oder mit einem Luftblock Abstand platzieren: Anzeige bleibt `X` beziehungsweise wird nach 20 Ticks veraltet.
 - Ein Controller grenzt an zwei Pulte desselben Netzes: Quelle wird nur einmal gezählt.
 - Zwei verschiedene Controller grenzen an das Pultnetz: Status `MULTIPLE_CONTROLLERS`, Anzeige bleibt `X`.
