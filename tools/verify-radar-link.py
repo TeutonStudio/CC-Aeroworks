@@ -73,36 +73,40 @@ def main() -> int:
     compat = read(COMPAT)
     required_tokens = (
         "fun refreshController(controller: Any)",
+        "SNAPSHOT_INTERVAL_TICKS",
+        "SNAPSHOT_HEARTBEAT_TICKS",
         "adjacentDeskNetworks(level, controllerEntity.blockPos)",
         "controllerPos.relative(direction)",
         "val updateOwner = controllers.minByOrNull",
         "if (updateOwner.blockPos != tickingController.blockPos) return",
         "findAdjacentControllers(level, network.desks)",
-        "controllers.size == 1",
+        "controllers.size > 1",
+        "RadarLinkStatus.MULTIPLE_CONTROLLERS",
         "for (direction in Direction.values())",
         "desk.blockPos.relative(direction)",
         "controllers.putIfAbsent(candidate.blockPos, candidate)",
         "controllers += tickingController",
         'private const val NETWORK_CONTROLLER_BLOCK_ID: String = "create_radar:network_filterer"',
         "BuiltInRegistries.BLOCK.getKey(candidate.blockState.block)",
-        'invokeDeclared(controller, "getRadar", level)',
-        'readField(controller, "radarCache")',
-        'invoke(radar, "getTracks")',
-        'invoke(radar, "getRange")',
-        'invoke(radar, "isRunning")',
-        'invoke(radar, "getWorldPos")',
+        'invokeDeclaredLookup(controller, "getRadar", level)',
+        'readFieldLookup(controller, "radarCache")',
+        'readFieldLookup(controller, "radarPosCache")',
+        'invokeLookup(radar, "getTracks")',
+        'invokeLookup(radar, "getRange")',
+        'invokeLookup(radar, "isRunning")',
+        'invokeLookup(radar, "getWorldPos")',
         "filter(AeroworksDeskAccess::hasRadarDisplay)",
-        "detectedDestinations.ifEmpty { network.desks }",
+        "shouldSynchronize(previous, snapshot, level.gameTime)",
         "destination.notifyUpdate()",
         "state == ConsoleNetworkState.ACTIVE || state == ConsoleNetworkState.NONE",
         "RadarDisplaySnapshot.MAX_SYNCED_TRACKS",
+        "RadarResolution.Failure",
+        "TrackReadResult.Failure",
     )
     for token in required_tokens:
         require(token in compat, f"Adjacent controller integration is missing contract token: {token}")
 
     for forbidden in (
-        "UseOnContext",
-        "InteractionResult",
         "DataComponents",
         "CustomData",
         "SelectedFiltererPos",
@@ -115,6 +119,10 @@ def main() -> int:
         "getSourcePosition",
         "fun capture(",
         "sendBlockUpdated(",
+        "detectedDestinations.ifEmpty",
+        "controllers.size == 1",
+        'invokeDeclared(controller, "getRadar", level)',
+        'readField(controller, "radarCache")',
     ):
         require(forbidden not in compat, f"Removed or unreliable radar behavior remains: {forbidden}")
 
@@ -170,21 +178,27 @@ def main() -> int:
     require(not OLD_TEST_PLAN.exists(), "Legacy monitor/Data Link test plan still exists")
     for token in (
         "direkt angrenzenden Network Controller",
-        "sechs direkten Nachbarpositionen",
+        "alle sechs direkt angrenzenden Positionen",
         "Kein angrenzender Controller",
         "Mehrere angrenzende Controller",
         "weder einen Data-Link-Item-Mixin",
         "20 Ticks",
         "256",
+        "SNAPSHOT_INTERVAL_TICKS",
     ):
-        require(token in docs, f"Adjacent controller documentation is incomplete: {token}")
+        if token == "SNAPSHOT_INTERVAL_TICKS":
+            require("5 Ticks" in docs, "Adjacent controller documentation omits the scan interval")
+        else:
+            require(token in docs, f"Adjacent controller documentation is incomplete: {token}")
     require("Data-Link-Klick auf das Pult" in docs, "Documentation does not forbid desk linking clicks")
     require("automatische Erkennung" in test_plan.lower(), "Regression plan has the wrong scope")
     require("keine Controllerposition gespeichert" in test_plan, "Regression plan does not forbid persisted links")
+    require("MULTIPLE_CONTROLLERS" in test_plan, "Regression plan does not cover ambiguous controllers")
+    require("API_INCOMPATIBLE" in test_plan, "Regression plan does not cover API incompatibility")
 
     print(
-        "Validated the public Network Controller ticker hook, automatic adjacency discovery, synced desk snapshots, "
-        "module identity fallback and complete removal of controller-to-desk Data Link interaction."
+        "Validated the public Network Controller ticker hook, throttled automatic adjacency discovery, "
+        "diagnostic snapshots and complete removal of controller-to-desk Data Link interaction."
     )
     return 0
 
