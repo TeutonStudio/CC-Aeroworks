@@ -2,6 +2,16 @@
 
 Die Integration ist optional und wird nur aktiv, wenn Create: Radars mit der Mod-ID `create_radar` geladen ist. CC-Aeroworks registriert die Item-IDs immer stabil. Ohne Create: Radars werden die Radar-Displays sowohl aus dem Aeroworks-Creative-Tab als auch aus der globalen Kreativsuche entfernt; ihre Rezepte laden nur unter der NeoForge-Bedingung `neoforge:mod_loaded`. Mit geladener Abhängigkeit erscheinen beide Displays im Abschnitt `Aeroworks` des Aeroworks-Tabs, behalten aber ihre IDs im Namespace `cc_aeroworks`.
 
+## Abhängigkeiten
+
+Die unterstützte Entwicklungskette für Minecraft 1.21.1 besteht aus:
+
+- Create: Radars `0.4.4-1.21.1`, Mod-ID `create_radar`.
+- Create Big Cannons `5.11.7`, Mod-ID `createbigcannons`, als optionale CC-Aeroworks-Abhängigkeit und Laufzeitvoraussetzung von Create: Radars.
+- Ritchie's Projectile Library `2.1.2`, Mod-ID `ritchiesprojectilelib`, als erforderliche Laufzeitbibliothek von Create Big Cannons.
+
+CC-Aeroworks verwendet keine CBC- oder RPL-Klassen direkt. Ohne Create: Radars bleibt die Radar-Integration deaktiviert; die zusätzlichen Mods sind für die übrigen CC-Aeroworks-Funktionen nicht erforderlich.
+
 ## Displays
 
 - `cc_aeroworks:small_radar_display` passt in kleine und große Aeroworks-Sockets.
@@ -25,15 +35,17 @@ Die Integration referenziert keine Create:-Radars-Klasse in normalen Methodensig
 
 ## Entwicklungsclient
 
-`./gradlew runClient` löst das exakt festgelegte Create:-Radars-Artefakt automatisch über CurseMaven als `localRuntime` auf. Die Zielversion und die zugehörige CurseForge-Datei-ID stehen in `gradle.properties` unter `create_radars_version` und `create_radars_curse_file_id`. Ein lokal in `libs/` liegendes offizielles Create:-Radars-JAR wird aus dem allgemeinen Datei-Classpath ausgeschlossen, damit nicht zwei Kopien mit derselben Mod-ID geladen werden.
+`./gradlew runClient` löst Create: Radars, Create Big Cannons und Ritchie's Projectile Library automatisch über CurseMaven als `localRuntime` auf. Die Zielversionen und zugehörigen CurseForge-Datei-IDs stehen in `gradle.properties`.
 
-Die veröffentlichte CC-Aeroworks-Mod bleibt davon unberührt: Create: Radars wird nicht in das eigene JAR eingebettet und bleibt in den NeoForge-Metadaten optional.
+Lokal in `libs/` liegende offizielle JARs dieser drei Mods werden aus dem allgemeinen Datei-Classpath ausgeschlossen, damit nicht zwei Kopien mit derselben Mod-ID geladen werden.
+
+Die veröffentlichte CC-Aeroworks-Mod bleibt davon unberührt: Die Fremdmods werden nicht in das eigene JAR eingebettet. Create: Radars und Create Big Cannons bleiben in den NeoForge-Metadaten optional; RPL ist die Laufzeitbibliothek von CBC und keine direkte CC-Aeroworks-Abhängigkeit.
 
 ## Manuelle Prüfung
 
 - Start ohne Create: Radars: keine Radar-Items im Aeroworks-Tab oder in der Kreativsuche, keine Radarrezepte, kein Mixinfehler.
-- Start mit Create: Radars 0.4.4 für Minecraft 1.21.1: beide Items im Abschnitt `Aeroworks`, IDs weiterhin unter `cc_aeroworks`, Ponder-Szene sichtbar.
-- `./gradlew runClient`: Create: Radars wird ohne manuell kopiertes Radar-JAR geladen.
+- Start mit Create: Radars 0.4.4, Create Big Cannons 5.11.7 und Ritchie's Projectile Library 2.1.2 für Minecraft 1.21.1: beide Items im Abschnitt `Aeroworks`, IDs weiterhin unter `cc_aeroworks`, Ponder-Szene sichtbar.
+- `./gradlew runClient`: alle drei optionalen Radar-Laufzeitmods werden ohne manuell kopierte JARs geladen.
 - Display ohne Data Link: `X`.
 - Data Link auf falsches Ziel: `X`.
 - Data Link auf unverbundenen Monitor: `X`.
