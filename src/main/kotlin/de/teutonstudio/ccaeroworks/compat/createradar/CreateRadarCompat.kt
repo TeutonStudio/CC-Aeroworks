@@ -60,10 +60,7 @@ object CreateRadarCompat {
         val route = resolveRadarRoute(sourceDesk)
         if (route.state != ConsoleNetworkState.ACTIVE) {
             if (!level.isClientSide) {
-                player.displayClientMessage(
-                    Component.translatable("message.cc_aeroworks.radar_route_unavailable"),
-                    true
-                )
+                player.displayClientMessage(Component.translatable(routeFailureKey(route.state)), true)
             }
             return InteractionResult.sidedSuccess(level.isClientSide)
         }
@@ -189,6 +186,13 @@ object CreateRadarCompat {
             emptyList()
         }
         return RadarRouteResolution(network.state, destinations)
+    }
+
+    private fun routeFailureKey(state: ConsoleNetworkState): String = when (state) {
+        ConsoleNetworkState.CONFLICT -> "message.cc_aeroworks.console_conflict"
+        ConsoleNetworkState.TOO_LARGE -> "message.cc_aeroworks.console_too_large"
+        ConsoleNetworkState.PARTIALLY_LOADED -> "message.cc_aeroworks.console_partially_loaded"
+        else -> "message.cc_aeroworks.radar_route_missing"
     }
 
     private fun clearMonitorSelection(selection: net.minecraft.nbt.CompoundTag) {
