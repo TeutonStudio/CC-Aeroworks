@@ -61,12 +61,12 @@ def main() -> int:
         "src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/CreativeModeTabAccessor.kt"
     )
     require(
-        '@Accessor("searchTabDisplayItems")' in creative_accessor
-        and "ccaeroworks_setSearchTabDisplayItems" in creative_accessor,
-        "Creative search entries are not writable",
+        '@Accessor("displayItemsSearchTab")' in creative_accessor
+        and "ccaeroworks_getSearchTabDisplayItems" in creative_accessor,
+        "Creative search entries are not accessible",
     )
     require(
-        "tab.searchTabDisplayItems.filterNot(::isRadarDisplay)" in creative,
+        "ccaeroworks_getSearchTabDisplayItems().removeIf(::isRadarDisplay)" in creative,
         "Radar items are not removed from creative search when Create: Radars is absent",
     )
     require(
@@ -111,9 +111,9 @@ def main() -> int:
 
     build = read("build.gradle")
     properties = read("gradle.properties")
-    require("https://api.modrinth.com/maven" in build, "Modrinth Maven repository is missing")
+    require("https://cursemaven.com" in build, "CurseMaven repository is missing")
     require(
-        'localRuntime("maven.modrinth:create-radars:${create_radars_version}")' in build,
+        'localRuntime("curse.maven:create-radars-1152836:${create_radars_curse_file_id}")' in build,
         "Create: Radars is not included in local Gradle runtimes",
     )
     require(
@@ -121,8 +121,9 @@ def main() -> int:
         "Local Create: Radars JARs are not excluded from the generic dependency file tree",
     )
     require(
-        "create_radars_version=0.4.4-1.21.1" in properties,
-        "Create: Radars development runtime version is not pinned",
+        "create_radars_version=0.4.4-1.21.1" in properties
+        and "create_radars_curse_file_id=8041200" in properties,
+        "Create: Radars development runtime artifact is not pinned",
     )
 
     config = read("src/main/kotlin/de/teutonstudio/ccaeroworks/config/CCServerConfig.kt")
