@@ -8,6 +8,7 @@ import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
+import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.phys.Vec3
@@ -18,6 +19,7 @@ object CreateRadarCompat {
 
     private const val NETWORK_CONTROLLER_CLASS: String =
         "com.happysg.radar.block.controller.networkcontroller.NetworkFiltererBlockEntity"
+    private const val NETWORK_CONTROLLER_BLOCK_ID: String = "create_radar:network_filterer"
 
     @JvmStatic
     fun refreshController(controller: Any) {
@@ -50,10 +52,13 @@ object CreateRadarCompat {
         tickingController: BlockEntity,
         network: RadarDeskNetwork
     ) {
-        val destinations = network.desks.filter(AeroworksDeskAccess::hasRadarDisplay)
-        if (destinations.isEmpty()) return
+        val controllers = findAdjacentControllers(level, network.desks).toMutableList()
+        if (controllers.none { it.blockPos == tickingController.blockPos }) {
+            // This controller produced the network through direct adjacency, so retain it
+            // even when a future Create: Radars release changes the concrete BE class name.
+            controllers += tickingController
+        }
 
-        val controllers = findAdjacentControllers(level, network.desks)
         val updateOwner = controllers.minByOrNull { it.blockPos.asLong() } ?: return
         if (updateOwner.blockPos != tickingController.blockPos) return
 
@@ -62,20 +67,16 @@ object CreateRadarCompat {
         } else {
             RadarDisplaySnapshot.disconnected(
                 Vec3.atCenterOf(tickingController.blockPos),
-                level.gameTime
+                level.getGameTime()
             )
         }
 
+        val detectedDestinations = network.desks.filter(AeroworksDeskAccess::hasRadarDisplay)
+        val destinations = detectedDestinations.ifEmpty { network.desks }
         destinations.forEach { destination ->
             val access = destination as? RadarDeskStateAccess ?: return@forEach
             access.ccaeroworks_setRadarSnapshot(snapshot)
-            destination.setChanged()
-            level.sendBlockUpdated(
-                destination.blockPos,
-                destination.blockState,
-                destination.blockState,
-                3
-            )
+            destination.notifyUpdate()
         }
     }
 
@@ -89,12 +90,18 @@ object CreateRadarCompat {
                 val position = desk.blockPos.relative(direction)
                 if (!level.isLoaded(position)) continue
                 val candidate = level.getBlockEntity(position) ?: continue
-                if (hasClass(candidate, NETWORK_CONTROLLER_CLASS)) {
+                if (isNetworkController(candidate)) {
                     controllers.putIfAbsent(candidate.blockPos, candidate)
                 }
             }
         }
         return controllers.values.toList()
+    }
+
+    private fun isNetworkController(candidate: BlockEntity): Boolean {
+        if (hasClass(candidate, NETWORK_CONTROLLER_CLASS)) return true
+        val blockId = BuiltInRegistries.BLOCK.getKey(candidate.blockState.block).toString()
+        return blockId == NETWORK_CONTROLLER_BLOCK_ID
     }
 
     private fun readControllerSnapshot(
@@ -107,7 +114,7 @@ object CreateRadarCompat {
             ?: (readField(controller, "radarPosCache") as? BlockPos)
                 ?.takeIf(level::isLoaded)
                 ?.let(level::getBlockEntity)
-            ?: return RadarDisplaySnapshot.disconnected(fallbackCenter, level.gameTime)
+            ?: return RadarDisplaySnapshot.disconnected(fallbackCenter, level.getGameTime())
 
         val center = when (val worldPosition = invoke(radar, "getWorldPos")) {
             is BlockPos -> Vec3.atCenterOf(worldPosition)
@@ -126,7 +133,7 @@ object CreateRadarCompat {
             range = range,
             selectedTrackId = selected,
             tracks = tracks,
-            updatedAt = level.gameTime
+            updatedAt = level.getGameTime()
         )
     }
 
