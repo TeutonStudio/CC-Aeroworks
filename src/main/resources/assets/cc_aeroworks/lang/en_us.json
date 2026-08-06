@@ -39,8 +39,8 @@
   "guide.cc_aeroworks.computers.title": "Use Computer Control Desks",
   "guide.cc_aeroworks.computers.text": "Normal and advanced Computer Control Desks retain the computer ID, label, terminal size and desk modules. The terminal can be opened from any loaded member of the active multiblock.",
   "guide.cc_aeroworks.computers.controls": "Terminal: Sneak + right-click with an empty main hand. Control: normal right-click. Settings: Wrench a horizontal desk side.",
-  "guide.cc_aeroworks.computers.warning": "A multiblock may contain at most one embedded computer. If another is placed accidentally in Survival, a normal desk remains and the additional computer is ejected with its data.",
-  "guide.cc_aeroworks.computers.note": "In Creative mode a placement which would create a conflict is cancelled to avoid duplicating a computer ID.",
+  "guide.cc_aeroworks.computers.warning": "A multiblock may contain at most one embedded computer. If another is placed accidentally, a normal desk remains and the additional computer is ejected with its data.",
+  "guide.cc_aeroworks.computers.note": "The same split behaviour is used in Creative mode instead of leaving a conflict or cancelling the placement.",
   "guide.cc_aeroworks.network.title": "Direct API and peripheral API",
   "guide.cc_aeroworks.network.text": "The embedded computer exposes aeroworks globally. An external computer uses cc_aeroworks_control_desk. Both access the connected multiblock but use different method names and events.",
   "guide.cc_aeroworks.network.note": "Desk indices start at 1 and may change after rebuilding. Store the stable desk ID returned by getDesks() for persistent targets.",
@@ -73,7 +73,7 @@
   "guide.cc_aeroworks.controls.note": "Releasing the key, opening a menu, losing focus or losing the target ends combined control immediately.",
   "guide.cc_aeroworks.errors.title": "Network states and diagnosis",
   "guide.cc_aeroworks.errors.text": "active means exactly one embedded owner, none means no embedded computer, and conflict means multiple embedded computers. Partially loaded networks and networks over 64 desks are rejected.",
-  "guide.cc_aeroworks.errors.warning": "Conflicts from old worlds, commands or structure tools remain as a safety state. Normal Survival placement prevents new conflicts automatically.",
+  "guide.cc_aeroworks.errors.warning": "Conflicts from old worlds, commands or structure tools remain as a safety state. Normal player placement prevents new conflicts automatically.",
   "guide.cc_aeroworks.errors.note": "For unexpected behaviour print getNetwork(), getDesks() and desk IDs first. Then verify the socket, module ID and event name.",
   "ponder.cc_aeroworks.computer_control_desk.header": "Using Computer Control Desks",
   "ponder.cc_aeroworks.computer_control_desk.text_1": "Same-facing desks connect left and right into one multiblock.",
@@ -83,5 +83,12 @@
   "ponder.cc_aeroworks.computer_control_desk.text_5": "Right-click a horizontal desk side with a Wrench to open control settings.",
   "ponder.cc_aeroworks.computer_control_desk.text_6": "Alternatively, one external computer connected to any desk is enough; no embedded computer is required.",
   "ponder.cc_aeroworks.computer_control_desk.text_7": "A multiblock may contain only one embedded computer.",
-  "ponder.cc_aeroworks.computer_control_desk.text_8": "If placed accidentally, the new desk becomes normal and its computer is ejected."
+  "ponder.cc_aeroworks.computer_control_desk.text_8": "If placed accidentally, the new desk becomes normal and its computer is ejected.",
+  "ponder.cc_aeroworks.display_modules.header": "Obtaining and arranging desk displays",
+  "ponder.cc_aeroworks.display_modules.text_1": "A Normal Monitor becomes a two-digit display under a Mechanical Press.",
+  "ponder.cc_aeroworks.display_modules.text_2": "An Advanced Monitor becomes the three-digit display in the same press.",
+  "ponder.cc_aeroworks.display_modules.text_3": "Two small displays can occupy the left and right sockets together.",
+  "ponder.cc_aeroworks.display_modules.text_4": "A small display also fits the big socket, so it can be arranged in any desk socket.",
+  "ponder.cc_aeroworks.display_modules.text_5": "The large display fits only the big socket and provides one three-character surface.",
+  "ponder.cc_aeroworks.display_modules.text_6": "Two small displays provide 70 pixels in total; one large display provides 55 pixels."
 }
