@@ -68,6 +68,21 @@ def main() -> int:
     require("ConsoleBlockEntityRadarMixin" in common_mixins, "Radar snapshot mixin is missing")
     require("compat.CreateRadarDataLinkMixin" in common_mixins, "Optional Data Link mixin is missing")
 
+    snapshot = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/RadarDisplaySnapshot.kt")
+    radar_mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/ConsoleBlockEntityRadarMixin.kt")
+    require(
+        'putString("id", this@RadarDisplayTrack.id)' in snapshot,
+        "Radar track serialization must not resolve CompoundTag.id instead of the track ID",
+    )
+    require(
+        snapshot.count("Tag.TAG_COMPOUND.toInt()") == 4,
+        "Radar snapshot NBT calls must pass Int tag IDs on NeoForge 1.21.1",
+    )
+    require(
+        "Tag.TAG_COMPOUND.toInt()" in radar_mixin,
+        "Radar mixin NBT calls must pass Int tag IDs on NeoForge 1.21.1",
+    )
+
     metadata = read("src/main/templates/META-INF/neoforge.mods.toml")
     require('modId="create_radar"' in metadata and 'type="optional"' in metadata, "Create: Radars metadata is not optional")
 
@@ -78,7 +93,7 @@ def main() -> int:
     docs = read("docs/create-radars-integration.md")
     require("Data Link" in docs and "20 Ticks" in docs and "256" in docs, "Radar integration documentation is incomplete")
 
-    print("Validated optional Create: Radars items, recipes, models, mixins, Ponder scene, metadata and display limits.")
+    print("Validated optional Create: Radars items, recipes, models, mixins, NBT interop, Ponder scene, metadata and display limits.")
     return 0
 
 
