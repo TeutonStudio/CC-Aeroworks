@@ -60,11 +60,13 @@ Große Raster werden beim Rendern räumlich auf die Modulfläche skaliert. Speic
 
 ## Optionale Create:-Radars-Anzeigen
 
-Mit Create: Radars 0.4.4 für Minecraft 1.21.1 werden eine kleine und eine große Radaranzeige freigeschaltet. Die kleine Variante passt in kleine und große Slots, die große nur in den großen Slot. Beide verwenden dieselben konfigurierten Rastergrößen wie die entsprechenden programmierbaren Displays.
+Mit Create: Radars 0.4.4 für Minecraft 1.21.1 werden eine kleine und eine große Radaranzeige freigeschaltet. Die unterstützte Laufzeit verwendet zusätzlich Create Big Cannons 5.11.7 und dessen Pflichtbibliothek Ritchie's Projectile Library 2.1.2. Create: Radars und Create Big Cannons bleiben optionale CC-Aeroworks-Abhängigkeiten.
+
+Die kleine Variante passt in kleine und große Slots, die große nur in den großen Slot. Beide verwenden dieselben konfigurierten Rastergrößen wie die entsprechenden programmierbaren Displays.
 
 Die Anzeige funktioniert ausschließlich über einen echten Create: Radars Data Link: Seine Quellseite muss auf das Pult mit dem Radar-Display zeigen, sein Ziel auf einen verbundenen Radar-Monitor. Der Monitor liefert Radarzentrum, Reichweite, Kontakte und ausgewähltes Ziel. Ohne frische Verbindung zeigt das Display ein `X`. Beide Radaritems besitzen eine eigene Ponder-Erklärung, die Aufbau und Data-Link-Pflicht animiert zeigt.
 
-Details und Testfälle stehen in [`docs/create-radars-integration.md`](docs/create-radars-integration.md).
+`./gradlew runClient` lädt Create: Radars, Create Big Cannons und Ritchie's Projectile Library automatisch als lokale Runtime-Abhängigkeiten. Details und Testfälle stehen in [`docs/create-radars-integration.md`](docs/create-radars-integration.md).
 
 ## Kombinierte Eingabe
 
@@ -84,6 +86,8 @@ Das Projekt ist eine frühe Integrationsversion. Build-, Repository- und Testinf
 - Aeronautics/Aeroworks 1.3.0
 - CC:Tweaked API-Baseline 1.119.0; Metadatenbereich bis vor 1.121
 - Create: Radars 0.4.4-1.21.1 optional
+- Create Big Cannons 5.11.7 optional
+- Ritchie's Projectile Library 2.1.2 als CBC-Laufzeitbibliothek
 
 ## Frischer Clone
 

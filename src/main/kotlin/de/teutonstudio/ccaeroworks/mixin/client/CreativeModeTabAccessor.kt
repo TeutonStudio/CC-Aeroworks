@@ -9,4 +9,7 @@ import org.spongepowered.asm.mixin.gen.Accessor
 interface CreativeModeTabAccessor {
     @Accessor("displayItems")
     fun ccaeroworks_setDisplayItems(items: Collection<ItemStack>)
+
+    @Accessor("displayItemsSearchTab")
+    fun ccaeroworks_getSearchTabDisplayItems(): MutableSet<ItemStack>
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate optional Create: Radars resources without requiring third-party JARs."""
+"""Validate optional radar resources and their local development runtime."""
 
 from __future__ import annotations
 
@@ -56,6 +56,29 @@ def main() -> int:
     require("SMALL_RADAR_DISPLAY" in items and "LARGE_RADAR_DISPLAY" in items, "Radar items are not registered")
     require("SMALL_RADAR" in modules and "LARGE_RADAR" in modules, "Radar module types are not registered")
 
+    creative = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/creative/AeroworksCreativeSections.kt")
+    creative_accessor = read(
+        "src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/CreativeModeTabAccessor.kt"
+    )
+    require(
+        '@Accessor("displayItemsSearchTab")' in creative_accessor
+        and "ccaeroworks_getSearchTabDisplayItems" in creative_accessor,
+        "Creative search entries are not accessible",
+    )
+    require(
+        "ccaeroworks_getSearchTabDisplayItems().removeIf(::isRadarDisplay)" in creative,
+        "Radar items are not removed from creative search when Create: Radars is absent",
+    )
+    require(
+        "namespace == CCAeroworks.MOD_ID && !isRadarDisplay(it)" in creative,
+        "Radar displays are not classified into the Aeroworks section",
+    )
+    require(
+        "appendMissing(aeroworksItems, CCItems.SMALL_RADAR_DISPLAY" in creative
+        and "appendMissing(aeroworksItems, CCItems.LARGE_RADAR_DISPLAY" in creative,
+        "Loaded radar displays are not added to the Aeroworks section",
+    )
+
     plugin = read("src/main/java/de/teutonstudio/ccaeroworks/client/ponder/CCAeroworksPonderPlugin.java")
     scene = read("src/main/java/de/teutonstudio/ccaeroworks/client/ponder/RadarDisplayScenes.java")
     require("RadarDisplayScenes::dataLink" in plugin, "Radar Ponder scene is not registered")
@@ -84,7 +107,85 @@ def main() -> int:
     )
 
     metadata = read("src/main/templates/META-INF/neoforge.mods.toml")
-    require('modId="create_radar"' in metadata and 'type="optional"' in metadata, "Create: Radars metadata is not optional")
+    require(
+        'modId="create_radar"' in metadata and 'reason="Enables the small and large Data Link radar displays."' in metadata,
+        "Create: Radars metadata is not optional",
+    )
+    require(
+        'modId="createbigcannons"' in metadata
+        and 'versionRange="[5.11.7,5.12)"' in metadata
+        and 'reason="Supplies the Create Big Cannons runtime required by Create: Radars."' in metadata,
+        "Create Big Cannons metadata is not optional or has the wrong version range",
+    )
+
+    manifest = load_json(ROOT / "libs/dependencies.json")
+    dependencies = {
+        dependency.get("modId"): dependency
+        for dependency in manifest.get("dependencies", [])
+        if isinstance(dependency, dict)
+    }
+    require(
+        dependencies.get("createbigcannons", {}).get("version") == "5.11.7"
+        and dependencies.get("createbigcannons", {}).get("required") is False,
+        "Create Big Cannons is not registered as an optional local dependency",
+    )
+    require(
+        dependencies.get("ritchiesprojectilelib", {}).get("version") == "2.1.2"
+        and dependencies.get("ritchiesprojectilelib", {}).get("required") is False,
+        "Ritchie's Projectile Library is not registered as the optional CBC runtime library",
+    )
+    require(
+        dependencies.get("jei", {}).get("version") == "19.27.0.340"
+        and dependencies.get("jei", {}).get("required") is False,
+        "JEI is not registered as an optional development dependency",
+    )
+
+    build = read("build.gradle")
+    properties = read("gradle.properties")
+    require("https://cursemaven.com" in build, "CurseMaven repository is missing")
+    require("https://maven.blamejared.com" in build, "Official JEI Maven repository is missing")
+    require(
+        'localRuntime("curse.maven:create-radars-1152836:${create_radars_curse_file_id}")' in build,
+        "Create: Radars is not included in local Gradle runtimes",
+    )
+    require(
+        'localRuntime("curse.maven:create-big-cannons-646668:${create_big_cannons_curse_file_id}")' in build,
+        "Create Big Cannons is not included in local Gradle runtimes",
+    )
+    require(
+        'localRuntime("curse.maven:ritchies-projectile-library-1279407:${ritchies_projectile_lib_curse_file_id}")' in build,
+        "Ritchie's Projectile Library is not included in local Gradle runtimes",
+    )
+    require(
+        'localRuntime("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")' in build,
+        "JEI is not included in local Gradle runtimes",
+    )
+    require(
+        "create_radar-*.jar" in build
+        and "createbigcannons-*.jar" in build
+        and "ritchiesprojectilelib-*.jar" in build
+        and "jei-*.jar" in build,
+        "Automatically resolved development JARs are not excluded from the generic dependency file tree",
+    )
+    require(
+        "create_radars_version=0.4.4-1.21.1" in properties
+        and "create_radars_curse_file_id=8041200" in properties,
+        "Create: Radars development runtime artifact is not pinned",
+    )
+    require(
+        "create_big_cannons_version=5.11.7" in properties
+        and "create_big_cannons_curse_file_id=8303106" in properties,
+        "Create Big Cannons development runtime artifact is not pinned",
+    )
+    require(
+        "ritchies_projectile_lib_version=2.1.2" in properties
+        and "ritchies_projectile_lib_curse_file_id=7587771" in properties,
+        "Ritchie's Projectile Library development runtime artifact is not pinned",
+    )
+    require(
+        "jei_version=19.27.0.340" in properties,
+        "JEI development runtime artifact is not pinned",
+    )
 
     config = read("src/main/kotlin/de/teutonstudio/ccaeroworks/config/CCServerConfig.kt")
     require(config.count("Int.MAX_VALUE") == 4, "All four display dimensions must use the unbounded integer maximum")
@@ -92,8 +193,24 @@ def main() -> int:
 
     docs = read("docs/create-radars-integration.md")
     require("Data Link" in docs and "20 Ticks" in docs and "256" in docs, "Radar integration documentation is incomplete")
+    require("Kreativsuche" in docs and "runClient" in docs, "Creative search or development runtime documentation is missing")
+    require(
+        "Create Big Cannons `5.11.7`" in docs and "Projectile Library `2.1.2`" in docs,
+        "CBC or RPL radar dependency documentation is missing",
+    )
 
-    print("Validated optional Create: Radars items, recipes, models, mixins, NBT interop, Ponder scene, metadata and display limits.")
+    dependency_docs = read("libs/README.md")
+    require(
+        "Just Enough Items" in dependency_docs
+        and "19.27.0.340" in dependency_docs
+        and "Crafting- und Create-Verarbeitungsrezepte" in dependency_docs,
+        "JEI recipe inspection documentation is missing",
+    )
+
+    print(
+        "Validated optional Create: Radars items, creative visibility, CBC/RPL/JEI development runtime, recipes, "
+        "models, mixins, NBT interop, Ponder scene, metadata and display limits."
+    )
     return 0
 
 

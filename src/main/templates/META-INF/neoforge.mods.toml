@@ -2,7 +2,7 @@
 # There are several mandatory fields (#mandatory), and many more that are optional (#optional).
 # The overall format is standard TOML format, v0.5.0.
 # Note that there are a couple of TOML lists in this file.
-# Find more information on toml format here:  https://github.com/toml-lang/toml
+# Find more information on toml format here:  https://github.com/neoforged/FancyModLoader/wiki/Mod-Files
 
 modLoader="javafml"
 loaderVersion="${loader_version_range}"
@@ -77,6 +77,14 @@ Adds a CC:Tweaked peripheral, desk displays, combined lever control, and optiona
     modId="drivebywire"
     type="optional"
     versionRange="[0.2.9,0.3)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="createbigcannons"
+    type="optional"
+    reason="Supplies the Create Big Cannons runtime required by Create: Radars."
+    versionRange="[5.11.7,5.12)"
     ordering="AFTER"
     side="BOTH"
 

@@ -28,26 +28,32 @@ object AeroworksCreativeSections {
     fun arrange(tab: CreativeModeTab) {
         if (tab !== Aeroworks.MAIN_TAB.get()) return
         val createRadarLoaded = ModList.get().isLoaded(CreateRadarCompat.MOD_ID)
+        val accessor = tab as CreativeModeTabAccessor
+        if (!createRadarLoaded) {
+            accessor.ccaeroworks_getSearchTabDisplayItems().removeIf(::isRadarDisplay)
+        }
+
         val items = tab.displayItems
             .filterNot(ItemStack::isEmpty)
             .filterNot { !createRadarLoaded && isRadarDisplay(it) }
-        val (registeredBridgeItems, aeroworksItems) = items.partition {
-            BuiltInRegistries.ITEM.getKey(it.item).namespace == CCAeroworks.MOD_ID
+        val (registeredBridgeItems, registeredAeroworksItems) = items.partition {
+            BuiltInRegistries.ITEM.getKey(it.item).namespace == CCAeroworks.MOD_ID && !isRadarDisplay(it)
         }
+        val aeroworksItems = registeredAeroworksItems.toMutableList()
         val bridgeItems = registeredBridgeItems.toMutableList()
         appendMissing(bridgeItems, CCItems.COMPUTER_CONTROL_DESK.get().defaultInstance)
         appendMissing(bridgeItems, CCItems.ADVANCED_COMPUTER_CONTROL_DESK.get().defaultInstance)
         appendMissing(bridgeItems, CCItems.GUIDE_BOOK.get().defaultInstance)
         if (createRadarLoaded) {
-            appendMissing(bridgeItems, CCItems.SMALL_RADAR_DISPLAY.get().defaultInstance)
-            appendMissing(bridgeItems, CCItems.LARGE_RADAR_DISPLAY.get().defaultInstance)
+            appendMissing(aeroworksItems, CCItems.SMALL_RADAR_DISPLAY.get().defaultInstance)
+            appendMissing(aeroworksItems, CCItems.LARGE_RADAR_DISPLAY.get().defaultInstance)
         }
 
         val arranged = mutableListOf<ItemStack>()
         sectionRows.clear()
         appendSection(arranged, "aeroworks", aeroworksItems)
         appendSection(arranged, "cc_aeroworks", bridgeItems)
-        (tab as CreativeModeTabAccessor).ccaeroworks_setDisplayItems(arranged)
+        accessor.ccaeroworks_setDisplayItems(arranged)
     }
 
     @SubscribeEvent
