@@ -4,16 +4,41 @@ import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.ListTag
 import net.minecraft.nbt.Tag
 import net.minecraft.world.phys.Vec3
+import java.util.Locale
+
+enum class RadarDisplayTrackSprite {
+    CONTRAPTION,
+    PLAYER,
+    PROJECTILE,
+    ENTITY;
+
+    companion object {
+        fun fromCategory(category: Any?): RadarDisplayTrackSprite = when (
+            category?.toString()?.uppercase(Locale.ROOT)
+        ) {
+            "SABLE", "CONTRAPTION" -> CONTRAPTION
+            "PLAYER" -> PLAYER
+            "PROJECTILE" -> PROJECTILE
+            else -> ENTITY
+        }
+
+        fun fromTag(value: String): RadarDisplayTrackSprite = runCatching {
+            valueOf(value.uppercase(Locale.ROOT))
+        }.getOrDefault(ENTITY)
+    }
+}
 
 data class RadarDisplayTrack(
     val id: String,
     val position: Vec3,
-    val velocity: Vec3
+    val velocity: Vec3,
+    val sprite: RadarDisplayTrackSprite = RadarDisplayTrackSprite.ENTITY
 ) {
     fun toTag(): CompoundTag = CompoundTag().apply {
         putString("id", this@RadarDisplayTrack.id)
         put("position", position.toTag())
         put("velocity", velocity.toTag())
+        putString("sprite", sprite.name.lowercase(Locale.ROOT))
     }
 
     companion object {
@@ -22,13 +47,14 @@ data class RadarDisplayTrack(
             val id = tag.getString("id")
             if (id.isEmpty()) return null
             return RadarDisplayTrack(
-                id,
-                tag.getCompound("position").toVec3(),
-                if (tag.contains("velocity", Tag.TAG_COMPOUND.toInt())) {
+                id = id,
+                position = tag.getCompound("position").toVec3(),
+                velocity = if (tag.contains("velocity", Tag.TAG_COMPOUND.toInt())) {
                     tag.getCompound("velocity").toVec3()
                 } else {
                     Vec3.ZERO
-                }
+                },
+                sprite = RadarDisplayTrackSprite.fromTag(tag.getString("sprite"))
             )
         }
     }
@@ -55,9 +81,16 @@ data class RadarDisplaySnapshot(
 
     companion object {
         const val MAX_SYNCED_TRACKS: Int = 256
+        const val STALE_AFTER_TICKS: Long = 20
 
         fun disconnected(center: Vec3, updatedAt: Long): RadarDisplaySnapshot =
             RadarDisplaySnapshot(false, center, 0.0, null, emptyList(), updatedAt)
+
+        fun isFresh(snapshot: RadarDisplaySnapshot?, gameTime: Long): Boolean {
+            if (snapshot == null || !snapshot.connected || snapshot.range <= 0.0) return false
+            val age = gameTime - snapshot.updatedAt
+            return age in 0..STALE_AFTER_TICKS
+        }
 
         fun fromTag(tag: CompoundTag): RadarDisplaySnapshot {
             val tracksTag = tag.getList("tracks", Tag.TAG_COMPOUND.toInt())
