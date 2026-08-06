@@ -184,14 +184,11 @@ def main() -> int:
         "weder einen Data-Link-Item-Mixin",
         "20 Ticks",
         "256",
-        "SNAPSHOT_INTERVAL_TICKS",
     ):
-        if token == "SNAPSHOT_INTERVAL_TICKS":
-            require("5 Ticks" in docs, "Adjacent controller documentation omits the scan interval")
-        else:
-            require(token in docs, f"Adjacent controller documentation is incomplete: {token}")
+        require(token in docs, f"Adjacent controller documentation is incomplete: {token}")
+    require("5 Ticks" in docs, "Adjacent controller documentation omits the scan interval")
     require("Data-Link-Klick auf das Pult" in docs, "Documentation does not forbid desk linking clicks")
-    require("automatische Erkennung" in test_plan.lower(), "Regression plan has the wrong scope")
+    require("automatische erkennung" in test_plan.lower(), "Regression plan has the wrong scope")
     require("keine Controllerposition gespeichert" in test_plan, "Regression plan does not forbid persisted links")
     require("MULTIPLE_CONTROLLERS" in test_plan, "Regression plan does not cover ambiguous controllers")
     require("API_INCOMPATIBLE" in test_plan, "Regression plan does not cover API incompatibility")
