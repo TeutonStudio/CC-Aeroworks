@@ -70,7 +70,7 @@ jobs:
 
   full-build:
     name: Protected full build
-    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.full_build) || github.ref == 'refs/heads/agent/peripheral-network-overhaul' || github.head_ref == 'agent/peripheral-network-overhaul' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_build }}
     needs: repository
     runs-on: ubuntu-latest
     timeout-minutes: 45
