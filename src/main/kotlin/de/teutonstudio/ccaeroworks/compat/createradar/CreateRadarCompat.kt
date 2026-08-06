@@ -7,11 +7,13 @@ import de.teutonstudio.ccaeroworks.display.RadarDisplayTrack
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import net.minecraft.core.BlockPos
+import net.minecraft.core.component.DataComponents
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.network.chat.Component
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.item.BlockItem
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.component.CustomData
 import net.minecraft.world.item.context.BlockPlaceContext
 import net.minecraft.world.item.context.UseOnContext
 import net.minecraft.world.level.block.entity.BlockEntity
@@ -40,7 +42,7 @@ object CreateRadarCompat {
         val player = context.player ?: return null
         val level = context.level
         val stack = context.itemInHand
-        val existingSelection = stack.tag
+        val existingSelection = itemData(stack)
 
         // Create: Radars owns every interaction after one of its native first-click
         // selections. In particular, Network Controller -> Monitor must reach the
@@ -64,9 +66,10 @@ object CreateRadarCompat {
         val clickedEntity = level.getBlockEntity(context.clickedPos)
         if (clickedEntity != null && isMonitor(clickedEntity)) {
             val controller = monitorController(clickedEntity) as? BlockEntity ?: clickedEntity
-            val selection = stack.getOrCreateTag()
-            selection.putLong(SELECTED_MONITOR_KEY, controller.blockPos.asLong())
-            selection.putString(SELECTED_MONITOR_DIMENSION_KEY, level.dimension().location().toString())
+            CustomData.update(DataComponents.CUSTOM_DATA, stack) { selection ->
+                selection.putLong(SELECTED_MONITOR_KEY, controller.blockPos.asLong())
+                selection.putString(SELECTED_MONITOR_DIMENSION_KEY, level.dimension().location().toString())
+            }
             if (!level.isClientSide) {
                 player.displayClientMessage(
                     Component.translatable("message.cc_aeroworks.radar_monitor_selected"),
@@ -103,7 +106,7 @@ object CreateRadarCompat {
             return InteractionResult.sidedSuccess(level.isClientSide)
         }
 
-        val selection = stack.tag
+        val selection = itemData(stack)
         if (!hasMonitorSelection(selection)) {
             if (!level.isClientSide) {
                 player.displayClientMessage(
@@ -233,6 +236,9 @@ object CreateRadarCompat {
         else -> "message.cc_aeroworks.radar_route_missing"
     }
 
+    private fun itemData(stack: ItemStack): CompoundTag? =
+        stack.get(DataComponents.CUSTOM_DATA)?.copyTag()
+
     private fun hasNativeSelection(selection: CompoundTag?): Boolean =
         selection != null && NATIVE_SELECTION_KEYS.any { key -> selection.contains(key) }
 
@@ -242,9 +248,12 @@ object CreateRadarCompat {
             selection.contains(SELECTED_MONITOR_DIMENSION_KEY)
 
     private fun clearMonitorSelection(stack: ItemStack) {
-        val selection = stack.tag ?: return
-        selection.remove(SELECTED_MONITOR_KEY)
-        selection.remove(SELECTED_MONITOR_DIMENSION_KEY)
+        val selection = itemData(stack) ?: return
+        if (!hasMonitorSelection(selection)) return
+        CustomData.update(DataComponents.CUSTOM_DATA, stack) { data ->
+            data.remove(SELECTED_MONITOR_KEY)
+            data.remove(SELECTED_MONITOR_DIMENSION_KEY)
+        }
     }
 
     private fun monitorController(target: Any): Any? {

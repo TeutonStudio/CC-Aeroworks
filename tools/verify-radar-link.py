@@ -59,11 +59,12 @@ def main() -> int:
         '"SelectedFiltererPos"',
         '"SelectedMountPos"',
         "val stack = context.itemInHand",
-        "val existingSelection = stack.tag",
+        "val existingSelection = itemData(stack)",
         "if (hasNativeSelection(existingSelection))",
         "clearMonitorSelection(stack)",
         "clickedEntity != null && isMonitor(clickedEntity)",
-        "val selection = stack.getOrCreateTag()",
+        "CustomData.update(DataComponents.CUSTOM_DATA, stack)",
+        "stack.get(DataComponents.CUSTOM_DATA)?.copyTag()",
         "val sourceDesk = clickedEntity as? ConsoleBlockEntity ?: return null",
         "val route = resolveRadarRoute(sourceDesk)",
         "if (!isRoutable(route.state))",
@@ -94,6 +95,10 @@ def main() -> int:
     require(
         "player.persistentData" not in compat,
         "CC-Aeroworks monitor selection must be stored on the Data Link item, not the player",
+    )
+    require(
+        "stack.tag" not in compat and "getOrCreateTag()" not in compat,
+        "Radar Data Link state still uses the removed pre-1.21 ItemStack tag API",
     )
     require(
         'if (!AeroworksDeskAccess.hasRadarDisplay(desk)) return null' not in compat,
@@ -157,7 +162,7 @@ def main() -> int:
     )
 
     print(
-        "Validated native Create: Radars selection passthrough, item-local monitor selection, rollback-safe placement, "
+        "Validated native Create: Radars selection passthrough, 1.21 custom-data item state, rollback-safe placement, "
         "computer-optional desk routing, stable radar module classification and localized documentation."
     )
     return 0
