@@ -17,9 +17,13 @@ Andere Pulte desselben Verbunds werden beim Seitenscan ausgeschlossen. Das Netzw
 
 ```lua
 local network = peripherals.getNetwork()
-print(network.state, network.revision)
+print(network.id, network.state, network.revision)
 print(network.deskCount, network.peripheralCount)
 ```
+
+Die Netzwerk-ID wird aus Dimension und sortierten Desk-IDs abgeleitet. Sie bleibt deshalb bei einer reinen Positionsänderung stabil, ändert sich aber, wenn Pulte zum Verbund hinzukommen oder ihn verlassen.
+
+Berührt dasselbe physische Peripheral mehrere Pultflächen, wird es nur einmal gezählt, sofern Blockposition, gemeldete Typmenge und CC:Tweaked-Identität übereinstimmen. Unterschiedliche seitenspezifische Capabilities bleiben getrennte Einträge. Menschen haben tatsächlich Geräte gebaut, die je nach angefasster Seite etwas anderes behaupten, also muss auch das berücksichtigt werden.
 
 ## Pulte finden
 
