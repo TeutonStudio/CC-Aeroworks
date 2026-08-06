@@ -43,9 +43,9 @@ Damit ist der Aufbau vollständig. CC-Aeroworks erkennt den direkt angrenzenden 
 
 ## Automatische Controller-Erkennung
 
-Der ohnehin alle fünf Ticks laufende Network Controller prüft seine sechs direkten Nachbarpositionen auf Aeroworks-Pulte. Für jedes gefundene Pult wird der vollständige Pultverbund aufgelöst und anschließend geprüft, wie viele Network Controller direkt an irgendein Pult dieses Netzes grenzen.
+Der öffentliche Network-Controller-Tick ruft den Adapter auf. Der teure Netz- und Trackscan wird darin auf einmal je **5 Ticks** gedrosselt. Für jedes direkt angrenzende Pult wird der vollständige Pultverbund aufgelöst und anschließend geprüft, wie viele Network Controller direkt an irgendein Pult dieses Netzes grenzen.
 
-- **Kein angrenzender Controller:** Alle RadarDisplays zeigen den getrennten Zustand `X`.
+- **Kein angrenzender Controller:** Der letzte Snapshot wird nach spätestens 20 Ticks als veraltet behandelt.
 - **Genau ein angrenzender Controller:** Dessen verbundener Radar wird dargestellt.
 - **Mehrere angrenzende Controller:** Die Quelle ist mehrdeutig; alle RadarDisplays zeigen `X`.
 
@@ -59,6 +59,23 @@ Für die Radarweiterleitung sind zulässig:
 
 Mehrere eingebettete Computer, teilweise geladene Netze und Netze mit mehr als 64 Pulten bleiben gesperrt. Die Position eines vorhandenen Computer-Steuerungspults beeinflusst die Radarquelle nicht.
 
+## Linkdiagnose
+
+Ein getrenntes Radar wird nicht mehr nur als boolesches `connected=false` behandelt. Der synchronisierte Snapshot enthält einen konkreten Zustand:
+
+- `ACTIVE`,
+- `MULTIPLE_CONTROLLERS`,
+- `NETWORK_UNAVAILABLE`,
+- `RADAR_NOT_LINKED`,
+- `RADAR_NOT_LOADED`,
+- `RADAR_NOT_RUNNING`,
+- `INVALID_RANGE`,
+- `API_INCOMPATIBLE`,
+- `STALE`,
+- `DISCONNECTED`.
+
+Statuswechsel werden einmalig mit Controllerposition, Netzstatus, Controlleranzahl und Pultanzahl protokolliert. Reflektive Zugriffe unterscheiden fehlende API-Oberflächen, Zugriffsfehler und einen tatsächlich nicht verbundenen Radar, statt alle Fehler über `getOrNull()` zu verschlucken.
+
 ## Direkter Radar-Snapshot
 
 Der Adapter liest am erkannten Network Controller dessen bereits verbundenen Radar. Verwendet werden:
@@ -71,21 +88,27 @@ Der Adapter liest am erkannten Network Controller dessen bereits verbundenen Rad
 
 Es gibt weder einen Data-Link-Item-Mixin noch einen `DataLinkBlockEntity`-Mixin. Der einzige optionale Create:-Radars-Mixin hängt am öffentlichen statischen `NetworkFiltererBlockEntity.tick(...)`.
 
-Der Snapshot wird nur für Client-Updates übertragen und nicht als fortlaufende Trackhistorie im Weltstand gespeichert. Es wird auch keine Controllerposition am Pult persistiert. Bei einem entfernten Radar sendet der Controller spätestens nach **5 Ticks** einen getrennten Snapshot. Wird der Controller selbst entfernt, bleibt kein Tickgeber zurück; der Renderer behandelt den letzten Snapshot deshalb spätestens nach **20 Ticks** als veraltet.
+Der Snapshot wird nur für Client-Updates übertragen und nicht als fortlaufende Trackhistorie im Weltstand gespeichert. Es wird auch keine Controllerposition am Pult persistiert. Geänderte Inhalte werden sofort beim nächsten Fünf-Tick-Zyklus übertragen. Unveränderte Snapshots erhalten spätestens nach **15 Ticks** einen Heartbeat, damit aktive Anzeigen nicht veralten. `notifyUpdate()` wird nicht mehr bedingungslos bei jedem Controller-Tick aufgerufen.
+
+Wird der Controller selbst entfernt, bleibt kein Tickgeber zurück; der Renderer behandelt den letzten Snapshot deshalb spätestens nach **20 Ticks** als `STALE`.
 
 ## Direkte Monitoroberfläche
 
-RadarDisplays werden nicht mehr durch `RadarDisplayRaster` in boolesche Pultpixel umgerechnet. Der klassische BlockEntity-Renderer und der Flywheel-Visual verwenden stattdessen dieselbe Liste flacher Oberflächenmodelle.
+RadarDisplays werden nicht mehr durch `RadarDisplayRaster` in boolesche Pultpixel umgerechnet. Der klassische BlockEntity-Renderer und der Flywheel-Visual verwenden stattdessen dieselbe Liste flacher Oberflächenelemente.
 
-Die Oberfläche referenziert direkt die vorhandenen Create:-Radars-Monitorressourcen:
+Create: Radars bindet seine Monitor-PNGs normalerweise als direkte Renderertexturen. Ein normales gebackenes Modell kann diese Dateien nicht automatisch als Blockatlas-Sprites auflösen. CC-Aeroworks ergänzt deshalb `assets/minecraft/atlases/blocks.json` um einzelne Spritequellen. Diese **Blockatlas-Brücke** stitcht die vorhandenen Dateien aus dem Namespace `create_radar` in den Blockatlas, ohne die fremden PNGs zu kopieren.
+
+Die Oberfläche verwendet dadurch die originalen Create:-Radars-Monitorressourcen für:
 
 - Hintergrundfüllung,
 - Radarkreis,
-- rotierender Sweep,
+- rotierenden Sweep,
 - separate Symbole für Spieler, Projektile, normale Entitäten sowie Contraptions oder Sable-Schiffe,
 - Zielmarkierung für den ausgewählten Track.
 
-Die Trackpositionen werden kontinuierlich auf die kleine beziehungsweise große Modulfläche projiziert. Die Pixelauflösung der programmierbaren Zwei- und Dreisteller beeinflusst RadarDisplays nicht mehr.
+Hintergrund, Kreis und Sweep laufen im transparenten Renderpfad; Tracks und Statusmarkierung verwenden Cutout. Die Trackpositionen werden kontinuierlich auf die kleine beziehungsweise große Modulfläche projiziert. Die Pixelauflösung der programmierbaren Zwei- und Dreisteller beeinflusst RadarDisplays nicht mehr.
+
+Der Flywheel-Schlüssel verwendet nur den inhaltlichen Snapshot-Hash. Das reine Fortschreiben von `updatedAt` löscht und erzeugt daher nicht mehr alle Radarinstanzen neu.
 
 ## Ponder-Erklärungen
 
@@ -104,15 +127,18 @@ Lokal in `libs/` liegende offizielle JARs dieser Mods werden aus dem allgemeinen
 
 - Start ohne Create: Radars: keine Radaritems, Radarrezepte oder optionalen Mixinfehler.
 - Network Controller mit dem Data Link auswählen und danach Radar anklicken: natives Create:-Radars-Verhalten bleibt unverändert.
-- Network Controller direkt an ein Pult stellen: RadarDisplay zeigt Hintergrund, Kreis und Sweep ohne weiteren Klick.
+- Network Controller direkt an ein Pult stellen: RadarDisplay zeigt Hintergrund, Kreis und Sweep ohne schwarz-pinke Missing-Texture.
 - Einen Spieler, ein Projektil und eine normale Entität im Radarbereich erzeugen: die passenden Create:-Radars-Symbole erscheinen kontinuierlich auf der Modulfläche.
 - Ein Ziel am Network Controller auswählen: die Zielmarkierung erscheint über dem zugehörigen Track.
 - Controller an Vorder-, Rück-, Ober-, Unter- und freie Seitennachbarn setzen: jede direkte Nachbarschaft wird erkannt.
-- Controller nur diagonal oder mit einem Luftblock Abstand platzieren: Anzeige bleibt `X`.
+- Controller nur diagonal oder mit einem Luftblock Abstand platzieren: Anzeige bleibt `X` beziehungsweise wird nach 20 Ticks veraltet.
 - Ein Controller grenzt an zwei Pulte desselben Netzes: Quelle wird nur einmal gezählt.
-- Zwei verschiedene Controller grenzen an das Pultnetz: Anzeige bleibt wegen Mehrdeutigkeit `X`.
+- Zwei verschiedene Controller grenzen an das Pultnetz: Status `MULTIPLE_CONTROLLERS`, Anzeige bleibt `X`.
+- Radar ist nicht verknüpft: Status `RADAR_NOT_LINKED`.
+- Radar ist gestoppt: Status `RADAR_NOT_RUNNING`.
+- Create:-Radars-API passt nicht zur unterstützten Version: Status `API_INCOMPATIBLE` mit einmaliger Ursache im Log.
 - Ein oder mehrere RadarDisplays im Netz: alle zeigen dieselbe Quelle.
 - Radar entfernen: spätestens nach fünf Ticks erscheint `X`; Controller entfernen: spätestens nach 20 Ticks.
-- Zwei Computer-Steuerungspulte, teilweise geladenes oder überlanges Netz: Anzeige wird getrennt.
+- Zwei Computer-Steuerungspulte, teilweise geladenes oder überlanges Netz: Status `NETWORK_UNAVAILABLE`.
 - Rechtsklick mit Data Link auf ein Pult: ausschließlich natives Create:-Radars-Verhalten; CC-Aeroworks greift nicht ein.
 - Fallback-Renderer und Flywheel-Renderer getrennt prüfen.
