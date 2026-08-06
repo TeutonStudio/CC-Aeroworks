@@ -10,9 +10,14 @@ local inputSocket
 local displayDesk
 
 for address, desk in pairs(desks) do
-  if not displayDesk and desk.getDisplay(DISPLAY_SOCKET) then
-    displayDesk = desk
-    print("Display desk: " .. address)
+  if not displayDesk then
+    for _, display in ipairs(desk.getDisplays()) do
+      if display.socketName == DISPLAY_SOCKET then
+        displayDesk = desk
+        print("Display desk: " .. address)
+        break
+      end
+    end
   end
 
   if not inputDesk then
