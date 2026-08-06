@@ -79,8 +79,8 @@ def expected_ponder_keys() -> set[str]:
         "display_crafting": 4,
         "display_mounting": 4,
         "display_programming": 5,
-        "radar_routing": 6,
-        "radar_data_link": 5,
+        "radar_controller": 5,
+        "radar_direct": 5,
     }
     result: set[str] = set()
     for group, count in groups.items():
@@ -108,8 +108,8 @@ def verify_ponder_sources(german: dict[str, str]) -> None:
         "DisplayModuleScenes::crafting",
         "DisplayModuleScenes::mounting",
         "DisplayModuleScenes::programming",
-        "RadarDisplayScenes::automaticRouting",
-        "RadarDisplayScenes::dataLinkCompatibility",
+        "RadarDisplayScenes::controllerConnection",
+        "RadarDisplayScenes::directRadarDisplay",
     )
     for registration in registrations:
         require(registration in plugin, f"Missing Ponder registration: {registration}")
@@ -117,7 +117,7 @@ def verify_ponder_sources(german: dict[str, str]) -> None:
     require('isLoaded("create_radar")' in plugin, "Radar Ponder scenes must remain optional")
     require(computer.count("showText(") == 18, "Computer Ponder scenes must contain 18 explanation steps")
     require(display.count("showText(") == 13, "Display Ponder scenes must contain 13 explanation steps")
-    require(radar.count("showText(") == 11, "Radar Ponder scenes must contain 11 explanation steps")
+    require(radar.count("showText(") == 10, "Radar Ponder scenes must contain 10 explanation steps")
 
     for path, source in (
         (COMPUTER_SCENES, computer),
