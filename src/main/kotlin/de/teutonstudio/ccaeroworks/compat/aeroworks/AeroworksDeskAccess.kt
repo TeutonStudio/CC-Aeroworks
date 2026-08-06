@@ -9,7 +9,9 @@ import de.teutonstudio.ccaeroworks.display.DeskDisplayState
 import de.teutonstudio.ccaeroworks.display.RadarDisplayType
 import de.teutonstudio.ccaeroworks.display.RadarSurfaceState
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
+import net.minecraft.core.Direction
 import net.minecraft.network.chat.Component
+import net.minecraft.world.level.block.state.properties.BlockStateProperties
 
 object AeroworksDeskAccess {
     @JvmStatic
@@ -44,9 +46,15 @@ object AeroworksDeskAccess {
     @JvmStatic
     fun radarSurfaces(desk: ConsoleBlockEntity): List<RadarSurfaceState> {
         val snapshot = (desk as? RadarDeskStateAccess)?.ccaeroworks_getRadarSnapshot()
+        val state = desk.blockState
+        val facing = if (state.hasProperty(BlockStateProperties.HORIZONTAL_FACING)) {
+            state.getValue(BlockStateProperties.HORIZONTAL_FACING)
+        } else {
+            Direction.NORTH
+        }
         return (0 until desk.socketCount()).mapNotNull { socket ->
             radarDisplayType(desk, socket)?.let { type ->
-                RadarSurfaceState(socket, type, snapshot)
+                RadarSurfaceState(socket, type, snapshot, facing)
             }
         }
     }
