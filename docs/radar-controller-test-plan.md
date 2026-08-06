@@ -28,6 +28,7 @@ Diese Matrix prüft die automatische Erkennung eines direkt am Aeroworks-Pult pl
 | Netz ohne Computer | Controller an irgendein Pult, Display an ein anderes | Snapshot wird ohne eingebetteten Computer verteilt |
 | Netz mit einem Computer | Computerpult links, mittig und rechts testen | Identische Radarroute für jede Computerposition |
 | Alle sechs Seiten | Controller nacheinander an jede direkte Nachbarposition eines Pults setzen | Jede direkte Seite wird erkannt |
+| Alle vier Pultausrichtungen | Einen festen Track nördlich des Radars halten und dasselbe Pult nacheinander nach Norden, Osten, Süden und Westen ausrichten | Der Track wird jeweils in die lokale Bildschirmachse projiziert; Welt- und Bildrichtung bleiben konsistent |
 | Diagonaler Controller | Controller nur diagonal zum Pult platzieren | Keine neue Quelle; vorhandener Snapshot wird nach spätestens 20 Ticks `STALE` |
 | Abstand | Einen Luftblock zwischen Controller und Pult lassen | Keine neue Quelle; Anzeige wird nach spätestens 20 Ticks `STALE` |
 | Mehrere Anzeigen | Kleine und große RadarDisplays an mehreren Pulten | Alle Anzeigen zeigen dieselbe Quelle |
@@ -43,6 +44,16 @@ Diese Matrix prüft die automatische Erkennung eines direkt am Aeroworks-Pult pl
 | Teilweise geladen | Einen Teil des Pultnetzes entladen | Status `NETWORK_UNAVAILABLE` oder nach Ausfall des Tickgebers `STALE` |
 | Überlanges Netz | Mehr als 64 Pulte verbinden | Status `NETWORK_UNAVAILABLE`; Anzeige bleibt getrennt |
 | Inkompatible Create:-Radars-API | Testweise unterstützte Feld- oder Methodensignatur verändern | Status `API_INCOMPATIBLE`; Ursache einmalig im Log, keine Fünf-Tick-Logflut |
+
+## Controller-Platzierung am ComputerControlDesk
+
+| Aufbau | Schritte | Erwartung |
+| --- | --- | --- |
+| Rückseite frei | Network Controller in der Haupthand halten und die Oberseite des ComputerControlDesk anklicken | Der Klick wird gezielt auf die freie Rückseite umgeleitet; der Controller steht nicht auf dem Pult |
+| Rückseite belegt | Rückseite blockieren und dieselbe Oberseiteninteraktion wiederholen | Keine Umleitung; das native Platzierungsverhalten bleibt zuständig und es wird kein vorhandener Block ersetzt |
+| Seitenklick | Network Controller direkt auf eine horizontale Pultseite setzen | Keine Umleitung; normales Minecraft-/Create:-Radars-Verhalten |
+| Normales Aeroworks-Pult | Oberseite eines nicht eingebetteten Pults anklicken | Keine CC-Aeroworks-Umleitung; nur ComputerControlDesk erhält die Platzierungshilfe |
+| Anderer Gegenstand | Beliebigen anderen Block oder ein Modul auf der Oberseite verwenden | Keine Umleitung und keine veränderte Aeroworks-Interaktion |
 
 ## Direkte Monitoroberfläche
 
@@ -79,7 +90,7 @@ Diese Matrix prüft die automatische Erkennung eines direkt am Aeroworks-Pult pl
 | Unveränderter Snapshot | Netzwerkpakete beziehungsweise `notifyUpdate()` protokollieren | Höchstens ein Heartbeat je 15 Ticks und Zielpult |
 | Bewegte Tracks | Mehrere Kontakte bewegen | Inhaltsänderungen werden im Fünf-Tick-Zyklus synchronisiert |
 | 256 Tracks | Mindestens 256 Kontakte bereitstellen | Höchstens 256 nächstgelegene Tracks werden übertragen |
-| Mehr als 256 Tracks | Zusätzliche Kontakte außerhalb/innerhalb erzeugen | Liste bleibt auf 256 begrenzt und nach Entfernung neu nach Entfernung sortiert |
+| Mehr als 256 Tracks | Zusätzliche Kontakte außerhalb/innerhalb erzeugen | Liste bleibt auf 256 begrenzt und wird nach Entfernung neu nach Entfernung sortiert |
 | Pult ohne RadarDisplay | Controller am großen Netz betreiben | Dieses Pult erhält keine Radar-Snapshot-Updates |
 | Status bleibt gleich | Dauerhaft gestoppten Radar beobachten | Statusursache wird nicht alle fünf Ticks erneut geloggt |
 | Statuswechsel | Radar stoppen, starten und Link entfernen | Je tatsächlichem Übergang genau eine Statusmeldung |
@@ -95,5 +106,7 @@ Diese Matrix prüft die automatische Erkennung eines direkt am Aeroworks-Pult pl
 - RadarDisplays werden nicht über `DeskDisplayPixels` oder `RadarDisplayRaster` gerendert.
 - Die originalen Monitor-Sprites werden über `assets/minecraft/atlases/blocks.json` aus `textures/monitor_sprite` in den Blockatlas aufgenommen.
 - Klassischer Renderer und Flywheel verwenden dieselben `RadarSurfaceRenderer`-Elemente.
+- Die Pultausrichtung ist Bestandteil des Oberflächenzustands und des Flywheel-Schlüssels.
 - `updatedAt` ist nicht Bestandteil des Flywheel-Inhaltsschlüssels.
+- Die Rückseitenplatzierung greift ausschließlich beim ComputerControlDesk, dem Network Controller und einem Oberseitenklick mit freiem Zielblock.
 - Nach Entfernen des Radars zeigt jede Anzeige spätestens nach fünf Ticks einen konkreten getrennten Status; nach Entfernen des Controllers spätestens nach 20 Ticks `STALE`.
