@@ -10,7 +10,7 @@ Die unterstützte Entwicklungskette für Minecraft 1.21.1 besteht aus:
 - Create Big Cannons `5.11.7`, Mod-ID `createbigcannons`.
 - Ritchie's Projectile Library `2.1.2`, Mod-ID `ritchiesprojectilelib`.
 
-CC-Aeroworks verwendet keine Create:-Radars-Klassen in normalen Signaturen. Ein optionaler Mixin hängt ausschließlich am Tick des Network Controllers; Data-Link-Gegenstand und Data-Link-BlockEntity werden nicht verändert.
+CC-Aeroworks verwendet keine Create:-Radars-Klassen in normalen Signaturen. Ein optionaler Mixin hängt ausschließlich am öffentlichen Tick des Network Controllers; Data-Link-Gegenstand und Data-Link-BlockEntity werden nicht verändert.
 
 ## Zweck der RadarDisplays
 
@@ -19,7 +19,7 @@ Die kleine und große Radaranzeige ersetzen den Create:-Radars-Monitor am Steuer
 - `cc_aeroworks:small_radar_display` passt in kleine und große Aeroworks-Sockets.
 - `cc_aeroworks:large_radar_display` passt ausschließlich in große Aeroworks-Sockets.
 - Mehrere RadarDisplays im selben gültigen Pultnetz zeigen dieselbe Radarquelle.
-- Die konfigurierte kleine beziehungsweise große Pixelauflösung bleibt maßgeblich.
+- RadarDisplays verwenden keine konfigurierte Pixelmatrix. Sie rendern eine kontinuierliche Radaroberfläche direkt auf dem Modul.
 
 ## Herstellung
 
@@ -67,11 +67,25 @@ Der Adapter liest am erkannten Network Controller dessen bereits verbundenen Rad
 - Weltposition des Radars,
 - Reichweite,
 - ausgewählter Track des Controllers,
-- höchstens die **256** nächstgelegenen Radartracks mit Position und Geschwindigkeit.
+- höchstens die **256** nächstgelegenen Radartracks mit Position, Geschwindigkeit und Create:-Radars-Spritekategorie.
 
-Dafür wird kein Create:-Radars-Monitor simuliert. Es gibt weder einen Data-Link-Item-Mixin noch einen `DataLinkBlockEntity`-Mixin. Der einzige optionale Create:-Radars-Mixin hängt am bereits laufenden `NetworkFiltererBlockEntity.headlessTick`.
+Es gibt weder einen Data-Link-Item-Mixin noch einen `DataLinkBlockEntity`-Mixin. Der einzige optionale Create:-Radars-Mixin hängt am öffentlichen statischen `NetworkFiltererBlockEntity.tick(...)`.
 
 Der Snapshot wird nur für Client-Updates übertragen und nicht als fortlaufende Trackhistorie im Weltstand gespeichert. Es wird auch keine Controllerposition am Pult persistiert. Bei einem entfernten Radar sendet der Controller spätestens nach **5 Ticks** einen getrennten Snapshot. Wird der Controller selbst entfernt, bleibt kein Tickgeber zurück; der Renderer behandelt den letzten Snapshot deshalb spätestens nach **20 Ticks** als veraltet.
+
+## Direkte Monitoroberfläche
+
+RadarDisplays werden nicht mehr durch `RadarDisplayRaster` in boolesche Pultpixel umgerechnet. Der klassische BlockEntity-Renderer und der Flywheel-Visual verwenden stattdessen dieselbe Liste flacher Oberflächenmodelle.
+
+Die Oberfläche referenziert direkt die vorhandenen Create:-Radars-Monitorressourcen:
+
+- Hintergrundfüllung,
+- Radarkreis,
+- rotierender Sweep,
+- separate Symbole für Spieler, Projektile, normale Entitäten sowie Contraptions oder Sable-Schiffe,
+- Zielmarkierung für den ausgewählten Track.
+
+Die Trackpositionen werden kontinuierlich auf die kleine beziehungsweise große Modulfläche projiziert. Die Pixelauflösung der programmierbaren Zwei- und Dreisteller beeinflusst RadarDisplays nicht mehr.
 
 ## Ponder-Erklärungen
 
@@ -90,7 +104,9 @@ Lokal in `libs/` liegende offizielle JARs dieser Mods werden aus dem allgemeinen
 
 - Start ohne Create: Radars: keine Radaritems, Radarrezepte oder optionalen Mixinfehler.
 - Network Controller mit dem Data Link auswählen und danach Radar anklicken: natives Create:-Radars-Verhalten bleibt unverändert.
-- Network Controller direkt an ein Pult stellen: RadarDisplay zeigt den verbundenen Radar ohne weiteren Klick.
+- Network Controller direkt an ein Pult stellen: RadarDisplay zeigt Hintergrund, Kreis und Sweep ohne weiteren Klick.
+- Einen Spieler, ein Projektil und eine normale Entität im Radarbereich erzeugen: die passenden Create:-Radars-Symbole erscheinen kontinuierlich auf der Modulfläche.
+- Ein Ziel am Network Controller auswählen: die Zielmarkierung erscheint über dem zugehörigen Track.
 - Controller an Vorder-, Rück-, Ober-, Unter- und freie Seitennachbarn setzen: jede direkte Nachbarschaft wird erkannt.
 - Controller nur diagonal oder mit einem Luftblock Abstand platzieren: Anzeige bleibt `X`.
 - Ein Controller grenzt an zwei Pulte desselben Netzes: Quelle wird nur einmal gezählt.
