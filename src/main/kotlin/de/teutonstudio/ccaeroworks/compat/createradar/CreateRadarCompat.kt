@@ -5,6 +5,11 @@ import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess
 import de.teutonstudio.ccaeroworks.display.RadarDisplaySnapshot
 import de.teutonstudio.ccaeroworks.display.RadarDisplayTrack
 import net.minecraft.core.BlockPos
+import net.minecraft.network.chat.Component
+import net.minecraft.world.InteractionResult
+import net.minecraft.world.item.BlockItem
+import net.minecraft.world.item.context.BlockPlaceContext
+import net.minecraft.world.item.context.UseOnContext
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.phys.Vec3
 import net.neoforged.fml.ModList
@@ -12,7 +17,105 @@ import net.neoforged.fml.ModList
 object CreateRadarCompat {
     const val MOD_ID: String = "create_radar"
     private const val MONITOR_CLASS: String = "com.happysg.radar.block.monitor.MonitorBlockEntity"
+    private const val DATA_LINK_CLASS: String = "com.happysg.radar.block.datalink.DataLinkBlockEntity"
+    private const val SELECTED_MONITOR_KEY: String = "CCAeroworksRadarMonitor"
+    private const val SELECTED_MONITOR_DIMENSION_KEY: String = "CCAeroworksRadarMonitorDimension"
     private const val UPDATE_INTERVAL: Long = 5
+
+    @JvmStatic
+    fun handleDataLinkUse(context: UseOnContext): InteractionResult? {
+        if (!ModList.get().isLoaded(MOD_ID)) return null
+        val player = context.player ?: return null
+        val level = context.level
+        val selection = player.persistentData
+
+        if (player.isShiftKeyDown && selection.contains(SELECTED_MONITOR_KEY)) {
+            clearMonitorSelection(selection)
+            if (!level.isClientSide) {
+                player.displayClientMessage(
+                    Component.translatable("message.cc_aeroworks.radar_link_cleared"),
+                    true
+                )
+            }
+            return InteractionResult.sidedSuccess(level.isClientSide)
+        }
+
+        val clickedEntity = level.getBlockEntity(context.clickedPos)
+        if (clickedEntity != null && isMonitor(clickedEntity)) {
+            val controller = monitorController(clickedEntity) as? BlockEntity ?: clickedEntity
+            selection.putLong(SELECTED_MONITOR_KEY, controller.blockPos.asLong())
+            selection.putString(SELECTED_MONITOR_DIMENSION_KEY, level.dimension().location().toString())
+            if (!level.isClientSide) {
+                player.displayClientMessage(
+                    Component.translatable("message.cc_aeroworks.radar_monitor_selected"),
+                    true
+                )
+            }
+            return InteractionResult.sidedSuccess(level.isClientSide)
+        }
+
+        val desk = clickedEntity as? ConsoleBlockEntity ?: return null
+        if (!AeroworksDeskAccess.hasRadarDisplay(desk)) return null
+
+        if (!selection.contains(SELECTED_MONITOR_KEY)) {
+            if (!level.isClientSide) {
+                player.displayClientMessage(
+                    Component.translatable("message.cc_aeroworks.radar_select_monitor_first"),
+                    true
+                )
+            }
+            return InteractionResult.sidedSuccess(level.isClientSide)
+        }
+
+        val selectedDimension = selection.getString(SELECTED_MONITOR_DIMENSION_KEY)
+        val currentDimension = level.dimension().location().toString()
+        val monitorPos = BlockPos.of(selection.getLong(SELECTED_MONITOR_KEY))
+        val monitor = if (selectedDimension == currentDimension && level.isLoaded(monitorPos)) {
+            level.getBlockEntity(monitorPos)
+        } else {
+            null
+        }
+        if (monitor == null || !isMonitor(monitor)) {
+            clearMonitorSelection(selection)
+            if (!level.isClientSide) {
+                player.displayClientMessage(
+                    Component.translatable("message.cc_aeroworks.radar_monitor_invalid"),
+                    true
+                )
+            }
+            return InteractionResult.sidedSuccess(level.isClientSide)
+        }
+
+        val dataLinkItem = context.itemInHand.item as? BlockItem ?: return null
+        val placeContext = BlockPlaceContext(context)
+        val placedPos = placeContext.clickedPos
+        val placement = dataLinkItem.place(placeContext)
+        if (!placement.consumesAction()) return placement
+
+        if (level.isClientSide) {
+            clearMonitorSelection(selection)
+            return placement
+        }
+
+        val dataLink = level.getBlockEntity(placedPos)
+        val configured = dataLink != null && isDataLink(dataLink) && invokeBlockPos(dataLink, "target", monitorPos)
+        if (!configured) {
+            player.displayClientMessage(
+                Component.translatable("message.cc_aeroworks.radar_link_failed"),
+                true
+            )
+            return InteractionResult.FAIL
+        }
+
+        clearMonitorSelection(selection)
+        dataLink.setChanged()
+        level.sendBlockUpdated(placedPos, dataLink.blockState, dataLink.blockState, 3)
+        player.displayClientMessage(
+            Component.translatable("message.cc_aeroworks.radar_link_created"),
+            true
+        )
+        return placement
+    }
 
     @JvmStatic
     fun capture(dataLink: Any) {
@@ -46,15 +149,24 @@ object CreateRadarCompat {
         level.sendBlockUpdated(desk.blockPos, desk.blockState, desk.blockState, 3)
     }
 
+    private fun clearMonitorSelection(selection: net.minecraft.nbt.CompoundTag) {
+        selection.remove(SELECTED_MONITOR_KEY)
+        selection.remove(SELECTED_MONITOR_DIMENSION_KEY)
+    }
+
     private fun monitorController(target: Any): Any? {
         val controller = invoke(target, "getController") ?: target
         return controller.takeIf(::isMonitor)
     }
 
-    private fun isMonitor(value: Any): Boolean {
+    private fun isMonitor(value: Any): Boolean = hasClass(value, MONITOR_CLASS)
+
+    private fun isDataLink(value: Any): Boolean = hasClass(value, DATA_LINK_CLASS)
+
+    private fun hasClass(value: Any, className: String): Boolean {
         var current: Class<*>? = value.javaClass
         while (current != null) {
-            if (current.name == MONITOR_CLASS) return true
+            if (current.name == className) return true
             current = current.superclass
         }
         return false
@@ -85,4 +197,9 @@ object CreateRadarCompat {
     private fun invoke(instance: Any, methodName: String): Any? = runCatching {
         instance.javaClass.getMethod(methodName).invoke(instance)
     }.getOrNull()
+
+    private fun invokeBlockPos(instance: Any, methodName: String, position: BlockPos): Boolean = runCatching {
+        instance.javaClass.getMethod(methodName, BlockPos::class.java).invoke(instance, position)
+        true
+    }.getOrDefault(false)
 }

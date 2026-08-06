@@ -16,6 +16,8 @@ import net.minecraft.world.item.ItemStack;
 public class RadarDisplayScenes {
     private static final ResourceLocation DATA_LINK_ID =
         ResourceLocation.fromNamespaceAndPath("create_radar", "data_link");
+    private static final ResourceLocation MONITOR_ID =
+        ResourceLocation.fromNamespaceAndPath("create_radar", "monitor");
 
     public static void dataLink(SceneBuilder builder, SceneBuildingUtil util) {
         CreateSceneBuilder scene = new CreateSceneBuilder(builder);
@@ -25,8 +27,8 @@ public class RadarDisplayScenes {
         scene.idle(10);
 
         BlockPos computerDesk = util.grid().at(1, 1, 2);
-        BlockPos rightDesk = util.grid().at(3, 1, 2);
-        Selection desks = util.select().fromTo(computerDesk, rightDesk);
+        BlockPos monitorPosition = util.grid().at(3, 1, 2);
+        Selection desks = util.select().fromTo(computerDesk, monitorPosition);
         scene.world().showSection(desks, Direction.DOWN);
         scene.idle(15);
 
@@ -40,28 +42,27 @@ public class RadarDisplayScenes {
         scene.idle(75);
 
         scene.world().createItemEntity(
-            util.vector().topOf(computerDesk),
+            util.vector().topOf(monitorPosition),
             util.vector().of(0.05, 0.12, 0),
-            new ItemStack(CCItems.LARGE_RADAR_DISPLAY.get())
+            monitorStack()
         );
-        scene.overlay().showControls(util.vector().blockSurface(computerDesk, Direction.WEST), Pointing.RIGHT, 55)
-            .withItem(dataLinkStack());
-        scene.overlay().showText(70)
-            .attachKeyFrame()
-            .colored(PonderPalette.RED)
-            .text("A Create: Radars Data Link must use the control desk as its source")
-            .pointAt(util.vector().blockSurface(computerDesk, Direction.WEST))
-            .placeNearTarget();
-        scene.idle(80);
-
-        scene.overlay().showControls(util.vector().topOf(rightDesk), Pointing.DOWN, 55)
+        scene.overlay().showControls(util.vector().topOf(monitorPosition), Pointing.DOWN, 55)
             .withItem(dataLinkStack());
         scene.overlay().showText(75)
             .attachKeyFrame()
-            .text("Connect the other end to a Create: Radars monitor that belongs to a working radar network")
-            .pointAt(util.vector().topOf(rightDesk))
+            .text("First right-click a Create: Radars monitor with the Data Link to select its controller")
+            .pointAt(util.vector().topOf(monitorPosition))
             .placeNearTarget();
         scene.idle(85);
+
+        scene.overlay().showControls(util.vector().blockSurface(computerDesk, Direction.WEST), Pointing.RIGHT, 55)
+            .withItem(dataLinkStack());
+        scene.overlay().showText(80)
+            .attachKeyFrame()
+            .text("Then right-click a free side of the desk; CC-Aeroworks places and configures the Data Link")
+            .pointAt(util.vector().blockSurface(computerDesk, Direction.WEST))
+            .placeNearTarget();
+        scene.idle(90);
 
         scene.effects().indicateSuccess(computerDesk);
         scene.overlay().showText(70)
@@ -85,5 +86,9 @@ public class RadarDisplayScenes {
 
     private static ItemStack dataLinkStack() {
         return new ItemStack(BuiltInRegistries.ITEM.get(DATA_LINK_ID));
+    }
+
+    private static ItemStack monitorStack() {
+        return new ItemStack(BuiltInRegistries.ITEM.get(MONITOR_ID));
     }
 }

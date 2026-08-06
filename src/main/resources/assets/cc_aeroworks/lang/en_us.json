@@ -14,6 +14,12 @@
   "message.cc_aeroworks.console_too_large": "The control desk multiblock is larger than 64 blocks.",
   "message.cc_aeroworks.console_partially_loaded": "The control desk multiblock is not fully loaded.",
   "message.cc_aeroworks.computer_ejected": "This multiblock already has a computer. The additional computer was ejected.",
+  "message.cc_aeroworks.radar_monitor_selected": "Radar monitor selected. Right-click a free side of the control desk.",
+  "message.cc_aeroworks.radar_select_monitor_first": "Select a Create: Radars monitor first.",
+  "message.cc_aeroworks.radar_monitor_invalid": "The selected radar monitor is no longer available.",
+  "message.cc_aeroworks.radar_link_created": "Radar Data Link connected.",
+  "message.cc_aeroworks.radar_link_failed": "The Radar Data Link could not be configured.",
+  "message.cc_aeroworks.radar_link_cleared": "Radar monitor selection cleared.",
   "creative_section.cc_aeroworks.aeroworks": "Aeroworks",
   "creative_section.cc_aeroworks.cc_aeroworks": "CC-Aeroworks",
   "book.cc_aeroworks.page_1": "CC-Aeroworks\n\nChoose one access path:\n\n1. A Computer Control Desk with the direct aeroworks API.\n\n2. An external computer connected to any desk using the peripheral API.",
@@ -94,8 +100,8 @@
   "ponder.cc_aeroworks.display_modules.text_6": "At the default resolution, two small displays provide 70 pixels in total; one large display provides 55 pixels.",
   "ponder.cc_aeroworks.radar_display.header": "Using Radar Displays",
   "ponder.cc_aeroworks.radar_display.text_1": "Mount a small or large Radar Display in a compatible control desk socket.",
-  "ponder.cc_aeroworks.radar_display.text_2": "A Create: Radars Data Link must use the control desk as its source.",
-  "ponder.cc_aeroworks.radar_display.text_3": "Connect the other end to a Create: Radars monitor that belongs to a working radar network.",
+  "ponder.cc_aeroworks.radar_display.text_2": "First right-click a Create: Radars monitor with the Data Link to select its controller.",
+  "ponder.cc_aeroworks.radar_display.text_3": "Then right-click a free side of the desk; CC-Aeroworks places and configures the Data Link.",
   "ponder.cc_aeroworks.radar_display.text_4": "The display receives nearby tracks automatically and marks the selected contact.",
   "ponder.cc_aeroworks.radar_display.text_5": "An X means that no fresh Data Link radar signal is available."
 }

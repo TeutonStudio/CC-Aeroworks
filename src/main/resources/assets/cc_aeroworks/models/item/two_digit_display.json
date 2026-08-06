@@ -1,1 +1,7 @@
-{ "parent": "cc_aeroworks:block/module/two_digit_display" }
+{
+  "parent": "cc_aeroworks:item/template_small_display_panel",
+  "textures": {
+    "frame": "cc_aeroworks:block/display_base",
+    "screen": "minecraft:block/black_concrete"
+  }
+}

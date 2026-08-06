@@ -64,7 +64,9 @@ Mit Create: Radars 0.4.4 für Minecraft 1.21.1 werden eine kleine und eine groß
 
 Die kleine Variante passt in kleine und große Slots, die große nur in den großen Slot. Beide verwenden dieselben konfigurierten Rastergrößen wie die entsprechenden programmierbaren Displays.
 
-Die Anzeige funktioniert ausschließlich über einen echten Create: Radars Data Link: Seine Quellseite muss auf das Pult mit dem Radar-Display zeigen, sein Ziel auf einen verbundenen Radar-Monitor. Der Monitor liefert Radarzentrum, Reichweite, Kontakte und ausgewähltes Ziel. Ohne frische Verbindung zeigt das Display ein `X`. Beide Radaritems besitzen eine eigene Ponder-Erklärung, die Aufbau und Data-Link-Pflicht animiert zeigt.
+Zum Verbinden wird der Create:-Radars-Data-Link-Gegenstand zuerst auf einen verbundenen Radar-Monitor und danach auf eine freie Seite des Steuerungspults mit eingesetzter Radaranzeige rechtsgeklickt. CC-Aeroworks platziert dort den originalen Data-Link-Block, richtet seine Quellseite auf das Pult und setzt den Monitorcontroller als Ziel. Schleichen und Rechtsklick löscht eine begonnene Auswahl. Die übrigen Data-Link-Verbindungsarten von Create: Radars bleiben unverändert.
+
+Der Monitor liefert Radarzentrum, Reichweite, Kontakte und ausgewähltes Ziel. Ohne frische Verbindung zeigt das Display ein `X`. Beide Radaritems besitzen eine eigene Ponder-Erklärung, die den funktionierenden Monitor-zuerst-Ablauf zeigt.
 
 `./gradlew runClient` lädt Create: Radars, Create Big Cannons und Ritchie's Projectile Library automatisch als lokale Runtime-Abhängigkeiten. Details und Testfälle stehen in [`docs/create-radars-integration.md`](docs/create-radars-integration.md).
 
@@ -96,6 +98,9 @@ Der eingecheckte Bootstrap benötigt Java 21. Repositorydateien ohne Fremd-JARs 
 ```bash
 python3 tools/verify-repository.py
 python3 tools/verify-guide.py
+python3 tools/verify-radar.py
+python3 tools/verify-radar-link.py
+python3 tools/verify-display-recipes.py
 ./gradlew verifyDependencyManifest
 ```
 
@@ -115,7 +120,7 @@ Ein alternatives Verzeichnis wird mit `-Pmod_dependency_dir=/pfad/zu/mods` angeg
 
 Die unterstützten Profile und Release-Gates stehen in [`docs/runtime-test-matrix.md`](docs/runtime-test-matrix.md). Interaktive Basistests stehen in [`docs/manual-test-plan.md`](docs/manual-test-plan.md), zusätzliche Multiblockfälle in [`docs/multiblock-test-plan.md`](docs/multiblock-test-plan.md) und die Bedienungs-, Display- und Ponder-Fälle in [`docs/computer-desk-guide-test-plan.md`](docs/computer-desk-guide-test-plan.md).
 
-`.github/workflows/verify.yml` prüft bei Push und Pull Request den Repositoryvertrag sowie Buch-, Sprach-, Wiki-, Ponder- und Radar-Ressourcen. Der geschützte Vollbuild benötigt rechtmäßig bereitgestellte Mod-JARs über die Repository-Secrets `MOD_DEPENDENCY_URL` und `MOD_DEPENDENCY_SHA256`.
+`.github/workflows/verify.yml` prüft bei Push und Pull Request den Repositoryvertrag sowie Buch-, Sprach-, Wiki-, Ponder-, Radar-, Data-Link-, Rezept- und Itemmodell-Ressourcen. Der geschützte Vollbuild benötigt rechtmäßig bereitgestellte Mod-JARs über die Repository-Secrets `MOD_DEPENDENCY_URL` und `MOD_DEPENDENCY_SHA256`.
 
 ## Dokumentation und Beispiele
 
