@@ -37,6 +37,15 @@ repositories {
         url = 'https://maven.createmod.net'
         content { includeGroup('net.createmod.ponder') }
     }
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'Modrinth'
+                url = 'https://api.modrinth.com/maven'
+            }
+        }
+        filter { includeGroup('maven.modrinth') }
+    }
 }
 
 base {
@@ -103,8 +112,13 @@ configurations {
 
 dependencies {
     implementation("thedarkcolour:kotlinforforge-neoforge:${kotlin_for_forge_version}")
-    implementation fileTree(dir: modDependencyDirectory, include: ['*.jar'])
+    implementation fileTree(
+        dir: modDependencyDirectory,
+        include: ['*.jar'],
+        exclude: ['create_radar-*.jar', 'create-radar-*.jar', 'create_radars-*.jar', 'create-radars-*.jar']
+    )
     compileOnly("net.createmod.ponder:ponder-neoforge:${ponder_version}+mc${minecraft_version}")
+    localRuntime("maven.modrinth:create-radars:${create_radars_version}")
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.4'
