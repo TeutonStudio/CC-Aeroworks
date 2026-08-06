@@ -4,6 +4,7 @@ import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess
 import de.teutonstudio.ccaeroworks.display.RadarDisplaySnapshot
 import de.teutonstudio.ccaeroworks.display.RadarDisplayTrack
+import de.teutonstudio.ccaeroworks.display.RadarDisplayTrackSprite
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import net.minecraft.core.BlockPos
@@ -54,8 +55,6 @@ object CreateRadarCompat {
     ) {
         val controllers = findAdjacentControllers(level, network.desks).toMutableList()
         if (controllers.none { it.blockPos == tickingController.blockPos }) {
-            // This controller produced the network through direct adjacency, so retain it
-            // even when a future Create: Radars release changes the concrete BE class name.
             controllers += tickingController
         }
 
@@ -124,7 +123,7 @@ object CreateRadarCompat {
         val range = (invoke(radar, "getRange") as? Number)?.toDouble()?.coerceAtLeast(0.0) ?: 0.0
         val connected = (invoke(radar, "isRunning") as? Boolean) == true && range > 0.0
         val selected = readField(controller, "activeTrackCache")
-            ?.let { invoke(it, "getId") as? String }
+            ?.let { invokeAny(it, "getId", "id") as? String }
         val tracks = if (connected) readTracks(radar, center) else emptyList()
 
         return RadarDisplaySnapshot(
@@ -151,13 +150,28 @@ object CreateRadarCompat {
         val values = invoke(radar, "getTracks") as? Iterable<*> ?: return emptyList()
         return values.mapNotNull { raw ->
             raw ?: return@mapNotNull null
-            val id = (invoke(raw, "getId") as? String)?.takeIf(String::isNotEmpty) ?: return@mapNotNull null
-            val position = invoke(raw, "getPosition") as? Vec3 ?: return@mapNotNull null
-            val velocity = invoke(raw, "getVelocity") as? Vec3 ?: Vec3.ZERO
-            RadarDisplayTrack(id, position, velocity)
+            val id = (invokeAny(raw, "getId", "id") as? String)
+                ?.takeIf(String::isNotEmpty)
+                ?: return@mapNotNull null
+            val position = invokeAny(raw, "getPosition", "position") as? Vec3 ?: return@mapNotNull null
+            val velocity = invokeAny(raw, "getVelocity", "velocity") as? Vec3 ?: Vec3.ZERO
+            val category = invokeAny(raw, "getTrackCategory", "trackCategory")
+            RadarDisplayTrack(
+                id = id,
+                position = position,
+                velocity = velocity,
+                sprite = RadarDisplayTrackSprite.fromCategory(category)
+            )
         }
             .sortedBy { it.position.distanceToSqr(center) }
             .take(RadarDisplaySnapshot.MAX_SYNCED_TRACKS)
+    }
+
+    private fun invokeAny(instance: Any, vararg methodNames: String): Any? {
+        for (methodName in methodNames) {
+            invoke(instance, methodName)?.let { return it }
+        }
+        return null
     }
 
     private fun invoke(instance: Any, methodName: String): Any? = runCatching {
