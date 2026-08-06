@@ -55,7 +55,8 @@ object RadarDisplayRaster {
         return DeskDisplayPixels(width, height, bits)
     }
 
-    private fun isFresh(snapshot: RadarDisplaySnapshot?, gameTime: Long): Boolean {
+    @JvmStatic
+    fun isFresh(snapshot: RadarDisplaySnapshot?, gameTime: Long): Boolean {
         if (snapshot == null || !snapshot.connected || snapshot.range <= 0.0) return false
         val age = gameTime - snapshot.updatedAt
         return age in 0..STALE_AFTER_TICKS
