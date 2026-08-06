@@ -81,7 +81,7 @@ abstract class ConsoleBlockEntityRadarMixin : RadarDeskStateAccess {
         callback: CallbackInfo
     ) {
         if (!clientPacket) return
-        ccaeroworks_radarSnapshot = if (tag.contains(RADAR_NBT_KEY, Tag.TAG_COMPOUND)) {
+        ccaeroworks_radarSnapshot = if (tag.contains(RADAR_NBT_KEY, Tag.TAG_COMPOUND.toInt())) {
             RadarDisplaySnapshot.fromTag(tag.getCompound(RADAR_NBT_KEY))
         } else {
             null
