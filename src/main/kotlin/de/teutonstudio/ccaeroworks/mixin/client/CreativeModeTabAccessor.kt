@@ -10,6 +10,6 @@ interface CreativeModeTabAccessor {
     @Accessor("displayItems")
     fun ccaeroworks_setDisplayItems(items: Collection<ItemStack>)
 
-    @Accessor("searchTabDisplayItems")
-    fun ccaeroworks_setSearchTabDisplayItems(items: Collection<ItemStack>)
+    @Accessor("displayItemsSearchTab")
+    fun ccaeroworks_getSearchTabDisplayItems(): MutableSet<ItemStack>
 }
