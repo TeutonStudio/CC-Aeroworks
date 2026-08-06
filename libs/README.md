@@ -34,7 +34,7 @@ Das offizielle Create-Aeronautics-Artefakt für diese Baseline heißt:
 create-aeronautics-bundled-1.21.1-1.3.0.jar
 ```
 
-Create Aeronautics benötigt neben Create auch Sable zur Laufzeit. Sable ist daher für den Baseline-Client und -Server ein Pflichtartefakt. Create: Radars wird für `runClient` und die übrigen lokalen Gradle-Runtime-Classpaths automatisch über Modrinths Maven als `localRuntime` aufgelöst. Ein manuell in `libs/` abgelegtes offizielles Create:-Radars-JAR wird aus dem allgemeinen Datei-Classpath ausgeschlossen, damit die Mod-ID `create_radar` nicht doppelt geladen wird.
+Create Aeronautics benötigt neben Create auch Sable zur Laufzeit. Sable ist daher für den Baseline-Client und -Server ein Pflichtartefakt. Create: Radars wird für `runClient` und die übrigen lokalen Gradle-Runtime-Classpaths automatisch über CurseMaven als `localRuntime` aufgelöst. Version und CurseForge-Datei-ID sind in `gradle.properties` festgelegt. Ein manuell in `libs/` abgelegtes offizielles Create:-Radars-JAR wird aus dem allgemeinen Datei-Classpath ausgeschlossen, damit die Mod-ID `create_radar` nicht doppelt geladen wird.
 
 Die maschinenlesbaren Dateimuster und bekannte offizielle Beispieldateinamen stehen in [`dependencies.json`](dependencies.json). Dateinamen dürfen den üblichen Plattformzusatz enthalten, müssen aber Modname und Version eindeutig enthalten. Source-, API- oder Development-JARs sind nicht zulässig.
 
