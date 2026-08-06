@@ -6,6 +6,28 @@ import net.minecraft.nbt.Tag
 import net.minecraft.world.phys.Vec3
 import java.util.Locale
 
+enum class RadarLinkStatus {
+    ACTIVE,
+    NO_CONTROLLER,
+    MULTIPLE_CONTROLLERS,
+    NETWORK_UNAVAILABLE,
+    RADAR_NOT_LINKED,
+    RADAR_NOT_LOADED,
+    RADAR_NOT_RUNNING,
+    INVALID_RANGE,
+    API_INCOMPATIBLE,
+    STALE,
+    DISCONNECTED;
+
+    companion object {
+        fun fromTag(value: String, connected: Boolean): RadarLinkStatus = runCatching {
+            valueOf(value.uppercase(Locale.ROOT))
+        }.getOrElse {
+            if (connected) ACTIVE else DISCONNECTED
+        }
+    }
+}
+
 enum class RadarDisplayTrackSprite {
     CONTRAPTION,
     PLAYER,
@@ -66,10 +88,12 @@ data class RadarDisplaySnapshot(
     val range: Double,
     val selectedTrackId: String?,
     val tracks: List<RadarDisplayTrack>,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val status: RadarLinkStatus = if (connected) RadarLinkStatus.ACTIVE else RadarLinkStatus.DISCONNECTED
 ) {
     fun toTag(): CompoundTag = CompoundTag().apply {
         putBoolean("connected", connected)
+        putString("status", status.name.lowercase(Locale.ROOT))
         put("center", center.toTag())
         putDouble("range", range)
         selectedTrackId?.let { putString("selected", it) }
@@ -79,17 +103,36 @@ data class RadarDisplaySnapshot(
         })
     }
 
+    fun contentHash(): Int = copy(updatedAt = 0L).hashCode()
+
     companion object {
         const val MAX_SYNCED_TRACKS: Int = 256
         const val STALE_AFTER_TICKS: Long = 20
 
-        fun disconnected(center: Vec3, updatedAt: Long): RadarDisplaySnapshot =
-            RadarDisplaySnapshot(false, center, 0.0, null, emptyList(), updatedAt)
+        fun disconnected(
+            center: Vec3,
+            updatedAt: Long,
+            status: RadarLinkStatus = RadarLinkStatus.DISCONNECTED
+        ): RadarDisplaySnapshot =
+            RadarDisplaySnapshot(false, center, 0.0, null, emptyList(), updatedAt, status)
 
         fun isFresh(snapshot: RadarDisplaySnapshot?, gameTime: Long): Boolean {
-            if (snapshot == null || !snapshot.connected || snapshot.range <= 0.0) return false
+            if (
+                snapshot == null ||
+                !snapshot.connected ||
+                snapshot.status != RadarLinkStatus.ACTIVE ||
+                snapshot.range <= 0.0
+            ) return false
             val age = gameTime - snapshot.updatedAt
             return age in 0..STALE_AFTER_TICKS
+        }
+
+        fun effectiveStatus(snapshot: RadarDisplaySnapshot?, gameTime: Long): RadarLinkStatus {
+            snapshot ?: return RadarLinkStatus.DISCONNECTED
+            if (snapshot.status == RadarLinkStatus.ACTIVE && !isFresh(snapshot, gameTime)) {
+                return RadarLinkStatus.STALE
+            }
+            return snapshot.status
         }
 
         fun fromTag(tag: CompoundTag): RadarDisplaySnapshot {
@@ -99,8 +142,9 @@ data class RadarDisplaySnapshot(
                     RadarDisplayTrack.fromTag(tracksTag.getCompound(index))?.let(::add)
                 }
             }
+            val connected = tag.getBoolean("connected")
             return RadarDisplaySnapshot(
-                connected = tag.getBoolean("connected"),
+                connected = connected,
                 center = if (tag.contains("center", Tag.TAG_COMPOUND.toInt())) {
                     tag.getCompound("center").toVec3()
                 } else {
@@ -109,7 +153,8 @@ data class RadarDisplaySnapshot(
                 range = tag.getDouble("range").coerceAtLeast(0.0),
                 selectedTrackId = tag.getString("selected").takeIf { it.isNotEmpty() },
                 tracks = tracks,
-                updatedAt = tag.getLong("updatedAt")
+                updatedAt = tag.getLong("updatedAt"),
+                status = RadarLinkStatus.fromTag(tag.getString("status"), connected)
             )
         }
     }
