@@ -25,7 +25,7 @@ Die Integration referenziert keine Create:-Radars-Klasse in normalen Methodensig
 
 ## Entwicklungsclient
 
-`./gradlew runClient` löst Create: Radars automatisch über das Modrinth-Maven als `localRuntime` auf. Die verwendete Version steht in `gradle.properties` unter `create_radars_version`. Ein lokal in `libs/` liegendes offizielles Create:-Radars-JAR wird aus dem allgemeinen Datei-Classpath ausgeschlossen, damit nicht zwei Kopien mit derselben Mod-ID geladen werden.
+`./gradlew runClient` löst das exakt festgelegte Create:-Radars-Artefakt automatisch über CurseMaven als `localRuntime` auf. Die Zielversion und die zugehörige CurseForge-Datei-ID stehen in `gradle.properties` unter `create_radars_version` und `create_radars_curse_file_id`. Ein lokal in `libs/` liegendes offizielles Create:-Radars-JAR wird aus dem allgemeinen Datei-Classpath ausgeschlossen, damit nicht zwei Kopien mit derselben Mod-ID geladen werden.
 
 Die veröffentlichte CC-Aeroworks-Mod bleibt davon unberührt: Create: Radars wird nicht in das eigene JAR eingebettet und bleibt in den NeoForge-Metadaten optional.
 
