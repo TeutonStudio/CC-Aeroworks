@@ -2,6 +2,7 @@ package de.teutonstudio.ccaeroworks.mixin
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.compat.createradar.RadarDeskStateAccess
+import de.teutonstudio.ccaeroworks.compat.createradar.RadarRasterCache
 import de.teutonstudio.ccaeroworks.display.DeskDisplayPixels
 import de.teutonstudio.ccaeroworks.display.RadarDisplayRaster
 import de.teutonstudio.ccaeroworks.display.RadarDisplaySnapshot
@@ -86,12 +87,4 @@ abstract class ConsoleBlockEntityRadarMixin : RadarDeskStateAccess {
             null
         }
     }
-
-    private data class RadarRasterCache(
-        val snapshot: RadarDisplaySnapshot?,
-        val width: Int,
-        val height: Int,
-        val fresh: Boolean,
-        val pixels: DeskDisplayPixels
-    )
 }
