@@ -16,6 +16,7 @@ import dan200.computercraft.api.peripheral.PeripheralCapability
 import dan200.computercraft.api.peripheral.WorkMonitor
 import dan200.computercraft.core.methods.PeripheralMethod
 import dan200.computercraft.shared.computer.core.ServerContext
+import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskService
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMember
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
@@ -93,35 +94,30 @@ internal object PeripheralNetworkBuilder {
         }
 
         val deskPositions = snapshot.members.mapTo(hashSetOf()) { it.pos }
-        val desks = snapshot.members.map { member ->
-            DeskNetworkNode(member, address(member.pos))
-        }
-        val peripherals = buildList {
-            desks.forEach { desk ->
-                Direction.values().forEach { side ->
-                    val targetPos = desk.pos.relative(side)
-                    if (targetPos in deskPositions || !level.isLoaded(targetPos)) return@forEach
-                    val peripheral = level.getCapability(
-                        PeripheralCapability.get(),
-                        targetPos,
-                        side.opposite
-                    ) ?: return@forEach
-                    val types = linkedSetOf(peripheral.type).apply {
-                        addAll(peripheral.additionalTypes)
-                    }
-                    add(
-                        PeripheralNetworkNode(
-                            desk = desk,
-                            pos = targetPos.immutable(),
-                            side = side,
-                            address = "${desk.address}/${side.name.lowercase(Locale.ROOT)}",
-                            target = peripheral,
-                            primaryType = peripheral.type,
-                            types = types,
-                            aliases = PeripheralTypeNames.aliases(types)
-                        )
-                    )
+        val desks = snapshot.members.map { member -> DeskNetworkNode(member, address(member.pos)) }
+        val peripherals = mutableListOf<PeripheralNetworkNode>()
+        for (desk in desks) {
+            for (side in Direction.values()) {
+                val targetPos = desk.pos.relative(side)
+                if (targetPos in deskPositions || !level.isLoaded(targetPos)) continue
+                val peripheral = level.getCapability(
+                    PeripheralCapability.get(),
+                    targetPos,
+                    side.opposite
+                ) ?: continue
+                val types = linkedSetOf(peripheral.type).apply {
+                    addAll(peripheral.additionalTypes)
                 }
+                peripherals += PeripheralNetworkNode(
+                    desk = desk,
+                    pos = targetPos.immutable(),
+                    side = side,
+                    address = "${desk.address}/${side.name.lowercase(Locale.ROOT)}",
+                    target = peripheral,
+                    primaryType = peripheral.type,
+                    types = types,
+                    aliases = PeripheralTypeNames.aliases(types)
+                )
             }
         }
         return PeripheralNetworkGraph(
@@ -142,6 +138,7 @@ internal class PeripheralNetworkRuntime(
 ) {
     private var graph: PeripheralNetworkGraph? = null
     private val bindings = linkedMapOf<String, PeripheralBinding>()
+    private var initialized = false
 
     @Synchronized
     fun graph(force: Boolean = false): PeripheralNetworkGraph {
@@ -153,19 +150,35 @@ internal class PeripheralNetworkRuntime(
         }
 
         val desired = next.peripherals.associateBy { it.address }
+        val detached = mutableListOf<PeripheralNetworkNode>()
         val iterator = bindings.iterator()
         while (iterator.hasNext()) {
             val (address, binding) = iterator.next()
             val node = desired[address]
             if (node == null || node.target !== binding.node.target) {
+                detached += binding.node
                 binding.close()
                 iterator.remove()
             }
         }
-        next.peripherals.forEach { node ->
-            bindings.getOrPut(node.address) { PeripheralBinding(this, system, node) }
+
+        val attached = mutableListOf<PeripheralNetworkNode>()
+        for (node in next.peripherals) {
+            if (node.address !in bindings) {
+                bindings[node.address] = PeripheralBinding(this, system, node)
+                attached += node
+            }
         }
         graph = next
+        if (initialized) {
+            detached.forEach { node ->
+                system.queueEvent(CCAeroworks.PERIPHERAL_DETACHED_EVENT, node.address, node.primaryType)
+            }
+            attached.forEach { node ->
+                system.queueEvent(CCAeroworks.PERIPHERAL_ATTACHED_EVENT, node.address, node.primaryType)
+            }
+        }
+        initialized = true
         return next
     }
 
@@ -174,6 +187,7 @@ internal class PeripheralNetworkRuntime(
         bindings.values.forEach(PeripheralBinding::close)
         bindings.clear()
         graph = null
+        initialized = false
     }
 
     fun deskHandle(node: DeskNetworkNode): DeskLuaHandle = DeskLuaHandle(this, node.address)
@@ -188,10 +202,9 @@ internal class PeripheralNetworkRuntime(
     fun find(type: String, deskAddress: String? = null, alwaysCollection: Boolean = false): Any? {
         val current = graph()
         if (PeripheralTypeNames.isControlDesk(type)) {
-            val desks = current.desks
+            return current.desks
                 .filter { deskAddress == null || it.address == deskAddress }
                 .associateTo(linkedMapOf()) { it.address to deskHandle(it) }
-            return desks
         }
         val matches = current.peripherals.filter { node ->
             (deskAddress == null || node.desk.address == deskAddress) && node.matches(type)
@@ -204,6 +217,10 @@ internal class PeripheralNetworkRuntime(
             else -> handles
         }
     }
+
+    fun peripheralsForDesk(deskAddress: String): Map<String, Any> = graph().peripherals
+        .filter { it.desk.address == deskAddress }
+        .associateTo(linkedMapOf()) { it.address to peripheralHandle(it) }
 
     fun wrap(arguments: IArguments, deskAddress: String? = null): Any? {
         val current = graph()
@@ -218,19 +235,20 @@ internal class PeripheralNetworkRuntime(
         }
 
         val parsed = parsePosition(arguments)
-        val requestedType = parsed.fourth
-        current.desks.firstOrNull { it.pos == parsed.first }?.let { desk ->
-            if (requestedType == null || PeripheralTypeNames.isControlDesk(requestedType)) {
+        current.desks.firstOrNull { it.pos == parsed.pos }?.let { desk ->
+            if (parsed.type == null || PeripheralTypeNames.isControlDesk(parsed.type)) {
                 return deskHandle(desk)
             }
         }
         val matches = current.peripherals.filter { node ->
-            node.pos == parsed.first && (requestedType == null || node.matches(requestedType))
+            node.pos == parsed.pos && (parsed.type == null || node.matches(parsed.type))
         }
         return when (matches.size) {
             0 -> null
             1 -> peripheralHandle(matches.first())
-            else -> throw LuaException("Multiple peripherals exist at ${PeripheralNetworkBuilder.address(parsed.first)}; provide a type")
+            else -> throw LuaException(
+                "Multiple peripherals exist at ${PeripheralNetworkBuilder.address(parsed.pos)}; provide a type"
+            )
         }
     }
 
@@ -282,17 +300,20 @@ internal class PeripheralNetworkRuntime(
             ?: throw LuaException("Control desk '$address' is no longer loaded")
     }
 
-    fun describePeripheral(node: PeripheralNetworkNode): Map<String, Any> = linkedMapOf(
-        "address" to node.address,
-        "type" to node.primaryType,
-        "types" to node.types.toList(),
-        "deskId" to node.desk.id,
-        "deskAddress" to node.desk.address,
-        "deskPosition" to position(node.desk.pos, graph().dimension),
-        "position" to position(node.pos, graph().dimension),
-        "side" to node.side.name.lowercase(Locale.ROOT),
-        "loaded" to true
-    )
+    fun describePeripheral(node: PeripheralNetworkNode): Map<String, Any> {
+        val current = graph ?: throw LuaException("The peripheral network is not initialized")
+        return linkedMapOf(
+            "address" to node.address,
+            "type" to node.primaryType,
+            "types" to node.types.toList(),
+            "deskId" to node.desk.id,
+            "deskAddress" to node.desk.address,
+            "deskPosition" to position(node.desk.pos, current.dimension),
+            "position" to position(node.pos, current.dimension),
+            "side" to node.side.name.lowercase(Locale.ROOT),
+            "loaded" to true
+        )
+    }
 
     @Synchronized
     fun availablePeripherals(): Map<String, IPeripheral> =
@@ -304,20 +325,13 @@ internal class PeripheralNetworkRuntime(
         return next.peripherals.all { node -> old[node.address]?.target === node.target }
     }
 
-    private data class ParsedPosition(
-        val first: BlockPos,
-        val second: Int,
-        val third: Int,
-        val fourth: String?
-    )
+    private data class ParsedPosition(val pos: BlockPos, val type: String?)
 
     private fun parsePosition(arguments: IArguments): ParsedPosition {
         val first = arguments.get(0)
         if (first is Number) {
             return ParsedPosition(
                 BlockPos(arguments.getInt(0), arguments.getInt(1), arguments.getInt(2)),
-                0,
-                0,
                 arguments.optString(3).orElse(null)
             )
         }
@@ -333,8 +347,6 @@ internal class PeripheralNetworkRuntime(
             }
             return ParsedPosition(
                 BlockPos(coordinate("x"), coordinate("y"), coordinate("z")),
-                0,
-                0,
                 arguments.optString(1).orElse(null)
             )
         }
@@ -501,8 +513,7 @@ internal class DeskLuaHandle(
         AeroworksDeskService.clearDisplayPixels(runtime.desk(address), arguments.get(0))
 
     @LuaFunction(mainThread = true)
-    fun getPeripherals(): Map<String, Any> =
-        runtime.find("", address, true) as Map<String, Any>
+    fun getPeripherals(): Map<String, Any> = runtime.peripheralsForDesk(address)
 
     @LuaFunction(mainThread = true)
     fun find(type: String): Any? = runtime.find(type, address, false)
