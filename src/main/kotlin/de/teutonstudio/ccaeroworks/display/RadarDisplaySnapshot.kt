@@ -8,7 +8,6 @@ import java.util.Locale
 
 enum class RadarLinkStatus {
     ACTIVE,
-    NO_CONTROLLER,
     MULTIPLE_CONTROLLERS,
     NETWORK_UNAVAILABLE,
     RADAR_NOT_LINKED,
