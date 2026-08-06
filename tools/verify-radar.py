@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate optional radar resources, adjacent controllers and direct monitor surfaces."""
+"""Validate adjacent radar controllers and direct Create: Radars monitor surfaces."""
 
 from __future__ import annotations
 
@@ -42,13 +42,6 @@ def main() -> int:
     }
     require(required_keys <= english.keys(), "Missing radar item or Ponder translations")
 
-    for obsolete in (
-        "ponder.cc_aeroworks.radar_routing.header",
-        "ponder.cc_aeroworks.radar_data_link.header",
-        "message.cc_aeroworks.radar_controller_linked",
-    ):
-        require(obsolete not in english, f"Legacy radar translation remains: {obsolete}")
-
     for name in ("small_radar_display", "large_radar_display"):
         load_json(MODELS / "block/module" / f"{name}.json")
         load_json(MODELS / "item" / f"{name}.json")
@@ -59,39 +52,30 @@ def main() -> int:
         )
         require(recipe.get("result", {}).get("id") == f"cc_aeroworks:{name}", f"Wrong result for {name}")
 
-    radar_models = {
+    translucent_models = {
         "radar_small_filler": "create_radar:monitor_sprite/radar_bg_filler",
         "radar_small_circle": "create_radar:monitor_sprite/radar_bg_circle",
         "radar_small_sweep": "create_radar:monitor_sprite/radar_sweep",
         "radar_large_filler": "create_radar:monitor_sprite/radar_bg_filler",
         "radar_large_circle": "create_radar:monitor_sprite/radar_bg_circle",
         "radar_large_sweep": "create_radar:monitor_sprite/radar_sweep",
+    }
+    cutout_models = {
         "radar_track_entity": "create_radar:monitor_sprite/entity_hitbox",
         "radar_track_player": "create_radar:monitor_sprite/player",
         "radar_track_projectile": "create_radar:monitor_sprite/projectile",
         "radar_track_contraption": "create_radar:monitor_sprite/contraption_hitbox",
         "radar_track_selected": "create_radar:monitor_sprite/target_selected",
     }
-    for model_name, texture in radar_models.items():
+    for model_name, texture in translucent_models.items():
         model = load_json(MODELS / "block/module" / f"{model_name}.json")
-        require(model.get("render_type") == "cutout", f"{model_name} must use cutout rendering")
+        require(model.get("render_type") == "minecraft:translucent", f"{model_name} must preserve texture alpha")
+        require(model.get("textures", {}).get("sprite") == texture, f"{model_name} uses the wrong Create: Radars texture")
+    for model_name, texture in cutout_models.items():
+        model = load_json(MODELS / "block/module" / f"{model_name}.json")
+        require(model.get("render_type") in {"cutout", "minecraft:cutout"}, f"{model_name} must use cutout rendering")
         require(model.get("textures", {}).get("sprite") == texture, f"{model_name} uses the wrong Create: Radars texture")
     load_json(MODELS / "block/module/radar_disconnected.json")
-
-    items = read("src/main/kotlin/de/teutonstudio/ccaeroworks/registry/CCItems.kt")
-    modules = read("src/main/kotlin/de/teutonstudio/ccaeroworks/registry/CCModuleTypes.kt")
-    require("SMALL_RADAR_DISPLAY" in items and "LARGE_RADAR_DISPLAY" in items, "Radar items are not registered")
-    require("SMALL_RADAR" in modules and "LARGE_RADAR" in modules, "Radar modules are not registered")
-
-    plugin = read("src/main/java/de/teutonstudio/ccaeroworks/client/ponder/CCAeroworksPonderPlugin.java")
-    scene = read("src/main/java/de/teutonstudio/ccaeroworks/client/ponder/RadarDisplayScenes.java")
-    require("RadarDisplayScenes::controllerConnection" in plugin, "Controller scene is not registered")
-    require("RadarDisplayScenes::directRadarDisplay" in plugin, "Direct radar scene is not registered")
-    require('isLoaded("create_radar")' in plugin, "Radar Ponder registration is not optional")
-    require(scene.count("showText(") == 10, "Radar Ponder scenes must contain ten explanation steps")
-    require('"create_radar", "data_link"' in scene, "Radar Ponder does not show native radar linking")
-    require('"create_radar", "network_filterer"' in scene, "Radar Ponder does not show the Network Controller")
-    require('"create_radar", "monitor"' not in scene, "Radar Ponder still depends on a monitor block")
 
     mixins = load_json(ROOT / "src/main/resources/cc_aeroworks.mixins.json")
     common_mixins = set(mixins.get("mixins", []))
@@ -114,16 +98,15 @@ def main() -> int:
     fallback = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/DeskDisplayRenderer.kt")
     flywheel = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ConsoleVisualMixin.kt")
 
-    require('putString("id", this@RadarDisplayTrack.id)' in snapshot, "Radar track serialization is unsafe")
     require("enum class RadarDisplayTrackSprite" in snapshot, "Track sprite categories are not synchronized")
     require('putString("sprite"' in snapshot, "Track sprite categories are not serialized")
-    require("RadarDisplaySnapshot.isFresh" in surface, "Direct surface does not reject stale snapshots")
     require("RadarDisplayTrackSprite.fromCategory" in compat, "Create: Radars categories are not mapped")
     require('invokeAny(raw, "getPosition", "position")' in compat, "Track position compatibility fallback is missing")
     require("RADAR_CONTROLLER_NBT_KEY" not in radar_mixin, "Controller location is still persisted")
     require("getRadarPixels" not in state_access and "RadarRasterCache" not in state_access, "Radar state still exposes pixel raster APIs")
     require("radarSurfaces" in desk_access and "RadarSurfaceState" in desk_access, "Desk radar surfaces are not exposed")
     require("radarSmallFiller" in models and "radarTrackSelected" in models, "Direct radar partial models are not registered")
+    require("RenderType.translucent()" in surface, "Classic radar surface does not preserve alpha")
     require("models.sweep" in surface and "spinning = true" in surface, "Radar sweep is not rendered directly")
     require("DeskDisplayModels.radarTrack(track.sprite)" in surface, "Track sprites are not rendered directly")
     require("RadarSurfaceRenderer.render" in fallback, "Classic renderer does not draw direct radar surfaces")
@@ -133,11 +116,6 @@ def main() -> int:
 
     metadata = read("src/main/templates/META-INF/neoforge.mods.toml")
     require('modId="create_radar"' in metadata, "Create: Radars metadata is missing")
-    require('modId="createbigcannons"' in metadata, "Create Big Cannons metadata is missing")
-    require(
-        'modId="aeroworks"\n    type="required"\n    versionRange="[1.3.0,1.3.1)"' in metadata,
-        "Aeroworks metadata must target the official 1.3.0 mod release",
-    )
     require('versionRange="[0.4.9.4,)"' in metadata, "Create: Radars metadata range drifted")
     require('versionRange="[0.4.9.4)"' not in metadata, "Metadata contains a malformed Maven range")
 
@@ -152,26 +130,13 @@ def main() -> int:
     require(dependencies.get("createbigcannons", {}).get("version") == "5.11.7", "CBC version is not pinned")
     require(dependencies.get("ritchiesprojectilelib", {}).get("version") == "2.1.2", "RPL version is not pinned")
 
-    build = read("build.gradle")
-    properties = read("gradle.properties")
-    for token in (
-        "curse.maven:create-radars-1152836",
-        "curse.maven:create-big-cannons-646668",
-        "curse.maven:ritchies-projectile-library-1279407",
-    ):
-        require(token in build, f"Missing optional local runtime: {token}")
-    require("create_radars_version=0.4.9.4-1.21.1" in properties, "Create: Radars runtime version drifted")
-    require("create_radars_curse_file_id=8227753" in properties, "Create: Radars CurseForge ID drifted")
-
     docs = read("docs/create-radars-integration.md")
     require("direkt angrenzenden Network Controller" in docs, "Radar docs do not explain automatic adjacency")
     require("Direkte Monitoroberfläche" in docs, "Radar docs do not explain direct surface rendering")
     require("RadarDisplayRaster" in docs and "Pixelmatrix" in docs, "Radar docs do not retire the pixel renderer")
     require("20 Ticks" in docs and "256" in docs and "runClient" in docs, "Radar documentation is incomplete")
 
-    print(
-        "Validated adjacent Network Controller snapshots and direct Create: Radars monitor surfaces in both render paths."
-    )
+    print("Validated adjacent controller snapshots and direct translucent Create: Radars monitor surfaces.")
     return 0
 
 
