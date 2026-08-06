@@ -4,6 +4,8 @@ import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess
 import de.teutonstudio.ccaeroworks.display.RadarDisplaySnapshot
 import de.teutonstudio.ccaeroworks.display.RadarDisplayTrack
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component
 import net.minecraft.world.InteractionResult
@@ -54,8 +56,26 @@ object CreateRadarCompat {
             return InteractionResult.sidedSuccess(level.isClientSide)
         }
 
-        val desk = clickedEntity as? ConsoleBlockEntity ?: return null
-        if (!AeroworksDeskAccess.hasRadarDisplay(desk)) return null
+        val sourceDesk = clickedEntity as? ConsoleBlockEntity ?: return null
+        val destinations = radarDestinations(sourceDesk)
+        if (destinations.isEmpty()) {
+            if (!level.isClientSide) {
+                player.displayClientMessage(
+                    Component.translatable("message.cc_aeroworks.radar_route_missing"),
+                    true
+                )
+            }
+            return InteractionResult.sidedSuccess(level.isClientSide)
+        }
+        if (destinations.size > 1) {
+            if (!level.isClientSide) {
+                player.displayClientMessage(
+                    Component.translatable("message.cc_aeroworks.radar_route_ambiguous"),
+                    true
+                )
+            }
+            return InteractionResult.sidedSuccess(level.isClientSide)
+        }
 
         if (!selection.contains(SELECTED_MONITOR_KEY)) {
             if (!level.isClientSide) {
@@ -126,8 +146,8 @@ object CreateRadarCompat {
 
         val sourcePos = invoke(dataLink, "getSourcePosition") as? BlockPos ?: return
         if (!level.isLoaded(sourcePos)) return
-        val desk = level.getBlockEntity(sourcePos) as? ConsoleBlockEntity ?: return
-        if (!AeroworksDeskAccess.hasRadarDisplay(desk)) return
+        val sourceDesk = level.getBlockEntity(sourcePos) as? ConsoleBlockEntity ?: return
+        val destination = radarDestinations(sourceDesk).singleOrNull() ?: return
 
         val targetPos = invoke(dataLink, "getTargetPosition") as? BlockPos
         val fallbackCenter = targetPos?.let(Vec3::atCenterOf) ?: Vec3.atCenterOf(sourcePos)
@@ -143,10 +163,26 @@ object CreateRadarCompat {
             readSnapshot(monitor, fallbackCenter, level.gameTime)
         }
 
-        val access = desk as? RadarDeskStateAccess ?: return
+        val access = destination as? RadarDeskStateAccess ?: return
         access.ccaeroworks_setRadarSnapshot(snapshot)
-        desk.setChanged()
-        level.sendBlockUpdated(desk.blockPos, desk.blockState, desk.blockState, 3)
+        destination.setChanged()
+        level.sendBlockUpdated(destination.blockPos, destination.blockState, destination.blockState, 3)
+    }
+
+    private fun radarDestinations(sourceDesk: ConsoleBlockEntity): List<ConsoleBlockEntity> {
+        val level = sourceDesk.level ?: return emptyList()
+        val network = ConsoleMultiblockManager.resolve(level, sourceDesk.blockPos)
+        if (network.state == ConsoleNetworkState.TOO_LARGE ||
+            network.state == ConsoleNetworkState.PARTIALLY_LOADED ||
+            network.state == ConsoleNetworkState.CONFLICT
+        ) {
+            return emptyList()
+        }
+        return network.members.map(ConsoleMemberDesk::desk).filter(AeroworksDeskAccess::hasRadarDisplay)
+    }
+
+    private object ConsoleMemberDesk {
+        fun desk(member: de.teutonstudio.ccaeroworks.multiblock.ConsoleMember): ConsoleBlockEntity = member.desk
     }
 
     private fun clearMonitorSelection(selection: net.minecraft.nbt.CompoundTag) {
