@@ -1,0 +1,19 @@
+{
+  "ambientocclusion": false,
+  "render_type": "cutout",
+  "textures": {
+    "sprite": "create_radar:monitor_sprite/contraption_hitbox",
+    "particle": "cc_aeroworks:block/display_base"
+  },
+  "elements": [
+    {
+      "from": [7.1, 2.05, 7.1],
+      "to": [8.9, 2.065, 8.9],
+      "shade": false,
+      "faces": {
+        "up": { "texture": "#sprite", "uv": [0, 0, 16, 16] },
+        "down": { "texture": "#sprite", "uv": [0, 0, 16, 16] }
+      }
+    }
+  ]
+}
