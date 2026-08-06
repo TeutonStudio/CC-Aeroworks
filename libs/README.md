@@ -27,6 +27,8 @@ gradlew.bat -Pmod_dependency_dir=C:\mods\cc-aeroworks verifyModDependencies
 | Sable | `sable` | 2.0.1 | erforderlich |
 | Drive By Wire | `drive_by_wire` | 0.2.9 | optional |
 | Create: Radars | `create_radar` | 0.4.4-1.21.1 | automatisch für Entwicklungsruns |
+| Create Big Cannons | `createbigcannons` | 5.11.7 | optional, automatisch für Entwicklungsruns |
+| Ritchie's Projectile Library | `ritchiesprojectilelib` | 2.1.2 | CBC-Laufzeitbibliothek, automatisch für Entwicklungsruns |
 
 Das offizielle Create-Aeronautics-Artefakt für diese Baseline heißt:
 
@@ -34,7 +36,11 @@ Das offizielle Create-Aeronautics-Artefakt für diese Baseline heißt:
 create-aeronautics-bundled-1.21.1-1.3.0.jar
 ```
 
-Create Aeronautics benötigt neben Create auch Sable zur Laufzeit. Sable ist daher für den Baseline-Client und -Server ein Pflichtartefakt. Create: Radars wird für `runClient` und die übrigen lokalen Gradle-Runtime-Classpaths automatisch über CurseMaven als `localRuntime` aufgelöst. Version und CurseForge-Datei-ID sind in `gradle.properties` festgelegt. Ein manuell in `libs/` abgelegtes offizielles Create:-Radars-JAR wird aus dem allgemeinen Datei-Classpath ausgeschlossen, damit die Mod-ID `create_radar` nicht doppelt geladen wird.
+Create Aeronautics benötigt neben Create auch Sable zur Laufzeit. Sable ist daher für den Baseline-Client und -Server ein Pflichtartefakt.
+
+Create: Radars benötigt in der verwendeten 1.21.1-Laufzeit Create Big Cannons. CBC benötigt wiederum Ritchie's Projectile Library. `runClient` und die übrigen lokalen Gradle-Runtime-Classpaths lösen deshalb alle drei Artefakte automatisch über CurseMaven als `localRuntime` auf. Versionen und CurseForge-Datei-IDs sind in `gradle.properties` festgelegt.
+
+Manuell in `libs/` abgelegte offizielle JARs für Create: Radars, Create Big Cannons oder Ritchie's Projectile Library werden aus dem allgemeinen Datei-Classpath ausgeschlossen, damit ihre Mod-IDs nicht doppelt geladen werden. Die veröffentlichte CC-Aeroworks-Mod bettet keines dieser Artefakte ein.
 
 Die maschinenlesbaren Dateimuster und bekannte offizielle Beispieldateinamen stehen in [`dependencies.json`](dependencies.json). Dateinamen dürfen den üblichen Plattformzusatz enthalten, müssen aber Modname und Version eindeutig enthalten. Source-, API- oder Development-JARs sind nicht zulässig.
 
@@ -66,4 +72,4 @@ CC:Tweaked 1.120.0 wird in einem **separaten** Abhängigkeitsverzeichnis geteste
 ./gradlew runClient
 ```
 
-Fehlt ein Pflichtartefakt oder passen mehrere Dateien auf dasselbe Muster, bricht `verifyModDependencies` mit einer gezielten Meldung ab. Optionale lokale Artefakte werden geprüft, sobald eine passende JAR vorhanden ist. Create: Radars benötigt für `runClient` keine lokale Datei.
+Fehlt ein Pflichtartefakt oder passen mehrere Dateien auf dasselbe Muster, bricht `verifyModDependencies` mit einer gezielten Meldung ab. Optionale lokale Artefakte werden geprüft, sobald eine passende JAR vorhanden ist. Create: Radars, Create Big Cannons und Ritchie's Projectile Library benötigen für `runClient` keine lokalen Dateien.
