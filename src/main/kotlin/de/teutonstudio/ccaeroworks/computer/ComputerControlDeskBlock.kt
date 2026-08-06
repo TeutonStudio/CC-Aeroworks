@@ -61,17 +61,9 @@ class ComputerControlDeskBlock(
         serverLevel.server.execute {
             val placedDesk = serverLevel.getBlockEntity(pos) as? ComputerControlDeskBlockEntity
                 ?: return@execute
+            ConsoleMultiblockManager.invalidate(serverLevel)
             val network = ConsoleMultiblockManager.resolve(serverLevel, pos)
             if (network.state != ConsoleNetworkState.CONFLICT) return@execute
-
-            if (player.isCreative) {
-                serverLevel.removeBlock(pos, false)
-                player.displayClientMessage(
-                    Component.translatable("message.cc_aeroworks.computer_already_present"),
-                    true
-                )
-                return@execute
-            }
 
             splitDuplicateComputer(serverLevel, pos, placedDesk, player)
         }
@@ -167,6 +159,7 @@ class ComputerControlDeskBlock(
 
         Block.popResource(level, pos.above(), computerStack)
         level.playSound(null, pos, SoundEvents.ITEM_PICKUP, SoundSource.BLOCKS, 0.6f, 0.9f)
+        ConsoleMultiblockManager.invalidate(level)
         player.displayClientMessage(
             Component.translatable("message.cc_aeroworks.computer_ejected"),
             true
