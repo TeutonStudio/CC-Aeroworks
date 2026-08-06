@@ -56,6 +56,29 @@ def main() -> int:
     require("SMALL_RADAR_DISPLAY" in items and "LARGE_RADAR_DISPLAY" in items, "Radar items are not registered")
     require("SMALL_RADAR" in modules and "LARGE_RADAR" in modules, "Radar module types are not registered")
 
+    creative = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/creative/AeroworksCreativeSections.kt")
+    creative_accessor = read(
+        "src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/CreativeModeTabAccessor.kt"
+    )
+    require(
+        '@Accessor("searchTabDisplayItems")' in creative_accessor
+        and "ccaeroworks_setSearchTabDisplayItems" in creative_accessor,
+        "Creative search entries are not writable",
+    )
+    require(
+        "tab.searchTabDisplayItems.filterNot(::isRadarDisplay)" in creative,
+        "Radar items are not removed from creative search when Create: Radars is absent",
+    )
+    require(
+        "namespace == CCAeroworks.MOD_ID && !isRadarDisplay(it)" in creative,
+        "Radar displays are not classified into the Aeroworks section",
+    )
+    require(
+        "appendMissing(aeroworksItems, CCItems.SMALL_RADAR_DISPLAY" in creative
+        and "appendMissing(aeroworksItems, CCItems.LARGE_RADAR_DISPLAY" in creative,
+        "Loaded radar displays are not added to the Aeroworks section",
+    )
+
     plugin = read("src/main/java/de/teutonstudio/ccaeroworks/client/ponder/CCAeroworksPonderPlugin.java")
     scene = read("src/main/java/de/teutonstudio/ccaeroworks/client/ponder/RadarDisplayScenes.java")
     require("RadarDisplayScenes::dataLink" in plugin, "Radar Ponder scene is not registered")
@@ -86,14 +109,34 @@ def main() -> int:
     metadata = read("src/main/templates/META-INF/neoforge.mods.toml")
     require('modId="create_radar"' in metadata and 'type="optional"' in metadata, "Create: Radars metadata is not optional")
 
+    build = read("build.gradle")
+    properties = read("gradle.properties")
+    require("https://api.modrinth.com/maven" in build, "Modrinth Maven repository is missing")
+    require(
+        'localRuntime("maven.modrinth:create-radars:${create_radars_version}")' in build,
+        "Create: Radars is not included in local Gradle runtimes",
+    )
+    require(
+        "create_radar-*.jar" in build and "create-radars-*.jar" in build,
+        "Local Create: Radars JARs are not excluded from the generic dependency file tree",
+    )
+    require(
+        "create_radars_version=0.4.4-1.21.1" in properties,
+        "Create: Radars development runtime version is not pinned",
+    )
+
     config = read("src/main/kotlin/de/teutonstudio/ccaeroworks/config/CCServerConfig.kt")
     require(config.count("Int.MAX_VALUE") == 4, "All four display dimensions must use the unbounded integer maximum")
     require("defineInRange" in config, "Display dimensions must remain positive validated integers")
 
     docs = read("docs/create-radars-integration.md")
     require("Data Link" in docs and "20 Ticks" in docs and "256" in docs, "Radar integration documentation is incomplete")
+    require("Kreativsuche" in docs and "runClient" in docs, "Creative search or development runtime documentation is missing")
 
-    print("Validated optional Create: Radars items, recipes, models, mixins, NBT interop, Ponder scene, metadata and display limits.")
+    print(
+        "Validated optional Create: Radars items, creative visibility, development runtime, recipes, models, "
+        "mixins, NBT interop, Ponder scene, metadata and display limits."
+    )
     return 0
 
 
