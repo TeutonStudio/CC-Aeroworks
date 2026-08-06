@@ -1,6 +1,6 @@
 {
   "ambientocclusion": false,
-  "render_type": "cutout",
+  "render_type": "minecraft:translucent",
   "textures": {
     "sprite": "create_radar:monitor_sprite/radar_sweep",
     "particle": "cc_aeroworks:block/display_base"
