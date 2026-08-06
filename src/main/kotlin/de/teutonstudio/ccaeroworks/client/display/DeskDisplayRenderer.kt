@@ -61,6 +61,8 @@ object DeskDisplayRenderer {
                 rendered.renderInto(poseStack, consumer)
             }
         }
+
+        RadarSurfaceRenderer.render(desk, poseStack, buffers, light)
     }
 
     @JvmStatic
