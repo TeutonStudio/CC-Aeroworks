@@ -25,9 +25,9 @@ public class RadarDisplayScenes {
         scene.showBasePlate();
         scene.idle(10);
 
-        BlockPos sourceDesk = util.grid().at(2, 1, 2);
+        BlockPos controllerPos = util.grid().at(2, 1, 2);
         BlockPos displayDesk = util.grid().at(3, 1, 2);
-        scene.world().showSection(util.select().fromTo(sourceDesk, displayDesk), Direction.DOWN);
+        scene.world().showSection(util.select().fromTo(controllerPos, displayDesk), Direction.DOWN);
         scene.idle(20);
 
         scene.overlay().showControls(util.vector().topOf(displayDesk), Pointing.DOWN, 60)
@@ -40,35 +40,37 @@ public class RadarDisplayScenes {
         scene.idle(80);
 
         scene.world().createItemEntity(
-            util.vector().topOf(sourceDesk),
+            util.vector().topOf(controllerPos),
             util.vector().of(0.05, 0.12, 0),
             networkControllerStack()
         );
+        scene.overlay().showControls(util.vector().topOf(controllerPos), Pointing.DOWN, 60)
+            .withItem(dataLinkStack());
         scene.overlay().showText(80)
             .attachKeyFrame()
             .text(PonderText.get("ponder.cc_aeroworks.radar_controller.text_2"))
-            .pointAt(util.vector().topOf(sourceDesk))
+            .pointAt(util.vector().topOf(controllerPos))
             .placeNearTarget();
         scene.idle(90);
 
-        scene.overlay().showControls(util.vector().topOf(sourceDesk), Pointing.DOWN, 60)
+        scene.overlay().showControls(util.vector().topOf(displayDesk), Pointing.DOWN, 60)
             .withItem(dataLinkStack());
         scene.overlay().showText(80)
             .attachKeyFrame()
             .text(PonderText.get("ponder.cc_aeroworks.radar_controller.text_3"))
-            .pointAt(util.vector().topOf(sourceDesk))
-            .placeNearTarget();
-        scene.idle(90);
-
-        scene.effects().indicateSuccess(sourceDesk);
-        scene.overlay().showText(80)
-            .attachKeyFrame()
-            .text(PonderText.get("ponder.cc_aeroworks.radar_controller.text_4"))
-            .pointAt(util.vector().centerOf(sourceDesk))
+            .pointAt(util.vector().topOf(displayDesk))
             .placeNearTarget();
         scene.idle(90);
 
         scene.effects().indicateSuccess(displayDesk);
+        scene.overlay().showText(80)
+            .attachKeyFrame()
+            .text(PonderText.get("ponder.cc_aeroworks.radar_controller.text_4"))
+            .pointAt(util.vector().centerOf(displayDesk))
+            .placeNearTarget();
+        scene.idle(90);
+
+        scene.effects().indicateSuccess(controllerPos);
         scene.overlay().showText(90)
             .attachKeyFrame()
             .colored(PonderPalette.GREEN)
@@ -87,41 +89,41 @@ public class RadarDisplayScenes {
         scene.idle(10);
 
         BlockPos leftDesk = util.grid().at(1, 1, 2);
-        BlockPos sourceDesk = util.grid().at(2, 1, 2);
+        BlockPos controllerPos = util.grid().at(2, 1, 2);
         BlockPos rightDesk = util.grid().at(3, 1, 2);
         scene.world().showSection(util.select().fromTo(leftDesk, rightDesk), Direction.DOWN);
         scene.idle(20);
 
-        scene.effects().indicateSuccess(sourceDesk);
+        scene.effects().indicateSuccess(leftDesk);
         scene.overlay().showText(80)
             .attachKeyFrame()
             .text(PonderText.get("ponder.cc_aeroworks.radar_direct.text_1"))
-            .pointAt(util.vector().centerOf(sourceDesk))
+            .pointAt(util.vector().centerOf(leftDesk))
             .placeNearTarget();
         scene.idle(90);
 
-        scene.effects().indicateSuccess(rightDesk);
+        scene.effects().indicateSuccess(controllerPos);
         scene.overlay().showText(80)
             .attachKeyFrame()
             .colored(PonderPalette.GREEN)
             .text(PonderText.get("ponder.cc_aeroworks.radar_direct.text_2"))
-            .pointAt(util.vector().topOf(rightDesk))
+            .pointAt(util.vector().topOf(leftDesk))
             .placeNearTarget();
         scene.idle(90);
 
         scene.overlay().showText(80)
             .attachKeyFrame()
             .text(PonderText.get("ponder.cc_aeroworks.radar_direct.text_3"))
-            .pointAt(util.vector().centerOf(leftDesk))
+            .pointAt(util.vector().centerOf(controllerPos))
             .placeNearTarget();
         scene.idle(90);
 
-        scene.overlay().showControls(util.vector().topOf(leftDesk), Pointing.DOWN, 60)
-            .withItem(new ItemStack(CCItems.SMALL_RADAR_DISPLAY.get()));
+        scene.overlay().showControls(util.vector().topOf(rightDesk), Pointing.DOWN, 60)
+            .withItem(dataLinkStack());
         scene.overlay().showText(85)
             .attachKeyFrame()
             .text(PonderText.get("ponder.cc_aeroworks.radar_direct.text_4"))
-            .pointAt(util.vector().topOf(leftDesk))
+            .pointAt(util.vector().topOf(rightDesk))
             .placeNearTarget();
         scene.idle(95);
 
