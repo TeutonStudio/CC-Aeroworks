@@ -29,7 +29,6 @@ NETWORK_DATA = "com.happysg.radar.block.behavior.networks.NetworkData"
 MONITOR = "com.happysg.radar.block.monitor.MonitorBlockEntity"
 DATA_LINK_BLOCK = "com.happysg.radar.block.datalink.DataLinkBlock"
 DATA_LINK_ENTITY = "com.happysg.radar.block.datalink.DataLinkBlockEntity"
-FILTERER = "com.happysg.radar.block.behavior.networks.NetworkFiltererBlockEntity"
 RADAR_TRACK = "com.happysg.radar.block.radar.track.RadarTrack"
 IRADAR = "com.happysg.radar.block.radar.behavior.IRadar"
 DETECTION_CONFIG = "com.happysg.radar.block.behavior.networks.config.DetectionConfig"
@@ -80,6 +79,16 @@ def class_entry(class_name: str) -> str:
     return class_name.replace(".", "/") + ".class"
 
 
+def resolve_simple_class(names: set[str], simple_name: str) -> str:
+    suffix = f"/{simple_name}.class"
+    matches = sorted(name for name in names if name.endswith(suffix) and "$" not in name)
+    require(
+        len(matches) == 1,
+        f"Expected exactly one {simple_name} in exact runtime JAR, found {matches}",
+    )
+    return matches[0][:-6].replace("/", ".")
+
+
 def method_section(output: str, method_name: str, descriptor: str | None = None) -> str:
     lines = output.splitlines()
     candidates: list[str] = []
@@ -89,8 +98,7 @@ def method_section(output: str, method_name: str, descriptor: str | None = None)
             continue
         end = index + 1
         while end < len(lines):
-            next_line = lines[end]
-            next_stripped = next_line.strip()
+            next_stripped = lines[end].strip()
             if end > index + 1 and next_stripped.endswith(";") and "(" in next_stripped:
                 break
             end += 1
@@ -132,18 +140,17 @@ def verify_data_link_item(output: str) -> None:
 
 
 def verify_network_data(output: str) -> None:
-    required_methods = {
-        "getOrCreateGroup": None,
-        "canAttachMonitor": None,
-        "attachMonitor": None,
-        "addDataLinkToGroup": None,
-        "getFiltererForEndpoint": None,
-        "getGroup": None,
-        "removeDataLinkAndCleanup": None,
-        "onEndpointRemoved": None,
-    }
-    for name, descriptor in required_methods.items():
-        method_section(output, name, descriptor)
+    for name in (
+        "getOrCreateGroup",
+        "canAttachMonitor",
+        "attachMonitor",
+        "addDataLinkToGroup",
+        "getFiltererForEndpoint",
+        "getGroup",
+        "removeDataLinkAndCleanup",
+        "onEndpointRemoved",
+    ):
+        method_section(output, name)
 
 
 def verify_monitor(output: str) -> None:
@@ -157,7 +164,10 @@ def verify_monitor(output: str) -> None:
         "selectedTargetId",
     ):
         require(token in output, f"MonitorBlockEntity bytecode missing {token}")
-    require("iconst_5" in output or "bipush        5" in output, "MonitorBlockEntity has no visible five-tick constant")
+    require(
+        "iconst_5" in output or "bipush        5" in output,
+        "MonitorBlockEntity has no visible five-tick constant",
+    )
 
 
 def verify_cleanup(output: str) -> None:
@@ -179,19 +189,20 @@ def main() -> int:
                 MONITOR,
                 DATA_LINK_BLOCK,
                 DATA_LINK_ENTITY,
-                FILTERER,
                 RADAR_TRACK,
                 IRADAR,
                 DETECTION_CONFIG,
             ):
                 require(class_entry(class_name) in names, f"Exact runtime JAR lacks {class_name}")
+            filterer_class = resolve_simple_class(names, "NetworkFiltererBlockEntity")
 
+        print(f"Exact runtime NetworkFiltererBlockEntity: {filterer_class}")
         verify_data_link_item(javap(jar, DATA_LINK_ITEM))
         verify_network_data(javap(jar, NETWORK_DATA))
         verify_monitor(javap(jar, MONITOR))
         verify_cleanup(javap(jar, DATA_LINK_BLOCK))
 
-        filterer = javap(jar, FILTERER)
+        filterer = javap(jar, filterer_class)
         for token in ("detectionTag", "radarPos", "selectedTargetId"):
             require(token in filterer, f"NetworkFiltererBlockEntity bytecode missing {token}")
 
