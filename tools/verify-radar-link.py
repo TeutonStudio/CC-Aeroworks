@@ -5,11 +5,10 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE_SHA = "3f097163c52fcff3723588552964a2791c85e7a9"
+BASE_BRANCH = "master"
 MIXIN_CONFIG = ROOT / "src/main/resources/cc_aeroworks.mixins.json"
 TARGET_MIXIN = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/mixin/compat/CreateRadarDataLinkTargetMixin.java"
 OLD_CONTROLLER_MIXIN = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/mixin/compat/CreateRadarNetworkControllerMixin.java"
@@ -42,34 +41,19 @@ def load_json(path: Path) -> dict:
     return value
 
 
-def git(*arguments: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", *arguments],
-        cwd=ROOT,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-
-
 def verify_branch_origin() -> None:
     event_path = os.environ.get("GITHUB_EVENT_PATH")
-    if event_path and Path(event_path).is_file():
-        payload = json.loads(Path(event_path).read_text(encoding="utf-8"))
-        pull_request = payload.get("pull_request")
-        if isinstance(pull_request, dict):
-            base = pull_request.get("base")
-            base_sha = base.get("sha") if isinstance(base, dict) else None
-            require(base_sha == BASE_SHA, f"Pull request base SHA is {base_sha}, expected {BASE_SHA}")
-            return
-
-    if not (ROOT / ".git").exists():
+    if not event_path or not Path(event_path).is_file():
         return
-    commit = git("cat-file", "-e", f"{BASE_SHA}^{{commit}}")
-    require(commit.returncode == 0, f"Required v7 base commit {BASE_SHA} is unavailable")
-    ancestor = git("merge-base", "--is-ancestor", BASE_SHA, "HEAD")
-    require(ancestor.returncode == 0, "Current branch is not based on the required v7 commit")
+
+    payload = json.loads(Path(event_path).read_text(encoding="utf-8"))
+    pull_request = payload.get("pull_request")
+    if not isinstance(pull_request, dict):
+        return
+
+    base = pull_request.get("base")
+    base_ref = base.get("ref") if isinstance(base, dict) else None
+    require(base_ref == BASE_BRANCH, f"Pull request targets {base_ref}, expected {BASE_BRANCH}")
 
 
 def main() -> int:
@@ -248,7 +232,7 @@ def main() -> int:
             require(forbidden not in source, f"Obsolete adjacency documentation remains: {forbidden}")
 
     print(
-        "Validated the v7 branch origin, traced MixinExtras monitor classification, NetworkData endpoint state, "
+        "Validated the master-target branch contract, traced MixinExtras monitor classification, NetworkData endpoint state, "
         "native DetectionConfig filtering/RadarTrack payloads, physical-link cleanup and computer desk visuals."
     )
     return 0

@@ -136,13 +136,18 @@ object RadarOverlayRenderer {
                     buffers,
                     partialTicks
                 )
-                renderedAny = rendered || renderedAny
+                val legendRendered = if (rendered) {
+                    RadarLegendRenderer.render(desk, poseStack, buffers)
+                } else {
+                    false
+                }
+                renderedAny = rendered || legendRendered || renderedAny
                 RadarTrace.periodic(
                     "R08_NATIVE_RETURN",
                     level,
                     desk.blockPos,
                     10L,
-                    "CreateRadarNativeMonitorRenderer.render returned=$rendered aggregateRenderedAny=$renderedAny"
+                    "native=$rendered legend=$legendRendered aggregateRenderedAny=$renderedAny"
                 )
             } catch (throwable: Throwable) {
                 RadarTrace.event(
@@ -163,7 +168,7 @@ object RadarOverlayRenderer {
                 level,
                 null,
                 10L,
-                "at least one native monitor render invoked; flushing BufferSource.endBatch()"
+                "native radar or large-display legend rendered; flushing BufferSource.endBatch()"
             )
             buffers.endBatch()
         } else {

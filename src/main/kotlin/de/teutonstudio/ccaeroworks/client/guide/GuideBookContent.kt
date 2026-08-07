@@ -43,9 +43,15 @@ object GuideBookContent {
                 GuideEntry.Text("guide.cc_aeroworks.network.text"),
                 GuideEntry.Code(
                     listOf(
-                        "-- embedded computer",
+                        "-- embedded computer: desk API",
                         "local desks = aeroworks.getDesks()",
                         "aeroworks.getModules(desks[1].id)",
+                        "",
+                        "-- embedded computer: peripheral tree",
+                        "local tree = peripherals.getTree()",
+                        "local desk = tree[\"12,64,-7\"]",
+                        "local monitor = desk.peripherals.north",
+                        "monitor.handle.setTextScale(0.5)",
                         "",
                         "-- external computer",
                         "local desk = peripheral.find(",
@@ -83,7 +89,11 @@ object GuideBookContent {
                         "setDisplayNumber(socket, value, zeroPad)",
                         "setDisplayPixel(socket, x, y, enabled)",
                         "setDisplayPixels(socket, rows)",
-                        "clearDisplay(socket)"
+                        "clearDisplay(socket)",
+                        "",
+                        "-- large RadarDisplay legend",
+                        "-- PLY SHP CTR MOB PRJ ANI ITM",
+                        "-- counts follow filtered synced tracks"
                     )
                 ),
                 GuideEntry.Note("guide.cc_aeroworks.displays.note")

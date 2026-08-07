@@ -110,7 +110,7 @@ internal object PeripheralNetworkBuilder {
         val networkId = stableNetworkId(dimension, desks)
         val peripherals = mutableListOf<PeripheralNetworkNode>()
         for (desk in desks) {
-            for (side in Direction.values()) {
+            for (side in SCAN_DIRECTIONS) {
                 val targetPos = desk.pos.relative(side)
                 if (targetPos in deskPositions || !level.isLoaded(targetPos)) continue
                 val peripheral = level.getCapability(
@@ -151,6 +151,15 @@ internal object PeripheralNetworkBuilder {
     }
 
     fun address(pos: BlockPos): String = "${pos.x},${pos.y},${pos.z}"
+
+    private val SCAN_DIRECTIONS = listOf(
+        Direction.NORTH,
+        Direction.SOUTH,
+        Direction.EAST,
+        Direction.WEST,
+        Direction.UP,
+        Direction.DOWN
+    )
 
     private fun stableNetworkId(dimension: String, desks: List<DeskNetworkNode>): String {
         val identity = buildString {
@@ -224,17 +233,29 @@ internal class PeripheralNetworkRuntime(
                 detached += binding.node
                 binding.close()
                 iterator.remove()
+            } else {
+                binding.updateNode(node)
             }
         }
 
+        // Publish the complete new topology before calling IPeripheral.attach(). Some peripherals
+        // immediately inspect getAvailablePeripherals() during attach, and must not observe the old graph.
+        graph = next
+
         val attached = mutableListOf<PeripheralNetworkNode>()
-        for (node in next.peripherals) {
-            if (node.address !in bindings) {
-                bindings[node.address] = PeripheralBinding(this, system, node)
+        try {
+            for (node in next.peripherals) {
+                if (node.address in bindings) continue
+                val binding = PeripheralBinding(this, system, node)
+                bindings[node.address] = binding
+                binding.attach()
                 attached += node
             }
+        } catch (throwable: Throwable) {
+            invalidateGraph(queueEvents = false)
+            throw throwable
         }
-        graph = next
+
         if (initialized) {
             detached.forEach(::queueDetached)
             attached.forEach(::queueAttached)
@@ -472,19 +493,37 @@ internal class PeripheralNetworkRuntime(
 internal class PeripheralBinding(
     private val runtime: PeripheralNetworkRuntime,
     private val system: IComputerSystem,
-    val node: PeripheralNetworkNode
+    node: PeripheralNetworkNode
 ) : IComputerAccess, GuardedLuaContext.Guard {
+    var node: PeripheralNetworkNode = node
+        private set
+
     private val methods: Map<String, PeripheralMethod> =
         ServerContext.get(system.getLevel().server).peripheralMethods().getSelfMethods(node.target)
     private val mounts = linkedSetOf<String>()
-    private var attached = true
+    private var attached = false
     private var contextWrapper: GuardedLuaContext? = null
 
-    init {
-        node.target.attach(this)
+    val methodNames: Set<String> get() = methods.keys
+
+    @Synchronized
+    fun attach() {
+        if (attached) return
+        attached = true
+        try {
+            node.target.attach(this)
+        } catch (throwable: Throwable) {
+            runCatching { node.target.detach(this) }
+            attached = false
+            throw throwable
+        }
     }
 
-    val methodNames: Set<String> get() = methods.keys
+    @Synchronized
+    fun updateNode(next: PeripheralNetworkNode) {
+        checkAttached()
+        node = next
+    }
 
     fun call(context: ILuaContext, name: String, arguments: IArguments): MethodResult {
         val method = methods[name] ?: throw LuaException("No such method $name")
