@@ -96,17 +96,22 @@ def readable_strings(data: bytes) -> set[str]:
     }
 
 
+def is_method_declaration(line: str) -> bool:
+    indentation = len(line) - len(line.lstrip(" "))
+    stripped = line.strip()
+    return indentation == 2 and stripped.endswith(";") and "(" in stripped
+
+
 def method_section(output: str, method_name: str, descriptor: str | None = None) -> str:
     lines = output.splitlines()
     candidates: list[str] = []
     for index, line in enumerate(lines):
         stripped = line.strip()
-        if not stripped.endswith(";") or f" {method_name}(" not in stripped:
+        if not is_method_declaration(line) or f" {method_name}(" not in stripped:
             continue
         end = index + 1
         while end < len(lines):
-            next_stripped = lines[end].strip()
-            if end > index + 1 and next_stripped.endswith(";") and "(" in next_stripped:
+            if end > index + 1 and is_method_declaration(lines[end]):
                 break
             end += 1
         section = "\n".join(lines[index:end])
@@ -134,10 +139,9 @@ def verify_data_link_item(output: str, class_strings: set[str]) -> None:
         if "select" in value.lower() or "filterer" in value.lower()
     )
     print("Exact DataLinkBlockItem selection strings: " + ", ".join(selection_strings))
-    require(
-        any("select" in value.lower() and "filter" in value.lower() for value in selection_strings),
-        "DataLinkBlockItem contains no selected-filterer storage key or selection constant",
-    )
+    require("SelectedFiltererPos" in selection_strings, "Exact runtime Data Link key SelectedFiltererPos is missing")
+    for cleared_key in ("SelectedMountPos", "SelectedYawPos", "SelectedPitchPos", "SelectedFiringPos"):
+        require(cleared_key in selection_strings, f"Exact runtime Data Link cleanup key {cleared_key} is missing")
 
     use_on = method_section(
         output,
