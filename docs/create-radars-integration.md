@@ -1,118 +1,118 @@
 # Create: Radars integration
 
-Die Integration ist optional und wird nur aktiv, wenn Create: Radars mit der Mod-ID `create_radar` geladen ist. Ohne Create: Radars werden die RadarDisplays aus Kreativsuche und Aeroworks-Abschnitt entfernt; ihre Rezepte laden nur unter der NeoForge-Bedingung `neoforge:mod_loaded`.
+Die Integration ist optional und wird nur aktiv, wenn Create: Radars mit der Mod-ID `create_radar` geladen ist. Unterstützt und im Entwicklungsmanifest fest eingetragen ist Create: Radars `0.4.9.4-1.21.1` für Minecraft 1.21.1.
 
-## Abhängigkeiten
-
-Die unterstützte Entwicklungskette für Minecraft 1.21.1 besteht aus:
-
-- Create: Radars `0.4.9.4-1.21.1`, Mod-ID `create_radar`.
-- Create Big Cannons `5.11.7`, Mod-ID `createbigcannons`.
-- Ritchie's Projectile Library `2.1.2`, Mod-ID `ritchiesprojectilelib`.
-
-CC-Aeroworks verwendet keine Create:-Radars-Klassen in normalen Signaturen. Ein optionaler Mixin hängt ausschließlich am öffentlichen Tick des Network Controllers; Data-Link-Gegenstand und Data-Link-BlockEntity werden nicht verändert.
+Ohne Create: Radars bleiben CC-Aeroworks und alle normalen Pultfunktionen startfähig. RadarDisplay-Rezepte und optionale Inhalte werden über `neoforge:mod_loaded` ausgeblendet. Der optionale Data-Link-Mixin ist `@Pseudo`, verwendet ein Klassennamenziel und enthält keine Create:-Radars-Typen in seiner Handler-Signatur.
 
 ## Zweck der RadarDisplays
 
-Die kleine und große Radaranzeige ersetzen den Create:-Radars-Monitor am Steuerungspult. Es gibt keinen zusätzlichen Monitor, keinen am Pult platzierten Data-Link-Block und keinen Data-Link-Klick auf das Pult.
+`cc_aeroworks:small_radar_display` und `cc_aeroworks:large_radar_display` machen genau das Pult, in dem sie montiert sind, zu einem Create:-Radars-Monitorendpoint.
 
-- `cc_aeroworks:small_radar_display` passt in kleine und große Aeroworks-Sockets.
-- `cc_aeroworks:large_radar_display` passt ausschließlich in große Aeroworks-Sockets.
-- Mehrere RadarDisplays im selben gültigen Pultnetz zeigen dieselbe Radarquelle.
-- RadarDisplays verwenden keine konfigurierte Pixelmatrix. Sie rendern eine kontinuierliche Radaroberfläche direkt auf dem Modul.
+Unterstützt werden:
+
+- normales Aeroworks-Steuerungspult,
+- Advanced Aeroworks-Steuerungspult,
+- ComputerControlDesk,
+- Advanced ComputerControlDesk.
+
+Ein Pult ohne kleines oder großes RadarDisplay ist kein gültiger Monitorendpoint. Eine Verbindung wird nicht automatisch auf benachbarte Pulte oder ein komplettes Pultnetz verteilt. Jedes gewünschte RadarDisplay-Pult erhält seinen eigenen physischen Create:-Radars-Data-Link-Block.
 
 ## Herstellung
-
-Die Radarvarianten entstehen weiterhin mit einem Create-Einsatzgerät:
 
 - `cc_aeroworks:two_digit_display` plus `create_radar:monitor` ergibt `cc_aeroworks:small_radar_display`.
 - `cc_aeroworks:three_digit_display` plus `create_radar:monitor` ergibt `cc_aeroworks:large_radar_display`.
 
-Der Monitor wird nur als Herstellungskomponente verbraucht. In der späteren Anlage ist kein Monitorblock erforderlich.
+Der native Monitor wird als Herstellungskomponente verwendet. Im fertigen Aufbau übernimmt das Pult mit RadarDisplay den Monitorendpoint.
 
-## Aufbau
+## Nativer Aufbau
 
-Create: Radars verwaltet weiterhin sein eigenes Radarnetz:
+1. Ein Radar wird nach den Regeln von Create: Radars mit einem Network Filterer verbunden.
+2. Der Spieler verwendet den Create:-Radars-Data-Link-Gegenstand auf dem Network Filterer. Das Item speichert nativ `SelectedFiltererPos`.
+3. Der Spieler verwendet dasselbe Item auf einer freien Seite des Pults, in dem ein RadarDisplay montiert ist.
+4. Create: Radars klassifiziert das Pult als `MONITOR`, prüft die Linkreichweite und bestehende Gruppenzuordnungen und platziert den physischen Data-Link-Block.
+5. Der Originalcode ruft `NetworkData.canAttachMonitor(...)`, `attachMonitor(...)` und `addDataLinkToGroup(...)` auf, zeigt seine normalen Meldungen und bereinigt den Itemzustand.
+6. Der Data-Link-Block bleibt sichtbar am Pult und ist Eigentümer der Verbindung.
 
-1. Einen Network Controller mit dem nativen Create:-Radars-Data-Link-Gegenstand auswählen.
-2. Danach den gewünschten Radar anklicken.
-3. Den Network Controller direkt an eine Seite eines Aeroworks-Steuerungspults setzen.
-4. Mindestens ein RadarDisplay in dieses Pult oder ein verbundenes Pult einsetzen.
+Der Network Filterer muss nicht angrenzend zum Pult stehen. CC-Aeroworks sucht weder benachbarte Controller noch Radarblöcke.
 
-Damit ist der Aufbau vollständig. CC-Aeroworks erkennt den direkt angrenzenden Network Controller automatisch. Der Data-Link-Gegenstand wird niemals auf dem Pult verwendet.
+## Minimale Erweiterungsstelle
 
-## Automatische Controller-Erkennung
+CC-Aeroworks ersetzt `DataLinkBlockItem.useOn(...)` nicht. Ein optionaler Mixin ändert ausschließlich das native `INSTANCEOF MonitorBlockEntity` in der privaten Hilfsmethode `getFilterTarget(BlockEntity, BlockState)`:
 
-Der ohnehin alle fünf Ticks laufende Network Controller prüft seine sechs direkten Nachbarpositionen auf Aeroworks-Pulte. Für jedes gefundene Pult wird der vollständige Pultverbund aufgelöst und anschließend geprüft, wie viele Network Controller direkt an irgendein Pult dieses Netzes grenzen.
+- native `MonitorBlockEntity`-Instanzen bleiben gültig,
+- ein `ConsoleBlockEntity` wird nur mit tatsächlich montiertem RadarDisplay ebenfalls als Monitor erkannt,
+- Create: Radars erzeugt seinen privaten `FilterTarget(MONITOR)` weiterhin selbst.
 
-- **Kein angrenzender Controller:** Alle RadarDisplays zeigen den getrennten Zustand `X`.
-- **Genau ein angrenzender Controller:** Dessen verbundener Radar wird dargestellt.
-- **Mehrere angrenzende Controller:** Die Quelle ist mehrdeutig; alle RadarDisplays zeigen `X`.
+Es gibt keine reflektive Konstruktion privater Create:-Radars-Zielobjekte, keine eigene Reichweitenprüfung, keine eigene Blockplatzierung und keine parallele Linkdatenbank.
 
-Ein Controller darf an irgendeinem Pult des Netzes liegen. Mehrere Pulte, die an denselben Controller grenzen, erzeugen wegen der Positions-Deduplizierung trotzdem nur eine Quelle.
+Die geprüfte native Aufrufkette und der Zielmethoden-Deskriptor sind in `docs/create-radars-native-flow-analysis.md` dokumentiert.
 
-Für die Radarweiterleitung sind zulässig:
+## Autoritativer Netzwerkzustand
 
-- ein einzelnes Pult ohne eingebetteten Computer,
-- ein Pultnetz ohne eingebetteten Computer,
-- ein Pultnetz mit genau einem eingebetteten Computer.
+Serverseitig ist `NetworkData` die einzige Verbindungsquelle. Für ein verbundenes Pult gilt:
 
-Mehrere eingebettete Computer, teilweise geladene Netze und Netze mit mehr als 64 Pulten bleiben gesperrt. Die Position eines vorhandenen Computer-Steuerungspults beeinflusst die Radarquelle nicht.
+```text
+NetworkData.getFiltererForEndpoint(level.dimension(), deskPos) == filtererPos
+```
 
-## Direkter Radar-Snapshot
+Die zugehörige Gruppe enthält `deskPos` in `monitorEndpoints`. Aus dieser Gruppe liest das Pult:
 
-Der Adapter liest am erkannten Network Controller dessen bereits verbundenen Radar. Verwendet werden:
+- `radarPos`,
+- `detectionTag`,
+- `selectedTargetId`.
 
-- Betriebszustand,
-- Weltposition des Radars,
-- Reichweite,
-- ausgewählter Track des Controllers,
-- höchstens die **256** nächstgelegenen Radartracks mit Position, Geschwindigkeit und Create:-Radars-Spritekategorie.
+Der Radar wird ausschließlich an `radarPos` aufgelöst. CC-Aeroworks speichert keine Controllerposition und verteilt keinen Controller-Snapshot an ein Pultnetz.
 
-Es gibt weder einen Data-Link-Item-Mixin noch einen `DataLinkBlockEntity`-Mixin. Der einzige optionale Create:-Radars-Mixin hängt am öffentlichen statischen `NetworkFiltererBlockEntity.tick(...)`.
+## Monitoridentische Aktualisierung
 
-Der Snapshot wird nur für Client-Updates übertragen und nicht als fortlaufende Trackhistorie im Weltstand gespeichert. Es wird auch keine Controllerposition am Pult persistiert. Bei einem entfernten Radar sendet der Controller spätestens nach **5 Ticks** einen getrennten Snapshot. Wird der Controller selbst entfernt, bleibt kein Tickgeber zurück; der Renderer behandelt den letzten Snapshot deshalb spätestens nach **20 Ticks** als veraltet.
+Wie `MonitorBlockEntity` aktualisiert jedes RadarDisplay-Pult serverseitig bei `gameTime % 5 == 0` seinen Zustand. Es übernimmt:
 
-## Direkte Monitoroberfläche
+- Filtererposition und Linkstatus,
+- Radarposition und über `PhysicsHandler` aufgelöstes Weltzentrum,
+- Reichweite und Betriebszustand aus `IRadar`,
+- Detection-Filter aus `DetectionConfig.fromTag(group.detectionTag)`,
+- ausgewähltes Ziel aus `group.selectedTargetId`,
+- Radartracks aus `IRadar.getTracks()`.
 
-RadarDisplays werden nicht mehr durch `RadarDisplayRaster` in boolesche Pultpixel umgerechnet. Der klassische BlockEntity-Renderer und der Flywheel-Visual verwenden stattdessen dieselbe Liste flacher Oberflächenmodelle.
+Jeder Track wird mit dem nativen `DetectionConfig.test(RadarTrack)` gefiltert. Damit gelten dieselben Spieler-, Sable/VS2-, Contraption-, Mob-, Projektil-, Tier- und Itemfilter wie beim nativen Monitor. Synchronisiert werden höchstens 256 gefilterte Tracks mit ID, Position, Geschwindigkeit und nativer Trackkategorie.
 
-Die Oberfläche referenziert direkt die vorhandenen Create:-Radars-Monitorressourcen:
+Der Snapshot wird in das tatsächliche Clientupdate-NBT des `ConsoleBlockEntity` geschrieben. Geänderte Inhalte rufen `notifyUpdate()` auf; unveränderte aktive Zustände erhalten einen begrenzten Heartbeat. Nach Linkentfernung wird der Snapshot im nächsten Fünf-Tick-Zyklus gelöscht.
 
-- Hintergrundfüllung,
-- Radarkreis,
+## Nativer Cleanup
+
+Beim Abbau des physischen Data-Link-Blocks führt `DataLinkBlock.onRemove(...)` den Create:-Radars-Cleanup aus:
+
+- `removeDataLinkAndCleanup(...)` entfernt Link- und Endpointzuordnung,
+- `onEndpointRemoved(...)` bereinigt den unterstützenden Endpoint zusätzlich,
+- `getFiltererForEndpoint(...)` liefert anschließend keinen Filterer mehr.
+
+CC-Aeroworks greift in diesen Ablauf nicht ein. Das orange Trennungs-X erscheint nur, wenn kein gültiger Endpoint, kein Radar, ein ungeladener oder gestoppter Radar, eine ungültige Reichweite oder ein API-Fehler vorliegt.
+
+## Radaroberfläche
+
+Der klassische BlockEntityRenderer und der Flywheel-`ConsoleVisual` verwenden dieselben `RadarSurfaceRenderer`-Elemente:
+
+- Hintergrundfüllung und Radarkreis,
 - rotierender Sweep,
-- separate Symbole für Spieler, Projektile, normale Entitäten sowie Contraptions oder Sable-Schiffe,
-- Zielmarkierung für den ausgewählten Track.
+- Spieler-, Projektil-, Entity- und Contraption/Sable-Symbole,
+- Zielmarkierung für `selectedTargetId`.
 
-Die Trackpositionen werden kontinuierlich auf die kleine beziehungsweise große Modulfläche projiziert. Die Pixelauflösung der programmierbaren Zwei- und Dreisteller beeinflusst RadarDisplays nicht mehr.
+Trackpositionen werden relativ zu Radarzentrum und Reichweite auf die kleine oder große Modulfläche projiziert. Die programmierbare Pixelauflösung beeinflusst RadarDisplays nicht.
 
-## Ponder-Erklärungen
+Normales und Advanced ComputerControlDesk verwenden denselben CC-Aeroworks-BlockEntity-Typ. Für diesen Typ wird der native Aeroworks-`ConsoleVisual` explizit registriert, damit Steuereinheiten mit Flywheel erhalten bleiben. Der klassische Renderer delegiert ebenfalls an den Aeroworks-Renderer und besitzt nur einen Display-Fallback für geänderte Renderer-Konstruktoren.
 
-Die Radaritems besitzen zwei lokalisierte Storyboards:
+## Diagnose
 
-1. **Network Controller am Pult** zeigt den physischen Aufbau und die native Verbindung `Controller → Radar`.
-2. **Radar direkt darstellen** erklärt die automatische Nachbarschaftssuche, mehrere Displays und den getrennten Zustand.
+CC-Aeroworks protokolliert nur Zustandsänderungen, nicht jeden Tick. Eine Diagnosezeile enthält:
 
-## Entwicklungsclient
+```text
+Radar endpoint desk=<pos> filterer=<pos> radar=<pos> status=<status> filteredTracks=<n> reason=<text>
+```
 
-`./gradlew runClient` löst Create: Radars, Create Big Cannons und Ritchie's Projectile Library automatisch über CurseMaven als `localRuntime` auf. Die Zielversionen und CurseForge-Datei-IDs stehen in `gradle.properties`.
+Für einen aktiven Aufbau mit Kontakten muss `status=ACTIVE` und `filteredTracks` größer als null erscheinen. API- und Reflexionsfehler werden dedupliziert mit Ursache protokolliert.
 
-Lokal in `libs/` liegende offizielle JARs dieser Mods werden aus dem allgemeinen Datei-Classpath ausgeschlossen, damit nicht zwei Kopien mit derselben Mod-ID geladen werden. Fremdmods werden nicht in das CC-Aeroworks-JAR eingebettet.
+## Laufzeitmatrix
 
-## Manuelle Prüfung
+Die verbindliche manuelle Matrix steht in `docs/radar-controller-test-plan.md`. Sie umfasst alle vier Pulttypen, beide Displaygrößen, alle vier Ausrichtungen, Filteränderungen, Zielauswahl, Linkabbau, klassischen Renderer, Flywheel sowie den Start ohne Create: Radars.
 
-- Start ohne Create: Radars: keine Radaritems, Radarrezepte oder optionalen Mixinfehler.
-- Network Controller mit dem Data Link auswählen und danach Radar anklicken: natives Create:-Radars-Verhalten bleibt unverändert.
-- Network Controller direkt an ein Pult stellen: RadarDisplay zeigt Hintergrund, Kreis und Sweep ohne weiteren Klick.
-- Einen Spieler, ein Projektil und eine normale Entität im Radarbereich erzeugen: die passenden Create:-Radars-Symbole erscheinen kontinuierlich auf der Modulfläche.
-- Ein Ziel am Network Controller auswählen: die Zielmarkierung erscheint über dem zugehörigen Track.
-- Controller an Vorder-, Rück-, Ober-, Unter- und freie Seitennachbarn setzen: jede direkte Nachbarschaft wird erkannt.
-- Controller nur diagonal oder mit einem Luftblock Abstand platzieren: Anzeige bleibt `X`.
-- Ein Controller grenzt an zwei Pulte desselben Netzes: Quelle wird nur einmal gezählt.
-- Zwei verschiedene Controller grenzen an das Pultnetz: Anzeige bleibt wegen Mehrdeutigkeit `X`.
-- Ein oder mehrere RadarDisplays im Netz: alle zeigen dieselbe Quelle.
-- Radar entfernen: spätestens nach fünf Ticks erscheint `X`; Controller entfernen: spätestens nach 20 Ticks.
-- Zwei Computer-Steuerungspulte, teilweise geladenes oder überlanges Netz: Anzeige wird getrennt.
-- Rechtsklick mit Data Link auf ein Pult: ausschließlich natives Create:-Radars-Verhalten; CC-Aeroworks greift nicht ein.
-- Fallback-Renderer und Flywheel-Renderer getrennt prüfen.
+Ein grüner statischer Vertrag ersetzt den Ingame-Test nicht. Der Draft-PR darf erst als behoben gelten, wenn im Entwicklungsclient sichtbare Radartracks nachgewiesen wurden.
