@@ -21,6 +21,10 @@ object DeskDisplayRenderer {
 
     @JvmStatic
     fun render(desk: ConsoleBlockEntity, poseStack: PoseStack, buffers: MultiBufferSource, light: Int) {
+        // RadarDisplay is rendered later in one shared world pass so classic and
+        // Flywheel desks both use the exact same native Create: Radars renderer.
+        RadarOverlayRenderer.track(desk)
+
         val sockets = desk.sockets()
         val rotation = ConsoleBlock.rotationFor(desk.blockState)
         val consumer = buffers.getBuffer(RenderType.cutout())
@@ -61,8 +65,6 @@ object DeskDisplayRenderer {
                 rendered.renderInto(poseStack, consumer)
             }
         }
-
-        RadarSurfaceRenderer.render(desk, poseStack, buffers, light)
     }
 
     @JvmStatic
