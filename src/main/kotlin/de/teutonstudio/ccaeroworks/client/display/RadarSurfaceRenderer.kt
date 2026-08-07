@@ -15,14 +15,17 @@ import net.createmod.catnip.render.CachedBuffers
 import net.createmod.catnip.render.SuperByteBuffer
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.client.renderer.RenderType
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
- * Renders the RadarDisplay entirely from CC-Aeroworks-owned display partials.
+ * Shared RadarDisplay composition for the classic BER and Flywheel.
  *
- * Create: Radars' MonitorSprite textures are renderer resources, not guaranteed
- * block-atlas sprites. Baking them into PartialModels produced the black/magenta
- * missing-texture surface on real clients. Reusing the already-proven segment
- * and pixel partials keeps classic rendering and Flywheel on one safe path.
+ * The radar uses atlas-safe CC-Aeroworks models backed by vanilla textures.
+ * Create: Radars' MonitorSprite PNGs remain renderer resources and are therefore
+ * deliberately not baked into PartialModels. This keeps both rendering paths
+ * identical without falling back to the previous orange display-segment frame.
  */
 object RadarSurfaceRenderer {
     private const val TRACK_POSITION_SCALE = 0.75
@@ -32,6 +35,10 @@ object RadarSurfaceRenderer {
     private const val SWEEP_PERIOD_TICKS = 120L
     private const val GLYPH_OFFSET = 0.024
     private const val SELECTION_OFFSET = 0.045
+    private const val OUTER_RING_SCALE = 0.88
+    private const val INNER_RING_SCALE = 0.48
+    private const val OUTER_RING_POINTS = 32
+    private const val INNER_RING_POINTS = 20
 
     data class Element(
         val model: PartialModel,
@@ -77,8 +84,7 @@ object RadarSurfaceRenderer {
 
     /**
      * Flywheel rebuilds only when renderable radar content or the fresh/stale
-     * state changes. Transport timestamps themselves remain excluded, so normal
-     * heartbeat packets do not churn instance pools.
+     * state changes. Heartbeat timestamps themselves remain excluded.
      */
     @JvmStatic
     fun key(surface: RadarSurfaceState, gameTime: Long): String {
@@ -103,7 +109,7 @@ object RadarSurfaceRenderer {
 
     @JvmStatic
     fun elements(surface: RadarSurfaceState, gameTime: Long): List<Element> {
-        val elements = frameElements(surface.type).toMutableList()
+        val elements = radarBaseElements(surface.type).toMutableList()
         val snapshot = surface.snapshot
         if (!RadarDisplaySnapshot.isFresh(snapshot, gameTime)) {
             elements += Element(DeskDisplayModels.radarDisconnected())
@@ -111,15 +117,7 @@ object RadarSurfaceRenderer {
         }
 
         val active = requireNotNull(snapshot)
-
-        // The vertical segment is offset by half its own length. Rotating it
-        // around the model centre therefore produces a radial sweep arm rather
-        // than a diameter line.
-        elements += Element(
-            model = DeskDisplayModels.VERTICAL,
-            z = -0.075,
-            spinning = true
-        )
+        elements += Element(DeskDisplayModels.RADAR_SWEEP, spinning = true)
 
         for (track in active.tracks) {
             val projected = project(surface.type, active, track.position.x, track.position.z) ?: continue
@@ -131,58 +129,62 @@ object RadarSurfaceRenderer {
         return elements
     }
 
-    private fun frameElements(type: RadarDisplayType): List<Element> {
-        val xCenters = when (type) {
-            RadarDisplayType.SMALL -> listOf(-0.105, 0.0, 0.105)
-            RadarDisplayType.LARGE -> listOf(-0.18, -0.06, 0.06, 0.18)
-        }
-        val halfWidth = when (type) {
-            RadarDisplayType.SMALL -> SMALL_HALF_WIDTH
-            RadarDisplayType.LARGE -> LARGE_HALF_WIDTH
-        }
-        val sideX = halfWidth - 0.022
-
+    private fun radarBaseElements(type: RadarDisplayType): List<Element> {
+        val halfWidth = halfWidth(type)
         return buildList {
-            for (x in xCenters) {
-                add(Element(DeskDisplayModels.HORIZONTAL, x = x, z = HALF_HEIGHT - 0.012))
-                add(Element(DeskDisplayModels.HORIZONTAL, x = x, z = -HALF_HEIGHT + 0.012))
-            }
-            for (z in listOf(-0.08, 0.08)) {
-                add(Element(DeskDisplayModels.VERTICAL, x = sideX, z = z))
-                add(Element(DeskDisplayModels.VERTICAL, x = -sideX, z = z))
-            }
+            add(
+                Element(
+                    when (type) {
+                        RadarDisplayType.SMALL -> DeskDisplayModels.RADAR_SMALL_BACKGROUND
+                        RadarDisplayType.LARGE -> DeskDisplayModels.RADAR_LARGE_BACKGROUND
+                    }
+                )
+            )
+            addAll(ringElements(halfWidth * OUTER_RING_SCALE, HALF_HEIGHT * OUTER_RING_SCALE, OUTER_RING_POINTS))
+            addAll(ringElements(halfWidth * INNER_RING_SCALE, HALF_HEIGHT * INNER_RING_SCALE, INNER_RING_POINTS))
+            add(Element(DeskDisplayModels.RADAR_PIXEL))
         }
     }
+
+    private fun ringElements(radiusX: Double, radiusZ: Double, points: Int): List<Element> =
+        List(points) { index ->
+            val angle = 2.0 * PI * index.toDouble() / points.toDouble()
+            Element(
+                model = DeskDisplayModels.RADAR_PIXEL,
+                x = cos(angle) * radiusX,
+                z = sin(angle) * radiusZ
+            )
+        }
 
     private fun trackGlyph(track: RadarDisplayTrack, x: Double, z: Double): List<Element> =
         when (track.sprite) {
             RadarDisplayTrackSprite.ENTITY -> listOf(
-                Element(DeskDisplayModels.PIXEL, x, z)
+                Element(DeskDisplayModels.RADAR_PIXEL, x, z)
             )
 
             RadarDisplayTrackSprite.PLAYER -> listOf(
-                Element(DeskDisplayModels.PIXEL, x, z - GLYPH_OFFSET),
-                Element(DeskDisplayModels.PIXEL, x, z + GLYPH_OFFSET)
+                Element(DeskDisplayModels.RADAR_PIXEL, x, z - GLYPH_OFFSET),
+                Element(DeskDisplayModels.RADAR_PIXEL, x, z + GLYPH_OFFSET)
             )
 
             RadarDisplayTrackSprite.PROJECTILE -> listOf(
-                Element(DeskDisplayModels.PIXEL, x - GLYPH_OFFSET, z),
-                Element(DeskDisplayModels.PIXEL, x + GLYPH_OFFSET, z)
+                Element(DeskDisplayModels.RADAR_PIXEL, x - GLYPH_OFFSET, z),
+                Element(DeskDisplayModels.RADAR_PIXEL, x + GLYPH_OFFSET, z)
             )
 
             RadarDisplayTrackSprite.CONTRAPTION -> listOf(
-                Element(DeskDisplayModels.PIXEL, x - GLYPH_OFFSET, z - GLYPH_OFFSET),
-                Element(DeskDisplayModels.PIXEL, x + GLYPH_OFFSET, z - GLYPH_OFFSET),
-                Element(DeskDisplayModels.PIXEL, x - GLYPH_OFFSET, z + GLYPH_OFFSET),
-                Element(DeskDisplayModels.PIXEL, x + GLYPH_OFFSET, z + GLYPH_OFFSET)
+                Element(DeskDisplayModels.RADAR_PIXEL, x - GLYPH_OFFSET, z - GLYPH_OFFSET),
+                Element(DeskDisplayModels.RADAR_PIXEL, x + GLYPH_OFFSET, z - GLYPH_OFFSET),
+                Element(DeskDisplayModels.RADAR_PIXEL, x - GLYPH_OFFSET, z + GLYPH_OFFSET),
+                Element(DeskDisplayModels.RADAR_PIXEL, x + GLYPH_OFFSET, z + GLYPH_OFFSET)
             )
         }
 
     private fun selectionGlyph(x: Double, z: Double): List<Element> = listOf(
-        Element(DeskDisplayModels.PIXEL, x - SELECTION_OFFSET, z - SELECTION_OFFSET),
-        Element(DeskDisplayModels.PIXEL, x + SELECTION_OFFSET, z - SELECTION_OFFSET),
-        Element(DeskDisplayModels.PIXEL, x - SELECTION_OFFSET, z + SELECTION_OFFSET),
-        Element(DeskDisplayModels.PIXEL, x + SELECTION_OFFSET, z + SELECTION_OFFSET)
+        Element(DeskDisplayModels.RADAR_SELECTED_PIXEL, x - SELECTION_OFFSET, z - SELECTION_OFFSET),
+        Element(DeskDisplayModels.RADAR_SELECTED_PIXEL, x + SELECTION_OFFSET, z - SELECTION_OFFSET),
+        Element(DeskDisplayModels.RADAR_SELECTED_PIXEL, x - SELECTION_OFFSET, z + SELECTION_OFFSET),
+        Element(DeskDisplayModels.RADAR_SELECTED_PIXEL, x + SELECTION_OFFSET, z + SELECTION_OFFSET)
     )
 
     private fun project(
@@ -196,13 +198,14 @@ object RadarSurfaceRenderer {
         val normalizedZ = (worldZ - snapshot.center.z) / snapshot.range
         if (normalizedX * normalizedX + normalizedZ * normalizedZ > 1.0) return null
 
-        val halfWidth = when (type) {
-            RadarDisplayType.SMALL -> SMALL_HALF_WIDTH
-            RadarDisplayType.LARGE -> LARGE_HALF_WIDTH
-        }
         return Pair(
-            normalizedX * halfWidth * TRACK_POSITION_SCALE,
+            normalizedX * halfWidth(type) * TRACK_POSITION_SCALE,
             -normalizedZ * HALF_HEIGHT * TRACK_POSITION_SCALE
         )
+    }
+
+    private fun halfWidth(type: RadarDisplayType): Double = when (type) {
+        RadarDisplayType.SMALL -> SMALL_HALF_WIDTH
+        RadarDisplayType.LARGE -> LARGE_HALF_WIDTH
     }
 }
