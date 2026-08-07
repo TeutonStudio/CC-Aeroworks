@@ -78,7 +78,7 @@ abstract class ConsoleBlockEntityRadarMixin : RadarDeskStateAccess {
         val diagnostic = if (snapshot == null) {
             "NONE"
         } else {
-            "${snapshot.status}:${snapshot.radarPos}:${snapshot.tracks.size}"
+            "${snapshot.status}:${snapshot.radarPos}:${snapshot.trackCount}"
         }
         if (diagnostic == ccaeroworks_lastClientRadarDiagnostic) return
         ccaeroworks_lastClientRadarDiagnostic = diagnostic
@@ -88,7 +88,7 @@ abstract class ConsoleBlockEntityRadarMixin : RadarDeskStateAccess {
             desk.blockPos,
             snapshot?.status,
             snapshot?.radarPos,
-            snapshot?.tracks?.size ?: 0,
+            snapshot?.trackCount ?: 0,
             snapshot?.updatedAt ?: -1L,
             clientTick
         )
