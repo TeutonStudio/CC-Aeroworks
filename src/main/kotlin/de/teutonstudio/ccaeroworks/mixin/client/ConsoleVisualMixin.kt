@@ -1,12 +1,11 @@
 package de.teutonstudio.ccaeroworks.mixin.client
 
-import com.mojang.math.Axis
 import com.mred231.aeroworks.content.controls.ConsoleBlock
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import com.mred231.aeroworks.content.controls.ConsoleVisual
 import de.teutonstudio.ccaeroworks.client.display.DeskDisplayModels
 import de.teutonstudio.ccaeroworks.client.display.DeskDisplayRenderer
-import de.teutonstudio.ccaeroworks.client.display.RadarSurfaceRenderer
+import de.teutonstudio.ccaeroworks.client.display.RadarOverlayRenderer
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess
 import dev.engine_room.flywheel.api.instance.Instance
 import dev.engine_room.flywheel.api.visual.DynamicVisual
@@ -76,17 +75,15 @@ abstract class ConsoleVisualMixin(
 
     @Unique
     private fun rebuildElements() {
+        // Radar surfaces are intentionally not converted into Flywheel instances.
+        // The shared overlay invokes Create: Radars' MonitorRenderer once per frame.
+        RadarOverlayRenderer.track(blockEntity)
+
         val displays = AeroworksDeskAccess.renderedDisplays(blockEntity)
-        val radarSurfaces = AeroworksDeskAccess.radarSurfaces(blockEntity)
-        val gameTime = blockEntity.level?.gameTime ?: 0L
         val nextKey = buildString {
             displays.forEach {
                 append(it.socket).append(':').append(it.text).append(':')
                     .append(it.pixels?.encode().orEmpty()).append(';')
-            }
-            append('|')
-            radarSurfaces.forEach {
-                append(RadarSurfaceRenderer.key(it, gameTime)).append(';')
             }
         }
         if (nextKey == displayKey) return
@@ -119,18 +116,6 @@ abstract class ConsoleVisualMixin(
                 }
             }
         }
-
-        radarSurfaces.forEach { surface ->
-            RadarSurfaceRenderer.elements(surface, gameTime).forEach { element ->
-                addElement(
-                    socket = surface.socket,
-                    model = element.model,
-                    x = element.x,
-                    z = element.z,
-                    spinning = element.spinning
-                )
-            }
-        }
     }
 
     @Unique
@@ -138,13 +123,12 @@ abstract class ConsoleVisualMixin(
         socket: Int,
         model: PartialModel,
         x: Double,
-        z: Double,
-        spinning: Boolean = false
+        z: Double
     ) {
         val instance = instancerProvider()
             .instancer(InstanceTypes.TRANSFORMED, Models.partial(model))
             .createInstance()
-        displayElements += CCAeroworksDisplayElement(socket, x, z, spinning, instance)
+        displayElements += CCAeroworksDisplayElement(socket, x, z, instance)
         relight(instance)
     }
 
@@ -152,25 +136,16 @@ abstract class ConsoleVisualMixin(
     private fun applyTransforms() {
         val sockets = blockEntity.sockets()
         val rotation = ConsoleBlock.rotationFor(blockEntity.blockState)
-        val gameTime = blockEntity.level?.gameTime ?: 0L
         displayElements.forEach { element ->
             val socket = sockets.getOrNull(element.socket) ?: return@forEach
-            val instance = element.instance
-            instance.setIdentityTransform()
+            element.instance
+                .setIdentityTransform()
                 .translate(visualPosition)
                 .translate(0.5f, 0.5f, 0.5f)
                 .rotate(rotation)
                 .translate(socket.offset().x - 0.5, socket.offset().y - 0.5, socket.offset().z - 0.5)
                 .rotate(socket.orientation())
                 .translate(-0.5f, 0.0f, -0.5f)
-
-            if (element.spinning) {
-                instance
-                    .translate(0.5f, 0.0f, 0.5f)
-                    .rotate(Axis.YP.rotationDegrees(RadarSurfaceRenderer.sweepAngle(gameTime)))
-                    .translate(-0.5f, 0.0f, -0.5f)
-            }
-            instance
                 .translate(element.x, 0.0, element.z)
                 .setChanged()
         }
@@ -181,7 +156,6 @@ abstract class ConsoleVisualMixin(
         val socket: Int,
         val x: Double,
         val z: Double,
-        val spinning: Boolean,
         val instance: TransformedInstance
     )
 }
