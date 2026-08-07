@@ -31,6 +31,7 @@ object CreateRadarCompat {
 
     private val lastStatusByController = WeakHashMap<BlockEntity, RadarLinkStatus>()
     private val lastFailureByController = WeakHashMap<BlockEntity, String>()
+    private val lastDestinationFallbackByController = WeakHashMap<BlockEntity, Boolean>()
 
     @JvmStatic
     fun refreshController(controller: Any) {
@@ -93,15 +94,20 @@ object CreateRadarCompat {
 
         logStatusTransition(updateOwner, network, controllers.size, snapshot)
 
-        network.desks
+        val detectedDestinations = network.desks
             .filter(AeroworksDeskAccess::hasRadarDisplay)
-            .forEach { destination ->
-                val access = destination as? RadarDeskStateAccess ?: return@forEach
-                val previous = access.ccaeroworks_getRadarSnapshot()
-                if (!shouldSynchronize(previous, snapshot, level.gameTime)) return@forEach
-                access.ccaeroworks_setRadarSnapshot(snapshot)
-                destination.notifyUpdate()
-            }
+        val useFallback = detectedDestinations.isEmpty()
+        val destinations = detectedDestinations.takeUnless(List<ConsoleBlockEntity>::isEmpty)
+            ?: network.desks
+        logDestinationFallbackTransition(updateOwner, network, useFallback)
+
+        destinations.forEach { destination ->
+            val access = destination as? RadarDeskStateAccess ?: return@forEach
+            val previous = access.ccaeroworks_getRadarSnapshot()
+            if (!shouldSynchronize(previous, snapshot, level.gameTime)) return@forEach
+            access.ccaeroworks_setRadarSnapshot(snapshot)
+            destination.notifyUpdate()
+        }
     }
 
     private fun shouldSynchronize(
@@ -136,6 +142,28 @@ object CreateRadarCompat {
             network.desks.size,
             snapshot.tracks.size
         )
+    }
+
+    private fun logDestinationFallbackTransition(
+        controller: BlockEntity,
+        network: RadarDeskNetwork,
+        usingFallback: Boolean
+    ) {
+        val previous = lastDestinationFallbackByController.put(controller, usingFallback)
+        if (previous == usingFallback) return
+        if (usingFallback) {
+            CCAeroworks.LOGGER.warn(
+                "[CC-Aeroworks] No Radar Display was detected server-side at controller {}; " +
+                    "synchronizing the snapshot to all {} desks in the bounded network",
+                controller.blockPos,
+                network.desks.size
+            )
+        } else if (previous == true) {
+            CCAeroworks.LOGGER.info(
+                "[CC-Aeroworks] Server-side Radar Display detection recovered at controller {}",
+                controller.blockPos
+            )
+        }
     }
 
     private fun reportAccessFailure(
