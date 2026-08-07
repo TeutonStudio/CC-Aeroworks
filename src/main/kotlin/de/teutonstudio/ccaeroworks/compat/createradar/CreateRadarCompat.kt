@@ -39,13 +39,34 @@ object CreateRadarCompat {
         val level = desk.level as? ServerLevel ?: return
         if (level.gameTime % NATIVE_MONITOR_INTERVAL_TICKS != 0L) return
 
-        val state = desk as? RadarDeskStateAccess ?: return
+        val state = desk as? RadarDeskStateAccess
+        RadarTrace.event(
+            "S00_REFRESH_ENTER",
+            level,
+            desk.blockPos,
+            "deskClass=${desk.javaClass.name} hasRadarDisplay=${AeroworksDeskAccess.hasRadarDisplay(desk)} " +
+                "implementsRadarState=${state != null} blockState=${desk.blockState} sockets=${desk.socketCount()} " +
+                "previous=${snapshotSummary(state?.ccaeroworks_getRadarSnapshot())}"
+        )
+        if (state == null) {
+            RadarTrace.event("S00_REFRESH_ABORT", level, desk.blockPos, "desk does not implement RadarDeskStateAccess")
+            return
+        }
+
         if (!AeroworksDeskAccess.hasRadarDisplay(desk)) {
             lastDiagnosticByDesk.remove(desk)
             lastFailureByDesk.remove(desk)
-            if (state.ccaeroworks_getRadarSnapshot() != null) {
+            val previous = state.ccaeroworks_getRadarSnapshot()
+            RadarTrace.event(
+                "S01_NO_RADAR_DISPLAY",
+                level,
+                desk.blockPos,
+                "clearingPrevious=${previous != null} previous=${snapshotSummary(previous)}"
+            )
+            if (previous != null) {
                 state.ccaeroworks_setRadarSnapshot(null)
                 desk.notifyUpdate()
+                RadarTrace.event("S19_NOTIFY_UPDATE", level, desk.blockPos, "reason=radar-display-removed")
             }
             return
         }
@@ -54,12 +75,29 @@ object CreateRadarCompat {
         logDiagnosticTransition(desk, result)
 
         val previous = state.ccaeroworks_getRadarSnapshot()
+        val sameContent = result.snapshot.sameContentAs(previous)
         val heartbeatDue = previous == null ||
             level.gameTime - previous.updatedAt !in 0 until SNAPSHOT_HEARTBEAT_TICKS
-        if (result.snapshot.sameContentAs(previous) && !heartbeatDue) return
+        RadarTrace.event(
+            "S18_SNAPSHOT_DECISION",
+            level,
+            desk.blockPos,
+            "sameContent=$sameContent heartbeatDue=$heartbeatDue previous=${snapshotSummary(previous)} next=${snapshotSummary(result.snapshot)}"
+        )
+        if (sameContent && !heartbeatDue) {
+            RadarTrace.event("S18_SNAPSHOT_UNCHANGED", level, desk.blockPos, "no packet required this five-tick cycle")
+            return
+        }
 
         state.ccaeroworks_setRadarSnapshot(result.snapshot)
+        RadarTrace.event(
+            "S19_SNAPSHOT_STORE",
+            level,
+            desk.blockPos,
+            "stored=${snapshotSummary(result.snapshot)} nativeTracks=${RadarTrace.tag(result.snapshot.nativeTracks)}"
+        )
         desk.notifyUpdate()
+        RadarTrace.event("S19_NOTIFY_UPDATE", level, desk.blockPos, "ConsoleBlockEntity.notifyUpdate invoked")
     }
 
     private fun resolveSnapshot(
@@ -67,50 +105,86 @@ object CreateRadarCompat {
         desk: ConsoleBlockEntity
     ): SnapshotResult {
         return try {
+            RadarTrace.event("S10_NETWORK_LOOKUP_BEGIN", level, desk.blockPos, "calling NetworkData.get(ServerLevel)")
             val networkData = invokeStatic(NETWORK_DATA_CLASS, "get", level)
                 ?: throw IllegalStateException("NetworkData.get returned null")
+            RadarTrace.event(
+                "S10_NETWORK_DATA",
+                level,
+                desk.blockPos,
+                "instanceClass=${networkData.javaClass.name} identity=${System.identityHashCode(networkData)}"
+            )
 
             val filtererPos = invokePublic(
                 networkData,
                 "getFiltererForEndpoint",
                 level.dimension(),
                 desk.blockPos
-            ) as? BlockPos ?: return SnapshotResult(
-                snapshot = RadarDisplaySnapshot.disconnected(
-                    level.gameTime,
-                    RadarLinkStatus.NOT_LINKED
-                ),
-                filtererPos = null,
-                radarPos = null,
-                reason = "endpoint is not registered"
+            ) as? BlockPos
+            RadarTrace.event(
+                "S11_FILTERER_LOOKUP",
+                level,
+                desk.blockPos,
+                "getFiltererForEndpoint(dimension=${level.dimension().location()}, endpoint=${desk.blockPos}) -> $filtererPos"
             )
+            if (filtererPos == null) {
+                return tracedResult(
+                    level,
+                    desk,
+                    RadarDisplaySnapshot.disconnected(level.gameTime, RadarLinkStatus.NOT_LINKED),
+                    null,
+                    null,
+                    "endpoint is not registered"
+                )
+            }
 
             val group = invokePublic(
                 networkData,
                 "getGroup",
                 level.dimension(),
                 filtererPos
-            ) ?: return SnapshotResult(
-                snapshot = RadarDisplaySnapshot.disconnected(
-                    level.gameTime,
-                    RadarLinkStatus.NOT_LINKED
-                ),
-                filtererPos = filtererPos,
-                radarPos = null,
-                reason = "registered filterer group is missing"
+            )
+            RadarTrace.event(
+                "S12_GROUP_LOOKUP",
+                level,
+                desk.blockPos,
+                "filterer=$filtererPos groupClass=${group?.javaClass?.name} groupNull=${group == null}"
+            )
+            if (group == null) {
+                return tracedResult(
+                    level,
+                    desk,
+                    RadarDisplaySnapshot.disconnected(level.gameTime, RadarLinkStatus.NOT_LINKED),
+                    filtererPos,
+                    null,
+                    "registered filterer group is missing"
+                )
+            }
+
+            RadarTrace.periodic(
+                "S12_GROUP_FIELDS",
+                level,
+                desk.blockPos,
+                20L,
+                describeObjectFields(group)
             )
 
             val monitorEndpoints = readField(group, "monitorEndpoints") as? Collection<*>
                 ?: throw IllegalStateException("NetworkData.Group.monitorEndpoints is not a collection")
+            RadarTrace.event(
+                "S12_MONITOR_ENDPOINTS",
+                level,
+                desk.blockPos,
+                "count=${monitorEndpoints.size} containsDesk=${desk.blockPos in monitorEndpoints} endpoints=${monitorEndpoints.take(64)}"
+            )
             if (desk.blockPos !in monitorEndpoints) {
-                return SnapshotResult(
-                    snapshot = RadarDisplaySnapshot.disconnected(
-                        level.gameTime,
-                        RadarLinkStatus.NOT_LINKED
-                    ),
-                    filtererPos = filtererPos,
-                    radarPos = null,
-                    reason = "group does not contain the desk endpoint"
+                return tracedResult(
+                    level,
+                    desk,
+                    RadarDisplaySnapshot.disconnected(level.gameTime, RadarLinkStatus.NOT_LINKED),
+                    filtererPos,
+                    null,
+                    "group does not contain the desk endpoint"
                 )
             }
 
@@ -118,47 +192,71 @@ object CreateRadarCompat {
                 ?: throw IllegalStateException("NetworkData.Group.detectionTag is unavailable")
             val selectedTargetId = readField(group, "selectedTargetId") as? String
             val radarPos = readField(group, "radarPos") as? BlockPos
-                ?: return SnapshotResult(
-                    snapshot = inactiveSnapshot(
+            RadarTrace.event(
+                "S13_GROUP_STATE",
+                level,
+                desk.blockPos,
+                "filterer=$filtererPos radarPos=$radarPos selectedTargetId=$selectedTargetId detection=${RadarTrace.tag(detectionTag)}"
+            )
+            if (radarPos == null) {
+                return tracedResult(
+                    level,
+                    desk,
+                    inactiveSnapshot(
                         gameTime = level.gameTime,
                         status = RadarLinkStatus.RADAR_NOT_ASSIGNED,
                         radarPos = null,
                         detectionTag = detectionTag,
                         selectedTargetId = selectedTargetId
                     ),
-                    filtererPos = filtererPos,
-                    radarPos = null,
-                    reason = "group has no radarPos"
+                    filtererPos,
+                    null,
+                    "group has no radarPos"
                 )
+            }
 
-            if (!level.isLoaded(radarPos)) {
-                return SnapshotResult(
-                    snapshot = inactiveSnapshot(
+            val loaded = level.isLoaded(radarPos)
+            RadarTrace.event("S14_RADAR_CHUNK", level, desk.blockPos, "radarPos=$radarPos level.isLoaded=$loaded")
+            if (!loaded) {
+                return tracedResult(
+                    level,
+                    desk,
+                    inactiveSnapshot(
                         gameTime = level.gameTime,
                         status = RadarLinkStatus.RADAR_NOT_LOADED,
                         radarPos = radarPos,
                         detectionTag = detectionTag,
                         selectedTargetId = selectedTargetId
                     ),
-                    filtererPos = filtererPos,
-                    radarPos = radarPos,
-                    reason = "radar chunk is not loaded"
+                    filtererPos,
+                    radarPos,
+                    "radar chunk is not loaded"
                 )
             }
 
             val radar = level.getBlockEntity(radarPos)
-                ?: return SnapshotResult(
-                    snapshot = inactiveSnapshot(
+            RadarTrace.event(
+                "S14_RADAR_BLOCK_ENTITY",
+                level,
+                desk.blockPos,
+                "radarPos=$radarPos class=${radar?.javaClass?.name} blockState=${level.getBlockState(radarPos)}"
+            )
+            if (radar == null) {
+                return tracedResult(
+                    level,
+                    desk,
+                    inactiveSnapshot(
                         gameTime = level.gameTime,
                         status = RadarLinkStatus.RADAR_NOT_LOADED,
                         radarPos = radarPos,
                         detectionTag = detectionTag,
                         selectedTargetId = selectedTargetId
                     ),
-                    filtererPos = filtererPos,
-                    radarPos = radarPos,
-                    reason = "radar block entity is unavailable"
+                    filtererPos,
+                    radarPos,
+                    "radar block entity is unavailable"
                 )
+            }
 
             val range = (invokePublic(radar, "getRange") as? Number)
                 ?.toDouble()
@@ -166,10 +264,24 @@ object CreateRadarCompat {
                 ?: throw IllegalStateException("IRadar.getRange returned no number")
             val running = invokePublic(radar, "isRunning") as? Boolean
                 ?: throw IllegalStateException("IRadar.isRunning returned no boolean")
+            val radarType = runCatching { invokePublic(radar, "getRadarType") }.getOrNull()
+            val globalAngle = runCatching { invokePublic(radar, "getGlobalAngle") }.getOrNull()
+            val radarDirection = runCatching { invokePublic(radar, "getradarDirection") }.getOrNull()
+            val relative = runCatching { invokePublic(radar, "renderRelativeToMonitor") }.getOrNull()
+            val worldPos = runCatching { invokePublic(radar, "getWorldPos") }.getOrNull()
+            RadarTrace.event(
+                "S15_RADAR_STATE",
+                level,
+                desk.blockPos,
+                "class=${radar.javaClass.name} range=$range running=$running radarType=$radarType globalAngle=$globalAngle " +
+                    "radarDirection=$radarDirection renderRelativeToMonitor=$relative getWorldPos=$worldPos"
+            )
 
             if (!running) {
-                return SnapshotResult(
-                    snapshot = inactiveSnapshot(
+                return tracedResult(
+                    level,
+                    desk,
+                    inactiveSnapshot(
                         gameTime = level.gameTime,
                         status = RadarLinkStatus.RADAR_STOPPED,
                         radarPos = radarPos,
@@ -178,14 +290,16 @@ object CreateRadarCompat {
                         range = range,
                         connected = true
                     ),
-                    filtererPos = filtererPos,
-                    radarPos = radarPos,
-                    reason = "IRadar.isRunning is false"
+                    filtererPos,
+                    radarPos,
+                    "IRadar.isRunning is false"
                 )
             }
             if (range <= 0.0) {
-                return SnapshotResult(
-                    snapshot = inactiveSnapshot(
+                return tracedResult(
+                    level,
+                    desk,
+                    inactiveSnapshot(
                         gameTime = level.gameTime,
                         status = RadarLinkStatus.INVALID_RANGE,
                         radarPos = radarPos,
@@ -194,20 +308,34 @@ object CreateRadarCompat {
                         range = range,
                         connected = true
                     ),
-                    filtererPos = filtererPos,
-                    radarPos = radarPos,
-                    reason = "IRadar.getRange is not positive"
+                    filtererPos,
+                    radarPos,
+                    "IRadar.getRange is not positive"
                 )
             }
 
             val filter = invokeStatic(DETECTION_CONFIG_CLASS, "fromTag", detectionTag.copy())
                 ?: throw IllegalStateException("DetectionConfig.fromTag returned null")
+            RadarTrace.event(
+                "S16_FILTER_READY",
+                level,
+                desk.blockPos,
+                "filterClass=${filter.javaClass.name} filterState=$filter"
+            )
             val rawTracks = invokePublic(radar, "getTracks") as? Iterable<*>
                 ?: throw IllegalStateException("IRadar.getTracks returned no iterable")
             val nativeTracks = serializeFilteredTracks(filter, rawTracks)
+            RadarTrace.event(
+                "S16_TRACKS_SERIALIZED",
+                level,
+                desk.blockPos,
+                "rawCount=${nativeTracks.rawCount} acceptedCount=${nativeTracks.count} payload=${RadarTrace.tag(nativeTracks.tag)}"
+            )
 
-            SnapshotResult(
-                snapshot = RadarDisplaySnapshot(
+            tracedResult(
+                level,
+                desk,
+                RadarDisplaySnapshot(
                     connected = true,
                     operational = true,
                     radarPos = radarPos,
@@ -219,23 +347,45 @@ object CreateRadarCompat {
                     updatedAt = level.gameTime,
                     status = RadarLinkStatus.ACTIVE
                 ),
-                filtererPos = filtererPos,
-                radarPos = radarPos,
-                reason = "endpoint registered; native MonitorBlockEntity payload synchronized"
+                filtererPos,
+                radarPos,
+                "endpoint registered; native MonitorBlockEntity payload synchronized"
             )
         } catch (throwable: Throwable) {
             val cause = unwrapInvocationException(throwable)
             reportFailure(desk, cause)
-            SnapshotResult(
-                snapshot = RadarDisplaySnapshot.disconnected(
-                    level.gameTime,
-                    RadarLinkStatus.API_ERROR
-                ),
-                filtererPos = null,
-                radarPos = null,
-                reason = "${cause.javaClass.simpleName}: ${cause.message.orEmpty()}"
+            RadarTrace.event(
+                "S99_API_ERROR",
+                level,
+                desk.blockPos,
+                "failure=${RadarTrace.throwable(cause)}"
+            )
+            tracedResult(
+                level,
+                desk,
+                RadarDisplaySnapshot.disconnected(level.gameTime, RadarLinkStatus.API_ERROR),
+                null,
+                null,
+                "${cause.javaClass.simpleName}: ${cause.message.orEmpty()}"
             )
         }
+    }
+
+    private fun tracedResult(
+        level: ServerLevel,
+        desk: ConsoleBlockEntity,
+        snapshot: RadarDisplaySnapshot,
+        filtererPos: BlockPos?,
+        radarPos: BlockPos?,
+        reason: String
+    ): SnapshotResult {
+        RadarTrace.event(
+            "S17_SNAPSHOT_RESULT",
+            level,
+            desk.blockPos,
+            "filterer=$filtererPos radar=$radarPos reason=$reason snapshot=${snapshotSummary(snapshot)}"
+        )
+        return SnapshotResult(snapshot, filtererPos, radarPos, reason)
     }
 
     /**
@@ -248,8 +398,10 @@ object CreateRadarCompat {
         rawTracks: Iterable<*>
     ): NativeTrackPayload {
         val filtered = ArrayList<Any>(RadarDisplaySnapshot.MAX_SYNCED_TRACKS)
+        var rawCount = 0
         for (raw in rawTracks) {
             raw ?: continue
+            rawCount++
             val accepted = invokePublic(filter, "test", raw) as? Boolean
                 ?: throw IllegalStateException("DetectionConfig.test returned no boolean")
             if (!accepted) continue
@@ -259,7 +411,7 @@ object CreateRadarCompat {
 
         val serialized = invokeStatic(RADAR_TRACK_UTIL_CLASS, "serializeNBTList", filtered) as? CompoundTag
             ?: throw IllegalStateException("RadarTrackUtil.serializeNBTList returned no CompoundTag")
-        return NativeTrackPayload(serialized.copy(), filtered.size)
+        return NativeTrackPayload(serialized.copy(), filtered.size, rawCount)
     }
 
     private fun inactiveSnapshot(
@@ -318,6 +470,39 @@ object CreateRadarCompat {
             desk.blockPos,
             cause
         )
+    }
+
+    private fun snapshotSummary(snapshot: RadarDisplaySnapshot?): String = if (snapshot == null) {
+        "null"
+    } else {
+        "status=${snapshot.status},connected=${snapshot.connected},operational=${snapshot.operational},radar=${snapshot.radarPos}," +
+            "range=${snapshot.range},tracks=${snapshot.trackCount},selected=${snapshot.selectedTrackId}," +
+            "serverTick=${snapshot.updatedAt},clientReceipt=${snapshot.receivedAtClientTick}"
+    }
+
+    private fun describeObjectFields(instance: Any): String {
+        val parts = mutableListOf<String>()
+        var current: Class<*>? = instance.javaClass
+        while (current != null && current != Any::class.java) {
+            for (field in current.declaredFields) {
+                if (Modifier.isStatic(field.modifiers)) continue
+                val value = runCatching {
+                    if (!field.canAccess(instance)) field.trySetAccessible()
+                    field.get(instance)
+                }.getOrElse { "<${it.javaClass.simpleName}:${it.message}>" }
+                parts += "${current.simpleName}.${field.name}=${summarizeValue(value)}"
+            }
+            current = current.superclass
+        }
+        return "groupObject=${instance.javaClass.name} fields={${parts.joinToString(", ")}}"
+    }
+
+    private fun summarizeValue(value: Any?): String = when (value) {
+        null -> "null"
+        is CompoundTag -> RadarTrace.tag(value, 8000)
+        is Collection<*> -> "Collection(size=${value.size}, values=${value.take(64)})"
+        is Map<*, *> -> "Map(size=${value.size}, entries=${value.entries.take(64)})"
+        else -> value.toString().take(8000)
     }
 
     private fun invokePublic(instance: Any, methodName: String, vararg arguments: Any?): Any? {
@@ -424,7 +609,8 @@ object CreateRadarCompat {
 
     private data class NativeTrackPayload(
         val tag: CompoundTag,
-        val count: Int
+        val count: Int,
+        val rawCount: Int
     )
 
     private data class DiagnosticState(
