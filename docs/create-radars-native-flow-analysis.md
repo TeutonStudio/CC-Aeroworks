@@ -7,7 +7,7 @@ The public CI verifier downloads that exact release JAR and inspects it with `ja
 - the filterer class is `com.happysg.radar.block.controller.networkcontroller.NetworkFiltererBlockEntity`;
 - the Data Link stores `SelectedFiltererPos` and clears `SelectedMountPos`, `SelectedYawPos`, `SelectedPitchPos`, and `SelectedFiringPos` when selecting a filterer;
 - the private monitor target helper has the descriptor recorded below;
-- that helper contains exactly one `INSTANCEOF MonitorBlockEntity` instruction;
+- the first `INSTANCEOF` in that helper is `MonitorBlockEntity`, and that monitor check occurs exactly once;
 - the native `useOn(...)` path calls the monitor registration methods in `NetworkData`;
 - the monitor resolves its group, restores `DetectionConfig`, filters the radar stream, and uses a five-tick long modulo cycle;
 - `DataLinkBlock.onRemove(...)` calls the native Data-Link and endpoint cleanup methods.
@@ -35,7 +35,7 @@ with bytecode descriptor:
 Lcom/happysg/radar/block/datalink/DataLinkBlockItem$FilterTarget;
 ```
 
-Its first classification is an `INSTANCEOF com/happysg/radar/block/monitor/MonitorBlockEntity`; when true, native code constructs the private `FilterTargetKind.MONITOR` value itself. The exact release JAR contains one and only one such instruction in this helper. This single type check is the missing extension point for an Aeroworks desk.
+Its first classification is an `INSTANCEOF com/happysg/radar/block/monitor/MonitorBlockEntity`; when true, native code constructs the private `FilterTargetKind.MONITOR` value itself. The exact release JAR contains one and only one such monitor instruction in this helper, and the bytecode verifier additionally requires it to remain the first `INSTANCEOF`. This is the missing extension point for an Aeroworks desk.
 
 After classification, the original filterer-first path:
 
@@ -51,7 +51,7 @@ After classification, the original filterer-first path:
 
 The exact bytecode verifier checks the calls to `getOrCreateGroup`, `canAttachMonitor`, `attachMonitor`, `addDataLinkToGroup`, `BlockItem.useOn`, and the native link-range configuration inside `useOn(...)`.
 
-CC-Aeroworks must therefore not replace `useOn(...)`, place a link block, perform a second range check, persist a controller position, or create the private filter target reflectively. The compatibility Mixin redirects only the native monitor `INSTANCEOF` instruction. Native code still creates and consumes its private target object.
+CC-Aeroworks must therefore not replace `useOn(...)`, place a link block, perform a second range check, persist a controller position, or create the private filter target reflectively. Sponge Mixin 0.8.7 does not provide an `INSTANCEOF` injection point, so the compatibility Mixin uses MixinExtras 0.5.0 `@ModifyExpressionValue` with the expression `? instanceof ?` and `ordinal = 0`. The handler receives the native boolean result and only turns it true for a `ConsoleBlockEntity` with a mounted RadarDisplay. Native code still creates and consumes its private target object.
 
 ## `NetworkData`
 
@@ -114,11 +114,11 @@ The exact artifact is checked for the `RadarTrack` accessors `getId`, `getPositi
 
 ## Optional-mod boundary
 
-The Mixin is `@Pseudo`, targets Create: Radars by class name, and keeps Create: Radars classes out of handler signatures. Runtime API access is isolated behind class-name based reflection and is entered only after `ModList` confirms `create_radar` is loaded. Starting without Create: Radars must not resolve any Create: Radars class.
+The Mixin is `@Pseudo`, targets Create: Radars by class name, and keeps Create: Radars classes out of handler signatures. MixinExtras is a compile-only API dependency for CC-Aeroworks and is supplied at runtime by NeoForge; the mixin config requires MixinExtras 0.5.0 expression support. Runtime Create:-Radars API access remains isolated behind class-name based reflection and is entered only after `ModList` confirms `create_radar` is loaded. Starting without Create: Radars must not resolve any Create: Radars class.
 
 ## Verification boundary
 
-The exact JAR inspection proves the bytecode contract used by the Mixin and adapter. It does not prove that the transformed development client starts, that the optional-mod-free client starts, or that rendered contacts are visible in game.
+The exact JAR inspection proves the bytecode contract used by the Mixin and adapter. It also guards the MixinExtras `ordinal = 0` assumption by requiring the monitor check to remain the first `INSTANCEOF`. It does not prove that the transformed development client starts, that the optional-mod-free client starts, or that rendered contacts are visible in game.
 
 Before the draft PR can be marked ready, the protected dependency build and development-client matrix must still demonstrate:
 
