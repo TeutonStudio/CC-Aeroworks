@@ -1,0 +1,223 @@
+#!/usr/bin/env python3
+"""Verify the exact Create: Radars 0.4.9.4-1.21.1 runtime bytecode contract.
+
+This deliberately downloads the public release artifact instead of trusting a
+source branch, later release, or decompiler memory. It verifies only stable
+native extension points used by CC-Aeroworks.
+"""
+
+from __future__ import annotations
+
+import re
+import subprocess
+import tempfile
+import urllib.request
+import zipfile
+from pathlib import Path
+
+FILE_ID = 8_227_753
+FILE_NAME = "create_radar-0.4.9.4-1.21.1.jar"
+DOWNLOAD_URL = (
+    "https://mediafilez.forgecdn.net/files/8227/753/"
+    "create_radar-0.4.9.4-1.21.1.jar"
+)
+EXPECTED_MIN_BYTES = 2_800_000
+EXPECTED_MAX_BYTES = 3_100_000
+
+DATA_LINK_ITEM = "com.happysg.radar.block.datalink.DataLinkBlockItem"
+NETWORK_DATA = "com.happysg.radar.block.behavior.networks.NetworkData"
+MONITOR = "com.happysg.radar.block.monitor.MonitorBlockEntity"
+DATA_LINK_BLOCK = "com.happysg.radar.block.datalink.DataLinkBlock"
+DATA_LINK_ENTITY = "com.happysg.radar.block.datalink.DataLinkBlockEntity"
+FILTERER = "com.happysg.radar.block.behavior.networks.NetworkFiltererBlockEntity"
+RADAR_TRACK = "com.happysg.radar.block.radar.track.RadarTrack"
+IRADAR = "com.happysg.radar.block.radar.behavior.IRadar"
+DETECTION_CONFIG = "com.happysg.radar.block.behavior.networks.config.DetectionConfig"
+
+TARGET_DESCRIPTOR = (
+    "(Lnet/minecraft/world/level/block/entity/BlockEntity;"
+    "Lnet/minecraft/world/level/block/state/BlockState;)"
+    "Lcom/happysg/radar/block/datalink/DataLinkBlockItem$FilterTarget;"
+)
+
+
+def require(condition: bool, message: str) -> None:
+    if not condition:
+        raise AssertionError(message)
+
+
+def download(path: Path) -> None:
+    request = urllib.request.Request(
+        DOWNLOAD_URL,
+        headers={"User-Agent": "CC-Aeroworks-bytecode-verifier/1.0"},
+    )
+    with urllib.request.urlopen(request, timeout=60) as response:
+        require(response.status == 200, f"Create: Radars download returned HTTP {response.status}")
+        path.write_bytes(response.read())
+    size = path.stat().st_size
+    require(
+        EXPECTED_MIN_BYTES <= size <= EXPECTED_MAX_BYTES,
+        f"Unexpected {FILE_NAME} size {size} for CurseForge file {FILE_ID}",
+    )
+
+
+def javap(jar: Path, class_name: str) -> str:
+    completed = subprocess.run(
+        ["javap", "-classpath", str(jar), "-p", "-s", "-c", class_name],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    require(
+        completed.returncode == 0,
+        f"javap failed for {class_name}: {completed.stderr.strip()}",
+    )
+    return completed.stdout
+
+
+def class_entry(class_name: str) -> str:
+    return class_name.replace(".", "/") + ".class"
+
+
+def method_section(output: str, method_name: str, descriptor: str | None = None) -> str:
+    lines = output.splitlines()
+    candidates: list[str] = []
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped.endswith(";") or f" {method_name}(" not in stripped:
+            continue
+        end = index + 1
+        while end < len(lines):
+            next_line = lines[end]
+            next_stripped = next_line.strip()
+            if end > index + 1 and next_stripped.endswith(";") and "(" in next_stripped:
+                break
+            end += 1
+        section = "\n".join(lines[index:end])
+        if descriptor is None or f"descriptor: {descriptor}" in section:
+            candidates.append(section)
+    require(candidates, f"Missing method {method_name} {descriptor or ''}".strip())
+    require(len(candidates) == 1, f"Ambiguous method {method_name}: {len(candidates)} matches")
+    return candidates[0]
+
+
+def verify_data_link_item(output: str) -> None:
+    target = method_section(output, "getFilterTarget", TARGET_DESCRIPTOR)
+    monitor_instruction = re.findall(
+        r"instanceof\s+#[0-9]+\s+// class com/happysg/radar/block/monitor/MonitorBlockEntity",
+        target,
+    )
+    require(
+        len(monitor_instruction) == 1,
+        "getFilterTarget must contain exactly one native MonitorBlockEntity INSTANCEOF",
+    )
+
+    use_on = method_section(
+        output,
+        "useOn",
+        "(Lnet/minecraft/world/item/context/UseOnContext;)"
+        "Lnet/minecraft/world/InteractionResult;",
+    )
+    for token in (
+        "SelectedFiltererPos",
+        "NetworkData.getOrCreateGroup",
+        "NetworkData.canAttachMonitor",
+        "NetworkData.attachMonitor",
+        "NetworkData.addDataLinkToGroup",
+        "BlockItem.useOn",
+        "radarLinkRange",
+    ):
+        require(token in use_on, f"Native DataLinkBlockItem.useOn contract missing {token}")
+
+
+def verify_network_data(output: str) -> None:
+    required_methods = {
+        "getOrCreateGroup": None,
+        "canAttachMonitor": None,
+        "attachMonitor": None,
+        "addDataLinkToGroup": None,
+        "getFiltererForEndpoint": None,
+        "getGroup": None,
+        "removeDataLinkAndCleanup": None,
+        "onEndpointRemoved": None,
+    }
+    for name, descriptor in required_methods.items():
+        method_section(output, name, descriptor)
+
+
+def verify_monitor(output: str) -> None:
+    for token in (
+        "getFiltererForEndpoint",
+        "getGroup",
+        "DetectionConfig.fromTag",
+        "DetectionConfig.test",
+        "getTracks",
+        "radarPos",
+        "selectedTargetId",
+    ):
+        require(token in output, f"MonitorBlockEntity bytecode missing {token}")
+    require("iconst_5" in output or "bipush        5" in output, "MonitorBlockEntity has no visible five-tick constant")
+
+
+def verify_cleanup(output: str) -> None:
+    on_remove = method_section(output, "onRemove")
+    require("removeDataLinkAndCleanup" in on_remove, "DataLinkBlock.onRemove omits native data-link cleanup")
+    require("onEndpointRemoved" in on_remove, "DataLinkBlock.onRemove omits endpoint cleanup")
+
+
+def main() -> int:
+    with tempfile.TemporaryDirectory(prefix="cc-aeroworks-radar-bytecode-") as directory:
+        jar = Path(directory) / FILE_NAME
+        download(jar)
+
+        with zipfile.ZipFile(jar) as archive:
+            names = set(archive.namelist())
+            for class_name in (
+                DATA_LINK_ITEM,
+                NETWORK_DATA,
+                MONITOR,
+                DATA_LINK_BLOCK,
+                DATA_LINK_ENTITY,
+                FILTERER,
+                RADAR_TRACK,
+                IRADAR,
+                DETECTION_CONFIG,
+            ):
+                require(class_entry(class_name) in names, f"Exact runtime JAR lacks {class_name}")
+
+        verify_data_link_item(javap(jar, DATA_LINK_ITEM))
+        verify_network_data(javap(jar, NETWORK_DATA))
+        verify_monitor(javap(jar, MONITOR))
+        verify_cleanup(javap(jar, DATA_LINK_BLOCK))
+
+        filterer = javap(jar, FILTERER)
+        for token in ("detectionTag", "radarPos", "selectedTargetId"):
+            require(token in filterer, f"NetworkFiltererBlockEntity bytecode missing {token}")
+
+        detection = javap(jar, DETECTION_CONFIG)
+        method_section(detection, "fromTag")
+        method_section(detection, "test")
+
+        radar_track = javap(jar, RADAR_TRACK)
+        for method in ("getId", "getPosition", "getVelocity", "getTrackCategory"):
+            method_section(radar_track, method)
+
+        iradar = javap(jar, IRADAR)
+        for method in ("getTracks", "getRange", "isRunning", "getWorldPos"):
+            method_section(iradar, method)
+
+    print(
+        f"Validated exact CurseForge file {FILE_ID} ({FILE_NAME}): native monitor target descriptor, "
+        "single monitor INSTANCEOF, original Data Link registration, NetworkData endpoint APIs, "
+        "five-tick monitor state, DetectionConfig filtering, RadarTrack accessors and physical-link cleanup."
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (AssertionError, OSError, subprocess.SubprocessError, zipfile.BadZipFile) as exception:
+        print(f"ERROR: {exception}")
+        raise SystemExit(1)
