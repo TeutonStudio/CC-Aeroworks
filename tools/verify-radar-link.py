@@ -154,18 +154,21 @@ def main() -> int:
         'readField(group, "selectedTargetId")',
         '"com.happysg.radar.block.behavior.networks.NetworkData"',
         '"com.happysg.radar.block.behavior.networks.config.DetectionConfig"',
+        '"com.happysg.radar.block.radar.track.RadarTrackUtil"',
         'invokeStatic(DETECTION_CONFIG_CLASS, "fromTag"',
         'invokePublic(filter, "test", raw)',
         'invokePublic(radar, "getTracks")',
         'invokePublic(radar, "getRange")',
         'invokePublic(radar, "isRunning")',
-        'invokeStatic(PHYSICS_HANDLER_CLASS, "getWorldVec"',
+        'invokeStatic(RADAR_TRACK_UTIL_CLASS, "serializeNBTList", filtered)',
         "RadarDisplaySnapshot.MAX_SYNCED_TRACKS",
+        "nativeTracks = nativeTracks.tag",
+        "trackCount = nativeTracks.count",
         "desk.notifyUpdate()",
         "filteredTracks={}",
     )
     for token in required_compat:
-        require(token in compat, f"NetworkData monitor synchronization is missing: {token}")
+        require(token in compat, f"NetworkData/native monitor synchronization is missing: {token}")
     for forbidden in (
         "adjacentDeskNetworks",
         "findAdjacentControllers",
@@ -180,9 +183,11 @@ def main() -> int:
         "cachedTracks",
         "activeTrackCache",
         "SelectedFiltererPos",
+        "RadarDisplayTrack",
+        "RadarDisplayTrackSprite",
         "sendBlockUpdated(",
     ):
-        require(forbidden not in compat, f"Forbidden adjacency or snapshot fallback remains: {forbidden}")
+        require(forbidden not in compat, f"Forbidden adjacency or parallel radar model remains: {forbidden}")
 
     desk_mixin = read(DESK_MIXIN)
     require('method = ["tick"]' in desk_mixin, "Desk block entity does not run the endpoint refresh")
@@ -196,17 +201,21 @@ def main() -> int:
         "val radarPos: BlockPos?",
         "val detectionTag: CompoundTag",
         "val selectedTrackId: String?",
+        "val nativeTracks: CompoundTag",
+        "val trackCount: Int",
         "val status: RadarLinkStatus",
         'put("detection"',
         'put("radarPos"',
-        'put("tracks"',
+        'put("tracks", nativeTracks.copy())',
     ):
         require(token in snapshot, f"Native monitor state is not synchronized: {token}")
+    require("RadarDisplayTrack" not in snapshot, "Snapshot still defines a parallel RadarTrack type")
 
     client = read(CLIENT)
     classic = read(CLASSIC_RENDERER)
     require("SimpleBlockEntityVisualizer.builder(CCBlockEntities.COMPUTER_CONTROL_DESK.get())" in client, "Computer desk Flywheel visual is not registered")
     require("ConsoleVisual(context, blockEntity, partialTick)" in client, "Computer desk does not preserve native Aeroworks ConsoleVisual")
+    require("RadarOverlayRenderer::renderLevel" in client, "Shared native radar overlay is not registered")
     require("ConsoleRenderer" in classic and "DeskDisplayRenderer.render" in classic, "Classic computer desk render fallback is missing")
 
     ponder = read(PONDER)
@@ -233,7 +242,7 @@ def main() -> int:
 
     print(
         "Validated the v7 branch origin, MixinExtras monitor classification, NetworkData endpoint state, "
-        "native DetectionConfig filtering, physical-link cleanup, optional-mod boundary and both computer desk visuals."
+        "native DetectionConfig filtering/RadarTrack payloads, physical-link cleanup and computer desk visuals."
     )
     return 0
 
