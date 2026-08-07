@@ -212,7 +212,10 @@ def main() -> int:
         "runClient",
     ):
         require(token in docs, f"Radar documentation is incomplete: {token}")
-    require("Rückseitenplatzierung" not in docs, "Obsolete Network Controller placement documentation remains")
+    require(
+        "## Rückseitenplatzierung am ComputerControlDesk" not in docs,
+        "Obsolete Network Controller placement section remains",
+    )
 
     print("Validated native Data Link endpoints, filtered radar snapshots, pooled oriented surfaces and computer desks.")
     return 0
