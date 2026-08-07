@@ -25,7 +25,7 @@ object CreateRadarCompat {
     private const val NETWORK_CONTROLLER_CLASS: String =
         "com.happysg.radar.block.controller.networkcontroller.NetworkFiltererBlockEntity"
     private const val NETWORK_CONTROLLER_BLOCK_ID: String = "create_radar:network_filterer"
-    private const val SNAPSHOT_INTERVAL_TICKS: Long = 5L
+    private const val NATIVE_CONTROLLER_INTERVAL_TICKS: Long = 5L
     private const val SNAPSHOT_HEARTBEAT_TICKS: Long = 15L
 
     private val lastStatusByController = WeakHashMap<BlockEntity, RadarLinkStatus>()
@@ -36,8 +36,10 @@ object CreateRadarCompat {
         if (!ModList.get().isLoaded(MOD_ID)) return
         val controllerEntity = controller as? BlockEntity ?: return
         val level = controllerEntity.level as? ServerLevel ?: return
-        val gameTime = level.gameTime
-        if (Math.floorMod(gameTime + controllerEntity.blockPos.asLong(), SNAPSHOT_INTERVAL_TICKS) != 0L) return
+
+        // NetworkFiltererBlockEntity updates radarCache and cachedTracks only on this exact phase.
+        // The mixin runs at TAIL, so reading on the same tick guarantees a coherent snapshot.
+        if (level.gameTime % NATIVE_CONTROLLER_INTERVAL_TICKS != 0L) return
 
         val networks = adjacentDeskNetworks(level, controllerEntity.blockPos)
         networks.forEach { network ->
@@ -88,7 +90,7 @@ object CreateRadarCompat {
             else -> readControllerSnapshot(level, updateOwner)
         }
 
-        logStatusTransition(updateOwner, network, controllers.size, snapshot.status)
+        logStatusTransition(updateOwner, network, controllers.size, snapshot)
 
         network.desks
             .filter(AeroworksDeskAccess::hasRadarDisplay)
@@ -115,21 +117,23 @@ object CreateRadarCompat {
         controller: BlockEntity,
         network: RadarDeskNetwork,
         controllerCount: Int,
-        status: RadarLinkStatus
+        snapshot: RadarDisplaySnapshot
     ) {
+        val status = snapshot.status
         val previous = lastStatusByController.put(controller, status)
         if (status == RadarLinkStatus.ACTIVE) {
             lastFailureByController.remove(controller)
         }
         if (previous == status) return
         CCAeroworks.LOGGER.info(
-            "[CC-Aeroworks] Radar link at {} changed from {} to {} (network={}, controllers={}, desks={})",
+            "[CC-Aeroworks] Radar link at {} changed from {} to {} (network={}, controllers={}, desks={}, tracks={})",
             controller.blockPos,
             previous ?: "UNSEEN",
             status,
             network.state,
             controllerCount,
-            network.desks.size
+            network.desks.size,
+            snapshot.tracks.size
         )
     }
 
@@ -255,7 +259,7 @@ object CreateRadarCompat {
             )
         }
 
-        val tracks = when (val result = readTracks(radar, center)) {
+        val tracks = when (val result = readTracks(controller, radar, center)) {
             is TrackReadResult.Success -> result.tracks
             is TrackReadResult.Failure -> return apiFailure(
                 level,
@@ -343,13 +347,32 @@ object CreateRadarCompat {
     private fun isRoutable(state: ConsoleNetworkState): Boolean =
         state == ConsoleNetworkState.ACTIVE || state == ConsoleNetworkState.NONE
 
-    private fun readTracks(radar: Any, center: Vec3): TrackReadResult {
-        val lookup = invokeLookup(radar, "getTracks")
-        if (!lookup.found || lookup.error != null) {
-            return TrackReadResult.Failure("IRadar#getTracks", lookup.error)
+    private fun readTracks(
+        controller: BlockEntity,
+        radar: Any,
+        center: Vec3
+    ): TrackReadResult {
+        val controllerTracks = readFieldLookup(controller, "cachedTracks")
+        controllerTracks.error?.let {
+            return TrackReadResult.Failure("NetworkFilterer#cachedTracks", it)
         }
-        val values = lookup.value as? Iterable<*>
-            ?: return TrackReadResult.Failure("IRadar#getTracks result")
+
+        val values = when {
+            controllerTracks.found && controllerTracks.value is Iterable<*> ->
+                controllerTracks.value as Iterable<*>
+
+            controllerTracks.found && controllerTracks.value != null ->
+                return TrackReadResult.Failure("NetworkFilterer#cachedTracks result")
+
+            else -> {
+                val lookup = invokeLookup(radar, "getTracks")
+                if (!lookup.found || lookup.error != null) {
+                    return TrackReadResult.Failure("IRadar#getTracks", lookup.error)
+                }
+                lookup.value as? Iterable<*>
+                    ?: return TrackReadResult.Failure("IRadar#getTracks result")
+            }
+        }
 
         val tracks = values.mapNotNull { raw ->
             raw ?: return@mapNotNull null
