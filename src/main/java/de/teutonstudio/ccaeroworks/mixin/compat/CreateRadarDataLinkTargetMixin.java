@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 /**
  * Extends only Create: Radars' native monitor classification. The original
  * DataLinkBlockItem.useOn path still creates its private MONITOR target and owns
- * validation, placement, NetworkData registration, messages, item cleanup, and
+ * validation, placement, native registration, messages, item cleanup, and
  * physical Data-Link removal cleanup.
  */
 @Pseudo
