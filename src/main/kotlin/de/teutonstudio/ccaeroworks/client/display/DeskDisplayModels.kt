@@ -6,26 +6,30 @@ import de.teutonstudio.ccaeroworks.display.RadarDisplayType
 import dev.engine_room.flywheel.lib.model.baked.PartialModel
 
 object DeskDisplayModels {
-    private val horizontal = PartialModel.of(CCAeroworks.id("block/module/display_segment_horizontal"))
-    private val vertical = PartialModel.of(CCAeroworks.id("block/module/display_segment_vertical"))
+    /**
+     * These three partials are already used by the programmable desk displays
+     * and are backed exclusively by CC-Aeroworks' own block-atlas textures.
+     * Radar rendering deliberately reuses them instead of baking Create: Radars'
+     * renderer-only monitor sprites into the Minecraft block atlas.
+     */
+    @JvmField
+    val HORIZONTAL: PartialModel = PartialModel.of(CCAeroworks.id("block/module/display_segment_horizontal"))
+
+    @JvmField
+    val VERTICAL: PartialModel = PartialModel.of(CCAeroworks.id("block/module/display_segment_vertical"))
+
     @JvmField
     val PIXEL: PartialModel = PartialModel.of(CCAeroworks.id("block/module/display_pixel"))
 
-    private val radarSmallFiller = PartialModel.of(CCAeroworks.id("block/module/radar_small_filler"))
-    private val radarSmallCircle = PartialModel.of(CCAeroworks.id("block/module/radar_small_circle"))
-    private val radarSmallSweep = PartialModel.of(CCAeroworks.id("block/module/radar_small_sweep"))
-    private val radarLargeFiller = PartialModel.of(CCAeroworks.id("block/module/radar_large_filler"))
-    private val radarLargeCircle = PartialModel.of(CCAeroworks.id("block/module/radar_large_circle"))
-    private val radarLargeSweep = PartialModel.of(CCAeroworks.id("block/module/radar_large_sweep"))
-    private val radarTrackContraption = PartialModel.of(CCAeroworks.id("block/module/radar_track_contraption"))
-    private val radarTrackPlayer = PartialModel.of(CCAeroworks.id("block/module/radar_track_player"))
-    private val radarTrackProjectile = PartialModel.of(CCAeroworks.id("block/module/radar_track_projectile"))
-    private val radarTrackEntity = PartialModel.of(CCAeroworks.id("block/module/radar_track_entity"))
-    private val radarTrackSelected = PartialModel.of(CCAeroworks.id("block/module/radar_track_selected"))
     private val radarDisconnected = PartialModel.of(CCAeroworks.id("block/module/radar_disconnected"))
 
     data class Segment(val model: PartialModel, val x: Double, val z: Double)
 
+    /**
+     * Kept as a small compatibility surface for callers compiled against the
+     * earlier radar-model helper. None of these values references external
+     * Create: Radars monitor textures anymore.
+     */
     data class RadarModels(
         val filler: PartialModel,
         val circle: PartialModel,
@@ -33,13 +37,13 @@ object DeskDisplayModels {
     )
 
     private val segments = mapOf(
-        'a' to Segment(horizontal, 0.0, 0.14),
-        'b' to Segment(vertical, 0.09, 0.07),
-        'c' to Segment(vertical, 0.09, -0.07),
-        'd' to Segment(horizontal, 0.0, -0.14),
-        'e' to Segment(vertical, -0.09, -0.07),
-        'f' to Segment(vertical, -0.09, 0.07),
-        'g' to Segment(horizontal, 0.0, 0.0)
+        'a' to Segment(HORIZONTAL, 0.0, 0.14),
+        'b' to Segment(VERTICAL, 0.09, 0.07),
+        'c' to Segment(VERTICAL, 0.09, -0.07),
+        'd' to Segment(HORIZONTAL, 0.0, -0.14),
+        'e' to Segment(VERTICAL, -0.09, -0.07),
+        'f' to Segment(VERTICAL, -0.09, 0.07),
+        'g' to Segment(HORIZONTAL, 0.0, 0.0)
     )
 
     private val glyphs = mapOf(
@@ -55,21 +59,14 @@ object DeskDisplayModels {
     fun segments(character: Char): List<Segment> = glyphs[character].orEmpty().mapNotNull(segments::get)
 
     @JvmStatic
-    fun radar(type: RadarDisplayType): RadarModels = when (type) {
-        RadarDisplayType.SMALL -> RadarModels(radarSmallFiller, radarSmallCircle, radarSmallSweep)
-        RadarDisplayType.LARGE -> RadarModels(radarLargeFiller, radarLargeCircle, radarLargeSweep)
-    }
+    fun radar(type: RadarDisplayType): RadarModels =
+        RadarModels(HORIZONTAL, HORIZONTAL, VERTICAL)
 
     @JvmStatic
-    fun radarTrack(sprite: RadarDisplayTrackSprite): PartialModel = when (sprite) {
-        RadarDisplayTrackSprite.CONTRAPTION -> radarTrackContraption
-        RadarDisplayTrackSprite.PLAYER -> radarTrackPlayer
-        RadarDisplayTrackSprite.PROJECTILE -> radarTrackProjectile
-        RadarDisplayTrackSprite.ENTITY -> radarTrackEntity
-    }
+    fun radarTrack(sprite: RadarDisplayTrackSprite): PartialModel = PIXEL
 
     @JvmStatic
-    fun radarSelected(): PartialModel = radarTrackSelected
+    fun radarSelected(): PartialModel = PIXEL
 
     @JvmStatic
     fun radarDisconnected(): PartialModel = radarDisconnected
