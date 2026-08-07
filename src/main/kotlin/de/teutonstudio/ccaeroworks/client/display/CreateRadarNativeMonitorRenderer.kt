@@ -49,9 +49,6 @@ object CreateRadarNativeMonitorRenderer {
     private const val MOD_BLOCKS_CLASS = "com.happysg.radar.registry.ModBlocks"
     private const val MOD_BLOCK_ENTITY_TYPES_CLASS = "com.happysg.radar.registry.ModBlockEntityTypes"
 
-    // Native MonitorRenderer uses y=0.94 as its background depth. Translate that
-    // plane onto the top of the RadarDisplay module without changing its own
-    // internal z-fighting offsets (grid/sweep/tracks use 0.945..0.95).
     private const val NATIVE_BACKGROUND_DEPTH = 0.94
     private const val MODULE_SURFACE_Y = 2.12 / 16.0
     private const val SMALL_SURFACE_SIZE = 0.39f
@@ -270,7 +267,7 @@ object CreateRadarNativeMonitorRenderer {
                 "read",
                 CompoundTag::class.java,
                 HolderLookup.Provider::class.java,
-                Boolean::class.javaPrimitiveType
+                java.lang.Boolean.TYPE
             ).also {
                 if (!it.trySetAccessible()) throw IllegalAccessException("Cannot access MonitorBlockEntity.read")
             }
@@ -280,7 +277,7 @@ object CreateRadarNativeMonitorRenderer {
                 monitorClass,
                 PoseStack::class.java,
                 MultiBufferSource::class.java,
-                Float::class.javaPrimitiveType
+                java.lang.Float.TYPE
             ).also {
                 if (!it.trySetAccessible()) throw IllegalAccessException("Cannot access MonitorRenderer.renderRadarDisplay")
             }
