@@ -24,6 +24,7 @@ DOCS = ROOT / "docs/create-radars-integration.md"
 ANALYSIS = ROOT / "docs/create-radars-native-flow-analysis.md"
 TEST_PLAN = ROOT / "docs/radar-controller-test-plan.md"
 WIKI = ROOT / "wiki/Radar-Routing.md"
+BUILD_GRADLE = ROOT / "build.gradle"
 
 
 def require(condition: bool, message: str) -> None:
@@ -81,6 +82,9 @@ def main() -> int:
         "compat.CreateRadarDataLinkTargetMixin" in common_mixins,
         "Native Data Link monitor-classification mixin is missing",
     )
+    mixinextras = mixins.get("mixinextras")
+    require(isinstance(mixinextras, dict), "MixinExtras version contract is missing from mixin config")
+    require(mixinextras.get("minVersion") == "0.5.0", "MixinExtras 0.5.0 expression support is not pinned")
     for forbidden in (
         "compat.CreateRadarNetworkControllerMixin",
         "compat.CreateRadarNetworkControllerLinkMixin",
@@ -95,17 +99,24 @@ def main() -> int:
     for token in (
         "@Pseudo",
         'targets = "com.happysg.radar.block.datalink.DataLinkBlockItem"',
-        "@Redirect(",
+        "@Expression(\"? instanceof ?\")",
+        "@ModifyExpressionValue(",
         'method = "getFilterTarget(Lnet/minecraft/world/level/block/entity/BlockEntity;Lnet/minecraft/world/level/block/state/BlockState;)Lcom/happysg/radar/block/datalink/DataLinkBlockItem$FilterTarget;"',
-        'value = "INSTANCEOF"',
-        'target = "Lcom/happysg/radar/block/monitor/MonitorBlockEntity;"',
+        'at = @At(value = "MIXINEXTRAS:EXPRESSION", ordinal = 0)',
         "require = 1",
         "expect = 1",
+        "boolean nativeMonitor",
+        "BlockEntity candidate",
+        "return nativeMonitor",
         "candidate instanceof ConsoleBlockEntity desk",
         "AeroworksDeskAccess.hasRadarDisplay(desk)",
     ):
         require(token in target_mixin, f"Native target classification is missing: {token}")
     for forbidden in (
+        "@Redirect(",
+        'value = "INSTANCEOF"',
+        "ccaeroworks$nativeMonitorClass",
+        "ccaeroworks$isNativeMonitor",
         "useOn(",
         "UseOnContext",
         "BlockPlaceContext",
@@ -116,7 +127,14 @@ def main() -> int:
         "FilterTargetKind",
         "newInstance(",
     ):
-        require(forbidden not in target_mixin, f"Target mixin takes over native work: {forbidden}")
+        require(forbidden not in target_mixin, f"Target mixin takes over native work or uses an invalid injection: {forbidden}")
+
+    build_gradle = read(BUILD_GRADLE)
+    require("mavenCentral()" in build_gradle, "MixinExtras compile-only repository is missing")
+    require(
+        'compileOnly("io.github.llamalad7:mixinextras-neoforge:0.5.0")' in build_gradle,
+        "MixinExtras compile-only API dependency is missing",
+    )
 
     desk_access = read(DESK_ACCESS)
     require("fun hasRadarDisplay(desk: ConsoleBlockEntity)" in desk_access, "RadarDisplay presence check is missing")
@@ -214,7 +232,7 @@ def main() -> int:
             require(forbidden not in source, f"Obsolete adjacency documentation remains: {forbidden}")
 
     print(
-        "Validated the v7 branch origin, native DataLinkBlockItem target classification, NetworkData endpoint state, "
+        "Validated the v7 branch origin, MixinExtras monitor classification, NetworkData endpoint state, "
         "native DetectionConfig filtering, physical-link cleanup, optional-mod boundary and both computer desk visuals."
     )
     return 0
