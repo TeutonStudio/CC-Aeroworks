@@ -2,33 +2,9 @@ package de.teutonstudio.ccaeroworks.display
 
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
-import net.minecraft.nbt.ListTag
 import net.minecraft.nbt.NbtUtils
 import net.minecraft.nbt.Tag
-import net.minecraft.world.phys.Vec3
 import java.util.Locale
-
-enum class RadarDisplayTrackSprite {
-    CONTRAPTION,
-    PLAYER,
-    PROJECTILE,
-    ENTITY;
-
-    companion object {
-        fun fromCategory(category: Any?): RadarDisplayTrackSprite = when (
-            category?.toString()?.uppercase(Locale.ROOT)
-        ) {
-            "SABLE", "CONTRAPTION" -> CONTRAPTION
-            "PLAYER" -> PLAYER
-            "PROJECTILE" -> PROJECTILE
-            else -> ENTITY
-        }
-
-        fun fromTag(value: String): RadarDisplayTrackSprite = runCatching {
-            valueOf(value.uppercase(Locale.ROOT))
-        }.getOrDefault(ENTITY)
-    }
-}
 
 enum class RadarLinkStatus {
     NOT_LINKED,
@@ -46,47 +22,21 @@ enum class RadarLinkStatus {
     }
 }
 
-data class RadarDisplayTrack(
-    val id: String,
-    val position: Vec3,
-    val velocity: Vec3,
-    val sprite: RadarDisplayTrackSprite = RadarDisplayTrackSprite.ENTITY
-) {
-    fun toTag(): CompoundTag = CompoundTag().apply {
-        putString("id", this@RadarDisplayTrack.id)
-        put("position", position.toTag())
-        put("velocity", velocity.toTag())
-        putString("sprite", sprite.name.lowercase(Locale.ROOT))
-    }
-
-    companion object {
-        fun fromTag(tag: CompoundTag): RadarDisplayTrack? {
-            if (!tag.contains("position", Tag.TAG_COMPOUND.toInt())) return null
-            val id = tag.getString("id")
-            if (id.isEmpty()) return null
-            return RadarDisplayTrack(
-                id = id,
-                position = tag.getCompound("position").toVec3(),
-                velocity = if (tag.contains("velocity", Tag.TAG_COMPOUND.toInt())) {
-                    tag.getCompound("velocity").toVec3()
-                } else {
-                    Vec3.ZERO
-                },
-                sprite = RadarDisplayTrackSprite.fromTag(tag.getString("sprite"))
-            )
-        }
-    }
-}
-
+/**
+ * Synchronized state needed to hydrate a native Create: Radars MonitorBlockEntity
+ * on the client. Radar tracks remain in Create: Radars' own serialized format;
+ * CC-Aeroworks deliberately does not redefine their fields or sprite mapping.
+ */
 data class RadarDisplaySnapshot(
     val connected: Boolean,
     val operational: Boolean,
     val radarPos: BlockPos?,
-    val center: Vec3,
     val range: Double,
     val detectionTag: CompoundTag,
     val selectedTrackId: String?,
-    val tracks: List<RadarDisplayTrack>,
+    /** Compound returned by RadarTrackUtil.serializeNBTList(Collection<RadarTrack>). */
+    val nativeTracks: CompoundTag,
+    val trackCount: Int,
     val updatedAt: Long,
     val status: RadarLinkStatus,
     /**
@@ -100,15 +50,13 @@ data class RadarDisplaySnapshot(
         putBoolean("connected", connected)
         putBoolean("operational", operational)
         radarPos?.let { put("radarPos", NbtUtils.writeBlockPos(it)) }
-        put("center", center.toTag())
         putDouble("range", range)
         put("detection", detectionTag.copy())
         selectedTrackId?.let { putString("selected", it) }
+        put("tracks", nativeTracks.copy())
+        putInt("trackCount", trackCount)
         putLong("updatedAt", updatedAt)
         putString("status", status.name.lowercase(Locale.ROOT))
-        put("tracks", ListTag().apply {
-            tracks.take(MAX_SYNCED_TRACKS).forEach { add(it.toTag()) }
-        })
     }
 
     fun sameContentAs(other: RadarDisplaySnapshot?): Boolean =
@@ -116,11 +64,11 @@ data class RadarDisplaySnapshot(
             connected == other.connected &&
             operational == other.operational &&
             radarPos == other.radarPos &&
-            center == other.center &&
             range == other.range &&
             detectionTag == other.detectionTag &&
             selectedTrackId == other.selectedTrackId &&
-            tracks == other.tracks &&
+            nativeTracks == other.nativeTracks &&
+            trackCount == other.trackCount &&
             status == other.status
 
     companion object {
@@ -128,7 +76,6 @@ data class RadarDisplaySnapshot(
         const val STALE_AFTER_TICKS: Long = 20
 
         fun disconnected(
-            center: Vec3,
             updatedAt: Long,
             status: RadarLinkStatus = RadarLinkStatus.NOT_LINKED,
             radarPos: BlockPos? = null,
@@ -137,11 +84,11 @@ data class RadarDisplaySnapshot(
             connected = false,
             operational = false,
             radarPos = radarPos,
-            center = center,
             range = 0.0,
             detectionTag = detectionTag.copy(),
             selectedTrackId = null,
-            tracks = emptyList(),
+            nativeTracks = CompoundTag(),
+            trackCount = 0,
             updatedAt = updatedAt,
             status = status
         )
@@ -157,9 +104,6 @@ data class RadarDisplaySnapshot(
                 return false
             }
 
-            // Client freshness is measured from local packet receipt. Falling
-            // back to updatedAt keeps server-side/unit use deterministic without
-            // reintroducing cross-clock comparisons on the actual client path.
             val freshnessTick = snapshot.receivedAtClientTick
                 .takeIf { it >= 0L }
                 ?: snapshot.updatedAt
@@ -168,13 +112,15 @@ data class RadarDisplaySnapshot(
         }
 
         fun fromTag(tag: CompoundTag, receivedAtClientTick: Long = -1L): RadarDisplaySnapshot {
-            val tracksTag = tag.getList("tracks", Tag.TAG_COMPOUND.toInt())
-            val tracks = buildList {
-                for (index in 0 until minOf(tracksTag.size, MAX_SYNCED_TRACKS)) {
-                    RadarDisplayTrack.fromTag(tracksTag.getCompound(index))?.let(::add)
-                }
-            }
             val connected = tag.getBoolean("connected")
+            val nativeTracks = if (tag.contains("tracks", Tag.TAG_COMPOUND.toInt())) {
+                tag.getCompound("tracks").copy()
+            } else {
+                CompoundTag()
+            }
+            val serializedTrackCount = nativeTracks
+                .getList("tracks", Tag.TAG_COMPOUND.toInt())
+                .size
             return RadarDisplaySnapshot(
                 connected = connected,
                 operational = if (tag.contains("operational", Tag.TAG_BYTE.toInt())) {
@@ -183,11 +129,6 @@ data class RadarDisplaySnapshot(
                     connected
                 },
                 radarPos = NbtUtils.readBlockPos(tag, "radarPos").orElse(null),
-                center = if (tag.contains("center", Tag.TAG_COMPOUND.toInt())) {
-                    tag.getCompound("center").toVec3()
-                } else {
-                    Vec3.ZERO
-                },
                 range = tag.getDouble("range").coerceAtLeast(0.0),
                 detectionTag = if (tag.contains("detection", Tag.TAG_COMPOUND.toInt())) {
                     tag.getCompound("detection").copy()
@@ -195,7 +136,12 @@ data class RadarDisplaySnapshot(
                     CompoundTag()
                 },
                 selectedTrackId = tag.getString("selected").takeIf { it.isNotEmpty() },
-                tracks = tracks,
+                nativeTracks = nativeTracks,
+                trackCount = if (tag.contains("trackCount", Tag.TAG_INT.toInt())) {
+                    tag.getInt("trackCount").coerceAtLeast(0)
+                } else {
+                    serializedTrackCount
+                },
                 updatedAt = tag.getLong("updatedAt"),
                 status = RadarLinkStatus.fromTag(tag.getString("status"), connected),
                 receivedAtClientTick = receivedAtClientTick
@@ -203,11 +149,3 @@ data class RadarDisplaySnapshot(
         }
     }
 }
-
-private fun Vec3.toTag(): CompoundTag = CompoundTag().apply {
-    putDouble("x", this@toTag.x)
-    putDouble("y", this@toTag.y)
-    putDouble("z", this@toTag.z)
-}
-
-private fun CompoundTag.toVec3(): Vec3 = Vec3(getDouble("x"), getDouble("y"), getDouble("z"))
