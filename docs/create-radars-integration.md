@@ -37,11 +37,14 @@ Der Network Filterer muss nicht angrenzend zum Pult stehen. CC-Aeroworks sucht w
 
 ## Minimale Erweiterungsstelle
 
-CC-Aeroworks ersetzt `DataLinkBlockItem.useOn(...)` nicht. Ein optionaler Mixin ändert ausschließlich das native `INSTANCEOF MonitorBlockEntity` in der privaten Hilfsmethode `getFilterTarget(BlockEntity, BlockState)`:
+CC-Aeroworks ersetzt `DataLinkBlockItem.useOn(...)` nicht. Sponge Mixin 0.8.7 besitzt keinen gültigen `@At("INSTANCEOF")`-Injection-Point. Deshalb verändert der optionale Mixin mit MixinExtras 0.5.0 ausschließlich das Ergebnis der ersten `instanceof`-Expression in der privaten Hilfsmethode `getFilterTarget(BlockEntity, BlockState)`:
 
-- native `MonitorBlockEntity`-Instanzen bleiben gültig,
-- ein `ConsoleBlockEntity` wird nur mit tatsächlich montiertem RadarDisplay ebenfalls als Monitor erkannt,
+- die erste `instanceof`-Expression ist im gepinnten Runtime-JAR die native `MonitorBlockEntity`-Prüfung,
+- native `MonitorBlockEntity`-Instanzen bleiben durch den ursprünglichen booleschen Wert gültig,
+- ein `ConsoleBlockEntity` wird nur mit tatsächlich montiertem RadarDisplay zusätzlich als Monitor erkannt,
 - Create: Radars erzeugt seinen privaten `FilterTarget(MONITOR)` weiterhin selbst.
+
+Der Mixin verwendet `@ModifyExpressionValue`, `@Expression("? instanceof ?")` und `ordinal = 0`. Der Bytecode-Vertrag lädt CurseForge-Datei `8227753` und bricht ab, falls `MonitorBlockEntity` nicht mehr die erste `INSTANCEOF`-Instruktion in `getFilterTarget(...)` ist. Damit kann der Hook nicht still auf eine spätere Typprüfung verrutschen.
 
 Es gibt keine reflektive Konstruktion privater Create:-Radars-Zielobjekte, keine eigene Reichweitenprüfung, keine eigene Blockplatzierung und keine parallele Linkdatenbank.
 
