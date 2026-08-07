@@ -79,7 +79,9 @@ Wie `MonitorBlockEntity` aktualisiert jedes RadarDisplay-Pult serverseitig bei `
 
 Jeder Track wird mit dem nativen `DetectionConfig.test(RadarTrack)` gefiltert. Damit gelten dieselben Spieler-, Sable/VS2-, Contraption-, Mob-, Projektil-, Tier- und Itemfilter wie beim nativen Monitor. Synchronisiert werden höchstens 256 gefilterte Tracks mit ID, Position, Geschwindigkeit und nativer Trackkategorie.
 
-Der Snapshot wird in das tatsächliche Clientupdate-NBT des `ConsoleBlockEntity` geschrieben. Geänderte Inhalte rufen `notifyUpdate()` auf; unveränderte aktive Zustände erhalten einen begrenzten Heartbeat. Nach Linkentfernung wird der Snapshot im nächsten Fünf-Tick-Zyklus gelöscht.
+Der Snapshot wird in das tatsächliche Clientupdate-NBT des `ConsoleBlockEntity` geschrieben. Geänderte Inhalte rufen `notifyUpdate()` auf; unveränderte aktive Zustände erhalten einen begrenzten Heartbeat.
+
+Für die Freshness-Prüfung wird **nicht** mehr der Servertick direkt mit `client.level.gameTime` verglichen. Beim Decodieren merkt sich der Snapshot stattdessen den lokalen Client-Empfangstick. Das Trennungs-X kann damit nicht allein durch einen Versatz zwischen Server- und Clientuhr ausgelöst werden. `updatedAt` bleibt als Servertick für Diagnose und Transport erhalten, die Anzeigealterung verwendet aber den lokalen Client-Empfangstick.
 
 ## Nativer Cleanup
 
@@ -89,16 +91,30 @@ Beim Abbau des physischen Data-Link-Blocks führt `DataLinkBlock.onRemove(...)` 
 - `onEndpointRemoved(...)` bereinigt den unterstützenden Endpoint zusätzlich,
 - `getFiltererForEndpoint(...)` liefert anschließend keinen Filterer mehr.
 
-CC-Aeroworks greift in diesen Ablauf nicht ein. Das orange Trennungs-X erscheint nur, wenn kein gültiger Endpoint, kein Radar, ein ungeladener oder gestoppter Radar, eine ungültige Reichweite oder ein API-Fehler vorliegt.
+CC-Aeroworks greift in diesen Ablauf nicht ein. Im nächsten Fünf-Tick-Zyklus wird der Pult-Snapshot als getrennt aktualisiert. Das orange Trennungs-X erscheint nur, wenn kein gültiger Endpoint, kein Radar, ein ungeladener oder gestoppter Radar, eine ungültige Reichweite, ein API-Fehler oder ein tatsächlich veralteter Client-Snapshot vorliegt.
 
 ## Radaroberfläche
 
-Der klassische BlockEntityRenderer und der Flywheel-`ConsoleVisual` verwenden dieselben `RadarSurfaceRenderer`-Elemente:
+Der klassische BlockEntityRenderer und der Flywheel-`ConsoleVisual` verwenden dieselben `RadarSurfaceRenderer`-Elemente.
 
-- Hintergrundfüllung und Radarkreis,
-- rotierender Sweep,
-- Spieler-, Projektil-, Entity- und Contraption/Sable-Symbole,
-- Zielmarkierung für `selectedTargetId`.
+Frühere Builds registrierten eigene Radar-`PartialModel`s, deren Texturen direkt auf `create_radar:monitor_sprite/*` zeigten. Diese PNGs werden von Create: Radars über den eigenen `MonitorRenderer` als direkte Renderertexturen benutzt und sind nicht als stabiler Blockatlas-Vertrag gedacht. Auf realen Clients konnte dieser Pfad deshalb als schwarz-pinke Missing-Texture-Fläche erscheinen.
+
+Die Radaroberfläche verwendet nun ausschließlich bereits bewährte CC-Aeroworks-eigene Blockatlas-Partials:
+
+- `display_segment_horizontal` und `display_segment_vertical` bilden den Radarrahmen,
+- ein vertikales Segment bildet den rotierenden Sweep,
+- `display_pixel` bildet Kontakte und Auswahlmarkierungen,
+- `radar_disconnected` bleibt das Trennungs-X.
+
+Damit hängt die Radaroberfläche nicht mehr von Create:-Radars-Monitor-Sprites im Minecraft-Blockatlas ab. Gleichzeitig bleibt derselbe Elementpfad für klassischen Renderer und Flywheel erhalten.
+
+Die Kontaktformen sind bewusst aus denselben lokalen Pixeln aufgebaut:
+
+- Entity: ein Pixel,
+- Spieler: zwei vertikale Pixel,
+- Projektil: zwei horizontale Pixel,
+- Contraption/Sable: vier Eckpixel,
+- ausgewähltes Ziel: vier zusätzliche Markierungspixel.
 
 Trackpositionen werden relativ zu Radarzentrum und Reichweite auf die kleine oder große Modulfläche projiziert. Die programmierbare Pixelauflösung beeinflusst RadarDisplays nicht.
 
@@ -106,13 +122,21 @@ Normales und Advanced ComputerControlDesk verwenden denselben CC-Aeroworks-Block
 
 ## Diagnose
 
-CC-Aeroworks protokolliert nur Zustandsänderungen, nicht jeden Tick. Eine Diagnosezeile enthält:
+CC-Aeroworks protokolliert serverseitig nur Zustandsänderungen, nicht jeden Tick. Eine Diagnosezeile enthält:
 
 ```text
 Radar endpoint desk=<pos> filterer=<pos> radar=<pos> status=<status> filteredTracks=<n> reason=<text>
 ```
 
 Für einen aktiven Aufbau mit Kontakten muss `status=ACTIVE` und `filteredTracks` größer als null erscheinen. API- und Reflexionsfehler werden dedupliziert mit Ursache protokolliert.
+
+Zusätzlich protokolliert der Client bei einer Änderung des empfangenen Radarzustands:
+
+```text
+Radar client snapshot desk=<pos> status=<status> radar=<pos> tracks=<n> serverTick=<tick> clientTick=<tick>
+```
+
+Damit lassen sich drei Fehlerklassen getrennt beweisen: Server erzeugt keinen aktiven Zustand, Server ist aktiv aber der Client erhält ihn nicht, oder Server und Client sind aktiv und nur die Darstellung ist defekt.
 
 ## Laufzeitmatrix
 
