@@ -2,7 +2,7 @@
 
 Die Integration ist optional und wird nur aktiv, wenn Create: Radars mit der Mod-ID `create_radar` geladen ist. Unterstützt und im Entwicklungsmanifest fest eingetragen ist Create: Radars `0.4.9.4-1.21.1` für Minecraft 1.21.1.
 
-Ohne Create: Radars bleiben CC-Aeroworks und alle normalen Pultfunktionen startfähig. RadarDisplay-Rezepte und optionale Inhalte werden über `neoforge:mod_loaded` ausgeblendet. Der optionale Data-Link-Mixin ist `@Pseudo`, verwendet ein Klassennamenziel und enthält keine Create:-Radars-Typen in seiner Handler-Signatur.
+Ohne Create: Radars bleiben CC-Aeroworks und alle normalen Pultfunktionen startfähig. RadarDisplay-Rezepte und optionale Inhalte werden über `neoforge:mod_loaded` ausgeblendet. Der optionale Data-Link-Mixin ist `@Pseudo`, verwendet ein Klassennamenziel und enthält keine Create:-Radars-Typen in seiner Handler-Signatur. Auch der clientseitige Renderer-Bridge enthält Create:-Radars-Klassen ausschließlich als zur Laufzeit aufgelöste Klassennamen.
 
 ## Zweck der RadarDisplays
 
@@ -46,9 +46,7 @@ CC-Aeroworks ersetzt `DataLinkBlockItem.useOn(...)` nicht. Sponge Mixin 0.8.7 be
 
 Der Mixin verwendet `@ModifyExpressionValue`, `@Expression("? instanceof ?")` und `ordinal = 0`. Der Bytecode-Vertrag lädt CurseForge-Datei `8227753` und bricht ab, falls `MonitorBlockEntity` nicht mehr die erste `INSTANCEOF`-Instruktion in `getFilterTarget(...)` ist. Damit kann der Hook nicht still auf eine spätere Typprüfung verrutschen.
 
-Es gibt keine reflektive Konstruktion privater Create:-Radars-Zielobjekte, keine eigene Reichweitenprüfung, keine eigene Blockplatzierung und keine parallele Linkdatenbank.
-
-Die geprüfte native Aufrufkette und der Zielmethoden-Deskriptor sind in `docs/create-radars-native-flow-analysis.md` dokumentiert.
+Es gibt keine reflektive Konstruktion privater Create:-Radars-Zielobjekte, keine eigene Reichweitenprüfung, keine eigene Blockplatzierung und keine parallele Linkdatenbank. Die geprüfte native Aufrufkette und der Zielmethoden-Deskriptor sind in `docs/create-radars-native-flow-analysis.md` dokumentiert.
 
 ## Autoritativer Netzwerkzustand
 
@@ -68,20 +66,70 @@ Der Radar wird ausschließlich an `radarPos` aufgelöst. CC-Aeroworks speichert 
 
 ## Monitoridentische Aktualisierung
 
-Wie `MonitorBlockEntity` aktualisiert jedes RadarDisplay-Pult serverseitig bei `gameTime % 5 == 0` seinen Zustand. Es übernimmt:
+Wie `MonitorBlockEntity` aktualisiert jedes RadarDisplay-Pult serverseitig im nativen Fünf-Tick-Zyklus bei `gameTime % 5 == 0` seinen Zustand. Es übernimmt Linkstatus, Radarposition, Reichweite und Betriebszustand aus dem nativen Netzwerk beziehungsweise `IRadar`.
 
-- Filtererposition und Linkstatus,
-- Radarposition und über `PhysicsHandler` aufgelöstes Weltzentrum,
-- Reichweite und Betriebszustand aus `IRadar`,
-- Detection-Filter aus `DetectionConfig.fromTag(group.detectionTag)`,
-- ausgewähltes Ziel aus `group.selectedTargetId`,
-- Radartracks aus `IRadar.getTracks()`.
+Der Detection-Filter wird mit `DetectionConfig.fromTag(group.detectionTag)` erzeugt. Jeder Track aus `IRadar.getTracks()` wird mit dem nativen `DetectionConfig.test(RadarTrack)` gefiltert. Höchstens 256 akzeptierte Tracks werden anschließend **nicht** in einen CC-Aeroworks-Tracktyp umgewandelt. Stattdessen delegiert CC-Aeroworks an `RadarTrackUtil.serializeNBTList(...)` und transportiert genau diesen nativen CompoundTag zum Client.
 
-Jeder Track wird mit dem nativen `DetectionConfig.test(RadarTrack)` gefiltert. Damit gelten dieselben Spieler-, Sable/VS2-, Contraption-, Mob-, Projektil-, Tier- und Itemfilter wie beim nativen Monitor. Synchronisiert werden höchstens 256 gefilterte Tracks mit ID, Position, Geschwindigkeit und nativer Trackkategorie.
+Dadurch bleiben unter anderem `scannedTime`, native TrackCategory, Entity-/Sable-Metadaten, Größeninformationen und die native Spritezuordnung vollständig Eigentum von Create: Radars. CC-Aeroworks definiert keine `RadarDisplayTrack`- oder `RadarDisplayTrackSprite`-Parallelstruktur mehr.
 
 Der Snapshot wird in das tatsächliche Clientupdate-NBT des `ConsoleBlockEntity` geschrieben. Geänderte Inhalte rufen `notifyUpdate()` auf; unveränderte aktive Zustände erhalten einen begrenzten Heartbeat.
 
-Für die Freshness-Prüfung wird **nicht** mehr der Servertick direkt mit `client.level.gameTime` verglichen. Beim Decodieren merkt sich der Snapshot stattdessen den lokalen Client-Empfangstick. Das Trennungs-X kann damit nicht allein durch einen Versatz zwischen Server- und Clientuhr ausgelöst werden. `updatedAt` bleibt als Servertick für Diagnose und Transport erhalten, die Anzeigealterung verwendet aber den lokalen Client-Empfangstick.
+Für die Freshness-Prüfung wird der Servertick nicht direkt mit `client.level.gameTime` verglichen. Beim Decodieren merkt sich der Snapshot den lokalen Client-Empfangstick. `updatedAt` bleibt als Servertick für Diagnose und Transport erhalten.
+
+## Native Monitoroberfläche statt Nachbau
+
+RadarDisplay zeichnet keine eigene Radar-Grafik mehr. Es gibt weder CC-Aeroworks-Radarringe noch einen eigenen Sweep, eigene Trackglyphen oder ein eigenes Trennungs-X.
+
+Clientseitig erzeugt CC-Aeroworks pro sichtbarer RadarDisplay-Fläche einen **virtuellen, nicht in die Welt eingesetzten `MonitorBlockEntity`** der installierten Create:-Radars-Version. Dieser Monitor wird über seine eigene geschützte Methode `MonitorBlockEntity.read(..., clientPacket=true)` mit einem nativen Monitor-NBT befüllt:
+
+- `HasRadarPos` und `radarPos`,
+- `Filter`,
+- `SelectedEntity`,
+- `Size`,
+- `tracks` aus `RadarTrackUtil.serializeNBTList(...)`,
+- leere `SafeZones`, solange CC-Aeroworks keine Safe-Zone-Eingabe anbietet.
+
+Anschließend ruft der Bridge reflektiv die private Methode `MonitorRenderer.renderRadarDisplay(...)` des echten registrierten Create:-Radars-Renderers auf. Damit rendert Create: Radars selbst:
+
+- `GRID_SQUARE`,
+- `RADAR_BG_FILLER`,
+- `RADAR_BG_CIRCLE`,
+- `RADAR_SWEEP`,
+- die nativen Track-Sprites,
+- Farben aus `DetectionConfig.getColor(...)`,
+- Track-Fading über `scannedTime`,
+- `TARGET_HOVERED` und `TARGET_SELECTED`,
+- Tracklabels,
+- Winkel und Radarart aus `IRadar`.
+
+CC-Aeroworks setzt nur die Pose auf den jeweiligen Pult-Socket und skaliert die native quadratische Monitorfläche proportional auf die RadarDisplay-Fläche. Das große Display streckt den nativen Kreis nicht horizontal.
+
+### Ein Renderpfad für Classic und Flywheel
+
+Der native Monitor verwendet direkte `VertexConsumer`-/`RenderType`-Geometrie und lässt sich nicht verlustfrei in Flywheel-`PartialModel`-Instanzen übersetzen. Deshalb wird die Radaroberfläche weder im klassischen `ConsoleRenderer` noch im `ConsoleVisual` selbst gezeichnet.
+
+Beide Renderpfade registrieren das sichtbare Pult lediglich beim `RadarOverlayRenderer`. Ein gemeinsamer `RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES`-Pass zeichnet anschließend jede RadarDisplay-Fläche genau einmal über `MonitorRenderer`. Normale programmierbare Ziffern-/Pixeldisplays verbleiben im bisherigen Classic-/Flywheel-Pfad.
+
+Dadurch gibt es nur noch eine Radarimplementierung, unabhängig davon, ob Flywheel aktiv ist.
+
+### Optional-Mod-Grenze
+
+Der native Renderer-Bridge importiert keine `com.happysg.radar.*`-Klassen. Erst nach `ModList.isLoaded("create_radar")` werden `MonitorBlockEntity`, `MonitorRenderer`, `IRadar`, `ModBlocks.MONITOR` und `ModBlockEntityTypes.MONITOR` über Klassennamen aufgelöst und ihre Reflection-Handles gecacht.
+
+Wenn dieser private Vertrag in einer späteren Create:-Radars-Version nicht mehr passt, wird die Radaroberfläche übersprungen und ein deduplizierter Fehler geloggt, statt den Client beim Klassenladen zu zerstören.
+
+## Exakter Runtime-Vertrag
+
+`tools/verify-create-radars-bytecode.py` prüft die veröffentlichte Datei `create_radar-0.4.9.4-1.21.1.jar` mit CurseForge File-ID `8227753` und zusätzlich zum Data-Link-Vertrag nun auch:
+
+- den exakten Deskriptor von `MonitorRenderer.renderRadarDisplay(...)`,
+- `MonitorBlockEntity.read(CompoundTag, HolderLookup.Provider, boolean)`,
+- `getRadar()`, `getTracks()`, `getSize()` und `getShip()`,
+- `RadarTrackUtil.serializeNBTList(...)` und `deserializeListNBT(...)`,
+- die nativen `MonitorSprite`-Konstanten,
+- alle zehn verwendeten `assets/create_radar/textures/monitor_sprite/*.png`-Ressourcen.
+
+Damit kann ein Update des privaten Renderer-Vertrags nicht still durch eine grüne Repository-Prüfung rutschen.
 
 ## Nativer Cleanup
 
@@ -91,38 +139,11 @@ Beim Abbau des physischen Data-Link-Blocks führt `DataLinkBlock.onRemove(...)` 
 - `onEndpointRemoved(...)` bereinigt den unterstützenden Endpoint zusätzlich,
 - `getFiltererForEndpoint(...)` liefert anschließend keinen Filterer mehr.
 
-CC-Aeroworks greift in diesen Ablauf nicht ein. Im nächsten Fünf-Tick-Zyklus wird der Pult-Snapshot als getrennt aktualisiert. Das orange Trennungs-X erscheint nur, wenn kein gültiger Endpoint, kein Radar, ein ungeladener oder gestoppter Radar, eine ungültige Reichweite, ein API-Fehler oder ein tatsächlich veralteter Client-Snapshot vorliegt.
-
-## Radaroberfläche
-
-Der klassische BlockEntityRenderer und der Flywheel-`ConsoleVisual` verwenden dieselben `RadarSurfaceRenderer`-Elemente.
-
-Frühere Builds registrierten eigene Radar-`PartialModel`s, deren Texturen direkt auf `create_radar:monitor_sprite/*` zeigten. Diese PNGs werden von Create: Radars über den eigenen `MonitorRenderer` als direkte Renderertexturen benutzt und sind nicht als stabiler Blockatlas-Vertrag gedacht. Auf realen Clients konnte dieser Pfad deshalb als schwarz-pinke Missing-Texture-Fläche erscheinen.
-
-Die Radaroberfläche verwendet nun ausschließlich bereits bewährte CC-Aeroworks-eigene Blockatlas-Partials:
-
-- `display_segment_horizontal` und `display_segment_vertical` bilden den Radarrahmen,
-- ein vertikales Segment bildet den rotierenden Sweep,
-- `display_pixel` bildet Kontakte und Auswahlmarkierungen,
-- `radar_disconnected` bleibt das Trennungs-X.
-
-Damit hängt die Radaroberfläche nicht mehr von Create:-Radars-Monitor-Sprites im Minecraft-Blockatlas ab. Gleichzeitig bleibt derselbe Elementpfad für klassischen Renderer und Flywheel erhalten.
-
-Die Kontaktformen sind bewusst aus denselben lokalen Pixeln aufgebaut:
-
-- Entity: ein Pixel,
-- Spieler: zwei vertikale Pixel,
-- Projektil: zwei horizontale Pixel,
-- Contraption/Sable: vier Eckpixel,
-- ausgewähltes Ziel: vier zusätzliche Markierungspixel.
-
-Trackpositionen werden relativ zu Radarzentrum und Reichweite auf die kleine oder große Modulfläche projiziert. Die programmierbare Pixelauflösung beeinflusst RadarDisplays nicht.
-
-Normales und Advanced ComputerControlDesk verwenden denselben CC-Aeroworks-BlockEntity-Typ. Für diesen Typ wird der native Aeroworks-`ConsoleVisual` explizit registriert, damit Steuereinheiten mit Flywheel erhalten bleiben. Der klassische Renderer delegiert ebenfalls an den Aeroworks-Renderer und besitzt nur einen Display-Fallback für geänderte Renderer-Konstruktoren.
+CC-Aeroworks greift in diesen Ablauf nicht ein. Im nächsten Fünf-Tick-Zyklus wird der Pult-Snapshot als getrennt aktualisiert. Ein nicht aktiver Snapshot erzeugt keine erfundene CC-Aeroworks-Radarwarnung; der native Monitorinhalt wird dann schlicht nicht gezeichnet.
 
 ## Diagnose
 
-CC-Aeroworks protokolliert serverseitig nur Zustandsänderungen, nicht jeden Tick. Eine Diagnosezeile enthält:
+CC-Aeroworks protokolliert serverseitig nur Zustandsänderungen, nicht jeden Tick:
 
 ```text
 Radar endpoint desk=<pos> filterer=<pos> radar=<pos> status=<status> filteredTracks=<n> reason=<text>
@@ -136,11 +157,16 @@ Zusätzlich protokolliert der Client bei einer Änderung des empfangenen Radarzu
 Radar client snapshot desk=<pos> status=<status> radar=<pos> tracks=<n> serverTick=<tick> clientTick=<tick>
 ```
 
-Damit lassen sich drei Fehlerklassen getrennt beweisen: Server erzeugt keinen aktiven Zustand, Server ist aktiv aber der Client erhält ihn nicht, oder Server und Client sind aktiv und nur die Darstellung ist defekt.
+Der native Renderer-Bridge loggt separat, wenn der virtuelle Monitor, sein registrierter Renderer oder `renderRadarDisplay(...)` nicht verwendbar ist.
 
 ## Laufzeitmatrix
 
-Die verbindliche manuelle Matrix steht in `docs/radar-controller-test-plan.md`. Sie umfasst alle vier Pulttypen, beide Displaygrößen, alle vier Ausrichtungen, Filteränderungen, Zielauswahl, Linkabbau, klassischen Renderer, Flywheel sowie den Start ohne Create: Radars.
+Die verbindliche manuelle Matrix steht in `docs/radar-controller-test-plan.md`. Neben allen vier Pulttypen, beiden Displaygrößen, Ausrichtungen, Filteränderungen, Zielauswahl, Linkabbau, Classic/Flywheel und Start ohne Create: Radars ist nun ein direkter Referenztest Pflicht:
+
+1. echter `create_radar:monitor` und RadarDisplay hängen am selben Filterer/Radar,
+2. Hintergrund, Grid, Sweep, Track-Sprite, Farbe, Fade und Selection müssen übereinstimmen,
+3. eine Änderung von `groundRadarColor` muss auf beiden Anzeigen erscheinen,
+4. ein Resource Pack, das `create_radar:textures/monitor_sprite/*` ersetzt, muss beide Anzeigen gleichermaßen verändern.
 
 Der Entwicklungsclient wird mit folgendem Befehl gestartet:
 
@@ -148,4 +174,4 @@ Der Entwicklungsclient wird mit folgendem Befehl gestartet:
 ./gradlew runClient --stacktrace
 ```
 
-Ein grüner statischer Vertrag ersetzt den Ingame-Test nicht. Der Draft-PR darf erst als behoben gelten, wenn im Entwicklungsclient sichtbare Radartracks nachgewiesen wurden.
+Ein grüner statischer Vertrag ersetzt den Ingame-Test nicht. Der Draft-PR darf erst als behoben gelten, wenn `ACTIVE`, sichtbare native Radartracks und der Referenzvergleich mit dem echten Monitor im Entwicklungsclient nachgewiesen wurden.
