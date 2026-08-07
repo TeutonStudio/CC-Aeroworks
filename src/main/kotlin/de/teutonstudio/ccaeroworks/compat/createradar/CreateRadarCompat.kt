@@ -26,6 +26,7 @@ object CreateRadarCompat {
         "com.happysg.radar.block.controller.networkcontroller.NetworkFiltererBlockEntity"
     private const val NETWORK_CONTROLLER_BLOCK_ID: String = "create_radar:network_filterer"
     private const val NATIVE_CONTROLLER_INTERVAL_TICKS: Long = 5L
+    private const val SNAPSHOT_INTERVAL_TICKS: Long = NATIVE_CONTROLLER_INTERVAL_TICKS
     private const val SNAPSHOT_HEARTBEAT_TICKS: Long = 15L
 
     private val lastStatusByController = WeakHashMap<BlockEntity, RadarLinkStatus>()
@@ -39,7 +40,7 @@ object CreateRadarCompat {
 
         // NetworkFiltererBlockEntity updates radarCache and cachedTracks only on this exact phase.
         // The mixin runs at TAIL, so reading on the same tick guarantees a coherent snapshot.
-        if (level.gameTime % NATIVE_CONTROLLER_INTERVAL_TICKS != 0L) return
+        if (level.gameTime % SNAPSHOT_INTERVAL_TICKS != 0L) return
 
         val networks = adjacentDeskNetworks(level, controllerEntity.blockPos)
         networks.forEach { network ->
