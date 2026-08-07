@@ -63,30 +63,16 @@ def main() -> int:
         )
         require(recipe.get("result", {}).get("id") == f"cc_aeroworks:{name}", f"Wrong result for {name}")
 
-    translucent_models = {
-        "radar_small_filler": "create_radar:monitor_sprite/radar_bg_filler",
-        "radar_small_circle": "create_radar:monitor_sprite/radar_bg_circle",
-        "radar_small_sweep": "create_radar:monitor_sprite/radar_sweep",
-        "radar_large_filler": "create_radar:monitor_sprite/radar_bg_filler",
-        "radar_large_circle": "create_radar:monitor_sprite/radar_bg_circle",
-        "radar_large_sweep": "create_radar:monitor_sprite/radar_sweep",
-    }
-    cutout_models = {
-        "radar_track_entity": "create_radar:monitor_sprite/entity_hitbox",
-        "radar_track_player": "create_radar:monitor_sprite/player",
-        "radar_track_projectile": "create_radar:monitor_sprite/projectile",
-        "radar_track_contraption": "create_radar:monitor_sprite/contraption_hitbox",
-        "radar_track_selected": "create_radar:monitor_sprite/target_selected",
-    }
-    for model_name, texture in translucent_models.items():
-        model = load_json(MODELS / "block/module" / f"{model_name}.json")
-        require(model.get("render_type") == "minecraft:translucent", f"{model_name} must preserve texture alpha")
-        require(model.get("textures", {}).get("sprite") == texture, f"{model_name} uses the wrong Create: Radars texture")
-    for model_name, texture in cutout_models.items():
-        model = load_json(MODELS / "block/module" / f"{model_name}.json")
-        require(model.get("render_type") in {"cutout", "minecraft:cutout"}, f"{model_name} must use cutout rendering")
-        require(model.get("textures", {}).get("sprite") == texture, f"{model_name} uses the wrong Create: Radars texture")
-    load_json(MODELS / "block/module/radar_disconnected.json")
+    # Radar rendering now reuses the same local partials as the programmable
+    # displays. These models are known block-atlas resources and therefore avoid
+    # baking Create: Radars' renderer-only MonitorSprite textures.
+    for local_model in (
+        "display_segment_horizontal",
+        "display_segment_vertical",
+        "display_pixel",
+        "radar_disconnected",
+    ):
+        load_json(MODELS / "block/module" / f"{local_model}.json")
 
     snapshot = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/RadarDisplaySnapshot.kt")
     radar_mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/ConsoleBlockEntityRadarMixin.kt")
@@ -104,14 +90,21 @@ def main() -> int:
         "val radarPos: BlockPos?",
         "val detectionTag: CompoundTag",
         "val selectedTrackId: String?",
+        "val receivedAtClientTick: Long = -1L",
         'putString("sprite"',
         'put("tracks"',
         "STALE_AFTER_TICKS",
+        "snapshot.receivedAtClientTick",
     ):
         require(token in snapshot, f"Radar snapshot contract is missing: {token}")
+    require("receivedAtClientTick = receivedAtClientTick" in snapshot, "Client receipt tick is not attached while decoding the snapshot")
+    require("server and client gameTime are independent" in snapshot, "Freshness contract no longer documents the independent clocks")
+
     require("RADAR_CONTROLLER_NBT_KEY" not in radar_mixin, "Controller location is still persisted")
     require('method = ["tick"]' in radar_mixin and "CreateRadarCompat.refreshDesk" in radar_mixin, "Desk refresh is not attached to the actual block entity tick")
     require("if (!clientPacket) return" in radar_mixin, "Radar snapshot is not restricted to client update NBT")
+    require("RadarDisplaySnapshot.fromTag(tag.getCompound(RADAR_NBT_KEY), clientTick)" in radar_mixin, "Client snapshot does not record its local receipt tick")
+    require("Radar client snapshot desk={}" in radar_mixin, "Client-side radar receipt diagnostics are missing")
 
     for token in (
         "RadarDisplayTrackSprite.fromCategory",
@@ -126,12 +119,27 @@ def main() -> int:
     require("ConsoleMultiblockManager" not in compat, "Radar synchronization still depends on the desk multiblock")
 
     require("radarSurfaces" in desk_access and "RadarSurfaceState" in desk_access, "Desk radar surfaces are not exposed")
-    require("radarSmallFiller" in models and "radarTrackSelected" in models, "Direct radar partial models are not registered")
-    require("RenderType.translucent()" in surface, "Classic radar surface does not preserve alpha")
-    require("models.sweep" in surface and "spinning = true" in surface, "Radar sweep is not rendered directly")
-    require("DeskDisplayModels.radarTrack(track.sprite)" in surface, "Track sprites are not rendered directly")
-    require("track.id == active.selectedTrackId" in surface, "Selected target marker is not driven by native selectedTargetId")
+    for token in (
+        'val HORIZONTAL: PartialModel = PartialModel.of(CCAeroworks.id("block/module/display_segment_horizontal"))',
+        'val VERTICAL: PartialModel = PartialModel.of(CCAeroworks.id("block/module/display_segment_vertical"))',
+        'val PIXEL: PartialModel = PartialModel.of(CCAeroworks.id("block/module/display_pixel"))',
+    ):
+        require(token in models, f"Known-safe local display partial is missing: {token}")
+    require("block/module/radar_small_filler" not in models, "Runtime still registers the old external radar sprite partials")
+    require("block/module/radar_large_filler" not in models, "Runtime still registers the old external radar sprite partials")
+    require("create_radar:monitor_sprite" not in models, "Runtime model registration still depends on Create: Radars monitor sprites")
+
+    require("RenderType.cutout()" in surface, "Classic radar surface is not using the proven local display render path")
+    require("DeskDisplayModels.HORIZONTAL" in surface, "Radar frame no longer uses local horizontal segments")
+    require("DeskDisplayModels.VERTICAL" in surface, "Radar frame/sweep no longer uses local vertical segments")
+    require("DeskDisplayModels.PIXEL" in surface, "Radar contacts no longer use local display pixels")
+    require("trackGlyph" in surface and "selectionGlyph" in surface, "Procedural contact glyphs are missing")
+    require("spinning = true" in surface and "sweepAngle" in surface, "Radar sweep is not animated")
     require("RadarDisplaySnapshot.isFresh" in surface, "Disconnected X is not gated by the synchronized link state")
+    require("snapshot.tracks.hashCode()" in surface, "Flywheel render key is not content based")
+    require("snapshot?.hashCode()" not in surface, "Flywheel render key still churns on snapshot transport timestamps")
+    require("create_radar:monitor_sprite" not in surface, "Radar surface still depends on renderer-only Create: Radars textures")
+
     require("RadarSurfaceRenderer.render" in fallback, "Classic renderer does not draw direct radar surfaces")
     require("RadarSurfaceRenderer.elements" in flywheel, "Flywheel does not use the same radar surface elements")
     require("RadarSurfaceRenderer.sweepAngle" in flywheel, "Flywheel sweep is not animated")
@@ -154,12 +162,19 @@ def main() -> int:
     require(dependencies.get("ritchiesprojectilelib", {}).get("version") == "2.1.2", "RPL version is not pinned")
 
     docs = read("docs/create-radars-integration.md")
-    for token in ("NetworkData", "DetectionConfig.test", "Fünf-Tick-Zyklus", "256", "runClient"):
+    for token in (
+        "NetworkData",
+        "DetectionConfig.test",
+        "Fünf-Tick-Zyklus",
+        "256",
+        "lokalen Client-Empfangstick",
+        "runClient",
+    ):
         require(token in docs, f"Radar documentation is incomplete: {token}")
 
     print(
-        "Validated optional RadarDisplay resources, client snapshot NBT, native filtered track state, "
-        "classic and Flywheel rendering, selected targets and pinned Create: Radars dependencies."
+        "Validated optional RadarDisplay resources, client-local freshness, native filtered track state, "
+        "local classic/Flywheel rendering, selected targets and pinned Create: Radars dependencies."
     )
     return 0
 
