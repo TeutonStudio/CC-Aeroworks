@@ -11,7 +11,7 @@
     "ConsoleBlockEntityInvoker",
     "ConsoleBlockEntityDeskIdMixin",
     "ConsoleBlockEntityRadarMixin",
-    "compat.CreateRadarNetworkControllerMixin"
+    "compat.CreateRadarDataLinkTargetMixin"
   ],
   "client": [
     "client.AbstractContainerScreenAccessor",
