@@ -2,8 +2,8 @@
 """Verify the exact Create: Radars 0.4.9.4-1.21.1 runtime bytecode contract.
 
 This deliberately downloads the public release artifact instead of trusting a
-source branch, later release, or decompiler memory. It verifies only stable
-native extension points used by CC-Aeroworks.
+source branch, later release, or decompiler memory. It verifies every private
+native monitor surface used by CC-Aeroworks' reflection bridge.
 """
 
 from __future__ import annotations
@@ -27,9 +27,12 @@ EXPECTED_MAX_BYTES = 3_100_000
 DATA_LINK_ITEM = "com.happysg.radar.block.datalink.DataLinkBlockItem"
 NETWORK_DATA = "com.happysg.radar.block.behavior.networks.NetworkData"
 MONITOR = "com.happysg.radar.block.monitor.MonitorBlockEntity"
+MONITOR_RENDERER = "com.happysg.radar.block.monitor.MonitorRenderer"
+MONITOR_SPRITE = "com.happysg.radar.block.monitor.MonitorSprite"
 DATA_LINK_BLOCK = "com.happysg.radar.block.datalink.DataLinkBlock"
 DATA_LINK_ENTITY = "com.happysg.radar.block.datalink.DataLinkBlockEntity"
 RADAR_TRACK = "com.happysg.radar.block.radar.track.RadarTrack"
+RADAR_TRACK_UTIL = "com.happysg.radar.block.radar.track.RadarTrackUtil"
 IRADAR = "com.happysg.radar.block.radar.behavior.IRadar"
 DETECTION_CONFIG = "com.happysg.radar.block.behavior.networks.config.DetectionConfig"
 PHYSICS_HANDLER = "com.happysg.radar.compat.vs2.PhysicsHandler"
@@ -43,7 +46,36 @@ WORLD_VEC_DESCRIPTOR = (
     "(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)"
     "Lnet/minecraft/world/phys/Vec3;"
 )
+MONITOR_READ_DESCRIPTOR = (
+    "(Lnet/minecraft/nbt/CompoundTag;"
+    "Lnet/minecraft/core/HolderLookup$Provider;Z)V"
+)
+NATIVE_RENDER_DESCRIPTOR = (
+    "(Lcom/happysg/radar/block/radar/behavior/IRadar;"
+    "Lcom/happysg/radar/block/monitor/MonitorBlockEntity;"
+    "Lcom/mojang/blaze3d/vertex/PoseStack;"
+    "Lnet/minecraft/client/renderer/MultiBufferSource;F)V"
+)
+SERIALIZE_TRACKS_DESCRIPTOR = (
+    "(Ljava/util/Collection;)Lnet/minecraft/nbt/CompoundTag;"
+)
+DESERIALIZE_TRACKS_DESCRIPTOR = (
+    "(Lnet/minecraft/nbt/CompoundTag;)Ljava/util/List;"
+)
 MONITOR_INTERNAL_NAME = "com/happysg/radar/block/monitor/MonitorBlockEntity"
+
+MONITOR_TEXTURES = (
+    "assets/create_radar/textures/monitor_sprite/contraption_hitbox.png",
+    "assets/create_radar/textures/monitor_sprite/entity_hitbox.png",
+    "assets/create_radar/textures/monitor_sprite/projectile.png",
+    "assets/create_radar/textures/monitor_sprite/player.png",
+    "assets/create_radar/textures/monitor_sprite/grid_square.png",
+    "assets/create_radar/textures/monitor_sprite/radar_bg_circle.png",
+    "assets/create_radar/textures/monitor_sprite/radar_bg_filler.png",
+    "assets/create_radar/textures/monitor_sprite/radar_sweep.png",
+    "assets/create_radar/textures/monitor_sprite/target_selected.png",
+    "assets/create_radar/textures/monitor_sprite/target_hovered.png",
+)
 
 
 def require(condition: bool, message: str) -> None:
@@ -199,10 +231,53 @@ def verify_monitor(output: str) -> None:
         "lrem",
     ):
         require(token in output, f"MonitorBlockEntity bytecode missing {token}")
-    require(
-        "long 5l" in output.lower(),
-        "MonitorBlockEntity has no visible long five-tick divisor",
-    )
+    require("long 5l" in output.lower(), "MonitorBlockEntity has no visible long five-tick divisor")
+    method_section(output, "read", MONITOR_READ_DESCRIPTOR)
+    for name in ("getRadar", "getTracks", "getSize", "getShip"):
+        method_section(output, name)
+
+
+def verify_monitor_renderer(output: str) -> None:
+    native = method_section(output, "renderRadarDisplay", NATIVE_RENDER_DESCRIPTOR)
+    for token in (
+        "renderGrid",
+        "renderSafeZones",
+        "MonitorSprite.RADAR_BG_FILLER",
+        "MonitorSprite.RADAR_BG_CIRCLE",
+        "renderSweep",
+        "renderRadarTracks",
+    ):
+        require(token in native, f"Native MonitorRenderer surface no longer calls {token}")
+    for token in (
+        "MonitorSprite.GRID_SQUARE",
+        "MonitorSprite.RADAR_SWEEP",
+        "MonitorSprite.TARGET_SELECTED",
+        "DetectionConfig.getColor",
+        "ModRenderTypes.polygonOffset",
+    ):
+        require(token in output, f"MonitorRenderer no longer exposes expected native visual behavior: {token}")
+
+
+def verify_monitor_sprite(output: str) -> None:
+    for constant in (
+        "CONTRAPTION_HITBOX",
+        "ENTITY_HITBOX",
+        "PROJECTILE",
+        "PLAYER",
+        "GRID_SQUARE",
+        "RADAR_BG_CIRCLE",
+        "RADAR_BG_FILLER",
+        "RADAR_SWEEP",
+        "TARGET_SELECTED",
+        "TARGET_HOVERED",
+    ):
+        require(constant in output, f"MonitorSprite is missing {constant}")
+    method_section(output, "getTexture")
+
+
+def verify_radar_track_util(output: str) -> None:
+    method_section(output, "serializeNBTList", SERIALIZE_TRACKS_DESCRIPTOR)
+    method_section(output, "deserializeListNBT", DESERIALIZE_TRACKS_DESCRIPTOR)
 
 
 def verify_cleanup(output: str) -> None:
@@ -222,14 +297,19 @@ def main() -> int:
                 DATA_LINK_ITEM,
                 NETWORK_DATA,
                 MONITOR,
+                MONITOR_RENDERER,
+                MONITOR_SPRITE,
                 DATA_LINK_BLOCK,
                 DATA_LINK_ENTITY,
                 RADAR_TRACK,
+                RADAR_TRACK_UTIL,
                 IRADAR,
                 DETECTION_CONFIG,
                 PHYSICS_HANDLER,
             ):
                 require(class_entry(class_name) in names, f"Exact runtime JAR lacks {class_name}")
+            for texture in MONITOR_TEXTURES:
+                require(texture in names, f"Exact runtime JAR lacks native monitor texture {texture}")
             filterer_class = resolve_simple_class(names, "NetworkFiltererBlockEntity")
             data_link_strings = readable_strings(archive.read(class_entry(DATA_LINK_ITEM)))
 
@@ -237,6 +317,9 @@ def main() -> int:
         verify_data_link_item(javap(jar, DATA_LINK_ITEM), data_link_strings)
         verify_network_data(javap(jar, NETWORK_DATA))
         verify_monitor(javap(jar, MONITOR))
+        verify_monitor_renderer(javap(jar, MONITOR_RENDERER))
+        verify_monitor_sprite(javap(jar, MONITOR_SPRITE))
+        verify_radar_track_util(javap(jar, RADAR_TRACK_UTIL))
         verify_cleanup(javap(jar, DATA_LINK_BLOCK))
 
         filterer = javap(jar, filterer_class)
@@ -252,21 +335,29 @@ def main() -> int:
         )
 
         radar_track = javap(jar, RADAR_TRACK)
-        for method in ("getId", "getPosition", "getVelocity", "getTrackCategory"):
+        for method in ("getId", "getPosition", "getVelocity", "getTrackCategory", "serializeNBT"):
             method_section(radar_track, method)
 
         iradar = javap(jar, IRADAR)
-        for method in ("getTracks", "getRange", "isRunning", "getWorldPos"):
+        for method in (
+            "getTracks",
+            "getRange",
+            "isRunning",
+            "getWorldPos",
+            "getGlobalAngle",
+            "getRadarType",
+            "getradarDirection",
+            "renderRelativeToMonitor",
+        ):
             method_section(iradar, method)
 
         physics = javap(jar, PHYSICS_HANDLER)
         method_section(physics, "getWorldVec", WORLD_VEC_DESCRIPTOR)
 
     print(
-        f"Validated exact CurseForge file {FILE_ID} ({FILE_NAME}): native monitor target descriptor, "
-        "first and single monitor INSTANCEOF, original Data Link registration, NetworkData endpoint APIs, "
-        "five-tick monitor state, DetectionConfig filtering, RadarTrack accessors, PhysicsHandler world center, "
-        "and physical-link cleanup."
+        f"Validated exact CurseForge file {FILE_ID} ({FILE_NAME}): native Data Link registration, "
+        "MonitorBlockEntity client NBT, private MonitorRenderer surface, MonitorSprite resources, "
+        "RadarTrackUtil serialization, IRadar rendering API and physical-link cleanup."
     )
     return 0
 
