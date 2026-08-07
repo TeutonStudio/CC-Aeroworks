@@ -4,6 +4,7 @@ import com.llamalad7.mixinextras.expression.Expression;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity;
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess;
+import de.teutonstudio.ccaeroworks.compat.createradar.RadarTrace;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
@@ -40,8 +41,22 @@ public abstract class CreateRadarDataLinkTargetMixin {
         BlockEntity candidate,
         BlockState state
     ) {
-        return nativeMonitor
-            || candidate instanceof ConsoleBlockEntity desk
-            && AeroworksDeskAccess.hasRadarDisplay(desk);
+        boolean isDesk = candidate instanceof ConsoleBlockEntity;
+        boolean hasRadarDisplay = isDesk && AeroworksDeskAccess.hasRadarDisplay((ConsoleBlockEntity) candidate);
+        boolean accepted = nativeMonitor || hasRadarDisplay;
+
+        RadarTrace.event(
+            "DL_CLASSIFY",
+            candidate == null ? null : candidate.getLevel(),
+            candidate == null ? null : candidate.getBlockPos(),
+            "candidate=" + (candidate == null ? "null" : candidate.getClass().getName())
+                + " block=" + (state == null ? "null" : state.getBlock())
+                + " nativeMonitor=" + nativeMonitor
+                + " isConsoleDesk=" + isDesk
+                + " hasRadarDisplay=" + hasRadarDisplay
+                + " acceptedAsMonitor=" + accepted
+        );
+
+        return accepted;
     }
 }
