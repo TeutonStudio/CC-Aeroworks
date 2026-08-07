@@ -56,6 +56,9 @@ jobs:
       - name: Validate peripheral network architecture
         run: python3 tools/verify-peripheral-network.py
 
+      - name: Validate hierarchical peripheral tree
+        run: python3 tools/verify-peripheral-tree.py
+
       - name: Validate optional radar integration
         run: python3 tools/verify-radar.py
 
