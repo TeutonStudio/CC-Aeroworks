@@ -115,4 +115,10 @@ Für einen aktiven Aufbau mit Kontakten muss `status=ACTIVE` und `filteredTracks
 
 Die verbindliche manuelle Matrix steht in `docs/radar-controller-test-plan.md`. Sie umfasst alle vier Pulttypen, beide Displaygrößen, alle vier Ausrichtungen, Filteränderungen, Zielauswahl, Linkabbau, klassischen Renderer, Flywheel sowie den Start ohne Create: Radars.
 
+Der Entwicklungsclient wird mit folgendem Befehl gestartet:
+
+```bash
+./gradlew runClient --stacktrace
+```
+
 Ein grüner statischer Vertrag ersetzt den Ingame-Test nicht. Der Draft-PR darf erst als behoben gelten, wenn im Entwicklungsclient sichtbare Radartracks nachgewiesen wurden.
