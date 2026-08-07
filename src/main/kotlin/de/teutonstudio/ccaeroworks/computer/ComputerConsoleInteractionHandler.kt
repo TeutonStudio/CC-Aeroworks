@@ -4,29 +4,17 @@ import com.simibubi.create.content.equipment.wrench.WrenchItem
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
-import net.minecraft.core.Direction
-import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.network.chat.Component
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
-import net.minecraft.world.item.context.UseOnContext
-import net.minecraft.world.level.block.state.properties.BlockStateProperties
-import net.minecraft.world.phys.BlockHitResult
-import net.minecraft.world.phys.Vec3
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.common.util.TriState
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent
 
 object ComputerConsoleInteractionHandler {
-    private const val RADAR_NETWORK_CONTROLLER_ITEM = "create_radar:network_filterer"
-
     @SubscribeEvent
     fun onRightClickBlock(event: PlayerInteractEvent.RightClickBlock) {
         if (!AeroworksTypes.isControlDesk(event.level.getBlockState(event.pos).block)) {
-            return
-        }
-
-        if (redirectNetworkControllerPlacement(event)) {
             return
         }
 
@@ -49,43 +37,8 @@ object ComputerConsoleInteractionHandler {
             return
         }
 
-        // All other right-clicks, including the empty-hand control interaction and module
-        // installation/removal, are native Aeroworks behaviour and must not be consumed here.
-    }
-
-    private fun redirectNetworkControllerPlacement(
-        event: PlayerInteractEvent.RightClickBlock
-    ): Boolean {
-        if (event.hand != InteractionHand.MAIN_HAND || event.face != Direction.UP) return false
-        if (event.level.getBlockEntity(event.pos) !is ComputerControlDeskBlockEntity) return false
-        if (BuiltInRegistries.ITEM.getKey(event.itemStack.item).toString() != RADAR_NETWORK_CONTROLLER_ITEM) {
-            return false
-        }
-
-        val state = event.level.getBlockState(event.pos)
-        if (!state.hasProperty(BlockStateProperties.HORIZONTAL_FACING)) return false
-        val rear = state.getValue(BlockStateProperties.HORIZONTAL_FACING).opposite
-        val target = event.pos.relative(rear)
-        if (!event.level.isLoaded(target) || !event.level.getBlockState(target).canBeReplaced()) {
-            return false
-        }
-
-        val redirectedHit = BlockHitResult(
-            Vec3.atCenterOf(event.pos).add(
-                rear.stepX * 0.501,
-                rear.stepY * 0.501,
-                rear.stepZ * 0.501
-            ),
-            rear,
-            event.pos,
-            false
-        )
-        val result = event.itemStack.useOn(UseOnContext(event.entity, event.hand, redirectedHit))
-        if (!result.consumesAction()) return false
-
-        event.cancellationResult = result
-        event.isCanceled = true
-        return true
+        // All other right-clicks, including Data Link use, empty-hand control interaction and
+        // module installation/removal, are native item or Aeroworks behaviour.
     }
 
     private fun openControlDefinition(event: PlayerInteractEvent.RightClickBlock) {
