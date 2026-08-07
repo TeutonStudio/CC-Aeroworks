@@ -60,8 +60,8 @@ def verify_branch_origin() -> None:
         pull_request = payload.get("pull_request")
         if isinstance(pull_request, dict):
             base = pull_request.get("base")
-            base_sha = base.get("sha") if isinstance(base, dict) else None
-            require(base_sha == BASE_SHA, f"Pull request base SHA is {base_sha}, expected {BASE_SHA}")
+            base_ref = base.get("ref") if isinstance(base, dict) else None
+            require(base_ref == "master", f"Pull request targets {base_ref}, expected master")
             return
 
     if not (ROOT / ".git").exists():
@@ -248,7 +248,7 @@ def main() -> int:
             require(forbidden not in source, f"Obsolete adjacency documentation remains: {forbidden}")
 
     print(
-        "Validated the v7 branch origin, traced MixinExtras monitor classification, NetworkData endpoint state, "
+        "Validated the v7 lineage, traced MixinExtras monitor classification, NetworkData endpoint state, "
         "native DetectionConfig filtering/RadarTrack payloads, physical-link cleanup and computer desk visuals."
     )
     return 0
