@@ -1,6 +1,7 @@
 package de.teutonstudio.ccaeroworks.mixin
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import de.teutonstudio.ccaeroworks.compat.createradar.CreateRadarCompat
 import de.teutonstudio.ccaeroworks.compat.createradar.RadarDeskStateAccess
 import de.teutonstudio.ccaeroworks.display.RadarDisplaySnapshot
 import net.minecraft.core.HolderLookup
@@ -23,6 +24,11 @@ abstract class ConsoleBlockEntityRadarMixin : RadarDeskStateAccess {
 
     override fun ccaeroworks_setRadarSnapshot(snapshot: RadarDisplaySnapshot?) {
         ccaeroworks_radarSnapshot = snapshot
+    }
+
+    @Inject(method = ["tick"], at = [At("TAIL")])
+    private fun ccaeroworks_refreshNativeRadarEndpoint(callback: CallbackInfo) {
+        CreateRadarCompat.refreshDesk(this as ConsoleBlockEntity)
     }
 
     @Inject(method = ["write"], at = [At("TAIL")])
