@@ -32,6 +32,7 @@ DATA_LINK_ENTITY = "com.happysg.radar.block.datalink.DataLinkBlockEntity"
 RADAR_TRACK = "com.happysg.radar.block.radar.track.RadarTrack"
 IRADAR = "com.happysg.radar.block.radar.behavior.IRadar"
 DETECTION_CONFIG = "com.happysg.radar.block.behavior.networks.config.DetectionConfig"
+PHYSICS_HANDLER = "com.happysg.radar.compat.vs2.PhysicsHandler"
 
 TARGET_DESCRIPTOR = (
     "(Lnet/minecraft/world/level/block/entity/BlockEntity;"
@@ -179,8 +180,8 @@ def verify_monitor(output: str) -> None:
         "getFiltererForEndpoint",
         "getGroup",
         "DetectionConfig.fromTag",
-        "DetectionConfig.test",
         "getTracks",
+        "java/util/stream/Stream.filter",
         "radarPos",
         "selectedTargetId",
     ):
@@ -213,6 +214,7 @@ def main() -> int:
                 RADAR_TRACK,
                 IRADAR,
                 DETECTION_CONFIG,
+                PHYSICS_HANDLER,
             ):
                 require(class_entry(class_name) in names, f"Exact runtime JAR lacks {class_name}")
             filterer_class = resolve_simple_class(names, "NetworkFiltererBlockEntity")
@@ -240,10 +242,14 @@ def main() -> int:
         for method in ("getTracks", "getRange", "isRunning", "getWorldPos"):
             method_section(iradar, method)
 
+        physics = javap(jar, PHYSICS_HANDLER)
+        method_section(physics, "getWorldVec")
+
     print(
         f"Validated exact CurseForge file {FILE_ID} ({FILE_NAME}): native monitor target descriptor, "
         "single monitor INSTANCEOF, original Data Link registration, NetworkData endpoint APIs, "
-        "five-tick monitor state, DetectionConfig filtering, RadarTrack accessors and physical-link cleanup."
+        "five-tick monitor state, DetectionConfig filtering, RadarTrack accessors, PhysicsHandler world center, "
+        "and physical-link cleanup."
     )
     return 0
 
