@@ -7,107 +7,308 @@ import de.teutonstudio.ccaeroworks.display.RadarDisplaySnapshot
 import de.teutonstudio.ccaeroworks.display.RadarDisplayTrack
 import de.teutonstudio.ccaeroworks.display.RadarDisplayTrackSprite
 import de.teutonstudio.ccaeroworks.display.RadarLinkStatus
-import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
-import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import net.minecraft.core.BlockPos
-import net.minecraft.core.Direction
-import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.nbt.CompoundTag
 import net.minecraft.server.level.ServerLevel
-import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.phys.Vec3
 import net.neoforged.fml.ModList
 import java.lang.reflect.InvocationTargetException
+import java.lang.reflect.Method
+import java.lang.reflect.Modifier
 import java.util.WeakHashMap
 
 object CreateRadarCompat {
     const val MOD_ID: String = "create_radar"
 
-    private const val NETWORK_CONTROLLER_CLASS: String =
-        "com.happysg.radar.block.controller.networkcontroller.NetworkFiltererBlockEntity"
-    private const val NETWORK_CONTROLLER_BLOCK_ID: String = "create_radar:network_filterer"
-    private const val NATIVE_CONTROLLER_INTERVAL_TICKS: Long = 5L
-    private const val SNAPSHOT_INTERVAL_TICKS: Long = NATIVE_CONTROLLER_INTERVAL_TICKS
+    private const val NETWORK_DATA_CLASS: String =
+        "com.happysg.radar.block.behavior.networks.NetworkData"
+    private const val DETECTION_CONFIG_CLASS: String =
+        "com.happysg.radar.block.behavior.networks.config.DetectionConfig"
+    private const val PHYSICS_HANDLER_CLASS: String =
+        "com.happysg.radar.compat.vs2.PhysicsHandler"
+    private const val NATIVE_MONITOR_INTERVAL_TICKS: Long = 5L
     private const val SNAPSHOT_HEARTBEAT_TICKS: Long = 15L
 
-    private val lastStatusByController = WeakHashMap<BlockEntity, RadarLinkStatus>()
-    private val lastFailureByController = WeakHashMap<BlockEntity, String>()
-    private val lastDestinationFallbackByController = WeakHashMap<BlockEntity, Boolean>()
+    private val lastStatusByDesk = WeakHashMap<ConsoleBlockEntity, RadarLinkStatus>()
+    private val lastFailureByDesk = WeakHashMap<ConsoleBlockEntity, String>()
 
+    /**
+     * Called from the optional DataLinkBlockItem mixin. Returning true makes a desk carrying a
+     * Radar Display participate in Create: Radars' normal MONITOR target path.
+     */
     @JvmStatic
-    fun refreshController(controller: Any) {
+    fun isRadarDeskTarget(candidate: Any?): Boolean {
+        val desk = candidate as? ConsoleBlockEntity ?: return false
+        return AeroworksDeskAccess.hasRadarDisplay(desk)
+    }
+
+    /**
+     * Mirrors MonitorBlockEntity.tick(): resolve the Data Link endpoint through NetworkData,
+     * copy radar/filter/selection state from that group, rebuild filtered tracks, then sync the
+     * desk block entity to clients every five ticks.
+     */
+    @JvmStatic
+    fun refreshDesk(desk: ConsoleBlockEntity) {
         if (!ModList.get().isLoaded(MOD_ID)) return
-        val controllerEntity = controller as? BlockEntity ?: return
-        val level = controllerEntity.level as? ServerLevel ?: return
+        val level = desk.level as? ServerLevel ?: return
+        if (level.gameTime % NATIVE_MONITOR_INTERVAL_TICKS != 0L) return
 
-        // NetworkFiltererBlockEntity updates radarCache and cachedTracks only on this exact phase.
-        // The mixin runs at TAIL, so reading on the same tick guarantees a coherent snapshot.
-        if (level.gameTime % SNAPSHOT_INTERVAL_TICKS != 0L) return
-
-        val networks = adjacentDeskNetworks(level, controllerEntity.blockPos)
-        networks.forEach { network ->
-            refreshNetwork(level, controllerEntity, network)
+        val access = desk as? RadarDeskStateAccess ?: return
+        if (!AeroworksDeskAccess.hasRadarDisplay(desk)) {
+            if (access.ccaeroworks_getRadarSnapshot() != null) {
+                access.ccaeroworks_setRadarSnapshot(null)
+                desk.notifyUpdate()
+            }
+            return
         }
+
+        val snapshot = readNetworkSnapshot(level, desk)
+        logStatusTransition(desk, snapshot)
+
+        val previous = access.ccaeroworks_getRadarSnapshot()
+        if (!shouldSynchronize(previous, snapshot, level.gameTime)) return
+        access.ccaeroworks_setRadarSnapshot(snapshot)
+        desk.notifyUpdate()
     }
 
-    private fun adjacentDeskNetworks(
+    private fun readNetworkSnapshot(
         level: ServerLevel,
-        controllerPos: BlockPos
-    ): List<RadarDeskNetwork> {
-        val networks = linkedMapOf<List<Long>, RadarDeskNetwork>()
-        for (direction in Direction.values()) {
-            val desk = level.getBlockEntity(controllerPos.relative(direction)) as? ConsoleBlockEntity ?: continue
-            val network = resolveDeskNetwork(desk)
-            val key = network.desks.map { it.blockPos.asLong() }.sorted()
-            networks.putIfAbsent(key, network)
+        desk: ConsoleBlockEntity
+    ): RadarDisplaySnapshot {
+        val fallbackCenter = Vec3.atCenterOf(desk.blockPos)
+        val networkLookup = invokeStaticLookup(NETWORK_DATA_CLASS, "get", level)
+        if (!networkLookup.found || networkLookup.error != null || networkLookup.value == null) {
+            return apiFailure(desk, fallbackCenter, level.gameTime, "NetworkData#get", networkLookup.error)
         }
-        return networks.values.toList()
+        val networkData = networkLookup.value
+
+        val filtererLookup = invokeLookup(
+            networkData,
+            "getFiltererForEndpoint",
+            level.dimension(),
+            desk.blockPos
+        )
+        if (!filtererLookup.found || filtererLookup.error != null) {
+            return apiFailure(
+                desk,
+                fallbackCenter,
+                level.gameTime,
+                "NetworkData#getFiltererForEndpoint",
+                filtererLookup.error
+            )
+        }
+        val filtererPos = filtererLookup.value as? BlockPos
+            ?: return disconnected(fallbackCenter, level, RadarLinkStatus.RADAR_NOT_LINKED)
+
+        val groupLookup = invokeLookup(networkData, "getGroup", level.dimension(), filtererPos)
+        if (!groupLookup.found || groupLookup.error != null) {
+            return apiFailure(
+                desk,
+                fallbackCenter,
+                level.gameTime,
+                "NetworkData#getGroup",
+                groupLookup.error
+            )
+        }
+        val group = groupLookup.value
+            ?: return disconnected(fallbackCenter, level, RadarLinkStatus.RADAR_NOT_LINKED)
+
+        val endpointsLookup = readFieldLookup(group, "monitorEndpoints")
+        if (!endpointsLookup.found || endpointsLookup.error != null) {
+            return apiFailure(
+                desk,
+                fallbackCenter,
+                level.gameTime,
+                "NetworkData.Group#monitorEndpoints",
+                endpointsLookup.error
+            )
+        }
+        val endpoints = endpointsLookup.value as? Collection<*>
+            ?: return apiFailure(
+                desk,
+                fallbackCenter,
+                level.gameTime,
+                "NetworkData.Group#monitorEndpoints result"
+            )
+        if (desk.blockPos !in endpoints) {
+            return disconnected(fallbackCenter, level, RadarLinkStatus.RADAR_NOT_LINKED)
+        }
+
+        val radarPosLookup = readFieldLookup(group, "radarPos")
+        if (!radarPosLookup.found || radarPosLookup.error != null) {
+            return apiFailure(
+                desk,
+                fallbackCenter,
+                level.gameTime,
+                "NetworkData.Group#radarPos",
+                radarPosLookup.error
+            )
+        }
+        val radarPos = radarPosLookup.value as? BlockPos
+            ?: return disconnected(fallbackCenter, level, RadarLinkStatus.RADAR_NOT_LINKED)
+        if (!level.isLoaded(radarPos)) {
+            return disconnected(fallbackCenter, level, RadarLinkStatus.RADAR_NOT_LOADED)
+        }
+        val radar = level.getBlockEntity(radarPos)
+            ?: return disconnected(fallbackCenter, level, RadarLinkStatus.RADAR_NOT_LOADED)
+
+        val centerLookup = invokeStaticLookup(PHYSICS_HANDLER_CLASS, "getWorldVec", level, radarPos)
+        if (!centerLookup.found || centerLookup.error != null) {
+            return apiFailure(
+                desk,
+                fallbackCenter,
+                level.gameTime,
+                "PhysicsHandler#getWorldVec",
+                centerLookup.error
+            )
+        }
+        val center = centerLookup.value as? Vec3
+            ?: return apiFailure(
+                desk,
+                fallbackCenter,
+                level.gameTime,
+                "PhysicsHandler#getWorldVec result"
+            )
+
+        val rangeLookup = invokeLookup(radar, "getRange")
+        if (!rangeLookup.found || rangeLookup.error != null) {
+            return apiFailure(desk, center, level.gameTime, "IRadar#getRange", rangeLookup.error)
+        }
+        val range = (rangeLookup.value as? Number)?.toDouble()?.coerceAtLeast(0.0)
+            ?: return apiFailure(desk, center, level.gameTime, "IRadar#getRange result")
+
+        val runningLookup = invokeLookup(radar, "isRunning")
+        if (!runningLookup.found || runningLookup.error != null) {
+            return apiFailure(desk, center, level.gameTime, "IRadar#isRunning", runningLookup.error)
+        }
+        val running = runningLookup.value as? Boolean
+            ?: return apiFailure(desk, center, level.gameTime, "IRadar#isRunning result")
+        if (!running) return disconnected(center, level, RadarLinkStatus.RADAR_NOT_RUNNING)
+        if (range <= 0.0) return disconnected(center, level, RadarLinkStatus.INVALID_RANGE)
+
+        val detectionLookup = readFieldLookup(group, "detectionTag")
+        if (!detectionLookup.found || detectionLookup.error != null) {
+            return apiFailure(
+                desk,
+                center,
+                level.gameTime,
+                "NetworkData.Group#detectionTag",
+                detectionLookup.error
+            )
+        }
+        val detectionTag = detectionLookup.value as? CompoundTag
+            ?: return apiFailure(
+                desk,
+                center,
+                level.gameTime,
+                "NetworkData.Group#detectionTag result"
+            )
+
+        val tracks = when (val result = readFilteredTracks(radar, detectionTag, center)) {
+            is TrackReadResult.Success -> result.tracks
+            is TrackReadResult.Failure -> return apiFailure(
+                desk,
+                center,
+                level.gameTime,
+                result.stage,
+                result.cause
+            )
+        }
+
+        val selectedLookup = readFieldLookup(group, "selectedTargetId")
+        if (!selectedLookup.found || selectedLookup.error != null) {
+            return apiFailure(
+                desk,
+                center,
+                level.gameTime,
+                "NetworkData.Group#selectedTargetId",
+                selectedLookup.error
+            )
+        }
+        val selected = selectedLookup.value as? String
+
+        return RadarDisplaySnapshot(
+            connected = true,
+            center = center,
+            range = range,
+            selectedTrackId = selected,
+            tracks = tracks,
+            updatedAt = level.gameTime,
+            status = RadarLinkStatus.ACTIVE
+        )
     }
 
-    private fun refreshNetwork(
+    private fun readFilteredTracks(
+        radar: Any,
+        detectionTag: CompoundTag,
+        center: Vec3
+    ): TrackReadResult {
+        val filterLookup = invokeStaticLookup(DETECTION_CONFIG_CLASS, "fromTag", detectionTag)
+        if (!filterLookup.found || filterLookup.error != null || filterLookup.value == null) {
+            return TrackReadResult.Failure("DetectionConfig#fromTag", filterLookup.error)
+        }
+        val filter = filterLookup.value
+
+        val tracksLookup = invokeLookup(radar, "getTracks")
+        if (!tracksLookup.found || tracksLookup.error != null) {
+            return TrackReadResult.Failure("IRadar#getTracks", tracksLookup.error)
+        }
+        val rawTracks = tracksLookup.value as? Iterable<*>
+            ?: return TrackReadResult.Failure("IRadar#getTracks result")
+
+        val tracks = mutableListOf<RadarDisplayTrack>()
+        for (raw in rawTracks) {
+            raw ?: continue
+
+            val acceptedLookup = invokeLookup(filter, "test", raw)
+            if (!acceptedLookup.found || acceptedLookup.error != null) {
+                return TrackReadResult.Failure("DetectionConfig#test", acceptedLookup.error)
+            }
+            val accepted = acceptedLookup.value as? Boolean
+                ?: return TrackReadResult.Failure("DetectionConfig#test result")
+            if (!accepted) continue
+
+            val id = (invokeAny(raw, "getId", "id") as? String)
+                ?.takeIf(String::isNotEmpty)
+                ?: return TrackReadResult.Failure("RadarTrack#getId")
+            val position = invokeAny(raw, "getPosition", "position") as? Vec3
+                ?: return TrackReadResult.Failure("RadarTrack#getPosition")
+            val velocity = invokeAny(raw, "getVelocity", "velocity") as? Vec3 ?: Vec3.ZERO
+            val category = invokeAny(raw, "getTrackCategory", "trackCategory")
+
+            tracks += RadarDisplayTrack(
+                id = id,
+                position = position,
+                velocity = velocity,
+                sprite = RadarDisplayTrackSprite.fromCategory(category)
+            )
+        }
+
+        return TrackReadResult.Success(
+            tracks.sortedBy { it.position.distanceToSqr(center) }
+                .take(RadarDisplaySnapshot.MAX_SYNCED_TRACKS)
+        )
+    }
+
+    private fun disconnected(
+        center: Vec3,
         level: ServerLevel,
-        tickingController: BlockEntity,
-        network: RadarDeskNetwork
-    ) {
-        val controllers = findAdjacentControllers(level, network.desks).toMutableList()
-        if (controllers.none { it.blockPos == tickingController.blockPos }) {
-            controllers += tickingController
-        }
+        status: RadarLinkStatus
+    ): RadarDisplaySnapshot = RadarDisplaySnapshot.disconnected(center, level.gameTime, status)
 
-        val updateOwner = controllers.minByOrNull { it.blockPos.asLong() } ?: return
-        if (updateOwner.blockPos != tickingController.blockPos) return
-
-        val snapshot = when {
-            !isRoutable(network.state) -> RadarDisplaySnapshot.disconnected(
-                Vec3.atCenterOf(updateOwner.blockPos),
-                level.gameTime,
-                RadarLinkStatus.NETWORK_UNAVAILABLE
-            )
-
-            controllers.size > 1 -> RadarDisplaySnapshot.disconnected(
-                Vec3.atCenterOf(updateOwner.blockPos),
-                level.gameTime,
-                RadarLinkStatus.MULTIPLE_CONTROLLERS
-            )
-
-            else -> readControllerSnapshot(level, updateOwner)
-        }
-
-        logStatusTransition(updateOwner, network, controllers.size, snapshot)
-
-        val detectedDestinations = network.desks
-            .filter(AeroworksDeskAccess::hasRadarDisplay)
-        val useFallback = detectedDestinations.isEmpty()
-        val destinations = detectedDestinations.takeUnless(List<ConsoleBlockEntity>::isEmpty)
-            ?: network.desks
-        logDestinationFallbackTransition(updateOwner, network, useFallback)
-
-        destinations.forEach { destination ->
-            val access = destination as? RadarDeskStateAccess ?: return@forEach
-            val previous = access.ccaeroworks_getRadarSnapshot()
-            if (!shouldSynchronize(previous, snapshot, level.gameTime)) return@forEach
-            access.ccaeroworks_setRadarSnapshot(snapshot)
-            destination.notifyUpdate()
-        }
+    private fun apiFailure(
+        desk: ConsoleBlockEntity,
+        center: Vec3,
+        gameTime: Long,
+        stage: String,
+        cause: Throwable? = null
+    ): RadarDisplaySnapshot {
+        reportAccessFailure(desk, stage, cause)
+        return RadarDisplaySnapshot.disconnected(
+            center,
+            gameTime,
+            RadarLinkStatus.API_INCOMPATIBLE
+        )
     }
 
     private fun shouldSynchronize(
@@ -121,53 +322,26 @@ object CreateRadarCompat {
     }
 
     private fun logStatusTransition(
-        controller: BlockEntity,
-        network: RadarDeskNetwork,
-        controllerCount: Int,
+        desk: ConsoleBlockEntity,
         snapshot: RadarDisplaySnapshot
     ) {
-        val status = snapshot.status
-        val previous = lastStatusByController.put(controller, status)
-        if (status == RadarLinkStatus.ACTIVE) {
-            lastFailureByController.remove(controller)
+        val previous = lastStatusByDesk.put(desk, snapshot.status)
+        if (snapshot.status == RadarLinkStatus.ACTIVE) {
+            lastFailureByDesk.remove(desk)
         }
-        if (previous == status) return
+        if (previous == snapshot.status) return
+
         CCAeroworks.LOGGER.info(
-            "[CC-Aeroworks] Radar link at {} changed from {} to {} (network={}, controllers={}, desks={}, tracks={})",
-            controller.blockPos,
+            "[CC-Aeroworks] Radar Display endpoint at {} changed from {} to {} (tracks={})",
+            desk.blockPos,
             previous ?: "UNSEEN",
-            status,
-            network.state,
-            controllerCount,
-            network.desks.size,
+            snapshot.status,
             snapshot.tracks.size
         )
     }
 
-    private fun logDestinationFallbackTransition(
-        controller: BlockEntity,
-        network: RadarDeskNetwork,
-        usingFallback: Boolean
-    ) {
-        val previous = lastDestinationFallbackByController.put(controller, usingFallback)
-        if (previous == usingFallback) return
-        if (usingFallback) {
-            CCAeroworks.LOGGER.warn(
-                "[CC-Aeroworks] No Radar Display was detected server-side at controller {}; " +
-                    "synchronizing the snapshot to all {} desks in the bounded network",
-                controller.blockPos,
-                network.desks.size
-            )
-        } else if (previous == true) {
-            CCAeroworks.LOGGER.info(
-                "[CC-Aeroworks] Server-side Radar Display detection recovered at controller {}",
-                controller.blockPos
-            )
-        }
-    }
-
     private fun reportAccessFailure(
-        controller: BlockEntity,
+        desk: ConsoleBlockEntity,
         stage: String,
         cause: Throwable? = null
     ) {
@@ -176,252 +350,22 @@ object CreateRadarCompat {
             append(':').append(cause?.javaClass?.name.orEmpty())
             append(':').append(cause?.message.orEmpty())
         }
-        if (lastFailureByController.put(controller, signature) == signature) return
+        if (lastFailureByDesk.put(desk, signature) == signature) return
 
         if (cause == null) {
             CCAeroworks.LOGGER.warn(
-                "[CC-Aeroworks] Create: Radars API is unavailable at {} during {}",
-                controller.blockPos,
+                "[CC-Aeroworks] Create: Radars endpoint API is unavailable at {} during {}",
+                desk.blockPos,
                 stage
             )
         } else {
             CCAeroworks.LOGGER.warn(
-                "[CC-Aeroworks] Create: Radars access failed at {} during {}",
-                controller.blockPos,
+                "[CC-Aeroworks] Create: Radars endpoint access failed at {} during {}",
+                desk.blockPos,
                 stage,
                 cause
             )
         }
-    }
-
-    private fun findAdjacentControllers(
-        level: ServerLevel,
-        desks: List<ConsoleBlockEntity>
-    ): List<BlockEntity> {
-        val controllers = linkedMapOf<BlockPos, BlockEntity>()
-        for (desk in desks) {
-            for (direction in Direction.values()) {
-                val position = desk.blockPos.relative(direction)
-                if (!level.isLoaded(position)) continue
-                val candidate = level.getBlockEntity(position) ?: continue
-                if (isNetworkController(candidate)) {
-                    controllers.putIfAbsent(candidate.blockPos, candidate)
-                }
-            }
-        }
-        return controllers.values.toList()
-    }
-
-    private fun isNetworkController(candidate: BlockEntity): Boolean {
-        if (hasClass(candidate, NETWORK_CONTROLLER_CLASS)) return true
-        val blockId = BuiltInRegistries.BLOCK.getKey(candidate.blockState.block).toString()
-        return blockId == NETWORK_CONTROLLER_BLOCK_ID
-    }
-
-    private fun readControllerSnapshot(
-        level: ServerLevel,
-        controller: BlockEntity
-    ): RadarDisplaySnapshot {
-        val fallbackCenter = Vec3.atCenterOf(controller.blockPos)
-        val radar = when (val resolution = resolveRadar(level, controller)) {
-            is RadarResolution.Found -> resolution.radar
-            is RadarResolution.Failure -> {
-                if (resolution.status == RadarLinkStatus.API_INCOMPATIBLE) {
-                    reportAccessFailure(controller, resolution.stage, resolution.cause)
-                }
-                return RadarDisplaySnapshot.disconnected(
-                    fallbackCenter,
-                    level.gameTime,
-                    resolution.status
-                )
-            }
-        }
-
-        val worldPositionLookup = invokeLookup(radar, "getWorldPos")
-        if (!worldPositionLookup.found || worldPositionLookup.error != null) {
-            return apiFailure(
-                level,
-                controller,
-                fallbackCenter,
-                "IRadar#getWorldPos",
-                worldPositionLookup.error
-            )
-        }
-        val center = when (val worldPosition = worldPositionLookup.value) {
-            is BlockPos -> Vec3.atCenterOf(worldPosition)
-            is Vec3 -> worldPosition
-            else -> return apiFailure(
-                level,
-                controller,
-                fallbackCenter,
-                "IRadar#getWorldPos result"
-            )
-        }
-
-        val rangeLookup = invokeLookup(radar, "getRange")
-        if (!rangeLookup.found || rangeLookup.error != null) {
-            return apiFailure(level, controller, center, "IRadar#getRange", rangeLookup.error)
-        }
-        val rangeValue = rangeLookup.value as? Number
-            ?: return apiFailure(level, controller, center, "IRadar#getRange result")
-        val range = rangeValue.toDouble().coerceAtLeast(0.0)
-
-        val runningLookup = invokeLookup(radar, "isRunning")
-        if (!runningLookup.found || runningLookup.error != null) {
-            return apiFailure(level, controller, center, "IRadar#isRunning", runningLookup.error)
-        }
-        val running = runningLookup.value as? Boolean
-            ?: return apiFailure(level, controller, center, "IRadar#isRunning result")
-
-        if (!running) {
-            return RadarDisplaySnapshot.disconnected(
-                center,
-                level.gameTime,
-                RadarLinkStatus.RADAR_NOT_RUNNING
-            )
-        }
-        if (range <= 0.0) {
-            return RadarDisplaySnapshot.disconnected(
-                center,
-                level.gameTime,
-                RadarLinkStatus.INVALID_RANGE
-            )
-        }
-
-        val tracks = when (val result = readTracks(controller, radar, center)) {
-            is TrackReadResult.Success -> result.tracks
-            is TrackReadResult.Failure -> return apiFailure(
-                level,
-                controller,
-                center,
-                result.stage,
-                result.cause
-            )
-        }
-        val selected = readFieldLookup(controller, "activeTrackCache").value
-            ?.let { invokeAny(it, "getId", "id") as? String }
-
-        return RadarDisplaySnapshot(
-            connected = true,
-            center = center,
-            range = range,
-            selectedTrackId = selected,
-            tracks = tracks,
-            updatedAt = level.gameTime,
-            status = RadarLinkStatus.ACTIVE
-        )
-    }
-
-    private fun apiFailure(
-        level: ServerLevel,
-        controller: BlockEntity,
-        center: Vec3,
-        stage: String,
-        cause: Throwable? = null
-    ): RadarDisplaySnapshot {
-        reportAccessFailure(controller, stage, cause)
-        return RadarDisplaySnapshot.disconnected(
-            center,
-            level.gameTime,
-            RadarLinkStatus.API_INCOMPATIBLE
-        )
-    }
-
-    private fun resolveRadar(level: ServerLevel, controller: BlockEntity): RadarResolution {
-        var apiSurfaceFound = false
-
-        val methodLookup = invokeDeclaredLookup(controller, "getRadar", level)
-        apiSurfaceFound = apiSurfaceFound || methodLookup.found
-        methodLookup.error?.let {
-            return RadarResolution.Failure(RadarLinkStatus.API_INCOMPATIBLE, "getRadar", it)
-        }
-        methodLookup.value?.let { return RadarResolution.Found(it) }
-
-        val radarCache = readFieldLookup(controller, "radarCache")
-        apiSurfaceFound = apiSurfaceFound || radarCache.found
-        radarCache.error?.let {
-            return RadarResolution.Failure(RadarLinkStatus.API_INCOMPATIBLE, "radarCache", it)
-        }
-        radarCache.value?.let { return RadarResolution.Found(it) }
-
-        val radarPosition = readFieldLookup(controller, "radarPosCache")
-        apiSurfaceFound = apiSurfaceFound || radarPosition.found
-        radarPosition.error?.let {
-            return RadarResolution.Failure(RadarLinkStatus.API_INCOMPATIBLE, "radarPosCache", it)
-        }
-        val position = radarPosition.value as? BlockPos
-        if (position != null) {
-            if (!level.isLoaded(position)) {
-                return RadarResolution.Failure(RadarLinkStatus.RADAR_NOT_LOADED, "radarPosCache")
-            }
-            val radar = level.getBlockEntity(position)
-                ?: return RadarResolution.Failure(RadarLinkStatus.RADAR_NOT_LOADED, "radarPosCache")
-            return RadarResolution.Found(radar)
-        }
-
-        return if (apiSurfaceFound) {
-            RadarResolution.Failure(RadarLinkStatus.RADAR_NOT_LINKED, "controller cache")
-        } else {
-            RadarResolution.Failure(RadarLinkStatus.API_INCOMPATIBLE, "controller API")
-        }
-    }
-
-    private fun resolveDeskNetwork(sourceDesk: ConsoleBlockEntity): RadarDeskNetwork {
-        val level = sourceDesk.level ?: return RadarDeskNetwork(ConsoleNetworkState.NONE, listOf(sourceDesk))
-        val network = ConsoleMultiblockManager.resolve(level, sourceDesk.blockPos)
-        val desks = network.members.map { it.desk }.ifEmpty { listOf(sourceDesk) }
-        return RadarDeskNetwork(network.state, desks)
-    }
-
-    private fun isRoutable(state: ConsoleNetworkState): Boolean =
-        state == ConsoleNetworkState.ACTIVE || state == ConsoleNetworkState.NONE
-
-    private fun readTracks(
-        controller: BlockEntity,
-        radar: Any,
-        center: Vec3
-    ): TrackReadResult {
-        val controllerTracks = readFieldLookup(controller, "cachedTracks")
-        controllerTracks.error?.let {
-            return TrackReadResult.Failure("NetworkFilterer#cachedTracks", it)
-        }
-
-        val values = when {
-            controllerTracks.found && controllerTracks.value is Iterable<*> ->
-                controllerTracks.value as Iterable<*>
-
-            controllerTracks.found && controllerTracks.value != null ->
-                return TrackReadResult.Failure("NetworkFilterer#cachedTracks result")
-
-            else -> {
-                val lookup = invokeLookup(radar, "getTracks")
-                if (!lookup.found || lookup.error != null) {
-                    return TrackReadResult.Failure("IRadar#getTracks", lookup.error)
-                }
-                lookup.value as? Iterable<*>
-                    ?: return TrackReadResult.Failure("IRadar#getTracks result")
-            }
-        }
-
-        val tracks = values.mapNotNull { raw ->
-            raw ?: return@mapNotNull null
-            val id = (invokeAny(raw, "getId", "id") as? String)
-                ?.takeIf(String::isNotEmpty)
-                ?: return@mapNotNull null
-            val position = invokeAny(raw, "getPosition", "position") as? Vec3 ?: return@mapNotNull null
-            val velocity = invokeAny(raw, "getVelocity", "velocity") as? Vec3 ?: Vec3.ZERO
-            val category = invokeAny(raw, "getTrackCategory", "trackCategory")
-            RadarDisplayTrack(
-                id = id,
-                position = position,
-                velocity = velocity,
-                sprite = RadarDisplayTrackSprite.fromCategory(category)
-            )
-        }
-            .sortedBy { it.position.distanceToSqr(center) }
-            .take(RadarDisplaySnapshot.MAX_SYNCED_TRACKS)
-
-        return TrackReadResult.Success(tracks)
     }
 
     private fun invokeAny(instance: Any, vararg methodNames: String): Any? {
@@ -432,68 +376,112 @@ object CreateRadarCompat {
         return null
     }
 
-    private fun invokeLookup(instance: Any, methodName: String): ReflectionLookup {
-        val method = runCatching { instance.javaClass.getMethod(methodName) }
-            .getOrElse { return ReflectionLookup(found = false) }
-        return try {
-            ReflectionLookup(found = true, value = method.invoke(instance))
-        } catch (exception: Throwable) {
-            ReflectionLookup(found = true, error = unwrapInvocationException(exception))
+    private fun invokeLookup(
+        instance: Any,
+        methodName: String,
+        vararg arguments: Any?
+    ): ReflectionLookup {
+        val method = findCompatibleMethod(instance.javaClass, methodName, arguments, requireStatic = false)
+            ?: return ReflectionLookup(found = false)
+        return invokeMethod(method, instance, arguments)
+    }
+
+    private fun invokeStaticLookup(
+        className: String,
+        methodName: String,
+        vararg arguments: Any?
+    ): ReflectionLookup {
+        val type = runCatching { Class.forName(className) }
+            .getOrElse { return ReflectionLookup(found = false, error = it) }
+        val method = findCompatibleMethod(type, methodName, arguments, requireStatic = true)
+            ?: return ReflectionLookup(found = false)
+        return invokeMethod(method, null, arguments)
+    }
+
+    private fun findCompatibleMethod(
+        startType: Class<*>,
+        methodName: String,
+        arguments: Array<out Any?>,
+        requireStatic: Boolean
+    ): Method? {
+        startType.methods.firstOrNull { method ->
+            method.name == methodName &&
+                Modifier.isStatic(method.modifiers) == requireStatic &&
+                parametersCompatible(method.parameterTypes, arguments)
+        }?.let { return it }
+
+        var current: Class<*>? = startType
+        while (current != null) {
+            current.declaredMethods.firstOrNull { method ->
+                method.name == methodName &&
+                    Modifier.isStatic(method.modifiers) == requireStatic &&
+                    parametersCompatible(method.parameterTypes, arguments)
+            }?.let { return it }
+            current = current.superclass
+        }
+        return null
+    }
+
+    private fun parametersCompatible(
+        parameterTypes: Array<Class<*>>,
+        arguments: Array<out Any?>
+    ): Boolean {
+        if (parameterTypes.size != arguments.size) return false
+        return parameterTypes.zip(arguments).all { (parameterType, argument) ->
+            argument == null
+                ? !parameterType.isPrimitive
+                : boxed(parameterType).isAssignableFrom(argument.javaClass)
         }
     }
 
-    private fun invokeDeclaredLookup(
-        instance: Any,
-        methodName: String,
-        vararg arguments: Any
-    ): ReflectionLookup {
-        var current: Class<*>? = instance.javaClass
-        while (current != null) {
-            val type = current
-            val method = type.declaredMethods.firstOrNull { candidate ->
-                candidate.name == methodName &&
-                    candidate.parameterCount == arguments.size &&
-                    candidate.parameterTypes.zip(arguments).all { (parameterType, argument) ->
-                        parameterType.isAssignableFrom(argument.javaClass)
-                    }
-            }
-            if (method != null) {
-                return try {
-                    if (!method.trySetAccessible()) {
-                        return ReflectionLookup(
-                            found = true,
-                            error = IllegalAccessException("Cannot access ${type.name}#$methodName")
-                        )
-                    }
-                    ReflectionLookup(found = true, value = method.invoke(instance, *arguments))
-                } catch (exception: Throwable) {
-                    ReflectionLookup(found = true, error = unwrapInvocationException(exception))
-                }
-            }
-            current = type.superclass
+    private fun boxed(type: Class<*>): Class<*> = when (type) {
+        java.lang.Boolean.TYPE -> java.lang.Boolean::class.java
+        java.lang.Byte.TYPE -> java.lang.Byte::class.java
+        java.lang.Short.TYPE -> java.lang.Short::class.java
+        java.lang.Integer.TYPE -> java.lang.Integer::class.java
+        java.lang.Long.TYPE -> java.lang.Long::class.java
+        java.lang.Float.TYPE -> java.lang.Float::class.java
+        java.lang.Double.TYPE -> java.lang.Double::class.java
+        java.lang.Character.TYPE -> java.lang.Character::class.java
+        else -> type
+    }
+
+    private fun invokeMethod(
+        method: Method,
+        receiver: Any?,
+        arguments: Array<out Any?>
+    ): ReflectionLookup = try {
+        if (!method.canAccess(receiver) && !method.trySetAccessible()) {
+            ReflectionLookup(
+                found = true,
+                error = IllegalAccessException("Cannot access ${method.declaringClass.name}#${method.name}")
+            )
+        } else {
+            ReflectionLookup(found = true, value = method.invoke(receiver, *arguments))
         }
-        return ReflectionLookup(found = false)
+    } catch (exception: Throwable) {
+        ReflectionLookup(found = true, error = unwrapInvocationException(exception))
     }
 
     private fun readFieldLookup(instance: Any, fieldName: String): ReflectionLookup {
         var current: Class<*>? = instance.javaClass
         while (current != null) {
-            val type = current
-            val field = runCatching { type.getDeclaredField(fieldName) }.getOrNull()
+            val field = runCatching { current.getDeclaredField(fieldName) }.getOrNull()
             if (field != null) {
                 return try {
-                    if (!field.trySetAccessible()) {
-                        return ReflectionLookup(
+                    if (!field.canAccess(instance) && !field.trySetAccessible()) {
+                        ReflectionLookup(
                             found = true,
-                            error = IllegalAccessException("Cannot access ${type.name}#$fieldName")
+                            error = IllegalAccessException("Cannot access ${current.name}#$fieldName")
                         )
+                    } else {
+                        ReflectionLookup(found = true, value = field.get(instance))
                     }
-                    ReflectionLookup(found = true, value = field.get(instance))
                 } catch (exception: Throwable) {
                     ReflectionLookup(found = true, error = unwrapInvocationException(exception))
                 }
             }
-            current = type.superclass
+            current = current.superclass
         }
         return ReflectionLookup(found = false)
     }
@@ -501,38 +489,14 @@ object CreateRadarCompat {
     private fun unwrapInvocationException(exception: Throwable): Throwable =
         if (exception is InvocationTargetException) exception.targetException ?: exception else exception
 
-    private fun hasClass(value: Any, className: String): Boolean {
-        var current: Class<*>? = value.javaClass
-        while (current != null) {
-            val type = current
-            if (type.name == className) return true
-            current = type.superclass
-        }
-        return false
-    }
-
     private data class ReflectionLookup(
         val found: Boolean,
         val value: Any? = null,
         val error: Throwable? = null
     )
 
-    private sealed interface RadarResolution {
-        data class Found(val radar: Any) : RadarResolution
-        data class Failure(
-            val status: RadarLinkStatus,
-            val stage: String,
-            val cause: Throwable? = null
-        ) : RadarResolution
-    }
-
     private sealed interface TrackReadResult {
         data class Success(val tracks: List<RadarDisplayTrack>) : TrackReadResult
         data class Failure(val stage: String, val cause: Throwable? = null) : TrackReadResult
     }
-
-    private data class RadarDeskNetwork(
-        val state: ConsoleNetworkState,
-        val desks: List<ConsoleBlockEntity>
-    )
 }
