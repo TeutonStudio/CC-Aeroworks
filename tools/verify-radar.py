@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate adjacent radar controllers and direct Create: Radars monitor surfaces."""
+"""Validate RadarDisplay rendering, synchronization, resources, and optional dependencies."""
 
 from __future__ import annotations
 
@@ -35,12 +35,23 @@ def main() -> int:
     required_keys = {
         "item.cc_aeroworks.small_radar_display",
         "item.cc_aeroworks.large_radar_display",
+        "book.cc_aeroworks.page_7",
         "ponder.cc_aeroworks.radar_controller.header",
         *(f"ponder.cc_aeroworks.radar_controller.text_{index}" for index in range(1, 6)),
         "ponder.cc_aeroworks.radar_direct.header",
         *(f"ponder.cc_aeroworks.radar_direct.text_{index}" for index in range(1, 6)),
     }
-    require(required_keys <= english.keys(), "Missing radar item or Ponder translations")
+    require(required_keys <= english.keys(), "Missing RadarDisplay manual or Ponder translations")
+    require("Network Filterer" in english["book.cc_aeroworks.page_7"], "English manual omits the native filterer-first flow")
+    require("Network Filterer" in german["book.cc_aeroworks.page_7"], "German manual omits the native filterer-first flow")
+    for language in (english, german):
+        radar_text = " ".join(
+            language[key]
+            for key in required_keys
+            if key.startswith("ponder.cc_aeroworks.radar_")
+        )
+        require("Data Link" in radar_text, "Radar Ponder text omits the physical Data Link")
+        require("adjacent" not in radar_text.lower() and "angrenzend" not in radar_text.lower(), "Radar Ponder still describes controller adjacency")
 
     for name in ("small_radar_display", "large_radar_display"):
         load_json(MODELS / "block/module" / f"{name}.json")
@@ -48,7 +59,7 @@ def main() -> int:
         recipe = load_json(RECIPES / f"{name}.json")
         require(
             recipe.get("neoforge:conditions") == [{"type": "neoforge:mod_loaded", "modid": "create_radar"}],
-            f"{name} recipe must require Create: Radars",
+            f"{name} recipe must remain optional",
         )
         require(recipe.get("result", {}).get("id") == f"cc_aeroworks:{name}", f"Wrong result for {name}")
 
@@ -77,19 +88,7 @@ def main() -> int:
         require(model.get("textures", {}).get("sprite") == texture, f"{model_name} uses the wrong Create: Radars texture")
     load_json(MODELS / "block/module/radar_disconnected.json")
 
-    mixins = load_json(ROOT / "src/main/resources/cc_aeroworks.mixins.json")
-    common_mixins = set(mixins.get("mixins", []))
-    require("ConsoleBlockEntityRadarMixin" in common_mixins, "Radar state mixin is missing")
-    require(
-        "compat.CreateRadarNetworkControllerMixin" in common_mixins
-        and "compat.CreateRadarNetworkControllerLinkMixin" not in common_mixins
-        and "compat.CreateRadarDataLinkMixin" not in common_mixins
-        and "compat.CreateRadarDataLinkItemMixin" not in common_mixins,
-        "Controller tick mixin is missing or a Data Link mixin remains",
-    )
-
     snapshot = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/RadarDisplaySnapshot.kt")
-    state_access = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/createradar/RadarDeskStateAccess.kt")
     radar_mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/ConsoleBlockEntityRadarMixin.kt")
     compat = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/createradar/CreateRadarCompat.kt")
     desk_access = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/aeroworks/AeroworksDeskAccess.kt")
@@ -97,27 +96,51 @@ def main() -> int:
     surface = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/RadarSurfaceRenderer.kt")
     fallback = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/DeskDisplayRenderer.kt")
     flywheel = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ConsoleVisualMixin.kt")
+    client = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/CCAeroworksClient.kt")
 
-    require("enum class RadarDisplayTrackSprite" in snapshot, "Track sprite categories are not synchronized")
-    require('putString("sprite"' in snapshot, "Track sprite categories are not serialized")
-    require("RadarDisplayTrackSprite.fromCategory" in compat, "Create: Radars categories are not mapped")
-    require('invokeAny(raw, "getPosition", "position")' in compat, "Track position compatibility fallback is missing")
+    for token in (
+        "enum class RadarDisplayTrackSprite",
+        "enum class RadarLinkStatus",
+        "val radarPos: BlockPos?",
+        "val detectionTag: CompoundTag",
+        "val selectedTrackId: String?",
+        'putString("sprite"',
+        'put("tracks"',
+        "STALE_AFTER_TICKS",
+    ):
+        require(token in snapshot, f"Radar snapshot contract is missing: {token}")
     require("RADAR_CONTROLLER_NBT_KEY" not in radar_mixin, "Controller location is still persisted")
-    require("getRadarPixels" not in state_access and "RadarRasterCache" not in state_access, "Radar state still exposes pixel raster APIs")
+    require('method = ["tick"]' in radar_mixin and "CreateRadarCompat.refreshDesk" in radar_mixin, "Desk refresh is not attached to the actual block entity tick")
+    require("if (!clientPacket) return" in radar_mixin, "Radar snapshot is not restricted to client update NBT")
+
+    for token in (
+        "RadarDisplayTrackSprite.fromCategory",
+        'invokeFirst(raw, "getPosition", "position")',
+        'invokeFirst(raw, "getVelocity", "velocity")',
+        'invokeFirst(raw, "getTrackCategory", "trackCategory")',
+        "sortedBy { it.position.distanceToSqr(center) }",
+        "RadarDisplaySnapshot.MAX_SYNCED_TRACKS",
+    ):
+        require(token in compat, f"Native RadarTrack synchronization is missing: {token}")
+    require("filter(AeroworksDeskAccess::hasRadarDisplay)" not in compat, "Snapshot is still distributed through a desk-network fallback")
+    require("ConsoleMultiblockManager" not in compat, "Radar synchronization still depends on the desk multiblock")
+
     require("radarSurfaces" in desk_access and "RadarSurfaceState" in desk_access, "Desk radar surfaces are not exposed")
     require("radarSmallFiller" in models and "radarTrackSelected" in models, "Direct radar partial models are not registered")
     require("RenderType.translucent()" in surface, "Classic radar surface does not preserve alpha")
     require("models.sweep" in surface and "spinning = true" in surface, "Radar sweep is not rendered directly")
     require("DeskDisplayModels.radarTrack(track.sprite)" in surface, "Track sprites are not rendered directly")
+    require("track.id == active.selectedTrackId" in surface, "Selected target marker is not driven by native selectedTargetId")
+    require("RadarDisplaySnapshot.isFresh" in surface, "Disconnected X is not gated by the synchronized link state")
     require("RadarSurfaceRenderer.render" in fallback, "Classic renderer does not draw direct radar surfaces")
-    require("RadarSurfaceRenderer.elements" in flywheel, "Flywheel does not use the direct radar surface elements")
+    require("RadarSurfaceRenderer.elements" in flywheel, "Flywheel does not use the same radar surface elements")
     require("RadarSurfaceRenderer.sweepAngle" in flywheel, "Flywheel sweep is not animated")
+    require("SimpleBlockEntityVisualizer.builder(CCBlockEntities.COMPUTER_CONTROL_DESK.get())" in client, "Computer desk Flywheel visual is missing")
     require(not (ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/display/RadarDisplayRaster.kt").exists(), "Obsolete pixel radar renderer still exists")
 
     metadata = read("src/main/templates/META-INF/neoforge.mods.toml")
     require('modId="create_radar"' in metadata, "Create: Radars metadata is missing")
     require('versionRange="[0.4.9.4,)"' in metadata, "Create: Radars metadata range drifted")
-    require('versionRange="[0.4.9.4)"' not in metadata, "Metadata contains a malformed Maven range")
 
     manifest = load_json(ROOT / "libs/dependencies.json")
     dependencies = {
@@ -131,12 +154,13 @@ def main() -> int:
     require(dependencies.get("ritchiesprojectilelib", {}).get("version") == "2.1.2", "RPL version is not pinned")
 
     docs = read("docs/create-radars-integration.md")
-    require("direkt angrenzenden Network Controller" in docs, "Radar docs do not explain automatic adjacency")
-    require("Direkte Monitoroberfläche" in docs, "Radar docs do not explain direct surface rendering")
-    require("RadarDisplayRaster" in docs and "Pixelmatrix" in docs, "Radar docs do not retire the pixel renderer")
-    require("20 Ticks" in docs and "256" in docs and "runClient" in docs, "Radar documentation is incomplete")
+    for token in ("NetworkData", "DetectionConfig.test", "Fünf-Tick-Zyklus", "256", "runClient"):
+        require(token in docs, f"Radar documentation is incomplete: {token}")
 
-    print("Validated adjacent controller snapshots and direct translucent Create: Radars monitor surfaces.")
+    print(
+        "Validated optional RadarDisplay resources, client snapshot NBT, native filtered track state, "
+        "classic and Flywheel rendering, selected targets and pinned Create: Radars dependencies."
+    )
     return 0
 
 
