@@ -65,7 +65,9 @@ object RadarLegendRenderer {
             val snapshot = surface.snapshot ?: continue
             if (!RadarDisplaySnapshot.isFresh(snapshot, gameTime)) continue
             val socket = sockets.getOrNull(surface.socket) ?: continue
-            val counts = countCache.getOrPut(snapshot) { countContacts(native, snapshot, desk) ?: return@getOrPut EMPTY_COUNTS }
+            val counts = countCache[snapshot] ?: (countContacts(native, snapshot, desk) ?: EMPTY_COUNTS).also {
+                countCache[snapshot] = it
+            }
 
             poseStack.pushPose()
             try {
