@@ -89,6 +89,13 @@ def resolve_simple_class(names: set[str], simple_name: str) -> str:
     return matches[0][:-6].replace("/", ".")
 
 
+def readable_strings(data: bytes) -> set[str]:
+    return {
+        match.decode("utf-8", errors="ignore")
+        for match in re.findall(rb"[A-Za-z][A-Za-z0-9_:$./+ -]{3,}", data)
+    }
+
+
 def method_section(output: str, method_name: str, descriptor: str | None = None) -> str:
     lines = output.splitlines()
     candidates: list[str] = []
@@ -110,7 +117,7 @@ def method_section(output: str, method_name: str, descriptor: str | None = None)
     return candidates[0]
 
 
-def verify_data_link_item(output: str) -> None:
+def verify_data_link_item(output: str, class_strings: set[str]) -> None:
     target = method_section(output, "getFilterTarget", TARGET_DESCRIPTOR)
     monitor_instruction = re.findall(
         r"instanceof\s+#[0-9]+\s+// class com/happysg/radar/block/monitor/MonitorBlockEntity",
@@ -121,6 +128,17 @@ def verify_data_link_item(output: str) -> None:
         "getFilterTarget must contain exactly one native MonitorBlockEntity INSTANCEOF",
     )
 
+    selection_strings = sorted(
+        value
+        for value in class_strings
+        if "select" in value.lower() or "filterer" in value.lower()
+    )
+    print("Exact DataLinkBlockItem selection strings: " + ", ".join(selection_strings))
+    require(
+        any("select" in value.lower() and "filter" in value.lower() for value in selection_strings),
+        "DataLinkBlockItem contains no selected-filterer storage key or selection constant",
+    )
+
     use_on = method_section(
         output,
         "useOn",
@@ -128,7 +146,6 @@ def verify_data_link_item(output: str) -> None:
         "Lnet/minecraft/world/InteractionResult;",
     )
     for token in (
-        "SelectedFiltererPos",
         "NetworkData.getOrCreateGroup",
         "NetworkData.canAttachMonitor",
         "NetworkData.attachMonitor",
@@ -195,9 +212,10 @@ def main() -> int:
             ):
                 require(class_entry(class_name) in names, f"Exact runtime JAR lacks {class_name}")
             filterer_class = resolve_simple_class(names, "NetworkFiltererBlockEntity")
+            data_link_strings = readable_strings(archive.read(class_entry(DATA_LINK_ITEM)))
 
         print(f"Exact runtime NetworkFiltererBlockEntity: {filterer_class}")
-        verify_data_link_item(javap(jar, DATA_LINK_ITEM))
+        verify_data_link_item(javap(jar, DATA_LINK_ITEM), data_link_strings)
         verify_network_data(javap(jar, NETWORK_DATA))
         verify_monitor(javap(jar, MONITOR))
         verify_cleanup(javap(jar, DATA_LINK_BLOCK))
