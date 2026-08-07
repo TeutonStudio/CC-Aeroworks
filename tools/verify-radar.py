@@ -63,16 +63,32 @@ def main() -> int:
         )
         require(recipe.get("result", {}).get("id") == f"cc_aeroworks:{name}", f"Wrong result for {name}")
 
-    # Radar rendering now reuses the same local partials as the programmable
-    # displays. These models are known block-atlas resources and therefore avoid
-    # baking Create: Radars' renderer-only MonitorSprite textures.
-    for local_model in (
-        "display_segment_horizontal",
-        "display_segment_vertical",
-        "display_pixel",
+    safe_radar_models = (
+        "radar_background_small",
+        "radar_background_large",
+        "radar_pixel",
+        "radar_selected_pixel",
+        "radar_sweep",
         "radar_disconnected",
-    ):
-        load_json(MODELS / "block/module" / f"{local_model}.json")
+    )
+    for model_name in safe_radar_models:
+        model = load_json(MODELS / "block/module" / f"{model_name}.json")
+        encoded = json.dumps(model, sort_keys=True)
+        require("create_radar:" not in encoded, f"{model_name} must not bake Create: Radars renderer textures")
+        require(model.get("render_type") in {"cutout", "minecraft:cutout"}, f"{model_name} must use atlas-safe cutout rendering")
+
+    require(
+        load_json(MODELS / "block/module/radar_background_small.json").get("textures", {}).get("surface") == "minecraft:block/black_concrete",
+        "Small radar background is not the dark radar surface",
+    )
+    require(
+        load_json(MODELS / "block/module/radar_background_large.json").get("textures", {}).get("surface") == "minecraft:block/black_concrete",
+        "Large radar background is not the dark radar surface",
+    )
+    require(
+        load_json(MODELS / "block/module/radar_pixel.json").get("textures", {}).get("pixel") == "minecraft:block/lime_concrete",
+        "Radar contacts/rings are not using the green radar material",
+    )
 
     snapshot = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/RadarDisplaySnapshot.kt")
     radar_mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/ConsoleBlockEntityRadarMixin.kt")
@@ -120,27 +136,34 @@ def main() -> int:
 
     require("radarSurfaces" in desk_access and "RadarSurfaceState" in desk_access, "Desk radar surfaces are not exposed")
     for token in (
-        'val HORIZONTAL: PartialModel = PartialModel.of(CCAeroworks.id("block/module/display_segment_horizontal"))',
-        'val VERTICAL: PartialModel = PartialModel.of(CCAeroworks.id("block/module/display_segment_vertical"))',
-        'val PIXEL: PartialModel = PartialModel.of(CCAeroworks.id("block/module/display_pixel"))',
+        'RADAR_SMALL_BACKGROUND: PartialModel',
+        'RADAR_LARGE_BACKGROUND: PartialModel',
+        'RADAR_PIXEL: PartialModel',
+        'RADAR_SELECTED_PIXEL: PartialModel',
+        'RADAR_SWEEP: PartialModel',
     ):
-        require(token in models, f"Known-safe local display partial is missing: {token}")
+        require(token in models, f"Radar-specific atlas-safe partial is missing: {token}")
     require("block/module/radar_small_filler" not in models, "Runtime still registers the old external radar sprite partials")
     require("block/module/radar_large_filler" not in models, "Runtime still registers the old external radar sprite partials")
     require("create_radar:monitor_sprite" not in models, "Runtime model registration still depends on Create: Radars monitor sprites")
 
-    require("RenderType.cutout()" in surface, "Classic radar surface is not using the proven local display render path")
-    require("DeskDisplayModels.HORIZONTAL" in surface, "Radar frame no longer uses local horizontal segments")
-    require("DeskDisplayModels.VERTICAL" in surface, "Radar frame/sweep no longer uses local vertical segments")
-    require("DeskDisplayModels.PIXEL" in surface, "Radar contacts no longer use local display pixels")
+    require("RenderType.cutout()" in surface, "Classic radar surface is not using the atlas-safe render path")
+    require("DeskDisplayModels.RADAR_SMALL_BACKGROUND" in surface, "Small radar background is not rendered")
+    require("DeskDisplayModels.RADAR_LARGE_BACKGROUND" in surface, "Large radar background is not rendered")
+    require("DeskDisplayModels.RADAR_PIXEL" in surface, "Radar rings/contacts no longer use radar pixels")
+    require("DeskDisplayModels.RADAR_SELECTED_PIXEL" in surface, "Selected target no longer has a distinct marker")
+    require("DeskDisplayModels.RADAR_SWEEP" in surface, "Radar sweep model is missing")
+    require("ringElements" in surface and "OUTER_RING_POINTS" in surface and "INNER_RING_POINTS" in surface, "Radar rings are not generated")
     require("trackGlyph" in surface and "selectionGlyph" in surface, "Procedural contact glyphs are missing")
     require("spinning = true" in surface and "sweepAngle" in surface, "Radar sweep is not animated")
-    require("RadarDisplaySnapshot.isFresh" in surface, "Disconnected X is not gated by the synchronized link state")
+    require("RadarDisplaySnapshot.isFresh" in surface, "Disconnected indicator is not gated by synchronized link state")
     require("snapshot.tracks.hashCode()" in surface, "Flywheel render key is not content based")
     require("snapshot?.hashCode()" not in surface, "Flywheel render key still churns on snapshot transport timestamps")
+    require("DeskDisplayModels.HORIZONTAL" not in surface, "Radar renderer regressed to the orange display-segment rectangle")
+    require("DeskDisplayModels.VERTICAL" not in surface, "Radar renderer regressed to the orange display-segment sweep/frame")
     require("create_radar:monitor_sprite" not in surface, "Radar surface still depends on renderer-only Create: Radars textures")
 
-    require("RadarSurfaceRenderer.render" in fallback, "Classic renderer does not draw direct radar surfaces")
+    require("RadarSurfaceRenderer.render" in fallback, "Classic renderer does not draw radar surfaces")
     require("RadarSurfaceRenderer.elements" in flywheel, "Flywheel does not use the same radar surface elements")
     require("RadarSurfaceRenderer.sweepAngle" in flywheel, "Flywheel sweep is not animated")
     require("SimpleBlockEntityVisualizer.builder(CCBlockEntities.COMPUTER_CONTROL_DESK.get())" in client, "Computer desk Flywheel visual is missing")
@@ -174,7 +197,7 @@ def main() -> int:
 
     print(
         "Validated optional RadarDisplay resources, client-local freshness, native filtered track state, "
-        "local classic/Flywheel rendering, selected targets and pinned Create: Radars dependencies."
+        "radar-specific atlas-safe classic/Flywheel rendering, selected targets and pinned dependencies."
     )
     return 0
 
