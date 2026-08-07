@@ -150,7 +150,12 @@ def main() -> int:
     ):
         require(token in docs, f"Native Data Link documentation is incomplete: {token}")
     require("Data Link auf das Pult" in docs, "Documentation does not describe linking the Radar Display desk")
-    require("automatische Controller-Erkennung" not in docs, "Obsolete adjacency documentation remains")
+    for obsolete in (
+        "## Automatische Controller-Erkennung",
+        "direkt angrenzenden Network Controller automatisch",
+        "Mehrere angrenzende Controller",
+    ):
+        require(obsolete not in docs, f"Obsolete adjacency behavior remains in documentation: {obsolete}")
     require("Data-Link-Endpoint" in test_plan, "Regression plan does not cover the desk endpoint")
     require("Data Link entfernen" in test_plan, "Regression plan does not cover native unlink cleanup")
     require("API_INCOMPATIBLE" in test_plan, "Regression plan does not cover API incompatibility")
