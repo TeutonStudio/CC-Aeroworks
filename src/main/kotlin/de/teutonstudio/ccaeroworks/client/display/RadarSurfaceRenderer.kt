@@ -76,12 +76,12 @@ object RadarSurfaceRenderer {
     }
 
     /**
-     * Flywheel rebuilds only when renderable radar content changes. Transport
-     * timestamps are deliberately excluded so heartbeat packets do not churn
-     * instance pools every few ticks.
+     * Flywheel rebuilds only when renderable radar content or the fresh/stale
+     * state changes. Transport timestamps themselves remain excluded, so normal
+     * heartbeat packets do not churn instance pools.
      */
     @JvmStatic
-    fun key(surface: RadarSurfaceState): String {
+    fun key(surface: RadarSurfaceState, gameTime: Long): String {
         val snapshot = surface.snapshot
         return if (snapshot == null) {
             "${surface.socket}:${surface.type}:none"
@@ -91,7 +91,8 @@ object RadarSurfaceRenderer {
                 append(snapshot.connected).append(':').append(snapshot.operational).append(':')
                 append(snapshot.status).append(':').append(snapshot.radarPos).append(':')
                 append(snapshot.range).append(':').append(snapshot.selectedTrackId).append(':')
-                append(snapshot.tracks.hashCode())
+                append(snapshot.tracks.hashCode()).append(':')
+                append(RadarDisplaySnapshot.isFresh(snapshot, gameTime))
             }
         }
     }
