@@ -4,6 +4,7 @@ import com.mred231.aeroworks.content.controls.ConsoleBlockEntity;
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
@@ -19,7 +20,8 @@ import org.spongepowered.asm.mixin.injection.Redirect;
     remap = false
 )
 public abstract class CreateRadarDataLinkTargetMixin {
-    private static final String NATIVE_MONITOR_CLASS =
+    @Unique
+    private static final String ccaeroworks$nativeMonitorClass =
         "com.happysg.radar.block.monitor.MonitorBlockEntity";
 
     @Redirect(
@@ -39,13 +41,14 @@ public abstract class CreateRadarDataLinkTargetMixin {
             && AeroworksDeskAccess.hasRadarDisplay(desk);
     }
 
+    @Unique
     private static boolean ccaeroworks$isNativeMonitor(Object candidate) {
         if (candidate == null) {
             return false;
         }
         Class<?> type = candidate.getClass();
         while (type != null) {
-            if (NATIVE_MONITOR_CLASS.equals(type.getName())) {
+            if (ccaeroworks$nativeMonitorClass.equals(type.getName())) {
                 return true;
             }
             type = type.getSuperclass();
