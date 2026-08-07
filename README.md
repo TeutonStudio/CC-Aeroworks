@@ -46,6 +46,18 @@ desk.setDisplayText("big", "123")
 
 `ControlDesk` liefert immer eine nach `x,y,z` adressierte Tabelle aller Pulte.
 
+Für Inspektion und die Terminalansicht steht zusätzlich ein hierarchischer Snapshot bereit. Jeder Desk ist ein Root-Eintrag; seine direkt angrenzenden CC:Tweaked-Geräte liegen unter `peripherals` und sind nach Anschlussseite indiziert:
+
+```lua
+local tree = peripherals.getTree()
+local desk = tree["12,64,-7"]
+local monitor = desk.peripherals.north
+print(desk.x, desk.y, desk.z, monitor.type)
+monitor.handle.setTextScale(0.5)
+```
+
+Auf eingebetteten ComputerControlDesks zeigt der CraftOS-Befehl `peripherals` diese Baumansicht. Normale CC:Tweaked-Computer behalten das originale flache Programm.
+
 ### Eindeutige Peripheral-Suche
 
 Kommt eine Peripheral-Gattung im gesamten Pultnetz genau einmal vor, liefert `peripherals.find` direkt ihr Methoden-Handle:
@@ -73,6 +85,7 @@ Weitere Methoden:
 ```lua
 peripherals.wrap(12, 64, -7)
 peripherals.wrap({ x = 12, y = 64, z = -7 })
+peripherals.getTree()
 peripherals.getTypes()
 peripherals.refresh()
 ```
@@ -150,6 +163,7 @@ Der eingecheckte Bootstrap benötigt Java 21. Repositorydateien ohne Fremd-JARs 
 python3 tools/verify-repository.py
 python3 tools/verify-guide.py
 python3 tools/verify-peripheral-network.py
+python3 tools/verify-peripheral-tree.py
 python3 tools/verify-radar.py
 python3 tools/verify-radar-link.py
 python3 tools/verify-display-recipes.py
@@ -171,6 +185,7 @@ Ein alternatives Verzeichnis wird mit `-Pmod_dependency_dir=/pfad/zu/mods` angeg
 ## Dokumentation und Tests
 
 - [Peripheral-Netzwerk und Lua-API](docs/cc-peripheral-api.md)
+- [Hierarchische Peripheral-Ansicht](docs/peripheral-tree.md)
 - [Einführung zur Programmierung](docs/peripheral-programming.md)
 - [Konfiguration](docs/configuration.md)
 - [Create: Radars integration](docs/create-radars-integration.md)
@@ -180,6 +195,6 @@ Ein alternatives Verzeichnis wird mit `-Pmod_dependency_dir=/pfad/zu/mods` angeg
 - [Computerpult-, Display- und Ponder-Testplan](docs/computer-desk-guide-test-plan.md)
 - [Lua-Beispiele](examples/cc/)
 
-`.github/workflows/verify.yml` prüft bei Push und Pull Request Repositoryvertrag, Sprachen, Buch, Ponder, Peripheral-Graph, Radar, Data Link, Rezepte und Itemmodelle. Der geschützte Vollbuild benötigt rechtmäßig bereitgestellte Mod-JARs über die Repository-Secrets `MOD_DEPENDENCY_URL` und `MOD_DEPENDENCY_SHA256`.
+`.github/workflows/verify.yml` prüft bei Push und Pull Request Repositoryvertrag, Sprachen, Buch, Ponder, Peripheral-Graph, hierarchische Peripheral-Ansicht, Radar, Data Link, Rezepte und Itemmodelle. Der geschützte Vollbuild benötigt rechtmäßig bereitgestellte Mod-JARs über die Repository-Secrets `MOD_DEPENDENCY_URL` und `MOD_DEPENDENCY_SHA256`.
 
 Repository: `TeutonStudio/CC-Aeroworks`
