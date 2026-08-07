@@ -1,6 +1,7 @@
 package de.teutonstudio.ccaeroworks.client.ponder;
 
 import com.simibubi.create.foundation.ponder.CreateSceneBuilder;
+import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes;
 import de.teutonstudio.ccaeroworks.registry.CCItems;
 import net.createmod.catnip.math.Pointing;
 import net.createmod.ponder.api.PonderPalette;
@@ -11,11 +12,13 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
 public class RadarDisplayScenes {
     private static final ResourceLocation DATA_LINK_ID =
         ResourceLocation.fromNamespaceAndPath("create_radar", "data_link");
-    private static final ResourceLocation NETWORK_CONTROLLER_ID =
+    private static final ResourceLocation NETWORK_FILTERER_ID =
         ResourceLocation.fromNamespaceAndPath("create_radar", "network_filterer");
 
     public static void controllerConnection(SceneBuilder builder, SceneBuildingUtil util) {
@@ -25,55 +28,60 @@ public class RadarDisplayScenes {
         scene.showBasePlate();
         scene.idle(10);
 
-        BlockPos sourceDesk = util.grid().at(2, 1, 2);
-        BlockPos displayDesk = util.grid().at(3, 1, 2);
-        scene.world().showSection(util.select().fromTo(sourceDesk, displayDesk), Direction.DOWN);
+        BlockPos filterer = util.grid().at(1, 1, 2);
+        BlockPos desk = util.grid().at(3, 1, 2);
+        BlockPos physicalLink = desk.above();
+        scene.world().setBlock(filterer, blockState(NETWORK_FILTERER_ID), false);
+        scene.world().setBlock(desk, normalDesk(), false);
+        scene.world().showSection(util.select().position(filterer), Direction.DOWN);
+        scene.world().showSection(util.select().position(desk), Direction.DOWN);
         scene.idle(20);
 
-        scene.overlay().showControls(util.vector().topOf(displayDesk), Pointing.DOWN, 60)
+        scene.overlay().showControls(util.vector().topOf(desk), Pointing.DOWN, 65)
             .withItem(new ItemStack(CCItems.LARGE_RADAR_DISPLAY.get()));
-        scene.overlay().showText(70)
+        scene.overlay().showText(75)
             .attachKeyFrame()
             .text(PonderText.get("ponder.cc_aeroworks.radar_controller.text_1"))
-            .pointAt(util.vector().topOf(displayDesk))
+            .pointAt(util.vector().topOf(desk))
             .placeNearTarget();
-        scene.idle(80);
+        scene.idle(85);
 
-        scene.world().createItemEntity(
-            util.vector().topOf(sourceDesk),
-            util.vector().of(0.05, 0.12, 0),
-            networkControllerStack()
-        );
-        scene.overlay().showText(80)
+        scene.overlay().showControls(util.vector().topOf(filterer), Pointing.DOWN, 65)
+            .withItem(dataLinkStack());
+        scene.overlay().showText(85)
             .attachKeyFrame()
             .text(PonderText.get("ponder.cc_aeroworks.radar_controller.text_2"))
-            .pointAt(util.vector().topOf(sourceDesk))
+            .pointAt(util.vector().centerOf(filterer))
             .placeNearTarget();
-        scene.idle(90);
+        scene.idle(95);
+        scene.effects().indicateSuccess(filterer);
 
-        scene.overlay().showControls(util.vector().topOf(sourceDesk), Pointing.DOWN, 60)
+        scene.overlay().showControls(util.vector().topOf(desk), Pointing.DOWN, 65)
             .withItem(dataLinkStack());
-        scene.overlay().showText(80)
+        scene.overlay().showText(85)
             .attachKeyFrame()
             .text(PonderText.get("ponder.cc_aeroworks.radar_controller.text_3"))
-            .pointAt(util.vector().topOf(sourceDesk))
+            .pointAt(util.vector().centerOf(desk))
             .placeNearTarget();
-        scene.idle(90);
+        scene.idle(95);
 
-        scene.effects().indicateSuccess(sourceDesk);
-        scene.overlay().showText(80)
+        scene.world().setBlock(physicalLink, blockState(DATA_LINK_ID), false);
+        scene.world().showSection(util.select().position(physicalLink), Direction.DOWN);
+        scene.effects().indicateSuccess(physicalLink);
+        scene.overlay().showText(90)
             .attachKeyFrame()
+            .colored(PonderPalette.GREEN)
             .text(PonderText.get("ponder.cc_aeroworks.radar_controller.text_4"))
-            .pointAt(util.vector().centerOf(sourceDesk))
+            .pointAt(util.vector().centerOf(physicalLink))
             .placeNearTarget();
-        scene.idle(90);
+        scene.idle(100);
 
-        scene.effects().indicateSuccess(displayDesk);
+        scene.effects().indicateSuccess(desk);
         scene.overlay().showText(90)
             .attachKeyFrame()
             .colored(PonderPalette.GREEN)
             .text(PonderText.get("ponder.cc_aeroworks.radar_controller.text_5"))
-            .pointAt(util.vector().topOf(displayDesk))
+            .pointAt(util.vector().topOf(desk))
             .placeNearTarget();
         scene.idle(100);
         scene.markAsFinished();
@@ -86,61 +94,72 @@ public class RadarDisplayScenes {
         scene.showBasePlate();
         scene.idle(10);
 
-        BlockPos leftDesk = util.grid().at(1, 1, 2);
-        BlockPos sourceDesk = util.grid().at(2, 1, 2);
-        BlockPos rightDesk = util.grid().at(3, 1, 2);
-        scene.world().showSection(util.select().fromTo(leftDesk, rightDesk), Direction.DOWN);
+        BlockPos linkedDesk = util.grid().at(2, 1, 2);
+        BlockPos unlinkedDesk = util.grid().at(3, 1, 2);
+        BlockPos physicalLink = linkedDesk.above();
+        scene.world().setBlock(linkedDesk, normalDesk(), false);
+        scene.world().setBlock(unlinkedDesk, normalDesk(), false);
+        scene.world().setBlock(physicalLink, blockState(DATA_LINK_ID), false);
+        scene.world().showSection(util.select().fromTo(linkedDesk, unlinkedDesk), Direction.DOWN);
+        scene.world().showSection(util.select().position(physicalLink), Direction.DOWN);
         scene.idle(20);
 
-        scene.effects().indicateSuccess(sourceDesk);
+        scene.effects().indicateSuccess(linkedDesk);
         scene.overlay().showText(80)
             .attachKeyFrame()
             .text(PonderText.get("ponder.cc_aeroworks.radar_direct.text_1"))
-            .pointAt(util.vector().centerOf(sourceDesk))
+            .pointAt(util.vector().centerOf(linkedDesk))
             .placeNearTarget();
         scene.idle(90);
 
-        scene.effects().indicateSuccess(rightDesk);
-        scene.overlay().showText(80)
+        scene.overlay().showText(90)
+            .attachKeyFrame()
+            .text(PonderText.get("ponder.cc_aeroworks.radar_direct.text_2"))
+            .pointAt(util.vector().topOf(linkedDesk))
+            .placeNearTarget();
+        scene.idle(100);
+
+        scene.effects().indicateRedstone(linkedDesk);
+        scene.overlay().showText(90)
             .attachKeyFrame()
             .colored(PonderPalette.GREEN)
-            .text(PonderText.get("ponder.cc_aeroworks.radar_direct.text_2"))
-            .pointAt(util.vector().topOf(rightDesk))
-            .placeNearTarget();
-        scene.idle(90);
-
-        scene.overlay().showText(80)
-            .attachKeyFrame()
             .text(PonderText.get("ponder.cc_aeroworks.radar_direct.text_3"))
-            .pointAt(util.vector().centerOf(leftDesk))
+            .pointAt(util.vector().topOf(linkedDesk))
             .placeNearTarget();
-        scene.idle(90);
+        scene.idle(100);
 
-        scene.overlay().showControls(util.vector().topOf(leftDesk), Pointing.DOWN, 60)
+        scene.overlay().showControls(util.vector().topOf(unlinkedDesk), Pointing.DOWN, 65)
             .withItem(new ItemStack(CCItems.SMALL_RADAR_DISPLAY.get()));
-        scene.overlay().showText(85)
+        scene.overlay().showText(90)
             .attachKeyFrame()
             .text(PonderText.get("ponder.cc_aeroworks.radar_direct.text_4"))
-            .pointAt(util.vector().topOf(leftDesk))
+            .pointAt(util.vector().topOf(unlinkedDesk))
             .placeNearTarget();
-        scene.idle(95);
+        scene.idle(100);
 
-        scene.effects().indicateRedstone(rightDesk);
-        scene.overlay().showText(85)
+        scene.world().hideSection(util.select().position(physicalLink), Direction.UP);
+        scene.effects().indicateRedstone(linkedDesk);
+        scene.overlay().showText(95)
             .attachKeyFrame()
             .colored(PonderPalette.RED)
             .text(PonderText.get("ponder.cc_aeroworks.radar_direct.text_5"))
-            .pointAt(util.vector().topOf(rightDesk))
+            .pointAt(util.vector().topOf(linkedDesk))
             .placeNearTarget();
-        scene.idle(95);
+        scene.idle(105);
         scene.markAsFinished();
+    }
+
+    private static BlockState normalDesk() {
+        return AeroworksTypes.INSTANCE.vanillaControlDeskBlock()
+            .defaultBlockState()
+            .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH);
+    }
+
+    private static BlockState blockState(ResourceLocation id) {
+        return BuiltInRegistries.BLOCK.get(id).defaultBlockState();
     }
 
     private static ItemStack dataLinkStack() {
         return new ItemStack(BuiltInRegistries.ITEM.get(DATA_LINK_ID));
-    }
-
-    private static ItemStack networkControllerStack() {
-        return new ItemStack(BuiltInRegistries.ITEM.get(NETWORK_CONTROLLER_ID));
     }
 }
