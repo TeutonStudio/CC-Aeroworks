@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -52,6 +53,16 @@ def git(*arguments: str) -> subprocess.CompletedProcess[str]:
 
 
 def verify_branch_origin() -> None:
+    event_path = os.environ.get("GITHUB_EVENT_PATH")
+    if event_path and Path(event_path).is_file():
+        payload = json.loads(Path(event_path).read_text(encoding="utf-8"))
+        pull_request = payload.get("pull_request")
+        if isinstance(pull_request, dict):
+            base = pull_request.get("base")
+            base_sha = base.get("sha") if isinstance(base, dict) else None
+            require(base_sha == BASE_SHA, f"Pull request base SHA is {base_sha}, expected {BASE_SHA}")
+            return
+
     if not (ROOT / ".git").exists():
         return
     commit = git("cat-file", "-e", f"{BASE_SHA}^{{commit}}")
