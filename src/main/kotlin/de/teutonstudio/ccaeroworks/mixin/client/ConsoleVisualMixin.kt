@@ -78,6 +78,7 @@ abstract class ConsoleVisualMixin(
     private fun rebuildElements() {
         val displays = AeroworksDeskAccess.renderedDisplays(blockEntity)
         val radarSurfaces = AeroworksDeskAccess.radarSurfaces(blockEntity)
+        val gameTime = blockEntity.level?.gameTime ?: 0L
         val nextKey = buildString {
             displays.forEach {
                 append(it.socket).append(':').append(it.text).append(':')
@@ -85,7 +86,7 @@ abstract class ConsoleVisualMixin(
             }
             append('|')
             radarSurfaces.forEach {
-                append(RadarSurfaceRenderer.key(it)).append(';')
+                append(RadarSurfaceRenderer.key(it, gameTime)).append(';')
             }
         }
         if (nextKey == displayKey) return
@@ -119,7 +120,6 @@ abstract class ConsoleVisualMixin(
             }
         }
 
-        val gameTime = blockEntity.level?.gameTime ?: 0L
         radarSurfaces.forEach { surface ->
             RadarSurfaceRenderer.elements(surface, gameTime).forEach { element ->
                 addElement(
