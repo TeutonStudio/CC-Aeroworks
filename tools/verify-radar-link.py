@@ -107,9 +107,11 @@ def main() -> int:
         "expect = 1",
         "boolean nativeMonitor",
         "BlockEntity candidate",
-        "return nativeMonitor",
-        "candidate instanceof ConsoleBlockEntity desk",
-        "AeroworksDeskAccess.hasRadarDisplay(desk)",
+        "boolean isDesk = candidate instanceof ConsoleBlockEntity",
+        "AeroworksDeskAccess.hasRadarDisplay((ConsoleBlockEntity) candidate)",
+        "boolean accepted = nativeMonitor || hasRadarDisplay",
+        '"DL_CLASSIFY"',
+        "return accepted",
     ):
         require(token in target_mixin, f"Native target classification is missing: {token}")
     for forbidden in (
@@ -166,6 +168,10 @@ def main() -> int:
         "trackCount = nativeTracks.count",
         "desk.notifyUpdate()",
         "filteredTracks={}",
+        '"S11_FILTERER_LOOKUP"',
+        '"S12_MONITOR_ENDPOINTS"',
+        '"S13_GROUP_STATE"',
+        '"S15_RADAR_STATE"',
     )
     for token in required_compat:
         require(token in compat, f"NetworkData/native monitor synchronization is missing: {token}")
@@ -194,6 +200,7 @@ def main() -> int:
     require("CreateRadarCompat.refreshDesk" in desk_mixin, "Desk tick does not call the native endpoint adapter")
     require("clientPacket" in desk_mixin and "notifyUpdate" not in desk_mixin, "Snapshot NBT path drifted")
     require("RADAR_CONTROLLER_NBT_KEY" not in desk_mixin, "A controller position is still persisted")
+    require('"N10_SERVER_WRITE_ENTER"' in desk_mixin and '"N21_CLIENT_READ_DECODED"' in desk_mixin, "NBT transport tracing is incomplete")
 
     snapshot = read(SNAPSHOT)
     for token in (
@@ -241,7 +248,7 @@ def main() -> int:
             require(forbidden not in source, f"Obsolete adjacency documentation remains: {forbidden}")
 
     print(
-        "Validated the v7 branch origin, MixinExtras monitor classification, NetworkData endpoint state, "
+        "Validated the v7 branch origin, traced MixinExtras monitor classification, NetworkData endpoint state, "
         "native DetectionConfig filtering/RadarTrack payloads, physical-link cleanup and computer desk visuals."
     )
     return 0
