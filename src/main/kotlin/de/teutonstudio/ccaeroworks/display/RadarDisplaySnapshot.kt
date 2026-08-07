@@ -88,7 +88,13 @@ data class RadarDisplaySnapshot(
     val selectedTrackId: String?,
     val tracks: List<RadarDisplayTrack>,
     val updatedAt: Long,
-    val status: RadarLinkStatus
+    val status: RadarLinkStatus,
+    /**
+     * Local client game tick at which this snapshot was received. This value is
+     * intentionally not serialized: server and client gameTime are independent
+     * clocks and must never be compared for display freshness.
+     */
+    val receivedAtClientTick: Long = -1L
 ) {
     fun toTag(): CompoundTag = CompoundTag().apply {
         putBoolean("connected", connected)
@@ -150,11 +156,18 @@ data class RadarDisplaySnapshot(
             ) {
                 return false
             }
-            val age = gameTime - snapshot.updatedAt
+
+            // Client freshness is measured from local packet receipt. Falling
+            // back to updatedAt keeps server-side/unit use deterministic without
+            // reintroducing cross-clock comparisons on the actual client path.
+            val freshnessTick = snapshot.receivedAtClientTick
+                .takeIf { it >= 0L }
+                ?: snapshot.updatedAt
+            val age = gameTime - freshnessTick
             return age in 0..STALE_AFTER_TICKS
         }
 
-        fun fromTag(tag: CompoundTag): RadarDisplaySnapshot {
+        fun fromTag(tag: CompoundTag, receivedAtClientTick: Long = -1L): RadarDisplaySnapshot {
             val tracksTag = tag.getList("tracks", Tag.TAG_COMPOUND.toInt())
             val tracks = buildList {
                 for (index in 0 until minOf(tracksTag.size, MAX_SYNCED_TRACKS)) {
@@ -184,7 +197,8 @@ data class RadarDisplaySnapshot(
                 selectedTrackId = tag.getString("selected").takeIf { it.isNotEmpty() },
                 tracks = tracks,
                 updatedAt = tag.getLong("updatedAt"),
-                status = RadarLinkStatus.fromTag(tag.getString("status"), connected)
+                status = RadarLinkStatus.fromTag(tag.getString("status"), connected),
+                receivedAtClientTick = receivedAtClientTick
             )
         }
     }
