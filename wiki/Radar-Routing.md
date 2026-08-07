@@ -1,75 +1,65 @@
-# Radar-Routing
+# RadarDisplay und Create: Radars
 
-Die Create:-Radars-Integration verbindet einen vorhandenen Data Link mit einer CC-Aeroworks-Radaranzeige. Quelle, eingebetteter Computer und Anzeige dürfen an verschiedenen Pulten desselben Netzwerks liegen.
+Ein RadarDisplay macht genau das Aeroworks-Pult, in dem es montiert ist, zu einem nativen Create:-Radars-Monitorendpoint. Es gibt keine automatische Controller-Nachbarschaft, keine Weiterleitung über das Pultnetz und keine eigene CC-Aeroworks-Linkdatenbank.
 
-## Voraussetzungen
+## Unterstützte Pulte
 
-- Create: Radars ist geladen.
-- Das Pultnetz ist vollständig geladen und gültig.
-- Genau ein eingebetteter Computer besitzt das Netzwerk.
-- Genau eine kleine oder große Radaranzeige ist im Netzwerk montiert.
-- Der ausgewählte Create:-Radars-Monitor gehört zu einem funktionierenden Radarnetz.
+- Aeroworks-Steuerungspult
+- Advanced Aeroworks-Steuerungspult
+- ComputerControlDesk
+- Advanced ComputerControlDesk
 
-## Automatische Route einrichten
+Ein Pult ohne kleines oder großes RadarDisplay wird vom Data Link nicht als Monitor akzeptiert.
 
-1. Eine kleine oder große Radaranzeige in einem beliebigen Pult des Zielnetzes montieren.
-2. Mit dem Data-Link-Gegenstand einen verbundenen Create:-Radars-Monitor rechtsklicken.
-3. Mit demselben Gegenstand eine freie Seite eines beliebigen Pults im Zielnetz rechtsklicken.
-4. CC-Aeroworks platziert den originalen Data-Link-Block und trägt den Monitorcontroller als Ziel ein.
-5. Die Quell-Snapshots werden automatisch zur einzigen Radaranzeige des Netzwerks weitergeleitet.
+## Verbindung einrichten
 
-Ein Lua-Programm ist für diesen eindeutigen Standardfall nicht erforderlich.
+1. Radar und Network Filterer nach den Regeln von Create: Radars verbinden.
+2. Den Create:-Radars-Data-Link-Gegenstand auf dem Network Filterer verwenden.
+3. Dasselbe Item auf einer freien Seite des Pults mit RadarDisplay verwenden.
+4. Create: Radars prüft die Reichweite und platziert den physischen Data-Link-Block am Pult.
+5. Das RadarDisplay zeigt anschließend die gefilterten Tracks dieser Netzwerkgruppe.
 
-## Warum genau eine Anzeige?
+Der Network Filterer muss nicht direkt neben dem Pult stehen. Für jedes weitere RadarDisplay-Pult wird ein eigener Data-Link-Block benötigt. Mehrere Endpoints dürfen derselben Create:-Radars-Gruppe angehören, sofern der native Netzwerkvertrag dies erlaubt.
 
-Die automatische Route darf nicht still ein zufälliges Ziel auswählen:
+## Was Create: Radars weiterhin selbst erledigt
 
-| Anzeigen im Netz | Ergebnis |
-|---:|---|
-| 0 | Meldung, dass kein Radarziel vorhanden ist |
-| 1 | automatische Route |
-| 2 oder mehr | Mehrdeutigkeitsmeldung, keine zufällige Zuweisung |
+CC-Aeroworks ergänzt nur die Monitor-Zielklassifizierung. Der originale Data-Link-Ablauf bleibt verantwortlich für:
 
-Mehrere Quellen können durch die tatsächlich platzierten Data-Link-Blöcke kontrolliert werden. Jede Quelle behält ihr eigenes Create:-Radars-Monitorziel.
+- `SelectedFiltererPos` im Item,
+- maximale Linkreichweite,
+- Konflikte mit anderen Gruppen,
+- Blockplatzierung und Ausrichtung,
+- Erfolg- und Fehlermeldungen,
+- Itemzustand,
+- Registrierung in `NetworkData`,
+- Cleanup beim Abbau des Data-Link-Blocks.
 
-## Datenübertragung
+## Angezeigte Daten
 
-Alle fünf Ticks liest CC-Aeroworks vom Data Link:
+Das Pult liest alle fünf Ticks seine eigene Endpoint-Zuordnung aus `NetworkData`. Es übernimmt:
 
-- Radarzentrum,
-- Reichweite,
-- ausgewählte Track-ID,
-- höchstens die 256 nächstgelegenen Tracks.
+- Radarposition und Radarzentrum,
+- Reichweite und Betriebszustand,
+- Detection-Filter,
+- ausgewähltes Ziel,
+- höchstens 256 gefilterte Radartracks.
 
-Die Daten werden nicht dauerhaft in der Welt gespeichert. Nach 20 Ticks ohne frischen Snapshot gilt die Verbindung als veraltet und das Display zeigt `X`.
+Die Filterung verwendet dieselbe native `DetectionConfig` wie ein Create:-Radars-Monitor. Spieler, Mobs, Tiere, Items, Projektile, Contraptions und Sable/VS2-Schiffe erscheinen daher nur, wenn der Filter der Netzwerkgruppe sie zulässt.
 
-## Monitorauswahl löschen
+## Trennen
 
-Schleichen und Rechtsklick mit dem Data-Link-Gegenstand löscht eine begonnene Monitorauswahl.
+Der physische Data-Link-Block ist Teil der Verbindung. Beim Abbau entfernt Create: Radars den Monitorendpoint aus `NetworkData`. Das RadarDisplay leert seinen Snapshot im nächsten Fünf-Tick-Zyklus und zeigt das Trennungs-X.
 
-Eine Auswahl wird ebenfalls verworfen, wenn:
+Das X erscheint außerdem bei fehlendem Radar, ungeladenem Radar-Chunk, gestopptem Radar, ungültiger Reichweite oder einem erkannten API-Fehler. Bei einer aktiven Verbindung zeigt die Oberfläche Hintergrund, Kreis, Sweep, Kontaktpunkte und gegebenenfalls die Zielmarkierung.
 
-- der Monitor entfernt wurde,
-- der Monitor-Chunk nicht geladen ist,
-- der Monitor in einer anderen Dimension liegt,
-- der gespeicherte Block kein Create:-Radars-Monitor mehr ist.
+## Mehrere Pulte und Computer
 
-## Netzwerkfehler
+Pult-Multiblocks und eingebettete Computer bestimmen nicht die Radarroute. Ein Snapshot wird nie automatisch auf andere Pulte verteilt. Das normale und das Advanced ComputerControlDesk verwenden ihren gemeinsamen BlockEntity-Typ und behalten sowohl im klassischen Renderer als auch im Flywheel-`ConsoleVisual` ihre Aeroworks-Steuereinheiten.
 
-Routing findet nicht statt bei:
+## Diagnose
 
-- mehreren eingebetteten Computern,
-- teilweise geladenem Pultnetz,
-- mehr als 64 Pulten,
-- fehlender Radaranzeige,
-- mehreren Radaranzeigen,
-- ungültigem oder unverbundenem Monitor.
+Bei Zustandswechseln enthält das Log eine Zeile mit Pultposition, Filtererposition, Radarposition, Linkstatus und Anzahl gefilterter Tracks. Ein aktiver Test mit Zielen sollte `status=ACTIVE` und `filteredTracks` größer als null zeigen.
 
-## Ponder
+## Optionale Abhängigkeit
 
-Die Radaritems besitzen zwei lokalisierte Storyboards:
-
-1. automatisches Routing über verschiedene Pulte,
-2. Monitor-zuerst-Einrichtung des Data Links und Fehlerzustand `X`.
-
-Die Data-Link-Kompatibilität ist optional. Ohne Create: Radars werden Radaritems, Rezepte und Ponder-Szenen nicht registriert.
+Ohne Create: Radars startet CC-Aeroworks weiterhin. RadarDisplay-Rezepte und optionale Ponder-Inhalte werden nicht geladen; normale Displays, Computerpulte und Steuereinheiten bleiben verfügbar.

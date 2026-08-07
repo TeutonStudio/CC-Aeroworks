@@ -23,7 +23,7 @@
       ],
       "sha256": null,
       "source": "Official Create: Aeronautics distribution page",
-      "notes": "Required by the researched Aeroworks 1.3.0 baseline. The official 1.3.0 release is distributed as a create-aeronautics-bundled JAR."
+      "notes": "Required by the Create: Aeroworks 1.3.0 baseline. The official 1.3.0 release is distributed as a create-aeronautics-bundled JAR."
     },
     {
       "name": "Create: Aeroworks",
@@ -36,7 +36,7 @@
       ],
       "sha256": null,
       "source": "Official Create: Aeroworks distribution page",
-      "notes": "The implementation and mixins in this repository target exactly 1.3.0."
+      "notes": "Targets the official Create: Aeroworks 1.3.0 mod release. Aeroworks modpack version numbers are not valid mod dependency versions."
     },
     {
       "name": "CC: Tweaked",
@@ -56,7 +56,7 @@
       "filenamePattern": "(?i)^sable[^/]*2\\.0\\.1[^/]*\\.jar$",
       "sha256": null,
       "source": "Official Sable distribution page",
-      "notes": "Required runtime dependency of Create: Aeronautics 1.3.0 and also used by the static and moving ship compatibility tests."
+      "notes": "Required runtime dependency of Create: Aeronautics and used by the static and moving ship compatibility tests."
     },
     {
       "name": "Drive By Wire",
@@ -71,12 +71,12 @@
     {
       "name": "Create: Radars",
       "modId": "create_radar",
-      "version": "0.4.4-1.21.1",
+      "version": "0.4.9.4-1.21.1",
       "required": false,
-      "filenamePattern": "(?i)^create[-_ ]?radars?[^/]*0\\.4\\.4[^/]*1\\.21\\.1[^/]*\\.jar$",
+      "filenamePattern": "(?i)^create[-_ ]?radars?[^/]*0\\.4\\.9\\.4[^/]*1\\.21\\.1[^/]*\\.jar$",
       "sha256": null,
       "source": "Official Create: Radars distribution page",
-      "notes": "Optional runtime for the small and large Data Link radar displays. The compatibility code uses a pseudo mixin and reflection, so the JAR is not required to compile the base mod."
+      "notes": "Optional runtime for Radar Displays registered as native monitor endpoints through the Network Filterer and physical Data Link flow. Gradle resolves CurseForge file 8227753 for local development runs."
     },
     {
       "name": "Create Big Cannons",

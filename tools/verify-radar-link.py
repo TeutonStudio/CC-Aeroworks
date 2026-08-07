@@ -1,19 +1,30 @@
 #!/usr/bin/env python3
-"""Validate Create: Radars source selection and desk-network routing."""
+"""Validate the native Create: Radars Data-Link endpoint contract."""
 
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-LANG = ROOT / "src/main/resources/assets/cc_aeroworks/lang"
+BASE_SHA = "3f097163c52fcff3723588552964a2791c85e7a9"
 MIXIN_CONFIG = ROOT / "src/main/resources/cc_aeroworks.mixins.json"
-ITEM_MIXIN = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/mixin/compat/CreateRadarDataLinkItemMixin.java"
-ENTITY_MIXIN = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/mixin/compat/CreateRadarDataLinkMixin.java"
+TARGET_MIXIN = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/mixin/compat/CreateRadarDataLinkTargetMixin.java"
+OLD_CONTROLLER_MIXIN = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/mixin/compat/CreateRadarNetworkControllerMixin.java"
 COMPAT = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/compat/createradar/CreateRadarCompat.kt"
+DESK_MIXIN = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/ConsoleBlockEntityRadarMixin.kt"
+SNAPSHOT = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/display/RadarDisplaySnapshot.kt"
+DESK_ACCESS = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/compat/aeroworks/AeroworksDeskAccess.kt"
+CLIENT = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/client/CCAeroworksClient.kt"
+CLASSIC_RENDERER = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/client/ComputerControlDeskRenderer.kt"
 PONDER = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/client/ponder/RadarDisplayScenes.java"
 DOCS = ROOT / "docs/create-radars-integration.md"
+ANALYSIS = ROOT / "docs/create-radars-native-flow-analysis.md"
+TEST_PLAN = ROOT / "docs/radar-controller-test-plan.md"
+WIKI = ROOT / "wiki/Radar-Routing.md"
+BUILD_GRADLE = ROOT / "build.gradle"
 
 
 def require(condition: bool, message: str) -> None:
@@ -31,98 +42,214 @@ def load_json(path: Path) -> dict:
     return value
 
 
+def git(*arguments: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", *arguments],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+
+
+def verify_branch_origin() -> None:
+    event_path = os.environ.get("GITHUB_EVENT_PATH")
+    if event_path and Path(event_path).is_file():
+        payload = json.loads(Path(event_path).read_text(encoding="utf-8"))
+        pull_request = payload.get("pull_request")
+        if isinstance(pull_request, dict):
+            base = pull_request.get("base")
+            base_sha = base.get("sha") if isinstance(base, dict) else None
+            require(base_sha == BASE_SHA, f"Pull request base SHA is {base_sha}, expected {BASE_SHA}")
+            return
+
+    if not (ROOT / ".git").exists():
+        return
+    commit = git("cat-file", "-e", f"{BASE_SHA}^{{commit}}")
+    require(commit.returncode == 0, f"Required v7 base commit {BASE_SHA} is unavailable")
+    ancestor = git("merge-base", "--is-ancestor", BASE_SHA, "HEAD")
+    require(ancestor.returncode == 0, "Current branch is not based on the required v7 commit")
+
+
 def main() -> int:
+    verify_branch_origin()
+
     mixins = load_json(MIXIN_CONFIG)
     common_mixins = set(mixins.get("mixins", []))
-    require("compat.CreateRadarDataLinkItemMixin" in common_mixins, "Data Link item mixin is missing")
-    require("compat.CreateRadarDataLinkMixin" in common_mixins, "Data Link entity mixin is missing")
-
-    item_mixin = read(ITEM_MIXIN)
+    require("ConsoleBlockEntityRadarMixin" in common_mixins, "Radar desk state mixin is missing")
     require(
-        'targets = "com.happysg.radar.block.datalink.DataLinkBlockItem"' in item_mixin,
-        "Data Link item mixin targets the wrong optional class",
+        "compat.CreateRadarDataLinkTargetMixin" in common_mixins,
+        "Native Data Link monitor-classification mixin is missing",
     )
-    require("CreateRadarCompat.handleDataLinkUse(context)" in item_mixin, "Data Link item is not delegated")
+    mixinextras = mixins.get("mixinextras")
+    require(isinstance(mixinextras, dict), "MixinExtras version contract is missing from mixin config")
+    require(mixinextras.get("minVersion") == "0.5.0", "MixinExtras 0.5.0 expression support is not pinned")
+    for forbidden in (
+        "compat.CreateRadarNetworkControllerMixin",
+        "compat.CreateRadarNetworkControllerLinkMixin",
+        "compat.CreateRadarDataLinkMixin",
+        "compat.CreateRadarDataLinkItemMixin",
+    ):
+        require(forbidden not in common_mixins, f"Obsolete radar mixin remains registered: {forbidden}")
+    require(TARGET_MIXIN.is_file(), "Native Data Link target mixin file is missing")
+    require(not OLD_CONTROLLER_MIXIN.exists(), "Adjacent Network Controller tick mixin still exists")
 
-    entity_mixin = read(ENTITY_MIXIN)
+    target_mixin = read(TARGET_MIXIN)
+    for token in (
+        "@Pseudo",
+        'targets = "com.happysg.radar.block.datalink.DataLinkBlockItem"',
+        "@Expression(\"? instanceof ?\")",
+        "@ModifyExpressionValue(",
+        'method = "getFilterTarget(Lnet/minecraft/world/level/block/entity/BlockEntity;Lnet/minecraft/world/level/block/state/BlockState;)Lcom/happysg/radar/block/datalink/DataLinkBlockItem$FilterTarget;"',
+        'at = @At(value = "MIXINEXTRAS:EXPRESSION", ordinal = 0)',
+        "require = 1",
+        "expect = 1",
+        "boolean nativeMonitor",
+        "BlockEntity candidate",
+        "boolean isDesk = candidate instanceof ConsoleBlockEntity",
+        "AeroworksDeskAccess.hasRadarDisplay((ConsoleBlockEntity) candidate)",
+        "boolean accepted = nativeMonitor || hasRadarDisplay",
+        '"DL_CLASSIFY"',
+        "return accepted",
+    ):
+        require(token in target_mixin, f"Native target classification is missing: {token}")
+    for forbidden in (
+        "@Redirect(",
+        'value = "INSTANCEOF"',
+        "ccaeroworks$nativeMonitorClass",
+        "ccaeroworks$isNativeMonitor",
+        "useOn(",
+        "UseOnContext",
+        "BlockPlaceContext",
+        "SelectedFiltererPos",
+        "NetworkData",
+        "Class.forName",
+        "getDeclaredConstructor",
+        "FilterTargetKind",
+        "newInstance(",
+    ):
+        require(forbidden not in target_mixin, f"Target mixin takes over native work or uses an invalid injection: {forbidden}")
+
+    build_gradle = read(BUILD_GRADLE)
+    require("mavenCentral()" in build_gradle, "MixinExtras compile-only repository is missing")
     require(
-        'targets = "com.happysg.radar.block.datalink.DataLinkBlockEntity"' in entity_mixin,
-        "Radar snapshot mixin targets the wrong optional class",
+        'compileOnly("io.github.llamalad7:mixinextras-neoforge:0.5.0")' in build_gradle,
+        "MixinExtras compile-only API dependency is missing",
     )
-    require("CreateRadarCompat.capture(this)" in entity_mixin, "Data Link snapshots are not captured")
+
+    desk_access = read(DESK_ACCESS)
+    require("fun hasRadarDisplay(desk: ConsoleBlockEntity)" in desk_access, "RadarDisplay presence check is missing")
+    require("radarDisplayType(desk, it) != null" in desk_access, "Desk target is not tied to a mounted RadarDisplay")
 
     compat = read(COMPAT)
-    required_tokens = (
-        "fun handleDataLinkUse(context: UseOnContext): InteractionResult?",
-        "clickedEntity != null && isMonitor(clickedEntity)",
-        "val sourceDesk = clickedEntity as? ConsoleBlockEntity ?: return null",
-        "val route = resolveRadarRoute(sourceDesk)",
-        "if (route.state != ConsoleNetworkState.ACTIVE)",
-        "if (route.destinations.isEmpty())",
-        "if (route.destinations.size > 1)",
-        "val placeContext = BlockPlaceContext(context)",
-        'invokeBlockPos(dataLink, "target", monitorPos)',
-        "fun capture(dataLink: Any)",
-        "val destination = route.destinations.singleOrNull() ?: return",
-        "ConsoleMultiblockManager.resolve(level, sourceDesk.blockPos)",
-        "network.state == ConsoleNetworkState.ACTIVE",
-        "network.members.map { it.desk }",
-        "filter(AeroworksDeskAccess::hasRadarDisplay)",
-        "routeFailureKey(route.state)",
+    required_compat = (
+        "fun refreshDesk(desk: ConsoleBlockEntity)",
+        "level.gameTime % NATIVE_MONITOR_INTERVAL_TICKS",
+        '"getFiltererForEndpoint"',
+        "level.dimension(),",
+        "desk.blockPos",
+        '"getGroup"',
+        'readField(group, "monitorEndpoints")',
+        'readField(group, "radarPos")',
+        'readField(group, "detectionTag")',
+        'readField(group, "selectedTargetId")',
+        '"com.happysg.radar.block.behavior.networks.NetworkData"',
+        '"com.happysg.radar.block.behavior.networks.config.DetectionConfig"',
+        '"com.happysg.radar.block.radar.track.RadarTrackUtil"',
+        'invokeStatic(DETECTION_CONFIG_CLASS, "fromTag"',
+        'invokePublic(filter, "test", raw)',
+        'invokePublic(radar, "getTracks")',
+        'invokePublic(radar, "getRange")',
+        'invokePublic(radar, "isRunning")',
+        'invokeStatic(RADAR_TRACK_UTIL_CLASS, "serializeNBTList", filtered)',
+        "RadarDisplaySnapshot.MAX_SYNCED_TRACKS",
+        "nativeTracks = nativeTracks.tag",
+        "trackCount = nativeTracks.count",
+        "desk.notifyUpdate()",
+        "filteredTracks={}",
+        '"S11_FILTERER_LOOKUP"',
+        '"S12_MONITOR_ENDPOINTS"',
+        '"S13_GROUP_STATE"',
+        '"S15_RADAR_STATE"',
     )
-    for token in required_tokens:
-        require(token in compat, f"Radar routing is missing contract token: {token}")
+    for token in required_compat:
+        require(token in compat, f"NetworkData/native monitor synchronization is missing: {token}")
+    for forbidden in (
+        "adjacentDeskNetworks",
+        "findAdjacentControllers",
+        "refreshController",
+        "NETWORK_CONTROLLER_BLOCK_ID",
+        "controllerPos.relative",
+        "controllers.size",
+        "ConsoleMultiblockManager",
+        "detectedDestinations.ifEmpty",
+        "network.desks",
+        "radarCache",
+        "cachedTracks",
+        "activeTrackCache",
+        "SelectedFiltererPos",
+        "RadarDisplayTrack",
+        "RadarDisplayTrackSprite",
+        "sendBlockUpdated(",
+    ):
+        require(forbidden not in compat, f"Forbidden adjacency or parallel radar model remains: {forbidden}")
 
-    require(
-        compat.index("clickedEntity != null && isMonitor(clickedEntity)")
-        < compat.index("val sourceDesk = clickedEntity as? ConsoleBlockEntity ?: return null"),
-        "Monitor selection must be handled before desk placement",
-    )
-    require(
-        "if (!AeroworksDeskAccess.hasRadarDisplay(desk)) return null" not in compat,
-        "Data Link placement is still restricted to the display's own desk",
-    )
-    require(
-        'message.cc_aeroworks.console_conflict' in compat
-        and 'message.cc_aeroworks.console_too_large' in compat
-        and 'message.cc_aeroworks.console_partially_loaded' in compat,
-        "Invalid radar topology does not reuse localized network diagnostics",
-    )
+    desk_mixin = read(DESK_MIXIN)
+    require('method = ["tick"]' in desk_mixin, "Desk block entity does not run the endpoint refresh")
+    require("CreateRadarCompat.refreshDesk" in desk_mixin, "Desk tick does not call the native endpoint adapter")
+    require("clientPacket" in desk_mixin and "notifyUpdate" not in desk_mixin, "Snapshot NBT path drifted")
+    require("RADAR_CONTROLLER_NBT_KEY" not in desk_mixin, "A controller position is still persisted")
+    require('"N10_SERVER_WRITE_ENTER"' in desk_mixin and '"N21_CLIENT_READ_DECODED"' in desk_mixin, "NBT transport tracing is incomplete")
 
-    english = load_json(LANG / "en_us.json")
-    german = load_json(LANG / "de_de.json")
-    require(set(english) == set(german), "German and English language keys differ")
-    required_messages = {
-        "message.cc_aeroworks.radar_monitor_selected",
-        "message.cc_aeroworks.radar_select_monitor_first",
-        "message.cc_aeroworks.radar_monitor_invalid",
-        "message.cc_aeroworks.radar_link_created",
-        "message.cc_aeroworks.radar_link_failed",
-        "message.cc_aeroworks.radar_link_cleared",
-        "message.cc_aeroworks.radar_route_missing",
-        "message.cc_aeroworks.radar_route_ambiguous",
-    }
-    require(required_messages <= english.keys(), "Radar routing messages are incomplete")
+    snapshot = read(SNAPSHOT)
+    for token in (
+        "val operational: Boolean",
+        "val radarPos: BlockPos?",
+        "val detectionTag: CompoundTag",
+        "val selectedTrackId: String?",
+        "val nativeTracks: CompoundTag",
+        "val trackCount: Int",
+        "val status: RadarLinkStatus",
+        'put("detection"',
+        'put("radarPos"',
+        'put("tracks", nativeTracks.copy())',
+    ):
+        require(token in snapshot, f"Native monitor state is not synchronized: {token}")
+    require("RadarDisplayTrack" not in snapshot, "Snapshot still defines a parallel RadarTrack type")
+
+    client = read(CLIENT)
+    classic = read(CLASSIC_RENDERER)
+    require("SimpleBlockEntityVisualizer.builder(CCBlockEntities.COMPUTER_CONTROL_DESK.get())" in client, "Computer desk Flywheel visual is not registered")
+    require("ConsoleVisual(context, blockEntity, partialTick)" in client, "Computer desk does not preserve native Aeroworks ConsoleVisual")
+    require("RadarOverlayRenderer::renderLevel" in client, "Shared native radar overlay is not registered")
+    require("ConsoleRenderer" in classic and "DeskDisplayRenderer.render" in classic, "Classic computer desk render fallback is missing")
 
     ponder = read(PONDER)
-    require("automaticRouting" in ponder, "Automatic radar routing scene is missing")
-    require("dataLinkCompatibility" in ponder, "Data Link compatibility scene is missing")
-    require("PonderText.get" in ponder, "Radar Ponder text is not localized")
-    require("monitorStack()" in ponder and "dataLinkStack()" in ponder, "Radar source items are not shown")
+    require('"create_radar", "network_filterer"' in ponder, "Ponder does not show the Network Filterer")
+    require('"create_radar", "data_link"' in ponder, "Ponder does not show the physical Data Link")
+    require("scene.world().setBlock(physicalLink" in ponder, "Ponder never places the physical Data Link")
+    require("hideSection(util.select().position(physicalLink)" in ponder, "Ponder never demonstrates native link removal")
 
     docs = read(DOCS)
-    lower_docs = docs.lower()
-    require("automatisch" in lower_docs, "Radar docs do not explain automatic routing")
-    require("genau eine" in lower_docs, "Radar docs do not explain the unique-target rule")
-    require("verschiedenen pulten" in lower_docs, "Radar docs do not explain cross-desk routing")
-    require(
-        "mehrere computer" in lower_docs and "abgelehnt" in lower_docs,
-        "Radar docs do not explain that invalid computer ownership disables routing",
-    )
+    analysis = read(ANALYSIS)
+    test_plan = read(TEST_PLAN)
+    wiki = read(WIKI)
+    for source, tokens in (
+        (docs, ("SelectedFiltererPos", "canAttachMonitor", "monitorEndpoints", "DetectionConfig.test", "removeDataLinkAndCleanup", "runClient")),
+        (analysis, ("getFilterTarget", "INSTANCEOF", "addDataLinkToGroup", "MonitorBlockEntity", "0.4.9.4-1.21.1")),
+        (test_plan, ("NetworkData", "Detection-Filter", "ComputerControlDesk", "Flywheel", "NICHT GETESTET")),
+        (wiki, ("physischen Data-Link-Block", "NetworkData", "DetectionConfig", "Create: Radars den Monitorendpoint")),
+    ):
+        for token in tokens:
+            require(token in source, f"Radar documentation is incomplete: {token}")
+    for source in (docs, test_plan, wiki):
+        for forbidden in ("direkt angrenzenden Network Controller", "automatische Controller-Erkennung", "sechs direkten Nachbarpositionen"):
+            require(forbidden not in source, f"Obsolete adjacency documentation remains: {forbidden}")
 
     print(
-        "Validated optional Data Link interception, monitor-first setup, active computer-owned network routing, "
-        "unique-target selection, localized Ponder guidance and documentation."
+        "Validated the v7 branch origin, traced MixinExtras monitor classification, NetworkData endpoint state, "
+        "native DetectionConfig filtering/RadarTrack payloads, physical-link cleanup and computer desk visuals."
     )
     return 0
 
@@ -130,6 +257,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (AssertionError, OSError, json.JSONDecodeError, ValueError) as exception:
+    except (AssertionError, OSError, json.JSONDecodeError, UnicodeDecodeError) as exception:
         print(f"ERROR: {exception}")
         raise SystemExit(1)

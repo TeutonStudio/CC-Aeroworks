@@ -44,6 +44,9 @@ jobs:
       - name: Validate Python tools
         run: python3 -m py_compile tools/*.py
 
+      - name: Verify exact Create Radars runtime bytecode
+        run: python3 tools/verify-create-radars-bytecode.py
+
       - name: Validate repository contract
         run: python3 tools/verify-repository.py
 

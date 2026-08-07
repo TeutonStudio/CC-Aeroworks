@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate optional radar resources, routing scenes and local development dependencies."""
+"""Validate RadarDisplay native-monitor rendering, synchronization, diagnostics and optional dependency boundaries."""
 
 from __future__ import annotations
 
@@ -35,12 +35,23 @@ def main() -> int:
     required_keys = {
         "item.cc_aeroworks.small_radar_display",
         "item.cc_aeroworks.large_radar_display",
-        "ponder.cc_aeroworks.radar_routing.header",
-        *(f"ponder.cc_aeroworks.radar_routing.text_{index}" for index in range(1, 7)),
-        "ponder.cc_aeroworks.radar_data_link.header",
-        *(f"ponder.cc_aeroworks.radar_data_link.text_{index}" for index in range(1, 6)),
+        "book.cc_aeroworks.page_7",
+        "ponder.cc_aeroworks.radar_controller.header",
+        *(f"ponder.cc_aeroworks.radar_controller.text_{index}" for index in range(1, 6)),
+        "ponder.cc_aeroworks.radar_direct.header",
+        *(f"ponder.cc_aeroworks.radar_direct.text_{index}" for index in range(1, 6)),
     }
-    require(required_keys <= english.keys(), "Missing radar item or Ponder translations")
+    require(required_keys <= english.keys(), "Missing RadarDisplay manual or Ponder translations")
+    require("Network Filterer" in english["book.cc_aeroworks.page_7"], "English manual omits the native filterer-first flow")
+    require("Network Filterer" in german["book.cc_aeroworks.page_7"], "German manual omits the native filterer-first flow")
+    for language in (english, german):
+        radar_text = " ".join(
+            language[key]
+            for key in required_keys
+            if key.startswith("ponder.cc_aeroworks.radar_")
+        )
+        require("Data Link" in radar_text, "Radar Ponder text omits the physical Data Link")
+        require("adjacent" not in radar_text.lower() and "angrenzend" not in radar_text.lower(), "Radar Ponder still describes controller adjacency")
 
     for name in ("small_radar_display", "large_radar_display"):
         load_json(MODELS / "block/module" / f"{name}.json")
@@ -48,38 +59,146 @@ def main() -> int:
         recipe = load_json(RECIPES / f"{name}.json")
         require(
             recipe.get("neoforge:conditions") == [{"type": "neoforge:mod_loaded", "modid": "create_radar"}],
-            f"{name} recipe must require Create: Radars",
+            f"{name} recipe must remain optional",
         )
         require(recipe.get("result", {}).get("id") == f"cc_aeroworks:{name}", f"Wrong result for {name}")
 
-    items = read("src/main/kotlin/de/teutonstudio/ccaeroworks/registry/CCItems.kt")
-    modules = read("src/main/kotlin/de/teutonstudio/ccaeroworks/registry/CCModuleTypes.kt")
-    require("SMALL_RADAR_DISPLAY" in items and "LARGE_RADAR_DISPLAY" in items, "Radar items are not registered")
-    require("SMALL_RADAR" in modules and "LARGE_RADAR" in modules, "Radar modules are not registered")
-
-    plugin = read("src/main/java/de/teutonstudio/ccaeroworks/client/ponder/CCAeroworksPonderPlugin.java")
-    scene = read("src/main/java/de/teutonstudio/ccaeroworks/client/ponder/RadarDisplayScenes.java")
-    require("RadarDisplayScenes::automaticRouting" in plugin, "Automatic radar routing scene is not registered")
-    require("RadarDisplayScenes::dataLinkCompatibility" in plugin, "Data Link compatibility scene is not registered")
-    require('isLoaded("create_radar")' in plugin, "Radar Ponder registration is not optional")
-    require(scene.count("showText(") == 11, "Radar Ponder scenes must contain eleven explanation steps")
-    require('"create_radar", "data_link"' in scene, "Radar Ponder does not show the Data Link")
-    require("PonderText.get" in scene and '.text("' not in scene, "Radar Ponder text is not fully localized")
-
-    mixins = load_json(ROOT / "src/main/resources/cc_aeroworks.mixins.json")
-    common_mixins = set(mixins.get("mixins", []))
-    require("ConsoleBlockEntityRadarMixin" in common_mixins, "Radar snapshot mixin is missing")
-    require("compat.CreateRadarDataLinkMixin" in common_mixins, "Optional Data Link mixin is missing")
+    for obsolete in (
+        "radar_background_small",
+        "radar_background_large",
+        "radar_pixel",
+        "radar_selected_pixel",
+        "radar_sweep",
+        "radar_disconnected",
+    ):
+        require(
+            not (MODELS / "block/module" / f"{obsolete}.json").exists(),
+            f"Obsolete custom radar model remains: {obsolete}",
+        )
 
     snapshot = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/RadarDisplaySnapshot.kt")
     radar_mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/ConsoleBlockEntityRadarMixin.kt")
-    require('putString("id", this@RadarDisplayTrack.id)' in snapshot, "Radar track serialization is unsafe")
-    require(snapshot.count("Tag.TAG_COMPOUND.toInt()") == 4, "Radar NBT tag IDs must be Int values")
-    require("Tag.TAG_COMPOUND.toInt()" in radar_mixin, "Radar mixin NBT tag IDs must be Int values")
+    compat = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/createradar/CreateRadarCompat.kt")
+    trace = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/createradar/RadarTrace.kt")
+    desk_access = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/aeroworks/AeroworksDeskAccess.kt")
+    models = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/DeskDisplayModels.kt")
+    native_renderer = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/CreateRadarNativeMonitorRenderer.kt")
+    overlay = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/RadarOverlayRenderer.kt")
+    fallback = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/DeskDisplayRenderer.kt")
+    flywheel = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ConsoleVisualMixin.kt")
+    client = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/CCAeroworksClient.kt")
+
+    require(
+        not (ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/RadarSurfaceRenderer.kt").exists(),
+        "Custom RadarSurfaceRenderer still exists",
+    )
+
+    for token in (
+        "enum class RadarLinkStatus",
+        "val radarPos: BlockPos?",
+        "val detectionTag: CompoundTag",
+        "val selectedTrackId: String?",
+        "val nativeTracks: CompoundTag",
+        "val trackCount: Int",
+        "val receivedAtClientTick: Long = -1L",
+        'put("tracks", nativeTracks.copy())',
+        "snapshot.receivedAtClientTick",
+    ):
+        require(token in snapshot, f"Native monitor snapshot contract is missing: {token}")
+    for forbidden in ("RadarDisplayTrack", "RadarDisplayTrackSprite", "Vec3"):
+        require(forbidden not in snapshot, f"Snapshot still redefines native RadarTrack data: {forbidden}")
+
+    require("RADAR_CONTROLLER_NBT_KEY" not in radar_mixin, "Controller location is still persisted")
+    require('method = ["tick"]' in radar_mixin and "CreateRadarCompat.refreshDesk" in radar_mixin, "Desk refresh is not attached to block entity tick")
+    require("RadarDisplaySnapshot.fromTag(rawPayload, clientTick)" in radar_mixin, "Client snapshot does not record local receipt tick")
+    require("snapshot?.trackCount" in radar_mixin, "Client diagnostics do not report native track count")
+    for stage in ("M00_DESK_TICK", "N10_SERVER_WRITE_ENTER", "N11_SERVER_WRITE_PAYLOAD", "N20_CLIENT_READ_ENTER", "N21_CLIENT_READ_DECODED"):
+        require(stage in radar_mixin, f"Snapshot transport trace stage missing: {stage}")
+
+    for token in (
+        "RADAR_TRACK_UTIL_CLASS",
+        '"com.happysg.radar.block.radar.track.RadarTrackUtil"',
+        "serializeFilteredTracks",
+        'invokeStatic(RADAR_TRACK_UTIL_CLASS, "serializeNBTList", filtered)',
+        'invokePublic(filter, "test", raw)',
+        'invokePublic(radar, "getTracks")',
+        "RadarDisplaySnapshot.MAX_SYNCED_TRACKS",
+        "nativeTracks = nativeTracks.tag",
+        "trackCount = nativeTracks.count",
+    ):
+        require(token in compat, f"Native RadarTrack payload synchronization is missing: {token}")
+    for forbidden in (
+        "RadarDisplayTrack",
+        "RadarDisplayTrackSprite",
+        'invokeFirst(raw, "getPosition"',
+        'invokeFirst(raw, "getVelocity"',
+        "sortedBy { it.position",
+    ):
+        require(forbidden not in compat, f"Compat still rebuilds RadarTrack state itself: {forbidden}")
+    for stage in (
+        "S00_REFRESH_ENTER", "S10_NETWORK_DATA", "S11_FILTERER_LOOKUP", "S12_MONITOR_ENDPOINTS",
+        "S13_GROUP_STATE", "S14_RADAR_BLOCK_ENTITY", "S15_RADAR_STATE", "S16_TRACKS_SERIALIZED",
+        "S17_SNAPSHOT_RESULT", "S18_SNAPSHOT_DECISION", "S19_NOTIFY_UPDATE", "S99_API_ERROR",
+    ):
+        require(stage in compat, f"Server radar trace stage missing: {stage}")
+
+    for token in ("[CCA-RADAR-TRACE]", "sessionId", "AtomicLong", "stage", "side", "dimension", "gameTime", "fun periodic", "fun tag"):
+        require(token in trace, f"Structured RadarTrace contract is missing: {token}")
+
+    require("radarSurfaces" in desk_access and "RadarSurfaceState" in desk_access, "Desk radar surfaces are not exposed")
+    require("RADAR_" not in models, "DeskDisplayModels still registers custom radar partials")
+    require("RadarDisplayTrack" not in models, "DeskDisplayModels still depends on custom radar track types")
+
+    for token in (
+        "CreateRadarNativeMonitorRenderer",
+        'MONITOR_CLASS = "com.happysg.radar.block.monitor.MonitorBlockEntity"',
+        'MONITOR_RENDERER_CLASS = "com.happysg.radar.block.monitor.MonitorRenderer"',
+        'IRADAR_CLASS = "com.happysg.radar.block.radar.behavior.IRadar"',
+        "ModList.get().isLoaded(MOD_ID)",
+        "monitorClass.getDeclaredMethod(",
+        '"read"',
+        "monitorRendererClass.getDeclaredMethod(",
+        '"renderRadarDisplay"',
+        'put("Filter", snapshot.detectionTag.copy())',
+        'put("tracks", snapshot.nativeTracks.copy())',
+        "blockEntityRenderDispatcher.getRenderer(monitor)",
+        "effectiveFacing",
+        "applySurfaceTransform",
+    ):
+        require(token in native_renderer, f"Native MonitorRenderer bridge is missing: {token}")
+    require("import com.happysg.radar" not in native_renderer, "Optional Create: Radars types leaked into bridge signatures")
+    require("create_radar:monitor_sprite" not in native_renderer, "Bridge hardcodes native sprite resources instead of using MonitorRenderer")
+    for stage in (
+        "D00_RENDER_ENTER", "D02_CONTRACT_OK", "D10_SURFACE", "D12_SKIP_NOT_FRESH", "D15_CLIENT_RADAR",
+        "D16_SOCKET_TRANSFORM", "D20_VIRTUAL_CREATE", "D22_HYDRATE_INPUT", "D23_HYDRATE_OK",
+        "D24_RENDERER_LOOKUP", "D30_BEFORE_NATIVE_RENDER", "D31_NATIVE_RENDER_OK", "D99_NATIVE_RENDER_EXCEPTION",
+    ):
+        require(stage in native_renderer, f"Native renderer trace stage missing: {stage}")
+    for method in ("getRadar", "getTracks", "getSize", "isLinked", "isController", "getShip"):
+        require(f'monitorClass.getMethod("{method}")' in native_renderer, f"Native monitor diagnostics do not inspect {method}")
+
+    for token in (
+        "RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES",
+        "CreateRadarNativeMonitorRenderer.render(",
+        "WeakHashMap<ConsoleBlockEntity, Boolean>()",
+        "buffers.endBatch()",
+    ):
+        require(token in overlay, f"Shared native radar overlay is missing: {token}")
+    for stage in ("R00_TRACK_ADD", "R01_OVERLAY_STAGE", "R02_OVERLAY_EMPTY", "R04_OVERLAY_DESK", "R08_NATIVE_RETURN", "R09_END_BATCH", "R09_NO_DRAW"):
+        require(stage in overlay, f"Overlay trace stage missing: {stage}")
+
+    require("RadarOverlayRenderer.track(desk)" in fallback, "Classic renderer does not register RadarDisplay for native overlay")
+    require("RadarSurfaceRenderer" not in fallback, "Classic renderer still invokes custom RadarSurfaceRenderer")
+    require("RadarOverlayRenderer.track(blockEntity)" in flywheel, "Flywheel visual does not register RadarDisplay for native overlay")
+    require("RadarSurfaceRenderer" not in flywheel, "Flywheel still contains custom radar rendering")
+    require("RADAR_" not in flywheel, "Flywheel still creates radar partial models")
+    require("NeoForge.EVENT_BUS.addListener(RadarOverlayRenderer::renderLevel)" in client, "Native radar overlay event is not registered")
+    require("C00_OVERLAY_LISTENER_REGISTERED" in client and "C03_COMPUTER_VISUAL_REGISTERED" in client, "Client bootstrap trace is incomplete")
+    require("SimpleBlockEntityVisualizer.builder(CCBlockEntities.COMPUTER_CONTROL_DESK.get())" in client, "Computer desk Flywheel visual is missing")
 
     metadata = read("src/main/templates/META-INF/neoforge.mods.toml")
     require('modId="create_radar"' in metadata, "Create: Radars metadata is missing")
-    require('modId="createbigcannons"' in metadata, "Create Big Cannons metadata is missing")
+    require('versionRange="[0.4.9.4,)"' in metadata, "Create: Radars metadata range drifted")
 
     manifest = load_json(ROOT / "libs/dependencies.json")
     dependencies = {
@@ -87,32 +206,26 @@ def main() -> int:
         for dependency in manifest.get("dependencies", [])
         if isinstance(dependency, dict)
     }
+    require(dependencies.get("aeroworks", {}).get("version") == "1.3.0", "Aeroworks mod version is not pinned")
+    require(dependencies.get("create_radar", {}).get("version") == "0.4.9.4-1.21.1", "Create: Radars version is not pinned")
     require(dependencies.get("createbigcannons", {}).get("version") == "5.11.7", "CBC version is not pinned")
     require(dependencies.get("ritchiesprojectilelib", {}).get("version") == "2.1.2", "RPL version is not pinned")
-    require(dependencies.get("jei", {}).get("version") == "19.27.0.340", "JEI version is not pinned")
-
-    build = read("build.gradle")
-    properties = read("gradle.properties")
-    for token in (
-        "curse.maven:create-radars-1152836",
-        "curse.maven:create-big-cannons-646668",
-        "curse.maven:ritchies-projectile-library-1279407",
-        "mezz.jei:jei-${minecraft_version}-neoforge",
-    ):
-        require(token in build, f"Missing optional local runtime: {token}")
-    require("create_radars_version=0.4.4-1.21.1" in properties, "Create: Radars version is not pinned")
-
-    config = read("src/main/kotlin/de/teutonstudio/ccaeroworks/config/CCServerConfig.kt")
-    require(config.count("Int.MAX_VALUE") == 4, "All display dimensions must remain unbounded positive integers")
 
     docs = read("docs/create-radars-integration.md")
-    require("automatisch" in docs.lower(), "Radar documentation does not explain automatic routing")
-    require("Data Link" in docs and "20 Ticks" in docs and "256" in docs, "Radar documentation is incomplete")
-    require("runClient" in docs, "Radar local runtime documentation is missing")
+    for token in (
+        "NetworkData",
+        "DetectionConfig.test",
+        "Fünf-Tick-Zyklus",
+        "256",
+        "MonitorRenderer",
+        "RadarTrackUtil",
+        "runClient",
+    ):
+        require(token in docs, f"Radar documentation is incomplete: {token}")
 
     print(
-        "Validated optional radar items, recipes, models, mixins, NBT interop, two localized Ponder scenes, "
-        "network routing documentation and development dependencies."
+        "Validated native Create: Radars MonitorRenderer reuse, native RadarTrack NBT payloads, "
+        "structured end-to-end runtime tracing, shared classic/Flywheel overlay and optional-mod isolation."
     )
     return 0
 

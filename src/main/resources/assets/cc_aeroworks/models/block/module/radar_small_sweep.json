@@ -1,0 +1,19 @@
+{
+  "ambientocclusion": false,
+  "render_type": "minecraft:translucent",
+  "textures": {
+    "sprite": "create_radar:monitor_sprite/radar_sweep",
+    "particle": "cc_aeroworks:block/display_base"
+  },
+  "elements": [
+    {
+      "from": [4.5, 2.031, 4.5],
+      "to": [11.5, 2.04, 11.5],
+      "shade": false,
+      "faces": {
+        "up": { "texture": "#sprite", "uv": [0, 0, 16, 16] },
+        "down": { "texture": "#sprite", "uv": [0, 0, 16, 16] }
+      }
+    }
+  ]
+}
