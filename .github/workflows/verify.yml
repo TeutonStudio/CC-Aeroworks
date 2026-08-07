@@ -62,6 +62,9 @@ jobs:
       - name: Validate optional radar integration
         run: python3 tools/verify-radar.py
 
+      - name: Validate large radar contact legend
+        run: python3 tools/verify-radar-legend.py
+
       - name: Validate radar Data Link interaction
         run: python3 tools/verify-radar-link.py
 
