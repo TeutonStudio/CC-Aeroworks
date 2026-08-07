@@ -184,11 +184,13 @@ def verify_monitor(output: str) -> None:
         "java/util/stream/Stream.filter",
         "radarPos",
         "selectedTargetId",
+        "getGameTime",
+        "lrem",
     ):
         require(token in output, f"MonitorBlockEntity bytecode missing {token}")
     require(
-        "iconst_5" in output or "bipush        5" in output,
-        "MonitorBlockEntity has no visible five-tick constant",
+        "long 5l" in output.lower(),
+        "MonitorBlockEntity has no visible long five-tick divisor",
     )
 
 
