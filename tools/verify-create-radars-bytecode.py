@@ -43,6 +43,7 @@ WORLD_VEC_DESCRIPTOR = (
     "(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)"
     "Lnet/minecraft/world/phys/Vec3;"
 )
+MONITOR_INTERNAL_NAME = "com/happysg/radar/block/monitor/MonitorBlockEntity"
 
 
 def require(condition: bool, message: str) -> None:
@@ -129,12 +130,18 @@ def method_section(output: str, method_name: str, descriptor: str | None = None)
 
 def verify_data_link_item(output: str, class_strings: set[str]) -> None:
     target = method_section(output, "getFilterTarget", TARGET_DESCRIPTOR)
-    monitor_instruction = re.findall(
-        r"instanceof\s+#[0-9]+\s+// class com/happysg/radar/block/monitor/MonitorBlockEntity",
+    instanceof_targets = re.findall(
+        r"instanceof\s+#[0-9]+\s+// class ([A-Za-z0-9_/$]+)",
         target,
     )
+    require(instanceof_targets, "getFilterTarget contains no INSTANCEOF instructions")
     require(
-        len(monitor_instruction) == 1,
+        instanceof_targets[0] == MONITOR_INTERNAL_NAME,
+        "The first getFilterTarget INSTANCEOF is no longer MonitorBlockEntity; "
+        "MixinExtras ordinal 0 would target the wrong classification",
+    )
+    require(
+        instanceof_targets.count(MONITOR_INTERNAL_NAME) == 1,
         "getFilterTarget must contain exactly one native MonitorBlockEntity INSTANCEOF",
     )
 
@@ -257,7 +264,7 @@ def main() -> int:
 
     print(
         f"Validated exact CurseForge file {FILE_ID} ({FILE_NAME}): native monitor target descriptor, "
-        "single monitor INSTANCEOF, original Data Link registration, NetworkData endpoint APIs, "
+        "first and single monitor INSTANCEOF, original Data Link registration, NetworkData endpoint APIs, "
         "five-tick monitor state, DetectionConfig filtering, RadarTrack accessors, PhysicsHandler world center, "
         "and physical-link cleanup."
     )
