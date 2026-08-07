@@ -234,7 +234,11 @@ def main() -> int:
 
         detection = javap(jar, DETECTION_CONFIG)
         method_section(detection, "fromTag")
-        method_section(detection, "test")
+        method_section(
+            detection,
+            "test",
+            "(Lcom/happysg/radar/block/radar/track/RadarTrack;)Z",
+        )
 
         radar_track = javap(jar, RADAR_TRACK)
         for method in ("getId", "getPosition", "getVelocity", "getTrackCategory"):
