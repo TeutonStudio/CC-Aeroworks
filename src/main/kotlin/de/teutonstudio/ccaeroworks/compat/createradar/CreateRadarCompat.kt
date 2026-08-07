@@ -383,12 +383,13 @@ object CreateRadarCompat {
 
         var current: Class<*>? = startType
         while (current != null) {
-            current.declaredMethods.firstOrNull { method ->
+            val type = current
+            type.declaredMethods.firstOrNull { method ->
                 method.name == methodName &&
                     Modifier.isStatic(method.modifiers) == requireStatic &&
                     parametersCompatible(method.parameterTypes, arguments)
             }?.let { return it }
-            current = current.superclass
+            current = type.superclass
         }
         return null
     }
@@ -434,14 +435,15 @@ object CreateRadarCompat {
     private fun readField(instance: Any, fieldName: String): Any? {
         var current: Class<*>? = instance.javaClass
         while (current != null) {
-            val field = runCatching { current.getDeclaredField(fieldName) }.getOrNull()
+            val type = current
+            val field = runCatching { type.getDeclaredField(fieldName) }.getOrNull()
             if (field != null) {
                 if (!field.canAccess(instance) && !field.trySetAccessible()) {
-                    throw IllegalAccessException("Cannot access ${current.name}#$fieldName")
+                    throw IllegalAccessException("Cannot access ${type.name}#$fieldName")
                 }
                 return field.get(instance)
             }
-            current = current.superclass
+            current = type.superclass
         }
         throw NoSuchFieldException("${instance.javaClass.name}#$fieldName")
     }
