@@ -1,5 +1,6 @@
 package de.teutonstudio.ccaeroworks.client
 
+import com.mred231.aeroworks.content.controls.ConsoleVisual
 import com.mred231.aeroworks.content.controls.ModulePartials
 import com.mred231.aeroworks.foundation.input.InputSource
 import de.teutonstudio.ccaeroworks.client.creative.AeroworksCreativeSections
@@ -8,6 +9,7 @@ import de.teutonstudio.ccaeroworks.client.ponder.CCAeroworksPonderPlugin
 import de.teutonstudio.ccaeroworks.input.CombinedInputSource
 import de.teutonstudio.ccaeroworks.input.CombinedLeverController
 import de.teutonstudio.ccaeroworks.registry.CCBlockEntities
+import dev.engine_room.flywheel.lib.visualization.SimpleBlockEntityVisualizer
 import net.createmod.ponder.foundation.PonderIndex
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent
@@ -32,6 +34,16 @@ object CCAeroworksClient {
             ModulePartials.init()
             InputSource.displayName(CombinedInputSource.ID)
             PonderIndex.addPlugin(CCAeroworksPonderPlugin())
+
+            // Aeroworks registers ConsoleVisual only for its own ConsoleBlockEntity type.
+            // Both computer desk blocks share our custom type, so register the same native
+            // visual explicitly. ConsoleVisualMixin then appends programmable and radar layers.
+            SimpleBlockEntityVisualizer.builder(CCBlockEntities.COMPUTER_CONTROL_DESK.get())
+                .factory { context, blockEntity, partialTick ->
+                    ConsoleVisual(context, blockEntity, partialTick)
+                }
+                .skipVanillaRender { true }
+                .apply()
         }
     }
 
