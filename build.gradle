@@ -22,6 +22,7 @@ sourceSets.main.resources {
 }
 
 repositories {
+    mavenCentral()
     maven {
         name = 'KotlinForForge'
         url = 'https://thedarkcolour.github.io/KotlinForForge/'
@@ -117,6 +118,7 @@ configurations {
 
 dependencies {
     implementation("thedarkcolour:kotlinforforge-neoforge:${kotlin_for_forge_version}")
+    compileOnly("io.github.llamalad7:mixinextras-neoforge:0.5.0")
     implementation fileTree(
         dir: modDependencyDirectory,
         include: ['*.jar'],
