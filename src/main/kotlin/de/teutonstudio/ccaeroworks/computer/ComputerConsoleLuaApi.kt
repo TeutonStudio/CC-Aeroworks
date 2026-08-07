@@ -34,6 +34,9 @@ class ComputerConsoleLuaApi(
         runtime.find("ControlDesk", alwaysCollection = true) as Map<String, Any>
 
     @LuaFunction(mainThread = true)
+    fun getTree(): Map<String, Any> = runtime.describeTree()
+
+    @LuaFunction(mainThread = true)
     fun getTypes(): Map<String, Int> = runtime.typeCounts()
 
     @LuaFunction(mainThread = true)
