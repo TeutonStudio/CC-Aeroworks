@@ -4,13 +4,10 @@ import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess
 import de.teutonstudio.ccaeroworks.display.RadarDisplaySnapshot
-import de.teutonstudio.ccaeroworks.display.RadarDisplayTrack
-import de.teutonstudio.ccaeroworks.display.RadarDisplayTrackSprite
 import de.teutonstudio.ccaeroworks.display.RadarLinkStatus
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.server.level.ServerLevel
-import net.minecraft.world.phys.Vec3
 import net.neoforged.fml.ModList
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
@@ -24,8 +21,8 @@ object CreateRadarCompat {
         "com.happysg.radar.block.behavior.networks.NetworkData"
     private const val DETECTION_CONFIG_CLASS =
         "com.happysg.radar.block.behavior.networks.config.DetectionConfig"
-    private const val PHYSICS_HANDLER_CLASS =
-        "com.happysg.radar.compat.vs2.PhysicsHandler"
+    private const val RADAR_TRACK_UTIL_CLASS =
+        "com.happysg.radar.block.radar.track.RadarTrackUtil"
     private const val NATIVE_MONITOR_INTERVAL_TICKS = 5L
     private const val SNAPSHOT_HEARTBEAT_TICKS = 15L
 
@@ -69,7 +66,6 @@ object CreateRadarCompat {
         level: ServerLevel,
         desk: ConsoleBlockEntity
     ): SnapshotResult {
-        val fallbackCenter = Vec3.atCenterOf(desk.blockPos)
         return try {
             val networkData = invokeStatic(NETWORK_DATA_CLASS, "get", level)
                 ?: throw IllegalStateException("NetworkData.get returned null")
@@ -81,7 +77,6 @@ object CreateRadarCompat {
                 desk.blockPos
             ) as? BlockPos ?: return SnapshotResult(
                 snapshot = RadarDisplaySnapshot.disconnected(
-                    fallbackCenter,
                     level.gameTime,
                     RadarLinkStatus.NOT_LINKED
                 ),
@@ -97,7 +92,6 @@ object CreateRadarCompat {
                 filtererPos
             ) ?: return SnapshotResult(
                 snapshot = RadarDisplaySnapshot.disconnected(
-                    fallbackCenter,
                     level.gameTime,
                     RadarLinkStatus.NOT_LINKED
                 ),
@@ -111,7 +105,6 @@ object CreateRadarCompat {
             if (desk.blockPos !in monitorEndpoints) {
                 return SnapshotResult(
                     snapshot = RadarDisplaySnapshot.disconnected(
-                        fallbackCenter,
                         level.gameTime,
                         RadarLinkStatus.NOT_LINKED
                     ),
@@ -127,7 +120,6 @@ object CreateRadarCompat {
             val radarPos = readField(group, "radarPos") as? BlockPos
                 ?: return SnapshotResult(
                     snapshot = inactiveSnapshot(
-                        center = fallbackCenter,
                         gameTime = level.gameTime,
                         status = RadarLinkStatus.RADAR_NOT_ASSIGNED,
                         radarPos = null,
@@ -142,7 +134,6 @@ object CreateRadarCompat {
             if (!level.isLoaded(radarPos)) {
                 return SnapshotResult(
                     snapshot = inactiveSnapshot(
-                        center = fallbackCenter,
                         gameTime = level.gameTime,
                         status = RadarLinkStatus.RADAR_NOT_LOADED,
                         radarPos = radarPos,
@@ -158,7 +149,6 @@ object CreateRadarCompat {
             val radar = level.getBlockEntity(radarPos)
                 ?: return SnapshotResult(
                     snapshot = inactiveSnapshot(
-                        center = fallbackCenter,
                         gameTime = level.gameTime,
                         status = RadarLinkStatus.RADAR_NOT_LOADED,
                         radarPos = radarPos,
@@ -170,8 +160,6 @@ object CreateRadarCompat {
                     reason = "radar block entity is unavailable"
                 )
 
-            val center = invokeStatic(PHYSICS_HANDLER_CLASS, "getWorldVec", level, radarPos) as? Vec3
-                ?: throw IllegalStateException("PhysicsHandler.getWorldVec returned no Vec3")
             val range = (invokePublic(radar, "getRange") as? Number)
                 ?.toDouble()
                 ?.coerceAtLeast(0.0)
@@ -182,7 +170,6 @@ object CreateRadarCompat {
             if (!running) {
                 return SnapshotResult(
                     snapshot = inactiveSnapshot(
-                        center = center,
                         gameTime = level.gameTime,
                         status = RadarLinkStatus.RADAR_STOPPED,
                         radarPos = radarPos,
@@ -199,7 +186,6 @@ object CreateRadarCompat {
             if (range <= 0.0) {
                 return SnapshotResult(
                     snapshot = inactiveSnapshot(
-                        center = center,
                         gameTime = level.gameTime,
                         status = RadarLinkStatus.INVALID_RANGE,
                         radarPos = radarPos,
@@ -218,31 +204,30 @@ object CreateRadarCompat {
                 ?: throw IllegalStateException("DetectionConfig.fromTag returned null")
             val rawTracks = invokePublic(radar, "getTracks") as? Iterable<*>
                 ?: throw IllegalStateException("IRadar.getTracks returned no iterable")
-            val tracks = readFilteredTracks(filter, rawTracks, center)
+            val nativeTracks = serializeFilteredTracks(filter, rawTracks)
 
             SnapshotResult(
                 snapshot = RadarDisplaySnapshot(
                     connected = true,
                     operational = true,
                     radarPos = radarPos,
-                    center = center,
                     range = range,
                     detectionTag = detectionTag,
                     selectedTrackId = selectedTargetId,
-                    tracks = tracks,
+                    nativeTracks = nativeTracks.tag,
+                    trackCount = nativeTracks.count,
                     updatedAt = level.gameTime,
                     status = RadarLinkStatus.ACTIVE
                 ),
                 filtererPos = filtererPos,
                 radarPos = radarPos,
-                reason = "endpoint registered and native radar state synchronized"
+                reason = "endpoint registered; native MonitorBlockEntity payload synchronized"
             )
         } catch (throwable: Throwable) {
             val cause = unwrapInvocationException(throwable)
             reportFailure(desk, cause)
             SnapshotResult(
                 snapshot = RadarDisplaySnapshot.disconnected(
-                    fallbackCenter,
                     level.gameTime,
                     RadarLinkStatus.API_ERROR
                 ),
@@ -253,40 +238,31 @@ object CreateRadarCompat {
         }
     }
 
-    private fun readFilteredTracks(
+    /**
+     * Applies Create: Radars' own DetectionConfig and then delegates serialization
+     * to RadarTrackUtil. No RadarTrack fields or sprite categories are recreated
+     * by CC-Aeroworks.
+     */
+    private fun serializeFilteredTracks(
         filter: Any,
-        rawTracks: Iterable<*>,
-        center: Vec3
-    ): List<RadarDisplayTrack> {
-        val tracks = mutableListOf<RadarDisplayTrack>()
+        rawTracks: Iterable<*>
+    ): NativeTrackPayload {
+        val filtered = ArrayList<Any>(RadarDisplaySnapshot.MAX_SYNCED_TRACKS)
         for (raw in rawTracks) {
             raw ?: continue
             val accepted = invokePublic(filter, "test", raw) as? Boolean
                 ?: throw IllegalStateException("DetectionConfig.test returned no boolean")
             if (!accepted) continue
-
-            val id = invokeFirst(raw, "getId", "id") as? String
-                ?: throw IllegalStateException("RadarTrack ID is unavailable")
-            if (id.isEmpty()) continue
-            val position = invokeFirst(raw, "getPosition", "position") as? Vec3
-                ?: throw IllegalStateException("RadarTrack position is unavailable")
-            val velocity = invokeFirst(raw, "getVelocity", "velocity") as? Vec3 ?: Vec3.ZERO
-            val category = invokeFirst(raw, "getTrackCategory", "trackCategory")
-
-            tracks += RadarDisplayTrack(
-                id = id,
-                position = position,
-                velocity = velocity,
-                sprite = RadarDisplayTrackSprite.fromCategory(category)
-            )
+            filtered += raw
+            if (filtered.size >= RadarDisplaySnapshot.MAX_SYNCED_TRACKS) break
         }
-        return tracks
-            .sortedBy { it.position.distanceToSqr(center) }
-            .take(RadarDisplaySnapshot.MAX_SYNCED_TRACKS)
+
+        val serialized = invokeStatic(RADAR_TRACK_UTIL_CLASS, "serializeNBTList", filtered) as? CompoundTag
+            ?: throw IllegalStateException("RadarTrackUtil.serializeNBTList returned no CompoundTag")
+        return NativeTrackPayload(serialized.copy(), filtered.size)
     }
 
     private fun inactiveSnapshot(
-        center: Vec3,
         gameTime: Long,
         status: RadarLinkStatus,
         radarPos: BlockPos?,
@@ -298,11 +274,11 @@ object CreateRadarCompat {
         connected = connected,
         operational = false,
         radarPos = radarPos,
-        center = center,
         range = range,
         detectionTag = detectionTag.copy(),
         selectedTrackId = selectedTargetId,
-        tracks = emptyList(),
+        nativeTracks = CompoundTag(),
+        trackCount = 0,
         updatedAt = gameTime,
         status = status
     )
@@ -315,7 +291,7 @@ object CreateRadarCompat {
             filtererPos = result.filtererPos,
             radarPos = result.radarPos,
             status = result.snapshot.status,
-            trackCount = result.snapshot.tracks.size,
+            trackCount = result.snapshot.trackCount,
             reason = result.reason
         )
         if (lastDiagnosticByDesk.put(desk, diagnostic) == diagnostic) return
@@ -329,7 +305,7 @@ object CreateRadarCompat {
             result.filtererPos,
             result.radarPos,
             result.snapshot.status,
-            result.snapshot.tracks.size,
+            result.snapshot.trackCount,
             result.reason
         )
     }
@@ -342,18 +318,6 @@ object CreateRadarCompat {
             desk.blockPos,
             cause
         )
-    }
-
-    private fun invokeFirst(instance: Any, vararg methodNames: String): Any? {
-        var lastMissing: NoSuchMethodException? = null
-        for (methodName in methodNames) {
-            try {
-                return invokePublic(instance, methodName)
-            } catch (missing: NoSuchMethodException) {
-                lastMissing = missing
-            }
-        }
-        throw lastMissing ?: NoSuchMethodException("No method candidates supplied")
     }
 
     private fun invokePublic(instance: Any, methodName: String, vararg arguments: Any?): Any? {
@@ -456,6 +420,11 @@ object CreateRadarCompat {
         val filtererPos: BlockPos?,
         val radarPos: BlockPos?,
         val reason: String
+    )
+
+    private data class NativeTrackPayload(
+        val tag: CompoundTag,
+        val count: Int
     )
 
     private data class DiagnosticState(
