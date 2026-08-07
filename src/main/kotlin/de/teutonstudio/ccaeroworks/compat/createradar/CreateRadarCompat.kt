@@ -412,12 +412,13 @@ object CreateRadarCompat {
 
         var current: Class<*>? = startType
         while (current != null) {
-            current.declaredMethods.firstOrNull { method ->
+            val type = current
+            type.declaredMethods.firstOrNull { method ->
                 method.name == methodName &&
                     Modifier.isStatic(method.modifiers) == requireStatic &&
                     parametersCompatible(method.parameterTypes, arguments)
             }?.let { return it }
-            current = current.superclass
+            current = type.superclass
         }
         return null
     }
@@ -428,9 +429,11 @@ object CreateRadarCompat {
     ): Boolean {
         if (parameterTypes.size != arguments.size) return false
         return parameterTypes.zip(arguments).all { (parameterType, argument) ->
-            argument == null
-                ? !parameterType.isPrimitive
-                : boxed(parameterType).isAssignableFrom(argument.javaClass)
+            if (argument == null) {
+                !parameterType.isPrimitive
+            } else {
+                boxed(parameterType).isAssignableFrom(argument.javaClass)
+            }
         }
     }
 
@@ -466,13 +469,14 @@ object CreateRadarCompat {
     private fun readFieldLookup(instance: Any, fieldName: String): ReflectionLookup {
         var current: Class<*>? = instance.javaClass
         while (current != null) {
-            val field = runCatching { current.getDeclaredField(fieldName) }.getOrNull()
+            val type = current
+            val field = runCatching { type.getDeclaredField(fieldName) }.getOrNull()
             if (field != null) {
                 return try {
                     if (!field.canAccess(instance) && !field.trySetAccessible()) {
                         ReflectionLookup(
                             found = true,
-                            error = IllegalAccessException("Cannot access ${current.name}#$fieldName")
+                            error = IllegalAccessException("Cannot access ${type.name}#$fieldName")
                         )
                     } else {
                         ReflectionLookup(found = true, value = field.get(instance))
@@ -481,7 +485,7 @@ object CreateRadarCompat {
                     ReflectionLookup(found = true, error = unwrapInvocationException(exception))
                 }
             }
-            current = current.superclass
+            current = type.superclass
         }
         return ReflectionLookup(found = false)
     }
