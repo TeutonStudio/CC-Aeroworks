@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate RadarDisplay native-monitor rendering, synchronization and optional dependency boundaries."""
+"""Validate RadarDisplay native-monitor rendering, synchronization, diagnostics and optional dependency boundaries."""
 
 from __future__ import annotations
 
@@ -63,7 +63,6 @@ def main() -> int:
         )
         require(recipe.get("result", {}).get("id") == f"cc_aeroworks:{name}", f"Wrong result for {name}")
 
-    # Radar graphics must no longer be duplicated as CC-Aeroworks block models.
     for obsolete in (
         "radar_background_small",
         "radar_background_large",
@@ -80,6 +79,7 @@ def main() -> int:
     snapshot = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/RadarDisplaySnapshot.kt")
     radar_mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/ConsoleBlockEntityRadarMixin.kt")
     compat = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/createradar/CreateRadarCompat.kt")
+    trace = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/createradar/RadarTrace.kt")
     desk_access = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/aeroworks/AeroworksDeskAccess.kt")
     models = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/DeskDisplayModels.kt")
     native_renderer = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/CreateRadarNativeMonitorRenderer.kt")
@@ -110,8 +110,10 @@ def main() -> int:
 
     require("RADAR_CONTROLLER_NBT_KEY" not in radar_mixin, "Controller location is still persisted")
     require('method = ["tick"]' in radar_mixin and "CreateRadarCompat.refreshDesk" in radar_mixin, "Desk refresh is not attached to block entity tick")
-    require("RadarDisplaySnapshot.fromTag(tag.getCompound(RADAR_NBT_KEY), clientTick)" in radar_mixin, "Client snapshot does not record local receipt tick")
+    require("RadarDisplaySnapshot.fromTag(rawPayload, clientTick)" in radar_mixin, "Client snapshot does not record local receipt tick")
     require("snapshot?.trackCount" in radar_mixin, "Client diagnostics do not report native track count")
+    for stage in ("M00_DESK_TICK", "N10_SERVER_WRITE_ENTER", "N11_SERVER_WRITE_PAYLOAD", "N20_CLIENT_READ_ENTER", "N21_CLIENT_READ_DECODED"):
+        require(stage in radar_mixin, f"Snapshot transport trace stage missing: {stage}")
 
     for token in (
         "RADAR_TRACK_UTIL_CLASS",
@@ -133,6 +135,15 @@ def main() -> int:
         "sortedBy { it.position",
     ):
         require(forbidden not in compat, f"Compat still rebuilds RadarTrack state itself: {forbidden}")
+    for stage in (
+        "S00_REFRESH_ENTER", "S10_NETWORK_DATA", "S11_FILTERER_LOOKUP", "S12_MONITOR_ENDPOINTS",
+        "S13_GROUP_STATE", "S14_RADAR_BLOCK_ENTITY", "S15_RADAR_STATE", "S16_TRACKS_SERIALIZED",
+        "S17_SNAPSHOT_RESULT", "S18_SNAPSHOT_DECISION", "S19_NOTIFY_UPDATE", "S99_API_ERROR",
+    ):
+        require(stage in compat, f"Server radar trace stage missing: {stage}")
+
+    for token in ("[CCA-RADAR-TRACE]", "sessionId", "AtomicLong", "stage", "side", "dimension", "gameTime", "fun periodic", "fun tag"):
+        require(token in trace, f"Structured RadarTrace contract is missing: {token}")
 
     require("radarSurfaces" in desk_access and "RadarSurfaceState" in desk_access, "Desk radar surfaces are not exposed")
     require("RADAR_" not in models, "DeskDisplayModels still registers custom radar partials")
@@ -157,6 +168,14 @@ def main() -> int:
         require(token in native_renderer, f"Native MonitorRenderer bridge is missing: {token}")
     require("import com.happysg.radar" not in native_renderer, "Optional Create: Radars types leaked into bridge signatures")
     require("create_radar:monitor_sprite" not in native_renderer, "Bridge hardcodes native sprite resources instead of using MonitorRenderer")
+    for stage in (
+        "D00_RENDER_ENTER", "D02_CONTRACT_OK", "D10_SURFACE", "D12_SKIP_NOT_FRESH", "D15_CLIENT_RADAR",
+        "D16_SOCKET_TRANSFORM", "D20_VIRTUAL_CREATE", "D22_HYDRATE_INPUT", "D23_HYDRATE_OK",
+        "D24_RENDERER_LOOKUP", "D30_BEFORE_NATIVE_RENDER", "D31_NATIVE_RENDER_OK", "D99_NATIVE_RENDER_EXCEPTION",
+    ):
+        require(stage in native_renderer, f"Native renderer trace stage missing: {stage}")
+    for method in ("getRadar", "getTracks", "getSize", "isLinked", "isController", "getShip"):
+        require(f'monitorClass.getMethod("{method}")' in native_renderer, f"Native monitor diagnostics do not inspect {method}")
 
     for token in (
         "RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES",
@@ -165,6 +184,8 @@ def main() -> int:
         "buffers.endBatch()",
     ):
         require(token in overlay, f"Shared native radar overlay is missing: {token}")
+    for stage in ("R00_TRACK_ADD", "R01_OVERLAY_STAGE", "R02_OVERLAY_EMPTY", "R04_OVERLAY_DESK", "R08_NATIVE_RETURN", "R09_END_BATCH", "R09_NO_DRAW"):
+        require(stage in overlay, f"Overlay trace stage missing: {stage}")
 
     require("RadarOverlayRenderer.track(desk)" in fallback, "Classic renderer does not register RadarDisplay for native overlay")
     require("RadarSurfaceRenderer" not in fallback, "Classic renderer still invokes custom RadarSurfaceRenderer")
@@ -172,6 +193,7 @@ def main() -> int:
     require("RadarSurfaceRenderer" not in flywheel, "Flywheel still contains custom radar rendering")
     require("RADAR_" not in flywheel, "Flywheel still creates radar partial models")
     require("NeoForge.EVENT_BUS.addListener(RadarOverlayRenderer::renderLevel)" in client, "Native radar overlay event is not registered")
+    require("C00_OVERLAY_LISTENER_REGISTERED" in client and "C03_COMPUTER_VISUAL_REGISTERED" in client, "Client bootstrap trace is incomplete")
     require("SimpleBlockEntityVisualizer.builder(CCBlockEntities.COMPUTER_CONTROL_DESK.get())" in client, "Computer desk Flywheel visual is missing")
 
     metadata = read("src/main/templates/META-INF/neoforge.mods.toml")
@@ -203,7 +225,7 @@ def main() -> int:
 
     print(
         "Validated native Create: Radars MonitorRenderer reuse, native RadarTrack NBT payloads, "
-        "shared classic/Flywheel overlay, optional-mod isolation and pinned dependencies."
+        "structured end-to-end runtime tracing, shared classic/Flywheel overlay and optional-mod isolation."
     )
     return 0
 
