@@ -1,6 +1,7 @@
 package de.teutonstudio.ccaeroworks.mixin
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.createradar.CreateRadarCompat
 import de.teutonstudio.ccaeroworks.compat.createradar.RadarDeskStateAccess
 import de.teutonstudio.ccaeroworks.display.RadarDisplaySnapshot
@@ -19,6 +20,9 @@ private const val RADAR_NBT_KEY = "CCAeroworksRadarDisplay"
 abstract class ConsoleBlockEntityRadarMixin : RadarDeskStateAccess {
     @Unique
     private var ccaeroworks_radarSnapshot: RadarDisplaySnapshot? = null
+
+    @Unique
+    private var ccaeroworks_lastClientRadarDiagnostic: String? = null
 
     override fun ccaeroworks_getRadarSnapshot(): RadarDisplaySnapshot? = ccaeroworks_radarSnapshot
 
@@ -52,11 +56,41 @@ abstract class ConsoleBlockEntityRadarMixin : RadarDeskStateAccess {
         callback: CallbackInfo
     ) {
         if (!clientPacket) return
+
+        val desk = this as ConsoleBlockEntity
+        val clientTick = desk.level?.gameTime ?: -1L
         ccaeroworks_radarSnapshot =
             if (tag.contains(RADAR_NBT_KEY, Tag.TAG_COMPOUND.toInt())) {
-                RadarDisplaySnapshot.fromTag(tag.getCompound(RADAR_NBT_KEY))
+                RadarDisplaySnapshot.fromTag(tag.getCompound(RADAR_NBT_KEY), clientTick)
             } else {
                 null
             }
+
+        ccaeroworks_logClientRadarSnapshot(desk, clientTick, ccaeroworks_radarSnapshot)
+    }
+
+    @Unique
+    private fun ccaeroworks_logClientRadarSnapshot(
+        desk: ConsoleBlockEntity,
+        clientTick: Long,
+        snapshot: RadarDisplaySnapshot?
+    ) {
+        val diagnostic = if (snapshot == null) {
+            "NONE"
+        } else {
+            "${snapshot.status}:${snapshot.radarPos}:${snapshot.tracks.size}"
+        }
+        if (diagnostic == ccaeroworks_lastClientRadarDiagnostic) return
+        ccaeroworks_lastClientRadarDiagnostic = diagnostic
+
+        CCAeroworks.LOGGER.info(
+            "[CC-Aeroworks] Radar client snapshot desk={} status={} radar={} tracks={} serverTick={} clientTick={}",
+            desk.blockPos,
+            snapshot?.status,
+            snapshot?.radarPos,
+            snapshot?.tracks?.size ?: 0,
+            snapshot?.updatedAt ?: -1L,
+            clientTick
+        )
     }
 }
