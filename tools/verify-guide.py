@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate guide, translations, item orientation and the rewritten Ponder contract."""
+"""Validate guide, translations, item orientation and localized Ponder contracts."""
 
 from __future__ import annotations
 
@@ -79,8 +79,8 @@ def expected_ponder_keys() -> set[str]:
         "display_crafting": 4,
         "display_mounting": 4,
         "display_programming": 5,
-        "radar_routing": 6,
-        "radar_data_link": 5,
+        "radar_controller": 5,
+        "radar_direct": 5,
     }
     result: set[str] = set()
     for group, count in groups.items():
@@ -92,7 +92,7 @@ def expected_ponder_keys() -> set[str]:
     return result
 
 
-def verify_ponder_sources(german: dict[str, str]) -> None:
+def verify_ponder_sources(german: dict[str, str], english: dict[str, str]) -> None:
     missing = sorted(expected_ponder_keys() - german.keys())
     require(not missing, "Missing Ponder translations: " + ", ".join(missing))
 
@@ -108,8 +108,8 @@ def verify_ponder_sources(german: dict[str, str]) -> None:
         "DisplayModuleScenes::crafting",
         "DisplayModuleScenes::mounting",
         "DisplayModuleScenes::programming",
-        "RadarDisplayScenes::automaticRouting",
-        "RadarDisplayScenes::dataLinkCompatibility",
+        "RadarDisplayScenes::controllerConnection",
+        "RadarDisplayScenes::directRadarDisplay",
     )
     for registration in registrations:
         require(registration in plugin, f"Missing Ponder registration: {registration}")
@@ -117,7 +117,7 @@ def verify_ponder_sources(german: dict[str, str]) -> None:
     require('isLoaded("create_radar")' in plugin, "Radar Ponder scenes must remain optional")
     require(computer.count("showText(") == 18, "Computer Ponder scenes must contain 18 explanation steps")
     require(display.count("showText(") == 13, "Display Ponder scenes must contain 13 explanation steps")
-    require(radar.count("showText(") == 11, "Radar Ponder scenes must contain 11 explanation steps")
+    require(radar.count("showText(") == 10, "Radar Ponder scenes must contain ten explanation steps")
 
     for path, source in (
         (COMPUTER_SCENES, computer),
@@ -126,6 +126,18 @@ def verify_ponder_sources(german: dict[str, str]) -> None:
     ):
         require("PonderText.get(" in source, f"{path.name} does not use translated Ponder text")
         require('.text("' not in source, f"{path.name} contains a hard-coded explanation")
+
+    require('"create_radar", "network_filterer"' in radar, "Radar Ponder omits the native Network Filterer")
+    require('"create_radar", "data_link"' in radar, "Radar Ponder omits the physical Data Link")
+    require("setBlock(physicalLink" in radar, "Radar Ponder does not place the native Data Link")
+    require("hideSection(util.select().position(physicalLink)" in radar, "Radar Ponder does not show link removal")
+
+    radar_keys = sorted(key for key in expected_ponder_keys() if ".radar_" in key)
+    english_radar = " ".join(english[key] for key in radar_keys)
+    german_radar = " ".join(german[key] for key in radar_keys)
+    require("Data Link" in english_radar and "Data Link" in german_radar, "Localized Radar Ponder omits the Data Link")
+    require("adjacent" not in english_radar.lower(), "English Radar Ponder still describes controller adjacency")
+    require("angrenzend" not in german_radar.lower(), "German Radar Ponder still describes controller adjacency")
 
     helper = PONDER_TEXT.read_text(encoding="utf-8")
     require("I18n.get" in helper, "Ponder text helper does not resolve client translations")
@@ -145,7 +157,7 @@ def verify_structure() -> None:
 
 
 def main() -> int:
-    german, _ = verify_language_pair(LANG_DIR, "CC-Aeroworks")
+    german, english = verify_language_pair(LANG_DIR, "CC-Aeroworks")
     _, aeroworks_english = verify_language_pair(AEROWORKS_LANG_DIR, "Aeroworks")
     require(
         len(aeroworks_english) == AEROWORKS_1_3_0_LANGUAGE_KEY_COUNT,
@@ -160,13 +172,15 @@ def main() -> int:
 
     for page in range(1, 9):
         require(f"book.cc_aeroworks.page_{page}" in german, f"Missing fallback book page {page}")
+    require("Network Filterer" in english["book.cc_aeroworks.page_7"], "English radar manual does not use the filterer-first Data Link flow")
+    require("Network Filterer" in german["book.cc_aeroworks.page_7"], "German radar manual does not use the filterer-first Data Link flow")
 
     client_source = CLIENT_ENTRY.read_text(encoding="utf-8")
     require(
         "PonderIndex.addPlugin(CCAeroworksPonderPlugin())" in client_source,
         "CCAeroworksPonderPlugin is not registered during client setup",
     )
-    verify_ponder_sources(german)
+    verify_ponder_sources(german, english)
     verify_structure()
     verify_item_orientation()
 
@@ -178,7 +192,7 @@ def main() -> int:
 
     print(
         "Validated matching language files, eight guide pages, eight localized Ponder storyboards, "
-        "the shared Ponder structure, item orientation and wiki navigation."
+        "the native Radar Data-Link lifecycle, shared structure, item orientation and wiki navigation."
     )
     return 0
 
