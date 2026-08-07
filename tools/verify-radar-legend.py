@@ -29,7 +29,7 @@ def main() -> int:
     for token in (
         "RadarDisplayType.LARGE",
         "RadarDisplaySnapshot.isFresh",
-        'RADAR_TRACK_UTIL_CLASS',
+        "RADAR_TRACK_UTIL_CLASS",
         '"com.happysg.radar.block.radar.track.RadarTrackUtil"',
         '"com.happysg.radar.block.radar.track.RadarTrack"',
         'getMethod("deserializeListNBT", CompoundTag::class.java)',
@@ -69,10 +69,11 @@ def main() -> int:
     )
 
     for token in (
-        'DESERIALIZE_TRACKS_DESCRIPTOR',
+        "DESERIALIZE_TRACKS_DESCRIPTOR",
         '"(Lnet/minecraft/nbt/CompoundTag;)Ljava/util/List;"',
         'method_section(output, "deserializeListNBT", DESERIALIZE_TRACKS_DESCRIPTOR)',
-        'method_section(radar_track, "getTrackCategory")',
+        '"getTrackCategory"',
+        "method_section(radar_track, method)",
     ):
         require(token in bytecode, f"Pinned Create: Radars bytecode verifier does not cover legend dependency: {token}")
 
