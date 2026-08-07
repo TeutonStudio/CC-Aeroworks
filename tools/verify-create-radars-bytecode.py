@@ -39,6 +39,10 @@ TARGET_DESCRIPTOR = (
     "Lnet/minecraft/world/level/block/state/BlockState;)"
     "Lcom/happysg/radar/block/datalink/DataLinkBlockItem$FilterTarget;"
 )
+WORLD_VEC_DESCRIPTOR = (
+    "(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)"
+    "Lnet/minecraft/world/phys/Vec3;"
+)
 
 
 def require(condition: bool, message: str) -> None:
@@ -249,7 +253,7 @@ def main() -> int:
             method_section(iradar, method)
 
         physics = javap(jar, PHYSICS_HANDLER)
-        method_section(physics, "getWorldVec")
+        method_section(physics, "getWorldVec", WORLD_VEC_DESCRIPTOR)
 
     print(
         f"Validated exact CurseForge file {FILE_ID} ({FILE_NAME}): native monitor target descriptor, "
