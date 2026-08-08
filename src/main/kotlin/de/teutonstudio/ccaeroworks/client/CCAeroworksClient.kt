@@ -3,6 +3,7 @@ package de.teutonstudio.ccaeroworks.client
 import com.mred231.aeroworks.content.controls.ConsoleVisual
 import com.mred231.aeroworks.content.controls.ModulePartials
 import com.mred231.aeroworks.foundation.input.InputSource
+import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.client.creative.AeroworksCreativeSections
 import de.teutonstudio.ccaeroworks.client.display.DeskDisplayModels
 import de.teutonstudio.ccaeroworks.client.display.RadarOverlayRenderer
@@ -14,13 +15,22 @@ import de.teutonstudio.ccaeroworks.registry.CCBlockEntities
 import dev.engine_room.flywheel.lib.visualization.SimpleBlockEntityVisualizer
 import net.createmod.ponder.foundation.PonderIndex
 import net.neoforged.bus.api.IEventBus
+import net.neoforged.fml.ModList
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent
 import net.neoforged.neoforge.client.event.EntityRenderersEvent
 import net.neoforged.neoforge.client.event.ModelEvent
+import net.neoforged.neoforge.client.gui.ConfigurationScreen
+import net.neoforged.neoforge.client.gui.IConfigScreenFactory
 import net.neoforged.neoforge.common.NeoForge
 
 object CCAeroworksClient {
     fun register(modBus: IEventBus) {
+        ModList.get().getModContainerById(CCAeroworks.MOD_ID).ifPresent { container ->
+            container.registerExtensionPoint(
+                IConfigScreenFactory::class.java,
+                IConfigScreenFactory { _, parent -> ConfigurationScreen(container, parent) }
+            )
+        }
         RadarTrace.event(
             "C00_CLIENT_REGISTER",
             null,
