@@ -10,6 +10,7 @@ import dan200.computercraft.api.lua.ILuaContext
 import dan200.computercraft.api.lua.LuaException
 import dan200.computercraft.api.lua.LuaFunction
 import dan200.computercraft.api.lua.MethodResult
+import dan200.computercraft.api.lua.ObjectLuaTable
 import dan200.computercraft.api.peripheral.IComputerAccess
 import dan200.computercraft.api.peripheral.IPeripheral
 import dan200.computercraft.api.peripheral.NotAttachedException
@@ -709,7 +710,7 @@ internal class DeskLuaHandle(
 
     @LuaFunction(mainThread = true)
     fun setDisplayPixels(arguments: IArguments): List<String> {
-        val table = arguments.getTableUnsafe(1)
+        val table = ObjectLuaTable(arguments.getTable(1))
         val rows = (1..table.length()).map(table::getString)
         return AeroworksDeskService.setDisplayPixels(runtime.desk(address), arguments.get(0), rows)
     }
