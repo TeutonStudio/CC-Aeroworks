@@ -26,7 +26,7 @@ object CCServerConfig {
             .comment("Pixel resolutions used by programmable desk displays. This server config is synced to clients.")
             .push("display")
 
-        builder.comment("Two-digit display resolution.").push("small")
+        builder.comment("Small display resolution.").push("small")
         smallDisplayPixelWidth = builder
             .comment("Exact horizontal pixel count. There is no artificial upper bound beyond a positive signed integer.")
             .defineInRange("width", DeskDisplayType.DEFAULT_SMALL_PIXEL_WIDTH, 1, Int.MAX_VALUE)
@@ -35,7 +35,7 @@ object CCServerConfig {
             .defineInRange("height", DeskDisplayType.DEFAULT_SMALL_PIXEL_HEIGHT, 1, Int.MAX_VALUE)
         builder.pop()
 
-        builder.comment("Three-digit display resolution.").push("large")
+        builder.comment("Large display resolution.").push("large")
         largeDisplayPixelWidth = builder
             .comment("Exact horizontal pixel count. There is no artificial upper bound beyond a positive signed integer.")
             .defineInRange("width", DeskDisplayType.DEFAULT_LARGE_PIXEL_WIDTH, 1, Int.MAX_VALUE)
