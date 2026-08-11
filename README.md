@@ -98,7 +98,7 @@ Pro Netzwerk ist höchstens ein eingebetteter Computer vorgesehen. Wird versehen
 
 ## Programmierbare Displays
 
-Die Displays unterstützen Text, Zahlen und frei beschreibbare Pixelraster. Standardmäßig besitzt das zweistellige Display `7x5` und das dreistellige `11x5` Pixel. Breite und Höhe beider Größen können in `cc_aeroworks-server.toml` auf jede positive Ganzzahl eingestellt werden.
+Die Displays unterstützen Text, Zahlen und frei beschreibbare Pixelraster. Standardmäßig besitzt das kleine Pultdisplay `7x5` und das große Pultdisplay `11x5` Pixel. Breite und Höhe beider Größen können in `cc_aeroworks-server.toml` auf jede positive Ganzzahl eingestellt werden.
 
 Vor Pixelzugriffen muss deshalb die wirksame Auflösung gelesen werden:
 
@@ -107,7 +107,7 @@ local size = desk.getDisplaySize("big")
 print(size.width, size.height)
 ```
 
-Das zweistellige Display passt in kleine und große Sockets, das dreistellige ausschließlich in den großen Socket. Ein normaler CC:Tweaked-Monitor wird unter einer mechanischen Presse zum zweistelligen Display, ein erweiterter Monitor zum dreistelligen Display.
+Das kleine Pultdisplay passt in kleine und große Sockets, das große Pultdisplay ausschließlich in den großen Socket. Ein normaler CC:Tweaked-Monitor wird unter einer mechanischen Presse zum kleinen Pultdisplay, ein erweiterter Monitor zum großen Pultdisplay.
 
 Große Raster werden beim Rendern auf die Modulfläche skaliert. Speicherbedarf und Verarbeitungsaufwand wachsen dennoch mit der Pixelzahl, weil auch ein Konfigurationswert irgendwann auf Physik trifft.
 
