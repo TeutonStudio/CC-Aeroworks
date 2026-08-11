@@ -23,8 +23,10 @@ REQUIRED_PATHS = (
     "libs/dependencies.json",
     "docs/cc-peripheral-api.md",
     "docs/manual-test-plan.md",
+    "examples/cc/README.md",
     "examples/cc/dashboard.lua",
     "examples/cc/input-monitor.lua",
+    "examples/cc/pixel-test.lua",
     "src/test/kotlin",
 )
 
@@ -163,6 +165,63 @@ def verify_safe_lua_tables() -> None:
         )
 
 
+def verify_lua_examples() -> None:
+    """Keep the shipped Lua examples topology-aware and useful as regression tests."""
+    root = ROOT / "examples/cc"
+    scripts = {path.name: path.read_text(encoding="utf-8") for path in sorted(root.glob("*.lua"))}
+    required = {"dashboard.lua", "input-monitor.lua", "pixel-test.lua"}
+    missing = sorted(required - scripts.keys())
+    if missing:
+        fail("Missing required CC:Tweaked Lua examples: " + ", ".join(missing))
+
+    contracts = {
+        "dashboard.lua": (
+            "getInputs",
+            "getDisplays",
+            "Select input",
+            "Select display",
+            "cc_aeroworks_console_input",
+            "cc_aeroworks_console_changed",
+            "cc_aeroworks_desk_input",
+            "peripheral_detach",
+            "os.pullEventRaw",
+            "restoreDisplay",
+        ),
+        "input-monitor.lua": (
+            "getInputs",
+            "cc_aeroworks_console_input",
+            "cc_aeroworks_console_changed",
+            "cc_aeroworks_desk_input",
+            "peripheral_detach",
+            "os.pullEventRaw",
+            "Periodic validation",
+            "No numeric input channels found",
+        ),
+        "pixel-test.lua": (
+            "getDisplays",
+            "No CC-Aeroworks displays found",
+            "Select display",
+            "getDisplaySize",
+            "setDisplayPixels",
+        ),
+    }
+    for filename, snippets in contracts.items():
+        content = scripts[filename]
+        absent = [snippet for snippet in snippets if snippet not in content]
+        if absent:
+            fail(f"{filename} lost required robust-example contracts: {', '.join(absent)}")
+
+    brittle_patterns = {
+        'local DISPLAY_SOCKET = "big"': "hard-coded display socket selection",
+        "local address, desk = next(desks)": "arbitrary first-desk selection",
+        "assert(next(desks)": "first-match-only desk assumption",
+    }
+    for filename, content in scripts.items():
+        violations = [description for pattern, description in brittle_patterns.items() if pattern in content]
+        if violations:
+            fail(f"{filename} contains brittle example logic: {', '.join(violations)}")
+
+
 def verify_text_files() -> None:
     for relative in REQUIRED_PATHS:
         path = ROOT / relative
@@ -184,6 +243,7 @@ def main() -> int:
         verify_wrapper,
         verify_no_tracked_jars,
         verify_safe_lua_tables,
+        verify_lua_examples,
         verify_text_files,
     )
     for check in checks:
