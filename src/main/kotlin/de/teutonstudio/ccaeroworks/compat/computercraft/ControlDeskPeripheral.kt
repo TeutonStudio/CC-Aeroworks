@@ -4,6 +4,7 @@ import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import dan200.computercraft.api.lua.IArguments
 import dan200.computercraft.api.lua.LuaException
 import dan200.computercraft.api.lua.LuaFunction
+import dan200.computercraft.api.lua.ObjectLuaTable
 import dan200.computercraft.api.peripheral.AttachedComputerSet
 import dan200.computercraft.api.peripheral.IComputerAccess
 import dan200.computercraft.api.peripheral.IPeripheral
@@ -120,7 +121,7 @@ class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral {
 
     @LuaFunction(mainThread = true)
     fun setDisplayPixels(arguments: IArguments): List<String> {
-        val table = arguments.getTableUnsafe(1)
+        val table = ObjectLuaTable(arguments.getTable(1))
         val rows = (1..table.length()).map(table::getString)
         return AeroworksDeskService.setDisplayPixels(desk(), arguments.get(0), rows)
     }

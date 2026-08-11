@@ -146,6 +146,23 @@ def verify_no_tracked_jars() -> None:
         fail("Third-party or generated JARs are tracked: " + ", ".join(tracked))
 
 
+def verify_safe_lua_tables() -> None:
+    """Keep main-thread peripheral methods away from CC:Tweaked's zero-copy table API."""
+    kotlin_root = ROOT / "src/main/kotlin"
+    unsafe_calls: list[str] = []
+    for path in sorted(kotlin_root.rglob("*.kt")):
+        text = path.read_text(encoding="utf-8")
+        if "getTableUnsafe(" in text or "optTableUnsafe(" in text:
+            unsafe_calls.append(str(path.relative_to(ROOT)))
+
+    if unsafe_calls:
+        fail(
+            "Unsafe CC:Tweaked Lua table access is forbidden in main sources; "
+            "use getTable()/optTable() and ObjectLuaTable instead: "
+            + ", ".join(unsafe_calls)
+        )
+
+
 def verify_text_files() -> None:
     for relative in REQUIRED_PATHS:
         path = ROOT / relative
@@ -166,6 +183,7 @@ def main() -> int:
         verify_manifest,
         verify_wrapper,
         verify_no_tracked_jars,
+        verify_safe_lua_tables,
         verify_text_files,
     )
     for check in checks:

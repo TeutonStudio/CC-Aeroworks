@@ -19,13 +19,15 @@ Ein Linksklick auf das vorhandene Modussymbol schaltet bei Lever, Joystick und j
 
 Die Serverdatei heißt `cc_aeroworks-server.toml`. Sie liegt weltbezogen unter `<welt>/serverconfig/cc_aeroworks-server.toml` und wird an verbundene Clients synchronisiert.
 
-- `display.small.width`: exakte Pixelbreite des zweistelligen und kleinen Radar-Displays; Standard `7`, positive Ganzzahl.
-- `display.small.height`: exakte Pixelhöhe des zweistelligen und kleinen Radar-Displays; Standard `5`, positive Ganzzahl.
-- `display.large.width`: exakte Pixelbreite des dreistelligen und großen Radar-Displays; Standard `11`, positive Ganzzahl.
-- `display.large.height`: exakte Pixelhöhe des dreistelligen und großen Radar-Displays; Standard `5`, positive Ganzzahl.
+- `display.small.width`: exakte Pixelbreite des kleinen Pultdisplays und der kleinen Radaranzeige; Standard `7`, positive Ganzzahl.
+- `display.small.height`: exakte Pixelhöhe des kleinen Pultdisplays und der kleinen Radaranzeige; Standard `5`, positive Ganzzahl.
+- `display.large.width`: exakte Pixelbreite des großen Pultdisplays und der großen Radaranzeige; Standard `11`, positive Ganzzahl.
+- `display.large.height`: exakte Pixelhöhe des großen Pultdisplays und der großen Radaranzeige; Standard `5`, positive Ganzzahl.
 
 Die früheren Obergrenzen von 64 Pixeln Breite und 32 Pixeln Höhe wurden entfernt. Konfigurationsseitig gilt nur noch der Bereich positiver vorzeichenbehafteter Ganzzahlen. Ein einzelnes Raster muss technisch weiterhin in einen Java-String beziehungsweise ein Java-Array passen; außerdem steigen Speicherbedarf, Lua-Datenmenge und Renderaufwand mit `Breite × Höhe`. Die Mod skaliert den Pixelabstand bei großen Rastern herunter, damit die Anzeige auf dem physischen Modul bleibt. Das schützt jedoch niemanden vor einer absurden Milliardenpixel-Konfiguration. Manche Naturgesetze werden vom Serverbetreiber verwaltet.
 
 Die aktuell wirksame Auflösung ist in Lua über `getDisplaySize(socket)` sowie in Displaybeschreibungen über `pixelWidth`, `pixelHeight`, `PIXEL_WIDTH` und `PIXEL_HEIGHT` verfügbar. Kotlin-Code kann dieselben Werte über `DeskDisplayType.pixelWidth`, `DeskDisplayType.pixelHeight` und `DeskDisplayType.pixelResolution` abrufen.
+
+Der Pixel-Editor im API-Handbuch übernimmt diese synchronisierten Werte beim Erzeugen seines Editorzustands. Nach einer geänderten Serverkonfiguration sollte das Handbuch deshalb neu geöffnet werden, damit ein bereits offener Editor nicht mit seinem alten Raster weiterarbeitet.
 
 Eine Auflösungsänderung verändert den Rastervertrag. Bereits gespeicherte Pixelraster mit abweichender Länge werden nicht gestreckt oder zugeschnitten und müssen anschließend neu geschrieben werden. Textzustände bleiben davon unberührt.
