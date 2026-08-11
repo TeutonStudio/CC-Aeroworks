@@ -25,7 +25,9 @@ REQUIRED_PATHS = (
     "docs/manual-test-plan.md",
     "examples/cc/README.md",
     "examples/cc/dashboard.lua",
+    "examples/cc/embedded-console.lua",
     "examples/cc/input-monitor.lua",
+    "examples/cc/multiblock-dashboard.lua",
     "examples/cc/pixel-test.lua",
     "src/test/kotlin",
 )
@@ -166,10 +168,16 @@ def verify_safe_lua_tables() -> None:
 
 
 def verify_lua_examples() -> None:
-    """Keep the shipped Lua examples topology-aware and useful as regression tests."""
+    """Keep every shipped Lua example topology-aware and useful as a regression test."""
     root = ROOT / "examples/cc"
     scripts = {path.name: path.read_text(encoding="utf-8") for path in sorted(root.glob("*.lua"))}
-    required = {"dashboard.lua", "input-monitor.lua", "pixel-test.lua"}
+    required = {
+        "dashboard.lua",
+        "embedded-console.lua",
+        "input-monitor.lua",
+        "multiblock-dashboard.lua",
+        "pixel-test.lua",
+    }
     missing = sorted(required - scripts.keys())
     if missing:
         fail("Missing required CC:Tweaked Lua examples: " + ", ".join(missing))
@@ -187,6 +195,17 @@ def verify_lua_examples() -> None:
             "os.pullEventRaw",
             "restoreDisplay",
         ),
+        "embedded-console.lua": (
+            "peripherals",
+            "getNetwork",
+            "Select input",
+            "Select display",
+            "cc_aeroworks_console_input",
+            "cc_aeroworks_console_changed",
+            "Periodic validation",
+            "os.pullEventRaw",
+            "restoreDisplay",
+        ),
         "input-monitor.lua": (
             "getInputs",
             "cc_aeroworks_console_input",
@@ -196,6 +215,18 @@ def verify_lua_examples() -> None:
             "os.pullEventRaw",
             "Periodic validation",
             "No numeric input channels found",
+        ),
+        "multiblock-dashboard.lua": (
+            "peripheral.getNames",
+            "getInputs",
+            "getDisplays",
+            "Select input",
+            "Select display",
+            "cc_aeroworks_desk_input",
+            "peripheral_detach",
+            "stableId",
+            "os.pullEventRaw",
+            "restoreDisplay",
         ),
         "pixel-test.lua": (
             "getDisplays",
@@ -216,10 +247,18 @@ def verify_lua_examples() -> None:
         "local address, desk = next(desks)": "arbitrary first-desk selection",
         "assert(next(desks)": "first-match-only desk assumption",
     }
+    deprecated_patterns = {
+        "aeroworks.": "removed global aeroworks API",
+        "cc_aeroworks_multiblock_input": "removed legacy multiblock input event",
+        "setDeskDisplay": "removed network-wide display facade",
+        "clearDeskDisplay": "removed network-wide display facade",
+    }
+
     for filename, content in scripts.items():
         violations = [description for pattern, description in brittle_patterns.items() if pattern in content]
+        violations += [description for pattern, description in deprecated_patterns.items() if pattern in content]
         if violations:
-            fail(f"{filename} contains brittle example logic: {', '.join(violations)}")
+            fail(f"{filename} contains brittle or deprecated example logic: {', '.join(sorted(set(violations)))}")
 
 
 def verify_text_files() -> None:
