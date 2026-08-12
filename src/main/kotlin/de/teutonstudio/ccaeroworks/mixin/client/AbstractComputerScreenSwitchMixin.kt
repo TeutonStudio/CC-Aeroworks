@@ -28,19 +28,19 @@ abstract class AbstractComputerScreenSwitchMixin(
             item !== CCItems.ADVANCED_COMPUTER_CONTROL_DESK.get()
         ) return
 
+        // Keep layout values local. Kotlin companion constants become static fields on the
+        // mixin class, which Sponge Mixin rejects unless the generated field is private.
+        val buttonWidth = 82
+        val buttonHeight = 20
+        val margin = 6
+
         addRenderableWidget(
             Button.builder(Component.translatable("guide.cc_aeroworks.tab.controls")) {
                 ControlDeskUiSwitchState.prepareClientControlsScreen()
                 PacketDistributor.sendToServer(
                     SwitchControlDeskUiPayload(SwitchControlDeskUiPayload.Target.CONTROLS)
                 )
-            }.bounds(width - BUTTON_WIDTH - MARGIN, MARGIN, BUTTON_WIDTH, BUTTON_HEIGHT).build()
+            }.bounds(width - buttonWidth - margin, margin, buttonWidth, buttonHeight).build()
         )
-    }
-
-    private companion object {
-        const val BUTTON_WIDTH = 82
-        const val BUTTON_HEIGHT = 20
-        const val MARGIN = 6
     }
 }

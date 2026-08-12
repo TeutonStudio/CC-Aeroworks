@@ -14,6 +14,9 @@
     "ConsoleBlockEntityInvoker",
     "ConsoleBlockEntityDeskIdMixin",
     "ConsoleBlockEntityRadarMixin",
+    "compat.CreateRadarBearingBlockEntityMixin",
+    "compat.CreateRadarBearingBlockMixin",
+    "compat.CreateRadarBearingContraptionMixin",
     "compat.CreateRadarDataLinkTargetMixin"
   ],
   "client": [
