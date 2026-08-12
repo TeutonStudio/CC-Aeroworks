@@ -52,6 +52,7 @@ object CCAeroworksClient {
         NeoForge.EVENT_BUS.register(CombinedLeverController)
         NeoForge.EVENT_BUS.register(AeroworksCreativeSections)
         NeoForge.EVENT_BUS.register(GuideBookClientHandler)
+        NeoForge.EVENT_BUS.register(DisplayTooltipHandler)
     }
 
     private fun clientSetup(event: FMLClientSetupEvent) {
