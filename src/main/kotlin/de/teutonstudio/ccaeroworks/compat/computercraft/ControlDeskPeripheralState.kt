@@ -3,6 +3,7 @@ package de.teutonstudio.ccaeroworks.compat.computercraft
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.display.DeskDisplayTouch
+import de.teutonstudio.ccaeroworks.network.DisplayPointerAction
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.event.tick.ServerTickEvent
 import java.util.concurrent.ConcurrentHashMap
@@ -18,31 +19,63 @@ object ControlDeskPeripheralState {
         active.remove(peripheral)
     }
 
-    internal fun queueDisplayTouch(desk: ConsoleBlockEntity, touch: DeskDisplayTouch) {
+    internal fun queueDisplayInput(
+        desk: ConsoleBlockEntity,
+        touch: DeskDisplayTouch,
+        action: DisplayPointerAction
+    ) {
         active.forEach { peripheral ->
             if (peripheral.validDesk() !== desk) return@forEach
             peripheral.computers.forEach { computer ->
                 computer.queueEvent(
-                    CCAeroworks.DESK_TOUCH_EVENT,
+                    CCAeroworks.DESK_DISPLAY_INPUT_EVENT,
                     computer.attachmentName,
                     touch.socket,
                     touch.socketName,
                     touch.moduleId,
+                    action.eventName,
                     touch.x,
                     touch.y,
                     touch.width,
                     touch.height
                 )
-                // Match CC:Tweaked's advanced-monitor event shape for programs which only
-                // care about an attachment name and 1-based touch coordinates.
-                computer.queueEvent(
-                    "monitor_touch",
-                    computer.attachmentName,
-                    touch.x,
-                    touch.y
-                )
+                if (action == DisplayPointerAction.TAP) {
+                    queueCompatibleTouch(computer, touch)
+                }
             }
         }
+    }
+
+    internal fun queueDisplayTouch(desk: ConsoleBlockEntity, touch: DeskDisplayTouch) {
+        active.forEach { peripheral ->
+            if (peripheral.validDesk() !== desk) return@forEach
+            peripheral.computers.forEach { computer ->
+                queueCompatibleTouch(computer, touch)
+            }
+        }
+    }
+
+    private fun queueCompatibleTouch(
+        computer: dan200.computercraft.api.peripheral.IComputerAccess,
+        touch: DeskDisplayTouch
+    ) {
+        computer.queueEvent(
+            CCAeroworks.DESK_TOUCH_EVENT,
+            computer.attachmentName,
+            touch.socket,
+            touch.socketName,
+            touch.moduleId,
+            touch.x,
+            touch.y,
+            touch.width,
+            touch.height
+        )
+        computer.queueEvent(
+            "monitor_touch",
+            computer.attachmentName,
+            touch.x,
+            touch.y
+        )
     }
 
     @SubscribeEvent
@@ -51,7 +84,6 @@ object ControlDeskPeripheralState {
             if (!peripheral.computers.hasComputers() || peripheral.validDesk() == null) {
                 return@removeIf true
             }
-
             val current = peripheral.snapshotInputs()
             val previous = peripheral.lastInputs
             peripheral.lastInputs = current

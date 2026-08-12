@@ -19,4 +19,12 @@ class DeskDisplayTouchResolverTest {
         assertEquals(11, DeskDisplayTouchResolver.gridCoordinate(2.0, 11))
         assertEquals(1, DeskDisplayTouchResolver.gridCoordinate(0.5, 1))
     }
+
+    @Test
+    fun mapsPointerCoordinatesBackToDisplayPlane() {
+        assertEquals(DeskDisplayGeometry.MIN_X, DeskDisplayGeometry.localX(0.0), 1.0e-9)
+        assertEquals(DeskDisplayGeometry.MAX_X, DeskDisplayGeometry.localX(1.0), 1.0e-9)
+        assertEquals(DeskDisplayGeometry.MAX_Z, DeskDisplayGeometry.localZ(0.0), 1.0e-9)
+        assertEquals(DeskDisplayGeometry.MIN_Z, DeskDisplayGeometry.localZ(1.0), 1.0e-9)
+    }
 }
