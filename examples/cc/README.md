@@ -11,6 +11,8 @@ Gemeinsamer Grundsatz für auswählbare Ressourcen:
 - ausgewählte Endpunkte werden nach Möglichkeit über stabile Desk-, Modul-, Display- und Kanalidentität verfolgt und nicht nach Discovery-Reihenfolge;
 - laufende Skripte reagieren auf relevante Attach/Detach-, Input- und Topologieereignisse und validieren kritische Endpunkte zusätzlich periodisch.
 
+Die Beispiele besitzen bewusst unterschiedliche Aufgaben. `dashboard.lua` ist der einzige allgemeine Input-zu-Display-Mapper. Diagnoseprogramme verändern keine Displays, damit rohe Aeroworks-Werte einschließlich Vorzeichen und Achsenrichtung unverfälscht sichtbar bleiben.
+
 ## `pixel-test.lua`
 
 Sucht zuerst alle erreichbaren CC-Aeroworks-Displays. Auf dem eingebetteten Computer wird das vollständige Pultnetz durchsucht, auf normalen CC:Tweaked-Computern alle erreichbaren `ControlDesk`-Peripherals.
@@ -33,6 +35,8 @@ Während des Betriebs werden die passenden CC-Aeroworks-Ereignisse verwendet:
 
 Zusätzlich validiert das Skript die ausgewählten Endpunkte regelmäßig. Wird ein Pult, Eingabemodul, Kanal oder Display entfernt beziehungsweise ersetzt, beendet sich das Dashboard mit einer konkreten Erklärung statt still auf ein anderes Gerät umzuschalten. Beim normalen Beenden und nach abgefangenen Laufzeitfehlern versucht es, den vorherigen Text- oder Pixelzustand des Displays wiederherzustellen.
 
+`dashboard.lua` gibt bewusst den gelesenen Rohwert weiter. Für bipolare Aeroworks-Achsen können Werte wie `-15..15` auftreten. Ein kleines zweistelliges Display kann dreistellige Darstellungen wie `-15` naturgemäß nicht vollständig anzeigen. Das Beispiel erfindet deshalb keine versteckte Skalierung oder Achseninvertierung; wer eine normierte Anzeige benötigt, sollte die gewünschte Transformation im eigenen Programm explizit festlegen.
+
 ## `input-monitor.lua`
 
 Zeigt alle numerischen Pulteingänge live im Terminal. Das Skript unterstützt sowohl das eingebettete Pultnetz als auch normale beziehungsweise über Wired Modems verbundene `ControlDesk`-Peripherals.
@@ -46,22 +50,32 @@ Zeigt alle numerischen Pulteingänge live im Terminal. Das Skript unterstützt s
 
 ## `embedded-console.lua`
 
-Ist die bewusst eingebettete Variante des Input-zu-Display-Beispiels. Das Skript verweigert den Start auf einem normalen Computer und verlangt die globale `peripherals`-API eines Computer Control Desk.
+Ist jetzt ein **read-only Inspector für den eingebetteten Computer Control Desk** und absichtlich kein zweites Dashboard mehr.
 
-Es prüft zuerst den Netzwerkzustand und behandelt Konflikte, teilweise geladene Netze, mehr als 64 Pulte und falsche Eigentümerschaft mit erklärenden Fehlern. Danach werden alle numerischen Eingabekanäle und alle Displays des gesamten Pultnetzes ermittelt und nach dem 0/1/mehrere-Schema ausgewählt.
+Das Skript verlangt die globale `peripherals`-API, prüft den Netzwerkzustand und listet alle Pulte nach Position. Bei genau einem Pult wird dessen Detailansicht automatisch geöffnet; bei mehreren Pulten kann gezielt per Nummer gewählt werden. Für jedes Pult zeigt der Inspector:
 
-Im Betrieb wird ausschließlich der aktuelle eingebettete Ereignisvertrag verwendet: `cc_aeroworks_console_input` für Werte und `cc_aeroworks_console_changed` für Topologieänderungen. Die ausgewählten Endpunkte werden periodisch anhand stabiler Identitäten neu gebunden. Entfernte, ersetzte oder in ihrer Form geänderte Module und Displays führen zu einem konkreten Fehler. Der vorherige Displayzustand wird beim Beenden nach Möglichkeit wiederhergestellt.
+- stabile Desk-ID, Variante, Ausrichtung, Dimension und Computerstatus,
+- installierte Module,
+- alle Eingabekanäle mit ihren **rohen** Werten,
+- Displays mit Textbreite, Pixelauflösung und aktuellem Modus,
+- angrenzende CC:Tweaked-Peripherals.
+
+Die Detailansicht ist seitenweise navigierbar und kann jederzeit verlassen werden. `r` führt die Netzwerkerkennung erneut aus, `q` beendet das Programm. Konflikte, teilweise geladene Netze, mehr als 64 Pulte und falsche Eigentümerschaft werden als Diagnosezustand ausgegeben.
+
+Der Inspector ruft keine `setDisplay...`-Methode auf. Damit bleiben Vorzeichen und Achsenrichtung als Diagnoseinformation erhalten und kein kleines Display muss Werte wie `-10..-15` irgendwie verstümmeln.
 
 ## `multiblock-dashboard.lua`
 
-Demonstriert ausdrücklich den **normalen CC:Tweaked-/Wired-Modem-Pfad** für mehrere Pulte. Die frühere Annahme, ein einziges lokales Peripheral stelle automatisch den gesamten Aeroworks-Multiblock als Fassade bereit, gilt nicht mehr.
+Ist eine **read-only Live-Übersicht aller erreichbaren Pulte** und funktioniert sowohl vom eingebetteten Computer Control Desk als auch von einem normalen beziehungsweise Wired-CC:Tweaked-Computer aus.
 
-Das Skript sucht deshalb über `peripheral.getNames()` jedes erreichbare `ControlDesk`-Peripheral einzeln, liest daraus alle numerischen Eingabekanäle und alle Displays und lässt Quelle und Ziel nach dem 0/1/mehrere-Schema wählen. Es verwendet `cc_aeroworks_desk_input` und normale Peripheral-Attach/Detach-Ereignisse. Bei einem Reconnect wird anhand der stabilen Desk-ID versucht, denselben gewählten Endpunkt auch dann wiederzufinden, wenn sich sein CC:Tweaked-Anschlussname geändert hat.
+Im eingebetteten Modus verwendet es die globale `peripherals`-API und zeigt zusätzlich Netzwerkzustand sowie globale Desk-/Peripheral-Zahlen. Im normalen/Wired-Modus durchsucht es `peripheral.getNames()` und behandelt jedes erreichbare `ControlDesk` als eigenes physisches Pult.
 
-Auch dieses Beispiel restauriert den vorherigen Displayzustand, sofern das Ziel beim Beenden noch beziehungsweise wieder erreichbar ist.
+Pro Desk zeigt die Übersicht Position, Variante/Computerstatus sowie die Anzahl von Modulen, numerischen Eingabekanälen, Displays und, soweit über den eingebetteten Desk-Handle verfügbar, angrenzenden Peripherals. Die Tabelle aktualisiert sich periodisch und reagiert zusätzlich auf Netzwerk- beziehungsweise Peripheral-Änderungen.
+
+Große Pultlisten sind mit Pfeiltasten, Bild hoch/runter, Pos1 und Ende scrollbar. `r` aktualisiert sofort, `q` oder `Ctrl+T` beendet das Dashboard. Fehlende Pulte sind kein Lua-Crash: das Programm zeigt stattdessen, ob im eingebetteten Netz ein ungültiger Zustand vorliegt oder beim normalen Computer schlicht kein `ControlDesk` erreichbar ist.
 
 ## Erwartete Betriebsarten
 
 Ein **eingebetteter Computer Control Desk** besitzt die globale `peripherals`-API und kann das gesamte verbundene Pultnetz adressieren. Ein **normaler CC:Tweaked-Computer** besitzt diese API nicht; er sieht nur die über die normale CC:Tweaked-Peripheral-Infrastruktur erreichbaren `ControlDesk`-Adapter.
 
-`dashboard.lua`, `input-monitor.lua` und `pixel-test.lua` erkennen beide Fälle selbstständig. `embedded-console.lua` ist absichtlich auf den eingebetteten Pfad beschränkt. `multiblock-dashboard.lua` zeigt absichtlich den normalen/wired Peripheral-Pfad, damit beide Verträge getrennt und nachvollziehbar testbar bleiben.
+`dashboard.lua`, `input-monitor.lua`, `pixel-test.lua` und `multiblock-dashboard.lua` erkennen beide Fälle selbstständig. `embedded-console.lua` ist absichtlich auf den eingebetteten Pfad beschränkt und dient dort der detaillierten Inspektion statt der Displaysteuerung.
