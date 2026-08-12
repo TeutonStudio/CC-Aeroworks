@@ -24,7 +24,7 @@ object DisplayInteractionKey {
 
     @JvmStatic
     fun isDown(minecraft: Minecraft): Boolean =
-        CombinedActivationKey.isDown(KEY_MAPPING.saveString(), minecraft)
+        KEY_MAPPING.isDown || CombinedActivationKey.isDown(KEY_MAPPING.saveString(), minecraft)
 
     private fun registerKeyMappings(event: RegisterKeyMappingsEvent) {
         event.register(KEY_MAPPING)
