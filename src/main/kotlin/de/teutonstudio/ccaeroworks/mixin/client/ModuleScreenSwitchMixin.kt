@@ -22,6 +22,11 @@ abstract class ModuleScreenSwitchMixin(
 ) : AbstractContainerScreen<ModuleMenu>(menu, inventory, title) {
     @Inject(method = ["init()V"], at = [At("TAIL")])
     private fun ccaeroworks_addComputerButton(callback: CallbackInfo) {
+        // ModuleMenu inherits the public contentHolder field from Create's MenuBase.
+        // For a desk-mounted module Aeroworks populates it with the exact ConsoleSocket
+        // (desk position + socket + recursive subPath). Preserve that native return address
+        // before replacing this screen with the CC:Tweaked terminal.
+        ControlDeskUiSwitchState.rememberClientControls(menu.contentHolder)
         if (!ControlDeskUiSwitchState.clientCanSwitchToComputer()) return
 
         // Attach the switch directly to Aeroworks' visual screen instead of the
@@ -33,9 +38,9 @@ abstract class ModuleScreenSwitchMixin(
 
         addRenderableWidget(
             Button.builder(Component.translatable("guide.cc_aeroworks.tab.computers")) {
-                PacketDistributor.sendToServer(
-                    SwitchControlDeskUiPayload(SwitchControlDeskUiPayload.Target.COMPUTER)
-                )
+                // Capture once more at the actual transition in case Aeroworks rebuilt the holder.
+                ControlDeskUiSwitchState.rememberClientControls(menu.contentHolder)
+                PacketDistributor.sendToServer(SwitchControlDeskUiPayload())
             }.bounds(buttonX, buttonY, buttonWidth, buttonHeight).build()
         )
     }

@@ -121,6 +121,11 @@ object ComputerConsoleInteractionHandler {
     }
 
     private fun openComputerTerminal(event: PlayerInteractEvent.RightClickBlock): Boolean {
+        // A world-opened terminal has no preceding Aeroworks ModuleScreen to return to.
+        // Drop any old client ConsoleSocket so the CC button can never resurrect a stale desk.
+        if (event.level.isClientSide) {
+            ControlDeskUiSwitchState.clearClientControlsContext()
+        }
         ControlDeskUiSwitchState.remember(event)
 
         // The client consumes the deliberately reserved interaction. Computer creation and
