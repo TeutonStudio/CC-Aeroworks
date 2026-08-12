@@ -1,7 +1,6 @@
 package de.teutonstudio.ccaeroworks.client.ponder;
 
 import com.simibubi.create.foundation.ponder.CreateSceneBuilder;
-import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes;
 import de.teutonstudio.ccaeroworks.registry.CCItems;
 import net.createmod.catnip.math.Pointing;
 import net.createmod.ponder.api.PonderPalette;
@@ -13,7 +12,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
 public class RadarDisplayScenes {
     private static final ResourceLocation DATA_LINK_ID =
@@ -32,13 +30,12 @@ public class RadarDisplayScenes {
         BlockPos desk = util.grid().at(3, 1, 2);
         BlockPos physicalLink = desk.above();
         scene.world().setBlock(filterer, blockState(NETWORK_FILTERER_ID), false);
-        scene.world().setBlock(desk, normalDesk(), false);
+        scene.world().setBlock(desk, PonderDeskSetup.normalDesk(), false);
+        PonderDeskSetup.mount(scene, desk, 2, new ItemStack(CCItems.LARGE_RADAR_DISPLAY.get()));
         scene.world().showSection(util.select().position(filterer), Direction.DOWN);
         scene.world().showSection(util.select().position(desk), Direction.DOWN);
         scene.idle(20);
 
-        scene.overlay().showControls(util.vector().topOf(desk), Pointing.DOWN, 65)
-            .withItem(new ItemStack(CCItems.LARGE_RADAR_DISPLAY.get()));
         scene.overlay().showText(75)
             .attachKeyFrame()
             .text(PonderText.get("ponder.cc_aeroworks.radar_controller.text_1"))
@@ -97,8 +94,10 @@ public class RadarDisplayScenes {
         BlockPos linkedDesk = util.grid().at(2, 1, 2);
         BlockPos unlinkedDesk = util.grid().at(3, 1, 2);
         BlockPos physicalLink = linkedDesk.above();
-        scene.world().setBlock(linkedDesk, normalDesk(), false);
-        scene.world().setBlock(unlinkedDesk, normalDesk(), false);
+        scene.world().setBlock(linkedDesk, PonderDeskSetup.normalDesk(), false);
+        scene.world().setBlock(unlinkedDesk, PonderDeskSetup.normalDesk(), false);
+        PonderDeskSetup.mount(scene, linkedDesk, 2, new ItemStack(CCItems.LARGE_RADAR_DISPLAY.get()));
+        PonderDeskSetup.mount(scene, unlinkedDesk, 2, new ItemStack(CCItems.SMALL_RADAR_DISPLAY.get()));
         scene.world().setBlock(physicalLink, blockState(DATA_LINK_ID), false);
         scene.world().showSection(util.select().fromTo(linkedDesk, unlinkedDesk), Direction.DOWN);
         scene.world().showSection(util.select().position(physicalLink), Direction.DOWN);
@@ -128,8 +127,6 @@ public class RadarDisplayScenes {
             .placeNearTarget();
         scene.idle(100);
 
-        scene.overlay().showControls(util.vector().topOf(unlinkedDesk), Pointing.DOWN, 65)
-            .withItem(new ItemStack(CCItems.SMALL_RADAR_DISPLAY.get()));
         scene.overlay().showText(90)
             .attachKeyFrame()
             .text(PonderText.get("ponder.cc_aeroworks.radar_direct.text_4"))
@@ -147,12 +144,6 @@ public class RadarDisplayScenes {
             .placeNearTarget();
         scene.idle(105);
         scene.markAsFinished();
-    }
-
-    private static BlockState normalDesk() {
-        return AeroworksTypes.INSTANCE.vanillaControlDeskBlock()
-            .defaultBlockState()
-            .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH);
     }
 
     private static BlockState blockState(ResourceLocation id) {
