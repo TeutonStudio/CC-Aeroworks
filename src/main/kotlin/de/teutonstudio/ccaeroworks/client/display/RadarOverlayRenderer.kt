@@ -3,6 +3,7 @@ package de.teutonstudio.ccaeroworks.client.display
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess
 import de.teutonstudio.ccaeroworks.compat.createradar.RadarTrace
+import de.teutonstudio.ccaeroworks.compat.sable.SableClientRenderPose
 import net.minecraft.client.Minecraft
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent
 import java.util.Collections
@@ -125,10 +126,21 @@ object RadarOverlayRenderer {
 
             poseStack.pushPose()
             try {
-                poseStack.translate(
-                    desk.blockPos.x - camera.x,
-                    desk.blockPos.y - camera.y,
-                    desk.blockPos.z - camera.z
+                val anchor = SableClientRenderPose.apply(
+                    poseStack,
+                    desk,
+                    desk.blockPos.x.toDouble(),
+                    desk.blockPos.y.toDouble(),
+                    desk.blockPos.z.toDouble(),
+                    camera,
+                    partialTicks
+                )
+                RadarTrace.periodic(
+                    "R05_RENDER_ANCHOR",
+                    level,
+                    desk.blockPos,
+                    10L,
+                    "local=${desk.blockPos} world=${anchor.worldPosition} subLevel=${anchor.usedSubLevel} camera=$camera"
                 )
                 val rendered = CreateRadarNativeMonitorRenderer.render(
                     desk,
