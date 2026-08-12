@@ -8,6 +8,7 @@
   "block.cc_aeroworks.computer_control_desk": "Computer-Steuerungspult",
   "block.cc_aeroworks.advanced_computer_control_desk": "Erweitertes Computer-Steuerungspult",
   "input.cc_aeroworks.combined": "Kombiniert",
+  "key.cc_aeroworks.display_interaction": "Display-Bedienung",
   "gui.cc_aeroworks.module.mode_combined_x": "Input Type: Kombiniert (konfigurierte Taste + Maus X)",
   "gui.cc_aeroworks.module.mode_combined_y": "Input Type: Kombiniert (konfigurierte Taste + Maus Y)",
   "message.cc_aeroworks.console_conflict": "Mehrere Computer-Steuerungspulte sind verbunden. Trenne den Multiblock oder öffne eines der Computerpulte direkt.",

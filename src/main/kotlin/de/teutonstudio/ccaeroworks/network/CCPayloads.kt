@@ -10,7 +10,20 @@ object CCPayloads {
 
     private fun registerPayloads(event: RegisterPayloadHandlersEvent) {
         val registrar = event.registrar("1")
-        registrar.playToServer(SetCombinedLeverValuePayload.TYPE, SetCombinedLeverValuePayload.STREAM_CODEC, SetCombinedLeverValuePayload::handle)
-        registrar.playToServer(SwitchControlDeskUiPayload.TYPE, SwitchControlDeskUiPayload.STREAM_CODEC, SwitchControlDeskUiPayload::handle)
+        registrar.playToServer(
+            SetCombinedLeverValuePayload.TYPE,
+            SetCombinedLeverValuePayload.STREAM_CODEC,
+            SetCombinedLeverValuePayload::handle
+        )
+        registrar.playToServer(
+            DisplayPointerActionPayload.TYPE,
+            DisplayPointerActionPayload.STREAM_CODEC,
+            DisplayPointerActionPayload::handle
+        )
+        registrar.playToServer(
+            SwitchControlDeskUiPayload.TYPE,
+            SwitchControlDeskUiPayload.STREAM_CODEC,
+            SwitchControlDeskUiPayload::handle
+        )
     }
 }

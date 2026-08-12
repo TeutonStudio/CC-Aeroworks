@@ -1,39 +1,68 @@
 # Touch-Eingaben auf großen Pultanzeigen
 
-Die große Pultanzeige und die große Radaranzeige reagieren wie ein erweiterter CC:Tweaked-Monitor auf einen normalen Rechtsklick mit leerer Hand. Die physische Modulfläche wird dabei auf ein 1-basiertes Raster abgebildet.
+Die große Pultanzeige und die große Radaranzeige verwenden ausschließlich den kombinierten Display-Eingabemodus. Ein normaler Leerhand-Rechtsklick wird nicht mehr als programmierbarer Touch interpretiert.
 
-Das Raster verwendet die aktuell synchronisierte Serverauflösung des großen Pultdisplays. Standardmäßig sind das `11 x 5`, Änderungen an `display.large.width` und `display.large.height` werden ohne fest verdrahtete Clientwerte übernommen.
+## Bedienung
 
-## Direkt angeschlossener `ControlDesk`
+1. Im Minecraft-Menü `Steuerung` unter `Sonstiges/Misc` die eigene Tastenbelegung `Display-Bedienung` / `Display interaction` belegen.
+2. Das große Display oder große Radar mit dem Fadenkreuz ansehen.
+3. Die Taste gedrückt halten.
+4. Die Kamera wird eingefroren und ein halbtransparenter 3D-Zeiger erscheint orthogonal auf der Displayfläche.
+5. Die Maus verschiebt den Zeiger über die Displayfläche.
+6. Rechtsklick erzeugt `tap`.
+7. Linksklick erzeugt `double_tap`.
+8. Beim Loslassen der Taste endet die Sitzung sofort.
 
-Ein normaler CC:Tweaked-Computer oder ein über Wired Modem angeschlossener Computer erhält zwei Ereignisse:
+Der Zeiger bleibt auf die normierte Displayfläche `0..1` begrenzt. Das erste Maus-Sample beim Aktivieren wird verworfen, damit die Bewegung zum Anvisieren des Displays nicht als Zeigerbewegung übernommen wird. Wird das Display entfernt, der Spieler zu weit entfernt, ein Menü geöffnet oder der Fokus verloren, endet die Sitzung ebenfalls.
+
+Die Zeigergeschwindigkeit kann über `displayPointerSensitivity` in `cc_aeroworks-client.toml` angepasst werden.
+
+## CC:Tweaked-Ereignisse
+
+### Direkt angeschlossener `ControlDesk`
+
+Jede Displayaktion erzeugt:
+
+```lua
+local _, peripheralName, socket, socketName, moduleId, action, x, y, width, height =
+  os.pullEvent("cc_aeroworks_desk_display_input")
+```
+
+`action` ist entweder `"tap"` oder `"double_tap"`.
+
+Ein normaler `tap` erzeugt aus Kompatibilitätsgründen zusätzlich weiterhin:
 
 ```lua
 local _, peripheralName, x, y = os.pullEvent("monitor_touch")
 ```
 
-`monitor_touch` hat absichtlich dieselbe Argumentform wie ein erweiterter CC:Tweaked-Monitor.
-
-Zusätzlich liefert CC-Aeroworks die Modulidentität und Rastergröße:
+und:
 
 ```lua
 local _, peripheralName, socket, socketName, moduleId, x, y, width, height =
   os.pullEvent("cc_aeroworks_desk_touch")
 ```
 
-Damit kann ein Programm unterscheiden, ob der große Socket ein normales Display oder eine Radaranzeige enthält.
+Ein `double_tap` erzeugt diese alten Touch-Ereignisse ausdrücklich nicht. Dadurch können Programme den Doppeltipp als eigenständige Eingabe behandeln, ohne zweimal auf `monitor_touch` zu reagieren.
 
-## Eingebetteter Computer
+### Eingebetteter Computer
 
-Der eingebettete Computer erhält Touches aus dem vollständigen Pultnetz über:
+Der eingebettete Computer erhält jede Displayaktion über:
+
+```lua
+local _, deskId, deskIndex, socket, socketName, moduleId, action, x, y, width, height =
+  os.pullEvent("cc_aeroworks_console_display_input")
+```
+
+Für `tap` wird zusätzlich das kompatible Ereignis geliefert:
 
 ```lua
 local _, deskId, deskIndex, socket, socketName, moduleId, x, y, width, height =
   os.pullEvent("cc_aeroworks_console_touch")
 ```
 
-`deskId` bleibt die stabile Pultidentität; `deskIndex` ist der aktuelle Index im verbundenen Pultnetz. Die Touchkoordinaten beginnen links oben bei `(1, 1)`.
+## Koordinaten und Sicherheit
 
-## Erweiterte Item-Schnellinfo
+Die Clientseite überträgt normierte Zeigerkoordinaten. Der Server prüft Desk, Socket, Modultyp, Controllerzugriff, Interaktionsreichweite und Koordinatenbereich und berechnet erst danach die aktuell konfigurierte 1-basierte Displayzelle.
 
-Mit aktivierten erweiterten Tooltips (`F3+H`) zeigen kleine und große Pultanzeige ihre aktuell wirksame Pixelauflösung als `Pixel: Breite × Höhe`. Die Werte stammen aus der synchronisierten Serverkonfiguration und sind daher nicht auf die Standardwerte `7 x 5` beziehungsweise `11 x 5` festgelegt.
+Die große Pultanzeige und die große Radaranzeige verwenden damit dieselbe Geometrie und dieselbe dynamische Serverauflösung. Änderungen an `display.large.width` und `display.large.height` benötigen keine fest verdrahteten Clientwerte.
