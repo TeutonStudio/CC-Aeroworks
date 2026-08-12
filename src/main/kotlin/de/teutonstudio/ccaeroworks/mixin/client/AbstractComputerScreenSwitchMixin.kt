@@ -28,11 +28,13 @@ abstract class AbstractComputerScreenSwitchMixin(
             item !== CCItems.ADVANCED_COMPUTER_CONTROL_DESK.get()
         ) return
 
-        // Keep layout values local. Kotlin companion constants become static fields on the
-        // mixin class, which Sponge Mixin rejects unless the generated field is private.
+        // Attach the switch directly to the top edge of CC:Tweaked's visual screen.
+        // Keeping it inside the GUI's horizontal footprint also keeps JEI's side panels
+        // from claiming the same click area.
         val buttonWidth = 82
         val buttonHeight = 20
-        val margin = 6
+        val buttonX = leftPos + (imageWidth - buttonWidth) / 2
+        val buttonY = (topPos - buttonHeight).coerceAtLeast(0)
 
         addRenderableWidget(
             Button.builder(Component.translatable("guide.cc_aeroworks.tab.controls")) {
@@ -40,7 +42,7 @@ abstract class AbstractComputerScreenSwitchMixin(
                 PacketDistributor.sendToServer(
                     SwitchControlDeskUiPayload(SwitchControlDeskUiPayload.Target.CONTROLS)
                 )
-            }.bounds(width - buttonWidth - margin, margin, buttonWidth, buttonHeight).build()
+            }.bounds(buttonX, buttonY, buttonWidth, buttonHeight).build()
         )
     }
 }

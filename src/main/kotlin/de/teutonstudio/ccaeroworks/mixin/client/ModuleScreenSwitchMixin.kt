@@ -24,18 +24,19 @@ abstract class ModuleScreenSwitchMixin(
     private fun ccaeroworks_addComputerButton(callback: CallbackInfo) {
         if (!ControlDeskUiSwitchState.clientCanSwitchToComputer()) return
 
-        // Keep layout values local. Kotlin companion constants become static fields on the
-        // mixin class, which Sponge Mixin rejects unless the generated field is private.
+        // Attach the switch directly to Aeroworks' visual screen instead of the
+        // physical monitor edge. JEI owns those outer side regions and may consume clicks there.
         val buttonWidth = 96
         val buttonHeight = 20
-        val margin = 6
+        val buttonX = leftPos + (imageWidth - buttonWidth) / 2
+        val buttonY = (topPos - buttonHeight).coerceAtLeast(0)
 
         addRenderableWidget(
             Button.builder(Component.translatable("guide.cc_aeroworks.tab.computers")) {
                 PacketDistributor.sendToServer(
                     SwitchControlDeskUiPayload(SwitchControlDeskUiPayload.Target.COMPUTER)
                 )
-            }.bounds(width - buttonWidth - margin, margin, buttonWidth, buttonHeight).build()
+            }.bounds(buttonX, buttonY, buttonWidth, buttonHeight).build()
         )
     }
 }

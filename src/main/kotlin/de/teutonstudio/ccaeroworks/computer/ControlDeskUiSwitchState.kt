@@ -1,5 +1,6 @@
 package de.teutonstudio.ccaeroworks.computer
 
+import dan200.computercraft.shared.computer.menu.ComputerMenu
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
@@ -13,6 +14,7 @@ import net.minecraft.world.InteractionHand
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.Level
+import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.Vec3
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent
@@ -83,7 +85,10 @@ object ControlDeskUiSwitchState {
 
     @JvmStatic
     fun switchToControls(player: ServerPlayer): Boolean {
-        val session = validSession(player) ?: return false
+        // Normally the originating world click gives us the exact desk and hit face. If that
+        // interaction context was lost, recover the embedded computer's world position from
+        // the currently open CC:Tweaked menu instead of turning the button into decorative art.
+        val session = validSession(player) ?: sessionFromOpenComputer(player) ?: return false
         val level = player.serverLevel()
         val state = level.getBlockState(session.pos)
         if (!AeroworksTypes.isControlDesk(state.block)) return false
@@ -111,6 +116,34 @@ object ControlDeskUiSwitchState {
             player.setShiftKeyDown(wasShiftDown)
         }
         return true
+    }
+
+    private fun sessionFromOpenComputer(player: ServerPlayer): Session? {
+        val computerMenu = player.containerMenu as? ComputerMenu ?: return null
+        val computer = runCatching { computerMenu.computer }.getOrNull() ?: return null
+        val level = player.serverLevel()
+        if (computer.level !== level) return null
+
+        val pos = computer.position
+        if (!level.hasChunkAt(pos) || !level.mayInteract(player, pos)) return null
+        val state = level.getBlockState(pos)
+        if (!AeroworksTypes.isControlDesk(state.block)) return null
+
+        val face = if (state.hasProperty(BlockStateProperties.HORIZONTAL_FACING)) {
+            state.getValue(BlockStateProperties.HORIZONTAL_FACING)
+        } else {
+            Direction.NORTH
+        }
+        val center = pos.center
+        val session = Session(
+            level.dimension(),
+            pos.immutable(),
+            center.add(face.stepX * 0.5, 0.0, face.stepZ * 0.5),
+            face,
+            false
+        )
+        sessions[player.uuid] = session
+        return validSession(player)
     }
 
     private fun validSession(player: ServerPlayer): Session? {
