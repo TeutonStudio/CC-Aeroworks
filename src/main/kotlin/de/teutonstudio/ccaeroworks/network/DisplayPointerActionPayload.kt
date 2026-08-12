@@ -40,7 +40,7 @@ data class DisplayPointerActionPayload(
                     val socket = buffer.readVarInt()
                     val u = buffer.readDouble()
                     val v = buffer.readDouble()
-                    val actionOrdinal = buffer.readUnsignedByte()
+                    val actionOrdinal = buffer.readUnsignedByte().toInt()
                     val action = DisplayPointerAction.entries.getOrNull(actionOrdinal)
                         ?: throw IllegalArgumentException("Unknown display pointer action $actionOrdinal")
                     return DisplayPointerActionPayload(pos, socket, u, v, action)
