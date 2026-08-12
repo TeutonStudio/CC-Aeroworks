@@ -148,18 +148,23 @@ object RadarOverlayRenderer {
                     buffers,
                     partialTicks
                 )
+                val compassRendered = if (rendered) {
+                    RadarCompassRenderer.render(desk, poseStack, buffers)
+                } else {
+                    false
+                }
                 val legendRendered = if (rendered) {
                     RadarLegendRenderer.render(desk, poseStack, buffers)
                 } else {
                     false
                 }
-                renderedAny = rendered || legendRendered || renderedAny
+                renderedAny = rendered || compassRendered || legendRendered || renderedAny
                 RadarTrace.periodic(
                     "R08_NATIVE_RETURN",
                     level,
                     desk.blockPos,
                     10L,
-                    "native=$rendered legend=$legendRendered aggregateRenderedAny=$renderedAny"
+                    "native=$rendered compass=$compassRendered legend=$legendRendered aggregateRenderedAny=$renderedAny"
                 )
             } catch (throwable: Throwable) {
                 RadarTrace.event(
@@ -180,7 +185,7 @@ object RadarOverlayRenderer {
                 level,
                 null,
                 10L,
-                "native radar or large-display legend rendered; flushing BufferSource.endBatch()"
+                "native radar, compass or large-display legend rendered; flushing BufferSource.endBatch()"
             )
             buffers.endBatch()
         } else {
