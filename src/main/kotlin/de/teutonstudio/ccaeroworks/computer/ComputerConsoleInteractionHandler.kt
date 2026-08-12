@@ -93,6 +93,8 @@ object ComputerConsoleInteractionHandler {
     }
 
     private fun openControlDefinition(event: PlayerInteractEvent.RightClickBlock) {
+        ControlDeskUiSwitchState.remember(event)
+
         // Aeroworks opens the console overview/configuration from its held-item block path
         // when the player is sneaking. Reserve that exact native path for a horizontal wrench
         // right-click, without changing the player's persistent crouch state.
@@ -119,6 +121,8 @@ object ComputerConsoleInteractionHandler {
     }
 
     private fun openComputerTerminal(event: PlayerInteractEvent.RightClickBlock): Boolean {
+        ControlDeskUiSwitchState.remember(event)
+
         // The client consumes the deliberately reserved interaction. Computer creation and
         // menu opening are server-only operations and are handled by the matching server event.
         if (event.level.isClientSide) {
