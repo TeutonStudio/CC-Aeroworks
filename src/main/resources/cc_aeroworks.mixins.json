@@ -14,6 +14,7 @@
     "ConsoleBlockEntityInvoker",
     "ConsoleBlockEntityDeskIdMixin",
     "ConsoleBlockEntityRadarMixin",
+    "compat.ConsoleBlockEntitySableMountFrameMixin",
     "compat.CreateRadarDataLinkTargetMixin"
   ],
   "client": [
@@ -29,6 +30,7 @@
     "client.ModuleScreenAccessor",
     "client.ModuleScreenInvoker",
     "client.ModuleScreenCombinedInputMixin",
+    "client.OrientedBoxOutlineMixin",
     "client.SubLevelPoseClientMixin"
   ],
   "injectors": {

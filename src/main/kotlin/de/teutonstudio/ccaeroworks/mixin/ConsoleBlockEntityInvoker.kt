@@ -8,6 +8,9 @@ import java.util.function.Predicate
 
 @Mixin(value = [ConsoleBlockEntity::class], remap = false)
 interface ConsoleBlockEntityInvoker {
+    @Invoker("mountSpots")
+    fun ccaeroworks_mountSpots(): List<ConsoleBlockEntity.MountSpot>
+
     @Invoker("nearestMount")
     fun ccaeroworks_nearestMount(
         from: Vec3,
