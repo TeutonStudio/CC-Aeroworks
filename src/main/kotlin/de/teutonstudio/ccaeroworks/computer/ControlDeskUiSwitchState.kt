@@ -14,6 +14,7 @@ import net.minecraft.world.InteractionHand
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.Level
+import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.Vec3
@@ -85,9 +86,11 @@ object ControlDeskUiSwitchState {
 
     @JvmStatic
     fun switchToControls(player: ServerPlayer): Boolean {
-        // Normally the originating world click gives us the exact desk and hit face. If that
-        // interaction context was lost, recover the embedded computer's world position from
-        // the currently open CC:Tweaked menu instead of turning the button into decorative art.
+        // The terminal may have been opened by clicking any face of the desk. Aeroworks'
+        // definition interaction, however, is deliberately reserved for horizontal desk
+        // faces. Replaying the terminal's original UP/DOWN hit therefore cannot open the
+        // definition screen. Always synthesize the same horizontal interaction used by the
+        // real wrench handler, while keeping the original physical desk as the target.
         val session = validSession(player) ?: sessionFromOpenComputer(player) ?: return false
         val level = player.serverLevel()
         val state = level.getBlockState(session.pos)
@@ -96,12 +99,8 @@ object ControlDeskUiSwitchState {
         val wrench = BuiltInRegistries.ITEM.get(ResourceLocation.fromNamespaceAndPath("create", "wrench"))
         if (wrench === Items.AIR) return false
 
-        val hit = BlockHitResult(
-            session.location,
-            session.face,
-            session.pos,
-            session.inside
-        )
+        val hit = definitionHit(state, session.pos)
+        val previousMenu = player.containerMenu
         val wasShiftDown = player.isShiftKeyDown
         try {
             player.setShiftKeyDown(true)
@@ -115,7 +114,11 @@ object ControlDeskUiSwitchState {
         } finally {
             player.setShiftKeyDown(wasShiftDown)
         }
-        return true
+
+        // Menu opening is synchronous on the server. Returning whether Aeroworks actually
+        // replaced the CC menu keeps failures observable instead of reporting a decorative
+        // button press as success.
+        return player.containerMenu !== previousMenu
     }
 
     private fun sessionFromOpenComputer(player: ServerPlayer): Session? {
@@ -129,21 +132,31 @@ object ControlDeskUiSwitchState {
         val state = level.getBlockState(pos)
         if (!AeroworksTypes.isControlDesk(state.block)) return null
 
+        val hit = definitionHit(state, pos)
+        val session = Session(
+            level.dimension(),
+            pos.immutable(),
+            hit.location,
+            hit.direction,
+            hit.isInside
+        )
+        sessions[player.uuid] = session
+        return validSession(player)
+    }
+
+    private fun definitionHit(state: BlockState, pos: BlockPos): BlockHitResult {
         val face = if (state.hasProperty(BlockStateProperties.HORIZONTAL_FACING)) {
             state.getValue(BlockStateProperties.HORIZONTAL_FACING)
         } else {
             Direction.NORTH
         }
         val center = pos.center
-        val session = Session(
-            level.dimension(),
-            pos.immutable(),
+        return BlockHitResult(
             center.add(face.stepX * 0.5, 0.0, face.stepZ * 0.5),
             face,
+            pos,
             false
         )
-        sessions[player.uuid] = session
-        return validSession(player)
     }
 
     private fun validSession(player: ServerPlayer): Session? {
