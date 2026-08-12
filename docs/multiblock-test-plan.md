@@ -213,10 +213,18 @@ Erwartung:
 ## MB-SABLE-01: Statisches und bewegtes Schiff
 
 1. Pultnetz auf Sable montieren.
-2. statisch und während realer Bewegung testen.
-3. Terminal, Desk-Adressen, globale Suche, Eingaben, Displays und Radar prüfen.
+2. Statisch, während Translation, während Rotation und während kombinierter Bewegung testen.
+3. Ein Aeroworks-Steuermodul zunächst auf einem normalen Control Desk, danach auf normalem und Advanced-Computer-ControlDesk in der Hand halten und über alle freien Sockel bewegen.
+4. Ghost-Vorschau und Platzierungs-/Entfernungs-Outlines mit den tatsächlichen Sockeln vergleichen und das Modul montieren.
+5. Terminal, Desk-Adressen, globale Suche, Eingaben, Displays und Radar prüfen.
 
-Erwartung: Desk-ID, Computer-ID, Rendering und Daten bleiben stabil. Positionsschlüssel dürfen sich entsprechend der tatsächlichen Weltposition ändern und müssen danach neu aufgelöst werden.
+Erwartung:
+
+- Ghost-Vorschau und Outlines liegen bei statischem und bewegtem SubLevel ohne Versatz und ohne doppelte Rotation auf dem tatsächlich gewählten Sockel,
+- nach der Montage befindet sich das Modul genau dort, wo die Vorschau es angezeigt hat,
+- normales Aeroworks-Pult sowie normale und Advanced-Computer-Pulte verhalten sich identisch,
+- Desk-ID, Computer-ID, übriges Rendering und Daten bleiben stabil,
+- Positionsschlüssel dürfen sich entsprechend der tatsächlichen Weltposition ändern und müssen danach neu aufgelöst werden.
 
 ## MB-VERSIONS-01: CC:Tweaked
 
