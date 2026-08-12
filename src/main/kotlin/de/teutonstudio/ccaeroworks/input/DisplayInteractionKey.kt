@@ -2,6 +2,7 @@ package de.teutonstudio.ccaeroworks.input
 
 import com.mojang.blaze3d.platform.InputConstants
 import net.minecraft.client.KeyMapping
+import net.minecraft.client.Minecraft
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent
 import org.lwjgl.glfw.GLFW
@@ -20,6 +21,10 @@ object DisplayInteractionKey {
     fun register(modBus: IEventBus) {
         modBus.addListener(::registerKeyMappings)
     }
+
+    @JvmStatic
+    fun isDown(minecraft: Minecraft): Boolean =
+        CombinedActivationKey.isDown(KEY_MAPPING.saveString(), minecraft)
 
     private fun registerKeyMappings(event: RegisterKeyMappingsEvent) {
         event.register(KEY_MAPPING)

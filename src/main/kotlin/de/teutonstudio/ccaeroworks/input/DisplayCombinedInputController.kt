@@ -30,12 +30,12 @@ object DisplayCombinedInputController {
     @SubscribeEvent
     fun onClientTick(event: ClientTickEvent.Post) {
         val minecraft = Minecraft.getInstance()
-        refreshSuppression()
+        refreshSuppression(minecraft)
         acquireTargetIfPossible(minecraft)
         val active = target ?: return
 
-        if (!DisplayInteractionKey.KEY_MAPPING.isDown || !targetStillValid(minecraft, active)) {
-            if (DisplayInteractionKey.KEY_MAPPING.isDown) suppressedUntilRelease = true
+        if (!DisplayInteractionKey.isDown(minecraft) || !targetStillValid(minecraft, active)) {
+            if (DisplayInteractionKey.isDown(minecraft)) suppressedUntilRelease = true
             stop()
         }
     }
@@ -43,11 +43,11 @@ object DisplayCombinedInputController {
     @SubscribeEvent
     fun onCalculateTurn(event: CalculatePlayerTurnEvent) {
         val minecraft = Minecraft.getInstance()
-        refreshSuppression()
+        refreshSuppression(minecraft)
         acquireTargetIfPossible(minecraft)
         val active = target ?: return
 
-        if (!DisplayInteractionKey.KEY_MAPPING.isDown) {
+        if (!DisplayInteractionKey.isDown(minecraft)) {
             stop()
             return
         }
@@ -72,12 +72,20 @@ object DisplayCombinedInputController {
 
     @SubscribeEvent
     fun onMouseButton(event: InputEvent.MouseButton.Pre) {
+        val minecraft = Minecraft.getInstance()
+        refreshSuppression(minecraft)
+        acquireTargetIfPossible(minecraft)
         val active = target ?: return
         if (event.button != GLFW.GLFW_MOUSE_BUTTON_LEFT && event.button != GLFW.GLFW_MOUSE_BUTTON_RIGHT) return
 
         // Consume press and release so vanilla attack/use state cannot leak through the pointer session.
         event.isCanceled = true
-        if (event.action != GLFW.GLFW_PRESS || !DisplayInteractionKey.KEY_MAPPING.isDown) return
+        if (event.action != GLFW.GLFW_PRESS || !DisplayInteractionKey.isDown(minecraft)) return
+        if (!targetStillValid(minecraft, active)) {
+            suppressedUntilRelease = true
+            stop()
+            return
+        }
 
         val action = if (event.button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
             DisplayPointerAction.TAP
@@ -95,14 +103,14 @@ object DisplayCombinedInputController {
     @SubscribeEvent
     fun onClone(event: ClientPlayerNetworkEvent.Clone) = reset()
 
-    private fun refreshSuppression() {
-        if (suppressedUntilRelease && !DisplayInteractionKey.KEY_MAPPING.isDown) {
+    private fun refreshSuppression(minecraft: Minecraft) {
+        if (suppressedUntilRelease && !DisplayInteractionKey.isDown(minecraft)) {
             suppressedUntilRelease = false
         }
     }
 
     private fun acquireTargetIfPossible(minecraft: Minecraft) {
-        if (target != null || suppressedUntilRelease || !DisplayInteractionKey.KEY_MAPPING.isDown) return
+        if (target != null || suppressedUntilRelease || !DisplayInteractionKey.isDown(minecraft)) return
         target = acquireTarget(minecraft)
     }
 
@@ -114,7 +122,12 @@ object DisplayCombinedInputController {
         val hit = minecraft.hitResult as? BlockHitResult ?: return null
         if (hit.type != HitResult.Type.BLOCK) return null
         val desk = level.getBlockEntity(hit.blockPos) as? ConsoleBlockEntity ?: return null
-        val pointer = DeskDisplayGeometry.resolveHit(desk, hit.location) ?: return null
+
+        val from = player.eyePosition
+        val to = from.add(player.getViewVector(1.0f).scale(player.blockInteractionRange()))
+        val pointer = DeskDisplayGeometry.resolveRay(desk, from, to)
+            ?: DeskDisplayGeometry.resolveHit(desk, hit.location)
+            ?: return null
 
         return DisplayCombinedTarget(
             dimension = level.dimension(),

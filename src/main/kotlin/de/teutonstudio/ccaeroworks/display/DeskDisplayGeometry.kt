@@ -8,6 +8,7 @@ import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 import net.minecraft.world.phys.Vec3
 import org.joml.Matrix4f
 import org.joml.Vector3f
+import kotlin.math.abs
 import kotlin.math.floor
 
 data class DeskDisplayPointer(
@@ -39,6 +40,7 @@ object DeskDisplayGeometry {
     const val MIN_Z: Double = 4.5 / 16.0
     const val MAX_Z: Double = 11.5 / 16.0
     const val SURFACE_Y: Double = 2.2 / 16.0
+    private const val RAY_EPSILON: Double = 1.0e-7
 
     @JvmStatic
     fun resolveHit(desk: ConsoleBlockEntity, hitLocation: Vec3): DeskDisplayPointer? {
@@ -50,15 +52,35 @@ object DeskDisplayGeometry {
             (hitLocation.z - desk.blockPos.z).toFloat()
         )
         inverse.transformPosition(local)
+        return pointerFromLocal(descriptor, local.x.toDouble(), local.z.toDouble())
+    }
 
-        val x = local.x.toDouble()
-        val z = local.z.toDouble()
-        if (x !in MIN_X..MAX_X || z !in MIN_Z..MAX_Z) return null
+    @JvmStatic
+    fun resolveRay(desk: ConsoleBlockEntity, rayStart: Vec3, rayEnd: Vec3): DeskDisplayPointer? {
+        val descriptor = descriptor(desk, LARGE_SOCKET) ?: return null
+        val inverse = moduleTransform(desk, LARGE_SOCKET)?.invert() ?: return null
 
-        return descriptor.copy(
-            u = ((x - MIN_X) / (MAX_X - MIN_X)).coerceIn(0.0, 1.0),
-            v = ((MAX_Z - z) / (MAX_Z - MIN_Z)).coerceIn(0.0, 1.0)
+        val localStart = Vector3f(
+            (rayStart.x - desk.blockPos.x).toFloat(),
+            (rayStart.y - desk.blockPos.y).toFloat(),
+            (rayStart.z - desk.blockPos.z).toFloat()
         )
+        val localEnd = Vector3f(
+            (rayEnd.x - desk.blockPos.x).toFloat(),
+            (rayEnd.y - desk.blockPos.y).toFloat(),
+            (rayEnd.z - desk.blockPos.z).toFloat()
+        )
+        inverse.transformPosition(localStart)
+        inverse.transformPosition(localEnd)
+
+        val dy = localEnd.y.toDouble() - localStart.y.toDouble()
+        if (abs(dy) <= RAY_EPSILON) return null
+        val t = (SURFACE_Y - localStart.y.toDouble()) / dy
+        if (t < 0.0 || t > 1.0) return null
+
+        val x = localStart.x.toDouble() + (localEnd.x.toDouble() - localStart.x.toDouble()) * t
+        val z = localStart.z.toDouble() + (localEnd.z.toDouble() - localStart.z.toDouble()) * t
+        return pointerFromLocal(descriptor, x, z)
     }
 
     @JvmStatic
@@ -101,6 +123,18 @@ object DeskDisplayGeometry {
         return floor(normalized.coerceIn(0.0, 1.0) * count)
             .toInt()
             .coerceIn(0, count - 1) + 1
+    }
+
+    private fun pointerFromLocal(
+        descriptor: DeskDisplayPointer,
+        x: Double,
+        z: Double
+    ): DeskDisplayPointer? {
+        if (x !in MIN_X..MAX_X || z !in MIN_Z..MAX_Z) return null
+        return descriptor.copy(
+            u = ((x - MIN_X) / (MAX_X - MIN_X)).coerceIn(0.0, 1.0),
+            v = ((MAX_Z - z) / (MAX_Z - MIN_Z)).coerceIn(0.0, 1.0)
+        )
     }
 
     private fun descriptor(desk: ConsoleBlockEntity, socket: Int): DeskDisplayPointer? {
