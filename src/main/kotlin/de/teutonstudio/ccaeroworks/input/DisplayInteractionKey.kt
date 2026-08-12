@@ -7,7 +7,7 @@ import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent
 import org.lwjgl.glfw.GLFW
 
 object DisplayInteractionKey {
-    const val TRANSLATION_KEY: String = "item.cc_aeroworks.three_digit_display"
+    const val TRANSLATION_KEY: String = "key.cc_aeroworks.display_interaction"
 
     @JvmField
     val KEY_MAPPING: KeyMapping = KeyMapping(

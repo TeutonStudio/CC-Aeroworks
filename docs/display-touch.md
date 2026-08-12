@@ -4,7 +4,7 @@ Die große Pultanzeige und die große Radaranzeige verwenden ausschließlich den
 
 ## Bedienung
 
-1. Im Minecraft-Menü `Steuerung` unter `Sonstiges/Misc` die eigene Tastenbelegung `Große Pultanzeige` / `Large Desk Display` belegen.
+1. Im Minecraft-Menü `Steuerung` unter `Sonstiges/Misc` die eigene Tastenbelegung `Display-Bedienung` / `Display interaction` belegen.
 2. Das große Display oder große Radar mit dem Fadenkreuz ansehen.
 3. Die Taste gedrückt halten.
 4. Die Kamera wird eingefroren und ein halbtransparenter 3D-Zeiger erscheint orthogonal auf der Displayfläche.

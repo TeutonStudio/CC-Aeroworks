@@ -8,6 +8,7 @@
   "block.cc_aeroworks.computer_control_desk": "Computer Control Desk",
   "block.cc_aeroworks.advanced_computer_control_desk": "Advanced Computer Control Desk",
   "input.cc_aeroworks.combined": "Combined",
+  "key.cc_aeroworks.display_interaction": "Display interaction",
   "gui.cc_aeroworks.module.mode_combined_x": "Input Type: Combined (configured key + Mouse X)",
   "gui.cc_aeroworks.module.mode_combined_y": "Input Type: Combined (configured key + Mouse Y)",
   "message.cc_aeroworks.console_conflict": "Multiple computer control desks are connected. Split the multiblock or open one computer desk directly.",
