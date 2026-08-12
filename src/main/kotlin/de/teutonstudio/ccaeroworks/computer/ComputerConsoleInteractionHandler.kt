@@ -1,12 +1,7 @@
 package de.teutonstudio.ccaeroworks.computer
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import com.simibubi.create.content.equipment.wrench.WrenchItem
-import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
-import de.teutonstudio.ccaeroworks.compat.computercraft.ControlDeskPeripheralState
-import de.teutonstudio.ccaeroworks.display.DeskDisplayTouch
-import de.teutonstudio.ccaeroworks.display.DeskDisplayTouchResolver
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import net.minecraft.network.chat.Component
@@ -20,14 +15,6 @@ object ComputerConsoleInteractionHandler {
     @SubscribeEvent
     fun onRightClickBlock(event: PlayerInteractEvent.RightClickBlock) {
         if (!AeroworksTypes.isControlDesk(event.level.getBlockState(event.pos).block)) {
-            return
-        }
-
-        if (event.hand == InteractionHand.MAIN_HAND &&
-            !event.entity.isCrouching &&
-            event.itemStack.isEmpty &&
-            touchLargeDisplay(event)
-        ) {
             return
         }
 
@@ -50,46 +37,9 @@ object ComputerConsoleInteractionHandler {
             return
         }
 
-        // All other right-clicks, including the empty-hand control interaction and module
-        // installation/removal, are native Aeroworks behaviour and must not be consumed here.
-    }
-
-    private fun touchLargeDisplay(event: PlayerInteractEvent.RightClickBlock): Boolean {
-        val desk = event.level.getBlockEntity(event.pos) as? ConsoleBlockEntity ?: return false
-        val touch = DeskDisplayTouchResolver.resolve(desk, event.hitVec.location) ?: return false
-
-        // Resolve on both sides so the client consumes exactly the same physical display area.
-        // Event delivery itself stays server-side.
-        if (!event.level.isClientSide) {
-            queueTouchEvents(desk, touch)
-        }
-        consume(event)
-        return true
-    }
-
-    private fun queueTouchEvents(desk: ConsoleBlockEntity, touch: DeskDisplayTouch) {
-        ControlDeskPeripheralState.queueDisplayTouch(desk, touch)
-
-        val level = desk.level ?: return
-        val snapshot = ConsoleMultiblockManager.resolve(level, desk.blockPos)
-        if (snapshot.state != ConsoleNetworkState.ACTIVE) return
-        val owner = snapshot.owner ?: return
-        val member = snapshot.members.firstOrNull { it.desk === desk } ?: return
-        val computer = owner.getServerComputer() ?: return
-        computer.queueEvent(
-            CCAeroworks.CONSOLE_TOUCH_EVENT,
-            arrayOf(
-                member.id,
-                member.index,
-                touch.socket,
-                touch.socketName,
-                touch.moduleId,
-                touch.x,
-                touch.y,
-                touch.width,
-                touch.height
-            )
-        )
+        // Display touches are deliberately not handled here anymore. Large displays and large
+        // radar displays accept programmable input only through the held display-combined key.
+        // All other right-clicks remain native Aeroworks behaviour.
     }
 
     private fun openControlDefinition(event: PlayerInteractEvent.RightClickBlock) {

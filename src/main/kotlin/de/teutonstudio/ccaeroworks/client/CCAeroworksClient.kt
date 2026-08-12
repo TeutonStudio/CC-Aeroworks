@@ -6,11 +6,14 @@ import com.mred231.aeroworks.foundation.input.InputSource
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.client.creative.AeroworksCreativeSections
 import de.teutonstudio.ccaeroworks.client.display.DeskDisplayModels
+import de.teutonstudio.ccaeroworks.client.display.DisplayPointerRenderer
 import de.teutonstudio.ccaeroworks.client.display.RadarOverlayRenderer
 import de.teutonstudio.ccaeroworks.client.ponder.CCAeroworksPonderPlugin
 import de.teutonstudio.ccaeroworks.compat.createradar.RadarTrace
 import de.teutonstudio.ccaeroworks.input.CombinedInputSource
 import de.teutonstudio.ccaeroworks.input.CombinedLeverController
+import de.teutonstudio.ccaeroworks.input.DisplayCombinedInputController
+import de.teutonstudio.ccaeroworks.input.DisplayInteractionKey
 import de.teutonstudio.ccaeroworks.registry.CCBlockEntities
 import dev.engine_room.flywheel.lib.visualization.SimpleBlockEntityVisualizer
 import net.createmod.ponder.foundation.PonderIndex
@@ -38,11 +41,13 @@ object CCAeroworksClient {
             "CCAeroworksClient.register entered; registering RadarOverlayRenderer::renderLevel on NeoForge.EVENT_BUS"
         )
         DeskDisplayModels.init()
+        DisplayInteractionKey.register(modBus)
         modBus.addListener(::clientSetup)
         modBus.addListener(::registerRenderers)
         modBus.addListener<ModelEvent.RegisterAdditional>(ConsoleMultiblockModels::registerAdditional)
         modBus.addListener<ModelEvent.ModifyBakingResult>(::modifyBakingResult)
         NeoForge.EVENT_BUS.addListener(RadarOverlayRenderer::renderLevel)
+        NeoForge.EVENT_BUS.addListener(DisplayPointerRenderer::renderLevel)
         RadarTrace.event(
             "C00_OVERLAY_LISTENER_REGISTERED",
             null,
@@ -50,6 +55,7 @@ object CCAeroworksClient {
             "NeoForge.EVENT_BUS.addListener(RadarOverlayRenderer::renderLevel) completed"
         )
         NeoForge.EVENT_BUS.register(CombinedLeverController)
+        NeoForge.EVENT_BUS.register(DisplayCombinedInputController)
         NeoForge.EVENT_BUS.register(AeroworksCreativeSections)
         NeoForge.EVENT_BUS.register(GuideBookClientHandler)
         NeoForge.EVENT_BUS.register(DisplayTooltipHandler)
@@ -63,10 +69,6 @@ object CCAeroworksClient {
             InputSource.displayName(CombinedInputSource.ID)
             PonderIndex.addPlugin(CCAeroworksPonderPlugin())
 
-            // Aeroworks registers ConsoleVisual for its own block entity type. Normal and
-            // advanced ComputerControlDesk share CC-Aeroworks' custom type, so register the
-            // same native visual explicitly. ConsoleVisualMixin appends normal display layers;
-            // RadarDisplay itself is drawn by the shared native-monitor overlay.
             SimpleBlockEntityVisualizer.builder(CCBlockEntities.COMPUTER_CONTROL_DESK.get())
                 .factory { context, blockEntity, partialTick ->
                     ConsoleVisual(context, blockEntity, partialTick)
