@@ -46,6 +46,15 @@ repositories {
     exclusiveContent {
         forRepository {
             maven {
+                name = 'RyanHCode'
+                url = 'https://maven.ryanhcode.dev/releases'
+            }
+        }
+        filter { includeGroup('dev.ryanhcode.sable-companion') }
+    }
+    exclusiveContent {
+        forRepository {
+            maven {
                 name = 'CurseMaven'
                 url = 'https://cursemaven.com'
             }
@@ -124,6 +133,9 @@ configurations {
 dependencies {
     implementation("thedarkcolour:kotlinforforge-neoforge:${kotlin_for_forge_version}")
     compileOnly("io.github.llamalad7:mixinextras-neoforge:0.5.0")
+    // Sable 2.0.1 embeds Companion 1.6.0 with jarJar. The nested JAR is available
+    // at runtime, but it is not part of the Kotlin compile classpath of local mod JARs.
+    compileOnly("dev.ryanhcode.sable-companion:sable-companion-common-${minecraft_version}:1.6.0")
     implementation fileTree(
         dir: modDependencyDirectory,
         include: ['*.jar'],
