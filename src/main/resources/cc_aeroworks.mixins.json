@@ -28,7 +28,8 @@
     "client.InputSourceMixin",
     "client.ModuleScreenAccessor",
     "client.ModuleScreenInvoker",
-    "client.ModuleScreenCombinedInputMixin"
+    "client.ModuleScreenCombinedInputMixin",
+    "client.SubLevelPoseClientMixin"
   ],
   "injectors": {
     "defaultRequire": 1
