@@ -98,10 +98,10 @@ def verify_manifest() -> None:
             fail(f"Invalid filename pattern for {identity}: {exception}")
 
         filename_examples = dependency.get("filenameExamples")
-        if filename_examples is not None:
-            if not isinstance(filename_examples, list) or not filename_examples:
+        if filenameExamples := filename_examples:
+            if not isinstance(filenameExamples, list):
                 fail(f"filenameExamples for {identity[0]}:{identity[1]} must be a non-empty list")
-            for example_index, example in enumerate(filename_examples):
+            for example_index, example in enumerate(filenameExamples):
                 if not isinstance(example, str) or not example:
                     fail(
                         f"filenameExamples[{example_index}] for "
@@ -112,6 +112,8 @@ def verify_manifest() -> None:
                         f"Known filename does not match filenamePattern for "
                         f"{identity[0]}:{identity[1]}: {example}"
                     )
+        elif filename_examples is not None:
+            fail(f"filenameExamples for {identity[0]}:{identity[1]} must be a non-empty list")
 
         checksum = dependency["sha256"]
         if checksum is not None and not re.fullmatch(r"[0-9a-fA-F]{64}", str(checksum)):
@@ -196,15 +198,16 @@ def verify_lua_examples() -> None:
             "restoreDisplay",
         ),
         "embedded-console.lua": (
+            "Read-only inspector",
             "peripherals",
             "getNetwork",
-            "Select input",
-            "Select display",
-            "cc_aeroworks_console_input",
-            "cc_aeroworks_console_changed",
-            "Periodic validation",
-            "os.pullEventRaw",
-            "restoreDisplay",
+            "getModules",
+            "getInputs",
+            "getDisplays",
+            "getPeripherals",
+            "Inputs (raw values)",
+            "One Desk found; inspecting it automatically.",
+            "r to refresh",
         ),
         "input-monitor.lua": (
             "getInputs",
@@ -217,16 +220,18 @@ def verify_lua_examples() -> None:
             "No numeric input channels found",
         ),
         "multiblock-dashboard.lua": (
+            "Live read-only overview",
+            "peripherals",
             "peripheral.getNames",
+            "getNetwork",
+            "getModules",
             "getInputs",
             "getDisplays",
-            "Select input",
-            "Select display",
-            "cc_aeroworks_desk_input",
-            "peripheral_detach",
-            "stableId",
+            "embedded",
+            "local/wired",
             "os.pullEventRaw",
-            "restoreDisplay",
+            "keys.pageUp",
+            "peripheral_detach",
         ),
         "pixel-test.lua": (
             "getDisplays",
@@ -259,6 +264,10 @@ def verify_lua_examples() -> None:
         violations += [description for pattern, description in deprecated_patterns.items() if pattern in content]
         if violations:
             fail(f"{filename} contains brittle or deprecated example logic: {', '.join(sorted(set(violations)))}")
+
+    for filename in ("embedded-console.lua", "multiblock-dashboard.lua"):
+        if "setDisplay" in scripts[filename] or "clearDisplay" in scripts[filename]:
+            fail(f"{filename} must remain read-only; use dashboard.lua for Input-to-Display examples")
 
 
 def verify_text_files() -> None:
