@@ -1,7 +1,6 @@
 package de.teutonstudio.ccaeroworks.client.ponder;
 
 import com.simibubi.create.foundation.ponder.CreateSceneBuilder;
-import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes;
 import de.teutonstudio.ccaeroworks.registry.CCItems;
 import net.createmod.catnip.math.Pointing;
 import net.createmod.ponder.api.PonderPalette;
@@ -12,9 +11,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
 public class DisplayModuleScenes {
     private static final ResourceLocation MECHANICAL_PRESS =
@@ -33,8 +30,15 @@ public class DisplayModuleScenes {
         scene.showBasePlate();
         scene.idle(10);
 
+        BlockPos smallResultDesk = util.grid().at(0, 1, 2);
         BlockPos depot = util.grid().at(2, 1, 2);
         BlockPos press = util.grid().at(2, 2, 2);
+        BlockPos largeResultDesk = util.grid().at(4, 1, 2);
+
+        scene.world().setBlock(smallResultDesk, PonderDeskSetup.normalDesk(), false);
+        PonderDeskSetup.mount(scene, smallResultDesk, 2, new ItemStack(CCItems.TWO_DIGIT_DISPLAY.get()));
+        scene.world().setBlock(largeResultDesk, PonderDeskSetup.normalDesk(), false);
+        PonderDeskSetup.mount(scene, largeResultDesk, 2, new ItemStack(CCItems.THREE_DIGIT_DISPLAY.get()));
         scene.world().setBlock(depot, blockState(DEPOT), false);
         scene.world().setBlock(press, blockState(MECHANICAL_PRESS), false);
         scene.world().showSection(util.select().fromTo(depot, press), Direction.DOWN);
@@ -49,8 +53,8 @@ public class DisplayModuleScenes {
             .placeNearTarget();
         scene.idle(85);
         scene.effects().indicateSuccess(depot);
-        scene.overlay().showControls(util.vector().topOf(depot), Pointing.DOWN, 45)
-            .withItem(new ItemStack(CCItems.TWO_DIGIT_DISPLAY.get()));
+        scene.world().showSection(util.select().position(smallResultDesk), Direction.DOWN);
+        scene.effects().indicateSuccess(smallResultDesk);
         scene.idle(55);
 
         scene.overlay().showControls(util.vector().topOf(depot), Pointing.DOWN, 55)
@@ -62,15 +66,15 @@ public class DisplayModuleScenes {
             .placeNearTarget();
         scene.idle(85);
         scene.effects().indicateSuccess(depot);
-        scene.overlay().showControls(util.vector().topOf(depot), Pointing.DOWN, 45)
-            .withItem(new ItemStack(CCItems.THREE_DIGIT_DISPLAY.get()));
+        scene.world().showSection(util.select().position(largeResultDesk), Direction.DOWN);
+        scene.effects().indicateSuccess(largeResultDesk);
         scene.idle(55);
 
         scene.overlay().showText(80)
             .attachKeyFrame()
             .colored(PonderPalette.GREEN)
             .text(PonderText.get("ponder.cc_aeroworks.display_crafting.text_3"))
-            .pointAt(util.vector().topOf(depot))
+            .pointAt(util.vector().topOf(smallResultDesk))
             .placeNearTarget();
         scene.idle(90);
 
@@ -93,16 +97,16 @@ public class DisplayModuleScenes {
         BlockPos left = util.grid().at(1, 1, 2);
         BlockPos middle = util.grid().at(2, 1, 2);
         BlockPos right = util.grid().at(3, 1, 2);
-        scene.world().setBlock(left, normalDesk(), false);
-        scene.world().setBlock(middle, normalDesk(), false);
-        scene.world().setBlock(right, normalDesk(), false);
-        scene.world().showSection(util.select().fromTo(left, right), Direction.DOWN);
-        scene.idle(20);
+        scene.world().setBlock(left, PonderDeskSetup.normalDesk(), false);
+        scene.world().setBlock(middle, PonderDeskSetup.normalDesk(), false);
+        scene.world().setBlock(right, PonderDeskSetup.normalDesk(), false);
+        PonderDeskSetup.mount(scene, left, 0, new ItemStack(CCItems.TWO_DIGIT_DISPLAY.get()));
+        PonderDeskSetup.mount(scene, left, 1, new ItemStack(CCItems.TWO_DIGIT_DISPLAY.get()));
+        PonderDeskSetup.mount(scene, middle, 2, new ItemStack(CCItems.TWO_DIGIT_DISPLAY.get()));
+        PonderDeskSetup.mount(scene, right, 2, new ItemStack(CCItems.THREE_DIGIT_DISPLAY.get()));
 
-        scene.overlay().showControls(util.vector().of(1.25, 1.9, 2.5), Pointing.DOWN, 80)
-            .withItem(new ItemStack(CCItems.TWO_DIGIT_DISPLAY.get()));
-        scene.overlay().showControls(util.vector().of(1.75, 1.9, 2.5), Pointing.DOWN, 80)
-            .withItem(new ItemStack(CCItems.TWO_DIGIT_DISPLAY.get()));
+        scene.world().showSection(util.select().position(left), Direction.DOWN);
+        scene.idle(20);
         scene.overlay().showText(75)
             .attachKeyFrame()
             .colored(PonderPalette.GREEN)
@@ -111,8 +115,7 @@ public class DisplayModuleScenes {
             .placeNearTarget();
         scene.idle(85);
 
-        scene.overlay().showControls(util.vector().topOf(middle), Pointing.DOWN, 75)
-            .withItem(new ItemStack(CCItems.TWO_DIGIT_DISPLAY.get()));
+        scene.world().showSection(util.select().position(middle), Direction.WEST);
         scene.overlay().showText(75)
             .attachKeyFrame()
             .text(PonderText.get("ponder.cc_aeroworks.display_mounting.text_2"))
@@ -120,8 +123,7 @@ public class DisplayModuleScenes {
             .placeNearTarget();
         scene.idle(85);
 
-        scene.overlay().showControls(util.vector().topOf(right), Pointing.DOWN, 80)
-            .withItem(new ItemStack(CCItems.THREE_DIGIT_DISPLAY.get()));
+        scene.world().showSection(util.select().position(right), Direction.WEST);
         scene.overlay().showText(75)
             .attachKeyFrame()
             .text(PonderText.get("ponder.cc_aeroworks.display_mounting.text_3"))
@@ -150,11 +152,12 @@ public class DisplayModuleScenes {
         BlockPos computer = util.grid().at(1, 1, 2);
         BlockPos middle = util.grid().at(2, 1, 2);
         BlockPos right = util.grid().at(3, 1, 2);
+        scene.world().setBlock(middle, PonderDeskSetup.normalDesk(), false);
+        scene.world().setBlock(right, PonderDeskSetup.normalDesk(), false);
+        PonderDeskSetup.mount(scene, right, 2, new ItemStack(CCItems.THREE_DIGIT_DISPLAY.get()));
         scene.world().showSection(util.select().fromTo(computer, right), Direction.DOWN);
         scene.idle(20);
 
-        scene.overlay().showControls(util.vector().topOf(right), Pointing.DOWN, 70)
-            .withItem(new ItemStack(CCItems.THREE_DIGIT_DISPLAY.get()));
         scene.overlay().showText(75)
             .attachKeyFrame()
             .text(PonderText.get("ponder.cc_aeroworks.display_programming.text_1"))
@@ -192,12 +195,6 @@ public class DisplayModuleScenes {
             .placeNearTarget();
         scene.idle(100);
         scene.markAsFinished();
-    }
-
-    private static BlockState normalDesk() {
-        return AeroworksTypes.INSTANCE.vanillaControlDeskBlock()
-            .defaultBlockState()
-            .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH);
     }
 
     private static BlockState blockState(ResourceLocation id) {
