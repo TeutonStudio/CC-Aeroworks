@@ -17,9 +17,10 @@ abstract class AeroworksAnalogInputMixin {
     private companion object {
         @JvmStatic
         @Inject(method = ["feedMouseDelta(DD)V"], at = [At("HEAD")], cancellable = true)
-        private fun routeCombinedLever(deltaX: Double, deltaY: Double, callback: CallbackInfo) {
+        private fun suppressAeroworksMouseRouting(deltaX: Double, deltaY: Double, callback: CallbackInfo) {
             if (CombinedLeverController.isActive()) {
-                CombinedLeverController.consumeMouseDelta(deltaX, deltaY)
+                // CalculatePlayerTurnEvent is the single authoritative combined-input mouse path.
+                // Aeroworks must not feed the same physical delta into the accumulator a second time.
                 callback.cancel()
             }
         }

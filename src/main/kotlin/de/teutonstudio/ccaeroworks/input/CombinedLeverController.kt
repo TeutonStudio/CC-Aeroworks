@@ -25,13 +25,12 @@ object CombinedLeverController {
     @SubscribeEvent
     fun onClientTick(event: ClientTickEvent.Post) {
         val minecraft = Minecraft.getInstance()
-        suppressedBinding?.let {
-            if (!CombinedActivationKey.isDown(it, minecraft)) suppressedBinding = null
-        }
-        if (target == null && suppressedBinding == null) target = acquireTarget(minecraft)
+        refreshSuppression(minecraft)
+        acquireTargetIfPossible(minecraft)
         val active = target ?: return
-        if (!CombinedActivationKey.isDown(active.activationBinding, minecraft) || !targetStillValid(minecraft)) {
-            if (CombinedActivationKey.isDown(active.activationBinding, minecraft)) suppressedBinding = active.activationBinding
+        val activationDown = CombinedActivationKey.isDown(active.activationBinding, minecraft)
+        if (!activationDown || !targetStillValid(minecraft)) {
+            if (activationDown) suppressedBinding = active.activationBinding
             stop()
             return
         }
@@ -40,21 +39,53 @@ object CombinedLeverController {
 
     @SubscribeEvent
     fun onCalculateTurn(event: CalculatePlayerTurnEvent) {
-        if (!isActive()) return
         val minecraft = Minecraft.getInstance()
-        if (!targetStillValid(minecraft)) {
+        refreshSuppression(minecraft)
+        acquireTargetIfPossible(minecraft)
+        val active = target ?: return
+
+        // The turn event is the authoritative press/release boundary for combined input.
+        // Checking the activation key here avoids up to one client tick of control after release.
+        if (!CombinedActivationKey.isDown(active.activationBinding, minecraft)) {
             stop()
             return
         }
-        val mouse = minecraft.mouseHandler as MouseHandlerAccessor
-        consumeMouseDelta(mouse.ccaeroworks_getAccumulatedDX(), mouse.ccaeroworks_getAccumulatedDY())
-        // Vanilla computes (sensitivity * 0.6 + 0.2)^3. -1/3 therefore produces exactly zero rotation.
+        if (!targetStillValid(minecraft)) {
+            suppressedBinding = active.activationBinding
+            stop()
+            return
+        }
+
+        // Freeze the camera before consuming any control delta. A newly acquired target deliberately
+        // drops its first turn sample so mouse movement used to aim at the module cannot become input.
         event.mouseSensitivity = -1.0 / 3.0
         event.cinematicCameraEnabled = false
+        if (active.discardNextMouseSample) {
+            active.discardNextMouseSample = false
+            return
+        }
+
+        val mouse = minecraft.mouseHandler as MouseHandlerAccessor
+        consumeMouseDelta(mouse.ccaeroworks_getAccumulatedDX(), mouse.ccaeroworks_getAccumulatedDY())
     }
 
-    @JvmStatic
-    fun consumeMouseDelta(deltaX: Double, deltaY: Double) {
+    @SubscribeEvent
+    fun onLogout(event: ClientPlayerNetworkEvent.LoggingOut) = stop()
+
+    @SubscribeEvent
+    fun onClone(event: ClientPlayerNetworkEvent.Clone) = stop()
+
+    private fun refreshSuppression(minecraft: Minecraft) {
+        suppressedBinding?.let {
+            if (!CombinedActivationKey.isDown(it, minecraft)) suppressedBinding = null
+        }
+    }
+
+    private fun acquireTargetIfPossible(minecraft: Minecraft) {
+        if (target == null && suppressedBinding == null) target = acquireTarget(minecraft)
+    }
+
+    private fun consumeMouseDelta(deltaX: Double, deltaY: Double) {
         val active = target ?: return
         active.axes.forEach { axis ->
             val mouseAxis = CombinedInputSource.mouseAxis(axis.channel)
@@ -71,12 +102,6 @@ object CombinedLeverController {
         }
         sendPending()
     }
-
-    @SubscribeEvent
-    fun onLogout(event: ClientPlayerNetworkEvent.LoggingOut) = stop()
-
-    @SubscribeEvent
-    fun onClone(event: ClientPlayerNetworkEvent.Clone) = stop()
 
     private fun acquireTarget(minecraft: Minecraft): CombinedLeverTarget? {
         val player = minecraft.player ?: return null
