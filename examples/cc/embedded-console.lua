@@ -1,36 +1,24 @@
--- Interactive embedded-computer example for the current CC-Aeroworks desk-network API.
+-- Read-only inspector for the embedded Computer Control Desk network.
 --
--- This program intentionally runs only on an embedded Computer Control Desk. It
--- discovers every numeric desk input and every CC-Aeroworks display in the active
--- desk network, applies the same 0/1/many selection rules as the other examples,
--- then mirrors the selected input to the selected display through the
--- cc_aeroworks_console_input event stream.
+-- Unlike dashboard.lua this program never writes to a display. Its purpose is to
+-- inspect the current desk topology, modules, raw input values, displays and nearby
+-- peripherals through the embedded global `peripherals` API.
 --
--- The selected endpoints are tracked by stable desk identity, socket, module/display
--- identity and channel. Topology changes are revalidated instead of silently
--- switching to whichever desk happens to be found first.
+-- That distinction is intentional: Aeroworks input values are raw control values.
+-- Their sign/orientation is useful diagnostic information and should not be silently
+-- reformatted just to fit a two-character display.
 
 local CONTROL_DESK_TYPE = "ControlDesk"
-local CONSOLE_INPUT_EVENT = "cc_aeroworks_console_input"
-local CONSOLE_CHANGED_EVENT = "cc_aeroworks_console_changed"
-local VALIDATION_INTERVAL = 2
-
 local networkApi = rawget(_G, "peripherals")
+
 if type(networkApi) ~= "table"
     or type(networkApi.getNetwork) ~= "function"
     or type(networkApi.find) ~= "function" then
   error(
     "embedded-console.lua requires the global peripherals API from an embedded Computer Control Desk.\n"
-      .. "Hint: run dashboard.lua or input-monitor.lua on an ordinary/wired CC:Tweaked computer.",
+      .. "Use input-monitor.lua or multiblock-dashboard.lua on an ordinary/wired CC:Tweaked computer.",
     0
   )
-end
-
-local function fail(message, hint)
-  if hint and hint ~= "" then
-    error(message .. "\nHint: " .. hint, 0)
-  end
-  error(message, 0)
 end
 
 local function explainNetworkError(message)
@@ -39,16 +27,16 @@ local function explainNetworkError(message)
 
   if lower:find("multiple computer control desks", 1, true) then
     return text
-      .. "\nHint: the desk network is in conflict. Leave exactly one embedded Computer Control Desk connected."
+      .. "\nHint: leave exactly one embedded Computer Control Desk connected to this desk row."
   elseif lower:find("partially loaded", 1, true) then
     return text
-      .. "\nHint: load every chunk containing the connected desk row, then retry."
+      .. "\nHint: load every chunk containing the connected desk row, then refresh."
   elseif lower:find("exceeds 64 desks", 1, true) then
     return text
-      .. "\nHint: split the desk network so no connected row exceeds 64 desks."
+      .. "\nHint: split the desk row so no connected network exceeds 64 desks."
   elseif lower:find("does not own", 1, true) then
     return text
-      .. "\nHint: open the terminal from the Computer Control Desk that owns this desk network."
+      .. "\nHint: open the terminal from the Computer Control Desk which owns this network."
   end
 
   return text
@@ -67,17 +55,16 @@ local function coordinates(info, fallback)
   return fallback
 end
 
-local function moduleMetadata(entry, socket)
-  local ok, module = pcall(entry.desk.getModule, socket)
-  if ok and type(module) == "table" then
-    return module
+local function safeCall(label, fn, ...)
+  if type(fn) ~= "function" then
+    return nil, label .. " is not available on this Desk handle"
   end
-  return {
-    socket = socket,
-    socketName = tostring(socket),
-    id = "unknown",
-    kind = "unknown",
-  }
+
+  local ok, value = pcall(fn, ...)
+  if not ok then
+    return nil, label .. " failed: " .. tostring(value)
+  end
+  return value
 end
 
 local function discover()
@@ -88,12 +75,17 @@ local function discover()
   if type(network) ~= "table" then
     return nil, "peripherals.getNetwork() returned " .. type(network) .. "; expected a table"
   end
-  if network.state ~= "active" then
-    return nil, string.format(
-      "The embedded desk network is '%s', not 'active'.\n"
-        .. "Hint: keep exactly one embedded computer, load the whole row and stay within the 64-desk limit.",
-      tostring(network.state)
-    )
+
+  local state = tostring(network.state or "unknown")
+  if state ~= "active" then
+    return {
+      network = network,
+      desks = {},
+      error = string.format(
+        "Desk network state is '%s'. Global Desk inspection is available only while the network is active.",
+        state
+      ),
+    }
   end
 
   local okFind, found = pcall(networkApi.find, CONTROL_DESK_TYPE)
@@ -101,27 +93,26 @@ local function discover()
     return nil, explainNetworkError(found)
   end
   if type(found) ~= "table" then
-    return nil, "peripherals.find('ControlDesk') returned " .. type(found) .. "; expected the desk table"
+    return nil, "peripherals.find('ControlDesk') returned " .. type(found) .. "; expected a table"
   end
 
   local desks = {}
   local warnings = {}
 
   for address, desk in pairs(found) do
-    local okInfo, info = pcall(desk.getInfo)
-    if okInfo and type(info) == "table" then
+    local info, infoError = safeCall("getInfo", desk.getInfo)
+    if type(info) == "table" then
       desks[#desks + 1] = {
         desk = desk,
         address = coordinates(info, tostring(address)),
         stableId = tostring(info.id or address),
-        deskId = info.id and tostring(info.id) or nil,
         info = info,
       }
     else
       warnings[#warnings + 1] = string.format(
-        "Skipped desk %s because getInfo() failed: %s",
+        "Skipped Desk %s because %s",
         tostring(address),
-        tostring(info)
+        tostring(infoError or "getInfo returned an invalid value")
       )
     end
   end
@@ -133,575 +124,287 @@ local function discover()
     return a.stableId < b.stableId
   end)
 
-  if #desks == 0 then
-    local detail = warnings[1] and ("\nDiscovery warning: " .. warnings[1]) or ""
-    return nil,
-      "No ControlDesk adapters were found in the active embedded network."
-        .. detail
-        .. "\nHint: verify that this computer belongs to the fully loaded desk row."
-  end
-
-  local inputs = {}
-  local displays = {}
-
-  for _, entry in ipairs(desks) do
-    local okInputs, values = pcall(entry.desk.getInputs)
-    if not okInputs then
-      warnings[#warnings + 1] = string.format(
-        "Could not read inputs from %s: %s",
-        entry.address,
-        tostring(values)
-      )
-    elseif type(values) ~= "table" then
-      warnings[#warnings + 1] = string.format(
-        "Desk %s returned %s from getInputs(); expected a table",
-        entry.address,
-        type(values)
-      )
-    else
-      for socket, value in pairs(values) do
-        local metadata = moduleMetadata(entry, socket)
-        local moduleId = tostring(metadata.id or "unknown")
-        local socketName = tostring(metadata.socketName or socket)
-        local kind = tostring(metadata.kind or "input")
-
-        local function add(channel, numericValue)
-          inputs[#inputs + 1] = {
-            desk = entry.desk,
-            deskEntry = entry,
-            deskAddress = entry.address,
-            stableId = entry.stableId,
-            deskId = entry.deskId,
-            socket = socket,
-            socketName = socketName,
-            moduleId = moduleId,
-            kind = kind,
-            channel = channel,
-            initialValue = numericValue,
-          }
-        end
-
-        if type(value) == "number" then
-          add(nil, value)
-        elseif type(value) == "table" then
-          local numericCount = 0
-          for channel, channelValue in pairs(value) do
-            if type(channelValue) == "number" then
-              numericCount = numericCount + 1
-              add(tostring(channel), channelValue)
-            else
-              warnings[#warnings + 1] = string.format(
-                "Ignored non-numeric channel %s on %s/%s (%s)",
-                tostring(channel),
-                entry.address,
-                socketName,
-                type(channelValue)
-              )
-            end
-          end
-          if numericCount == 0 then
-            warnings[#warnings + 1] = string.format(
-              "Input module %s on %s/%s has no numeric channels",
-              moduleId,
-              entry.address,
-              socketName
-            )
-          end
-        else
-          warnings[#warnings + 1] = string.format(
-            "Ignored %s input value on %s/%s",
-            type(value),
-            entry.address,
-            socketName
-          )
-        end
-      end
-    end
-
-    local okDisplays, foundDisplays = pcall(entry.desk.getDisplays)
-    if not okDisplays then
-      warnings[#warnings + 1] = string.format(
-        "Could not read displays from %s: %s",
-        entry.address,
-        tostring(foundDisplays)
-      )
-    elseif type(foundDisplays) ~= "table" then
-      warnings[#warnings + 1] = string.format(
-        "Desk %s returned %s from getDisplays(); expected a table",
-        entry.address,
-        type(foundDisplays)
-      )
-    else
-      for _, display in ipairs(foundDisplays) do
-        if type(display) == "table" and type(display.socketName) == "string" then
-          displays[#displays + 1] = {
-            desk = entry.desk,
-            deskEntry = entry,
-            deskAddress = entry.address,
-            stableId = entry.stableId,
-            deskId = entry.deskId,
-            socket = display.socketName,
-            displayId = tostring(display.id or "unknown"),
-            display = display,
-          }
-        else
-          warnings[#warnings + 1] = "Ignored malformed display description on desk " .. entry.address
-        end
-      end
-    end
-  end
-
-  table.sort(inputs, function(a, b)
-    if a.deskAddress ~= b.deskAddress then
-      return a.deskAddress < b.deskAddress
-    end
-    if a.socket ~= b.socket then
-      return a.socket < b.socket
-    end
-    return tostring(a.channel or "") < tostring(b.channel or "")
-  end)
-
-  table.sort(displays, function(a, b)
-    if a.deskAddress ~= b.deskAddress then
-      return a.deskAddress < b.deskAddress
-    end
-    return a.socket < b.socket
-  end)
-
   return {
     network = network,
     desks = desks,
-    inputs = inputs,
-    displays = displays,
     warnings = warnings,
   }
 end
 
-local function inputIdentity(source)
-  return table.concat({
-    source.stableId,
-    tostring(source.socket),
-    source.moduleId,
-    source.channel or "*",
-  }, "|")
-end
+local function flattenInputs(inputs)
+  local lines = {}
 
-local function displayIdentity(target)
-  return table.concat({
-    target.stableId,
-    target.socket,
-    target.displayId,
-  }, "|")
-end
-
-local function displaySizeName(display)
-  if display.width == 2 then
-    return "small"
-  elseif display.width == 3 then
-    return "large"
-  end
-  return tostring(display.id or "unknown")
-end
-
-local function inputLabel(source)
-  return string.format(
-    "%s / %s / %s / %s (current=%s)",
-    source.deskAddress,
-    source.socketName,
-    source.kind,
-    source.channel and ("channel " .. source.channel) or "single value",
-    tostring(source.initialValue)
-  )
-end
-
-local function displayLabel(target)
-  local display = target.display
-  return string.format(
-    "%s / %s / %s display (%sx%s pixels)",
-    target.deskAddress,
-    target.socket,
-    displaySizeName(display),
-    tostring(display.pixelWidth or "?"),
-    tostring(display.pixelHeight or "?")
-  )
-end
-
-local function choose(title, items, labelFunction)
-  if #items == 0 then
-    return nil, "none"
+  if type(inputs) ~= "table" then
+    return lines
   end
 
-  if #items == 1 then
-    print(title .. ": one match found; selecting it automatically.")
-    print("  " .. labelFunction(items[1]))
-    return items[1]
+  local sockets = {}
+  for socket in pairs(inputs) do
+    sockets[#sockets + 1] = socket
+  end
+  table.sort(sockets, function(a, b) return tostring(a) < tostring(b) end)
+
+  for _, socket in ipairs(sockets) do
+    local value = inputs[socket]
+    if type(value) == "number" then
+      lines[#lines + 1] = string.format("socket %s: raw=%s", tostring(socket), tostring(value))
+    elseif type(value) == "table" then
+      local channels = {}
+      for channel in pairs(value) do
+        channels[#channels + 1] = channel
+      end
+      table.sort(channels, function(a, b) return tostring(a) < tostring(b) end)
+      for _, channel in ipairs(channels) do
+        lines[#lines + 1] = string.format(
+          "socket %s / %s: raw=%s",
+          tostring(socket),
+          tostring(channel),
+          tostring(value[channel])
+        )
+      end
+    else
+      lines[#lines + 1] = string.format("socket %s: %s", tostring(socket), type(value))
+    end
   end
 
-  local _, terminalHeight = term.getSize()
-  local pageSize = math.max(3, terminalHeight - 7)
-  local pageCount = math.max(1, math.ceil(#items / pageSize))
+  return lines
+end
+
+local function moduleLines(modules)
+  local lines = {}
+  if type(modules) ~= "table" then
+    return lines
+  end
+
+  for _, module in ipairs(modules) do
+    if type(module) == "table" then
+      lines[#lines + 1] = string.format(
+        "%s: %s (%s)",
+        tostring(module.socketName or module.socket or "?"),
+        tostring(module.id or "unknown"),
+        tostring(module.kind or "module")
+      )
+    else
+      lines[#lines + 1] = tostring(module)
+    end
+  end
+  return lines
+end
+
+local function displayLines(displays)
+  local lines = {}
+  if type(displays) ~= "table" then
+    return lines
+  end
+
+  for _, display in ipairs(displays) do
+    if type(display) == "table" then
+      lines[#lines + 1] = string.format(
+        "%s: %s, text-width=%s, pixels=%sx%s, mode=%s",
+        tostring(display.socketName or display.socket or "?"),
+        tostring(display.id or "unknown"),
+        tostring(display.width or "?"),
+        tostring(display.pixelWidth or "?"),
+        tostring(display.pixelHeight or "?"),
+        tostring(display.mode or "?")
+      )
+    else
+      lines[#lines + 1] = tostring(display)
+    end
+  end
+  return lines
+end
+
+local function peripheralLines(peripherals)
+  local lines = {}
+  if type(peripherals) ~= "table" then
+    return lines
+  end
+
+  local addresses = {}
+  for address in pairs(peripherals) do
+    addresses[#addresses + 1] = address
+  end
+  table.sort(addresses, function(a, b) return tostring(a) < tostring(b) end)
+
+  for _, address in ipairs(addresses) do
+    local handle = peripherals[address]
+    local label = "unknown"
+    if type(handle) == "table" and type(handle.getPeripheralInfo) == "function" then
+      local ok, info = pcall(handle.getPeripheralInfo)
+      if ok and type(info) == "table" then
+        label = tostring(info.type or info.primaryType or "unknown")
+      end
+    end
+    lines[#lines + 1] = string.format("%s: %s", tostring(address), label)
+  end
+
+  return lines
+end
+
+local function appendSection(lines, title, values, failure)
+  lines[#lines + 1] = ""
+  lines[#lines + 1] = title
+  if failure then
+    lines[#lines + 1] = "  ERROR: " .. failure
+  elseif #values == 0 then
+    lines[#lines + 1] = "  (none)"
+  else
+    for _, value in ipairs(values) do
+      lines[#lines + 1] = "  " .. value
+    end
+  end
+end
+
+local function buildDeskDetails(entry)
+  local info = entry.info
+  local lines = {
+    "Desk " .. entry.address,
+    string.rep("=", math.min(40, #entry.address + 5)),
+    "stable id: " .. entry.stableId,
+    "variant: " .. tostring(info.variant or "unknown"),
+    "facing: " .. tostring(info.facing or "unknown"),
+    "computer: " .. tostring(info.computer or false),
+    "dimension: " .. tostring(info.dimension or "unknown"),
+  }
+
+  local modules, moduleError = safeCall("getModules", entry.desk.getModules)
+  appendSection(lines, "Modules", moduleLines(modules), moduleError)
+
+  local inputs, inputError = safeCall("getInputs", entry.desk.getInputs)
+  appendSection(lines, "Inputs (raw values)", flattenInputs(inputs), inputError)
+
+  local displays, displayError = safeCall("getDisplays", entry.desk.getDisplays)
+  appendSection(lines, "Displays", displayLines(displays), displayError)
+
+  local nearby, peripheralError = safeCall("getPeripherals", entry.desk.getPeripherals)
+  appendSection(lines, "Adjacent CC:Tweaked peripherals", peripheralLines(nearby), peripheralError)
+
+  return lines
+end
+
+local function showPaged(lines)
   local page = 1
 
   while true do
+    local _, height = term.getSize()
+    local pageSize = math.max(3, height - 3)
+    local pages = math.max(1, math.ceil(#lines / pageSize))
+    if page > pages then page = pages end
+
     term.clear()
     term.setCursorPos(1, 1)
-    print(string.format("%s: %d matches (page %d/%d)", title, #items, page, pageCount))
-    print("Enter an absolute number, n/p for pages, or q to cancel.")
-    print("")
 
     local first = (page - 1) * pageSize + 1
-    local last = math.min(#items, first + pageSize - 1)
+    local last = math.min(#lines, first + pageSize - 1)
     for index = first, last do
-      print(string.format("%3d) %s", index, labelFunction(items[index])))
+      print(lines[index])
     end
 
-    write("Selection: ")
-    local raw = read()
-    local normalized = tostring(raw or ""):lower():match("^%s*(.-)%s*$")
+    print(string.format("[%d/%d] Enter/n: next, p: previous, b: back", page, pages))
+    write("> ")
+    local command = tostring(read() or ""):lower():match("^%s*(.-)%s*$")
 
-    if normalized == "q" or normalized == "quit" then
-      return nil, "cancelled"
-    elseif normalized == "n" or normalized == "next" then
-      if page < pageCount then
+    if command == "b" or command == "back" or command == "q" then
+      return
+    elseif command == "p" or command == "prev" or command == "previous" then
+      page = math.max(1, page - 1)
+    elseif command == "" or command == "n" or command == "next" then
+      if page < pages then
         page = page + 1
       else
-        print("Already on the last page.")
-        sleep(0.7)
+        return
       end
-    elseif normalized == "p" or normalized == "prev" or normalized == "previous" then
-      if page > 1 then
-        page = page - 1
-      else
-        print("Already on the first page.")
-        sleep(0.7)
-      end
-    else
-      local choice = tonumber(normalized)
-      if choice and choice % 1 == 0 and items[choice] then
-        return items[choice]
-      end
-      print(string.format("Invalid selection '%s'. Choose an integer from 1 to %d.", normalized, #items))
-      sleep(1)
     end
   end
 end
 
-local function readInputValue(source)
-  local ok, value = pcall(source.desk.getInput, source.socket)
-  if not ok then
-    return nil, string.format(
-      "Could not read selected input %s/%s: %s",
-      source.deskAddress,
-      source.socketName,
-      tostring(value)
-    )
-  end
-
-  if source.channel == nil then
-    if type(value) ~= "number" then
-      return nil, string.format(
-        "Selected input %s/%s changed shape: expected one numeric value, got %s.",
-        source.deskAddress,
-        source.socketName,
-        type(value)
-      )
-    end
-    return value
-  end
-
-  if type(value) ~= "table" then
-    return nil, string.format(
-      "Selected channel %s on %s/%s is no longer a multi-channel input.",
-      source.channel,
-      source.deskAddress,
-      source.socketName
-    )
-  end
-
-  local channelValue = value[source.channel]
-  if type(channelValue) ~= "number" then
-    return nil, string.format(
-      "Selected channel %s on %s/%s no longer exists or is not numeric.",
-      source.channel,
-      source.deskAddress,
-      source.socketName
-    )
-  end
-  return channelValue
-end
-
-local function writeDisplay(target, value)
-  local ok, rendered = pcall(target.desk.setDisplayNumber, target.socket, value, false)
-  if not ok then
-    return nil, string.format(
-      "Could not write selected display %s/%s: %s",
-      target.deskAddress,
-      target.socket,
-      tostring(rendered)
-    )
-  end
-  return rendered
-end
-
-local function snapshotDisplay(target)
-  local ok, state = pcall(target.desk.getDisplay, target.socket)
-  if ok and type(state) == "table" then
-    return state
-  end
-  return nil
-end
-
-local function restoreDisplay(target, snapshot)
-  if not snapshot then
-    return false, "no pre-example display state was available"
-  end
-
-  if snapshot.mode == "pixels" and type(snapshot.pixels) == "table" then
-    local ok, result = pcall(target.desk.setDisplayPixels, target.socket, snapshot.pixels)
-    return ok, result
-  end
-
-  local ok, result = pcall(target.desk.setDisplayText, target.socket, tostring(snapshot.text or ""))
-  return ok, result
-end
-
-local function rebind(inputKey, displayKey)
-  local state, discoveryError = discover()
-  if not state then
-    return nil, nil, nil, discoveryError
-  end
-
-  local source
-  local target
-
-  for _, candidate in ipairs(state.inputs) do
-    if inputIdentity(candidate) == inputKey then
-      source = candidate
-      break
-    end
-  end
-
-  for _, candidate in ipairs(state.displays) do
-    if displayIdentity(candidate) == displayKey then
-      target = candidate
-      break
-    end
-  end
-
-  if not source then
-    return nil, nil, state,
-      "The selected input disappeared, changed module identity, changed shape, or left the desk network."
-  end
-  if not target then
-    return nil, nil, state,
-      "The selected display disappeared, was replaced, or left the desk network."
-  end
-
-  return source, target, state
-end
-
-local function drawStatus(state, source, target, value, rendered, lastEvent)
+local function printSummary(snapshot)
   term.clear()
   term.setCursorPos(1, 1)
-  print("CC-Aeroworks embedded console example")
+
+  local network = snapshot.network or {}
+  print("CC-Aeroworks embedded network inspector")
   print(string.format(
-    "Network: %s, desks=%s, peripherals=%s, revision=%s",
-    tostring(state.network.state),
-    tostring(state.network.deskCount),
-    tostring(state.network.peripheralCount),
-    tostring(state.network.revision)
+    "state=%s desks=%s peripherals=%s revision=%s",
+    tostring(network.state or "unknown"),
+    tostring(network.deskCount or #snapshot.desks),
+    tostring(network.peripheralCount or "?"),
+    tostring(network.revision or "?")
   ))
-  print("Input:   " .. inputLabel(source))
-  print("Display: " .. displayLabel(target))
-  print("")
-  print(string.format("Value: %s -> display text: %s", tostring(value), tostring(rendered)))
-  print("Last event: " .. tostring(lastEvent or "initial read"))
-  print("")
-  print("Ctrl+T stops the example and attempts to restore the previous display state.")
-end
 
-local state, discoveryError = discover()
-if not state then
-  fail("Embedded-console discovery failed: " .. discoveryError)
-end
-
-if #state.inputs == 0 then
-  local detail = state.warnings[1] and ("\nFirst discovery warning: " .. state.warnings[1]) or ""
-  fail(
-    "No numeric CC-Aeroworks desk inputs were found." .. detail,
-    "Install an Aeroworks input module in any desk of this network, then rerun the example."
-  )
-end
-
-if #state.displays == 0 then
-  local detail = state.warnings[1] and ("\nFirst discovery warning: " .. state.warnings[1]) or ""
-  fail(
-    "No CC-Aeroworks desk displays were found." .. detail,
-    "Mount a small or large CC-Aeroworks display in any desk of this network, then rerun the example."
-  )
-end
-
-local source, sourceChoice = choose("Select input", state.inputs, inputLabel)
-if not source then
-  print(sourceChoice == "cancelled" and "Example cancelled before selecting an input." or "No input selected.")
-  return
-end
-
-local target, targetChoice = choose("Select display", state.displays, displayLabel)
-if not target then
-  print(targetChoice == "cancelled" and "Example cancelled before selecting a display." or "No display selected.")
-  return
-end
-
-local selectedInputKey = inputIdentity(source)
-local selectedDisplayKey = displayIdentity(target)
-local previousDisplay = snapshotDisplay(target)
-
-local function runExample()
-  local value, readError = readInputValue(source)
-  if value == nil then
-    fail(readError)
+  if snapshot.error then
+    printError(snapshot.error)
   end
 
-  local rendered, writeError = writeDisplay(target, value)
-  if rendered == nil then
-    fail(writeError)
+  if snapshot.warnings and #snapshot.warnings > 0 then
+    printError("Discovery warning: " .. snapshot.warnings[1])
   end
 
-  drawStatus(state, source, target, value, rendered, "initial read")
-
-  local timer = os.startTimer(VALIDATION_INTERVAL)
-
-  while true do
-    local event = { os.pullEventRaw() }
-    local name = event[1]
-
-    if name == "terminate" then
-      return
-    elseif name == "term_resize" then
-      drawStatus(state, source, target, value, rendered, "terminal resized")
-    elseif name == "timer" and event[2] == timer then
-      local reboundSource, reboundTarget, reboundState, rebindError =
-        rebind(selectedInputKey, selectedDisplayKey)
-
-      if not reboundSource then
-        fail("Periodic validation failed: " .. tostring(rebindError))
-      end
-
-      source = reboundSource
-      target = reboundTarget
-      state = reboundState
-
-      local current, currentError = readInputValue(source)
-      if current == nil then
-        fail("Periodic validation failed: " .. tostring(currentError))
-      end
-      value = current
-
-      local nextRendered, nextWriteError = writeDisplay(target, value)
-      if nextRendered == nil then
-        fail("Periodic validation failed: " .. tostring(nextWriteError))
-      end
-      rendered = nextRendered
-
-      drawStatus(state, source, target, value, rendered, "periodic validation")
-      timer = os.startTimer(VALIDATION_INTERVAL)
-    elseif name == CONSOLE_CHANGED_EVENT then
-      local nextStateName = tostring(event[2])
-      if nextStateName ~= "active" then
-        fail(
-          "The desk network changed to state '" .. nextStateName .. "' while the example was running.",
-          "Restore one fully loaded network of at most 64 desks and rerun the example."
-        )
-      end
-
-      local reboundSource, reboundTarget, reboundState, rebindError =
-        rebind(selectedInputKey, selectedDisplayKey)
-      if not reboundSource then
-        fail("The desk network changed and the selected endpoint could not be rebound: " .. tostring(rebindError))
-      end
-
-      source = reboundSource
-      target = reboundTarget
-      state = reboundState
-
-      local current, currentError = readInputValue(source)
-      if current == nil then
-        fail(currentError)
-      end
-      value = current
-
-      local nextRendered, nextWriteError = writeDisplay(target, value)
-      if nextRendered == nil then
-        fail(nextWriteError)
-      end
-      rendered = nextRendered
-
-      drawStatus(state, source, target, value, rendered, "network topology changed")
-    elseif name == CONSOLE_INPUT_EVENT then
-      local deskId = event[2] and tostring(event[2]) or nil
-      local deskIndex = event[3]
-      local socket = event[4]
-      local socketName = event[5]
-      local moduleId = event[6] and tostring(event[6]) or ""
-      local newValue = event[7]
-      local channel = event[8] and tostring(event[8]) or nil
-      local channelMatches = source.channel == nil or source.channel == channel
-
-      if deskId == source.deskId
-          and socket == source.socket
-          and moduleId == source.moduleId
-          and channelMatches then
-        if newValue == nil then
-          fail(
-            "The selected input channel was removed while the example was running.",
-            "Reinstall or reconfigure the module, then rerun the example to select the intended source."
-          )
-        elseif type(newValue) ~= "number" then
-          fail("The selected console input event returned " .. type(newValue) .. "; expected a number.")
-        end
-
-        value = newValue
-        local nextRendered, nextWriteError = writeDisplay(target, value)
-        if nextRendered == nil then
-          fail(nextWriteError)
-        end
-        rendered = nextRendered
-
-        drawStatus(
-          state,
-          source,
-          target,
-          value,
-          rendered,
-          string.format(
-            "%s deskIndex=%s socket=%s channel=%s",
-            CONSOLE_INPUT_EVENT,
-            tostring(deskIndex),
-            tostring(socketName),
-            tostring(channel or "<single>")
-          )
-        )
-      end
+  print("")
+  if #snapshot.desks == 0 then
+    print("No inspectable ControlDesk adapters found.")
+  else
+    print("Desks:")
+    for index, entry in ipairs(snapshot.desks) do
+      print(string.format(
+        "  %d) %s  %s%s",
+        index,
+        entry.address,
+        tostring(entry.info.variant or "control_desk"),
+        entry.info.computer and " [computer]" or ""
+      ))
     end
   end
+
+  print("")
+  print("Enter a Desk number, r to refresh, or q to quit.")
 end
 
-local ok, result = pcall(runExample)
-local restored, restoreError = restoreDisplay(target, previousDisplay)
-
-term.clear()
-term.setCursorPos(1, 1)
-
-if ok then
-  print("Embedded console example stopped.")
-else
-  printError("Embedded console example stopped because of an error:")
-  printError(tostring(result))
+local snapshot, discoveryError = discover()
+if not snapshot then
+  error("Embedded network discovery failed:\n" .. tostring(discoveryError), 0)
 end
 
-if restored then
-  print("Previous display state restored.")
-else
-  printError("Could not restore the previous display state: " .. tostring(restoreError))
+local autoInspected = false
+while true do
+  printSummary(snapshot)
+
+  if #snapshot.desks == 1 and not autoInspected then
+    print("One Desk found; inspecting it automatically.")
+    sleep(0.6)
+    showPaged(buildDeskDetails(snapshot.desks[1]))
+    autoInspected = true
+  end
+
+  write("> ")
+  local command = tostring(read() or ""):lower():match("^%s*(.-)%s*$")
+
+  if command == "q" or command == "quit" then
+    term.clear()
+    term.setCursorPos(1, 1)
+    print("Embedded network inspector stopped.")
+    return
+  elseif command == "r" or command == "refresh" then
+    local refreshed, refreshError = discover()
+    if refreshed then
+      snapshot = refreshed
+      autoInspected = false
+    else
+      term.clear()
+      term.setCursorPos(1, 1)
+      printError("Refresh failed:")
+      printError(tostring(refreshError))
+      print("Press Enter to continue.")
+      read()
+    end
+  else
+    local choice = tonumber(command)
+    if choice and choice % 1 == 0 and snapshot.desks[choice] then
+      showPaged(buildDeskDetails(snapshot.desks[choice]))
+    else
+      printError("Invalid selection. Enter a listed Desk number, r, or q.")
+      sleep(0.8)
+    end
+  end
 end
