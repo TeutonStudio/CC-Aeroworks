@@ -33,11 +33,12 @@ object DisplayCombinedInputController {
     fun onClientTick(event: ClientTickEvent.Post) {
         val minecraft = Minecraft.getInstance()
         refreshSuppression(minecraft)
+        if (handleShiftOverride(minecraft)) return
         acquireTargetIfPossible(minecraft)
         val active = target ?: return
 
         if (!DisplayInteractionKey.isDown(minecraft) || !targetStillValid(minecraft, active)) {
-            if (DisplayInteractionKey.isDown(minecraft)) suppressedUntilRelease = true
+            if (DisplayInteractionKey.isPhysicallyDown(minecraft)) suppressedUntilRelease = true
             stop()
         }
     }
@@ -46,6 +47,7 @@ object DisplayCombinedInputController {
     fun onCalculateTurn(event: CalculatePlayerTurnEvent) {
         val minecraft = Minecraft.getInstance()
         refreshSuppression(minecraft)
+        if (handleShiftOverride(minecraft)) return
         acquireTargetIfPossible(minecraft)
         val active = target ?: return
 
@@ -69,13 +71,16 @@ object DisplayCombinedInputController {
         val mouse = minecraft.mouseHandler as MouseHandlerAccessor
         val sensitivity = CCClientConfig.displayPointerSensitivity.get()
         active.u = (active.u + mouse.ccaeroworks_getAccumulatedDX() * sensitivity).coerceIn(0.0, 1.0)
-        active.v = (active.v + mouse.ccaeroworks_getAccumulatedDY() * sensitivity).coerceIn(0.0, 1.0)
+        // Screen V grows downwards, while raw mouse Y grows in the opposite visual direction here.
+        // Subtracting the delta makes moving the mouse up move the pseudo finger up on the display.
+        active.v = (active.v - mouse.ccaeroworks_getAccumulatedDY() * sensitivity).coerceIn(0.0, 1.0)
     }
 
     @SubscribeEvent
     fun onMouseButton(event: InputEvent.MouseButton.Pre) {
         val minecraft = Minecraft.getInstance()
         refreshSuppression(minecraft)
+        if (handleShiftOverride(minecraft)) return
         acquireTargetIfPossible(minecraft)
         val active = target ?: return
         if (event.button != GLFW.GLFW_MOUSE_BUTTON_LEFT && event.button != GLFW.GLFW_MOUSE_BUTTON_RIGHT) return
@@ -105,8 +110,15 @@ object DisplayCombinedInputController {
     @SubscribeEvent
     fun onClone(event: ClientPlayerNetworkEvent.Clone) = reset()
 
+    private fun handleShiftOverride(minecraft: Minecraft): Boolean {
+        if (!CombinedInputCoordinator.isShiftCameraOnly(minecraft)) return false
+        if (DisplayInteractionKey.isPhysicallyDown(minecraft)) suppressedUntilRelease = true
+        stop()
+        return true
+    }
+
     private fun refreshSuppression(minecraft: Minecraft) {
-        if (suppressedUntilRelease && !DisplayInteractionKey.isDown(minecraft)) {
+        if (suppressedUntilRelease && !DisplayInteractionKey.isPhysicallyDown(minecraft)) {
             suppressedUntilRelease = false
         }
     }
