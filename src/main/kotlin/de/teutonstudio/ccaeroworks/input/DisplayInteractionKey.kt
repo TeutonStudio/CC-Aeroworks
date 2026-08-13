@@ -5,9 +5,17 @@ import com.mred231.aeroworks.foundation.input.InputSource
 import de.teutonstudio.ccaeroworks.config.CCClientConfig
 import net.minecraft.client.Minecraft
 import net.minecraft.network.chat.Component
+import net.neoforged.bus.api.IEventBus
 
 object DisplayInteractionKey {
     const val TRANSLATION_KEY: String = "key.cc_aeroworks.display_interaction"
+
+    /**
+     * Kept so the existing client setup call remains binary/source compatible. The display binding
+     * is intentionally not registered as a global Minecraft KeyMapping anymore; it belongs to the
+     * display module UI and is stored in CC-Aeroworks' client config.
+     */
+    fun register(modBus: IEventBus) = Unit
 
     @JvmStatic
     fun binding(): String = CCClientConfig.displayInteractionBinding.get().trim()
