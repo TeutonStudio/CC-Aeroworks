@@ -21,13 +21,8 @@ object CCClientConfig {
 
     @JvmField
     val displayPointerSensitivity: ModConfigSpec.DoubleValue = builder
-        .comment("Normalized display-surface movement per raw mouse unit while the display combined input is held.")
+        .comment("Normalized display-surface movement per raw mouse unit while the display interaction key is held.")
         .defineInRange("displayPointerSensitivity", 0.0025, 0.0001, 0.05)
-
-    @JvmField
-    val displayInteractionBinding: ModConfigSpec.ConfigValue<String> = builder
-        .comment("Physical key binding used by the combined large-display pointer input. Configure it in the display module UI.")
-        .define("displayInteractionBinding", "")
 
     @JvmField
     val freezeCameraOnlyWithValidTarget: ModConfigSpec.BooleanValue = builder
