@@ -4,11 +4,12 @@ import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.config.CCClientConfig
 import de.teutonstudio.ccaeroworks.mixin.ConsoleBlockEntityInvoker
 import de.teutonstudio.ccaeroworks.mixin.client.MouseHandlerAccessor
-import java.util.function.Predicate
 import de.teutonstudio.ccaeroworks.network.SetCombinedLeverValuePayload
+import java.util.function.Predicate
 import net.minecraft.client.Minecraft
 import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.HitResult
+import net.neoforged.bus.api.EventPriority
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.client.event.CalculatePlayerTurnEvent
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent
@@ -20,15 +21,22 @@ object CombinedLeverController {
     private var suppressedBinding: String? = null
 
     @JvmStatic
-    fun isActive(): Boolean = target != null
+    fun isActive(): Boolean = CombinedInputCoordinator.consumesMouseInput()
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOW)
     fun onClientTick(event: ClientTickEvent.Post) {
         val minecraft = Minecraft.getInstance()
         refreshSuppression(minecraft)
+        if (handleShiftOverride(minecraft)) return
         acquireTargetIfPossible(minecraft)
         val active = target ?: return
         val activationDown = CombinedActivationKey.isDown(active.activationBinding, minecraft)
+
+        if (!CombinedInputCoordinator.ownsControl()) {
+            if (activationDown) suppressedBinding = active.activationBinding
+            stop()
+            return
+        }
         if (!activationDown || !targetStillValid(minecraft)) {
             if (activationDown) suppressedBinding = active.activationBinding
             stop()
@@ -37,16 +45,21 @@ object CombinedLeverController {
         sendPending()
     }
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOW)
     fun onCalculateTurn(event: CalculatePlayerTurnEvent) {
         val minecraft = Minecraft.getInstance()
         refreshSuppression(minecraft)
+        if (handleShiftOverride(minecraft)) return
         acquireTargetIfPossible(minecraft)
         val active = target ?: return
+        val activationDown = CombinedActivationKey.isDown(active.activationBinding, minecraft)
 
-        // The turn event is the authoritative press/release boundary for combined input.
-        // Checking the activation key here avoids up to one client tick of control after release.
-        if (!CombinedActivationKey.isDown(active.activationBinding, minecraft)) {
+        if (!CombinedInputCoordinator.ownsControl()) {
+            if (activationDown) suppressedBinding = active.activationBinding
+            stop()
+            return
+        }
+        if (!activationDown) {
             stop()
             return
         }
@@ -56,8 +69,6 @@ object CombinedLeverController {
             return
         }
 
-        // Freeze the camera before consuming any control delta. A newly acquired target deliberately
-        // drops its first turn sample so mouse movement used to aim at the module cannot become input.
         event.mouseSensitivity = -1.0 / 3.0
         event.cinematicCameraEnabled = false
         if (active.discardNextMouseSample) {
@@ -70,10 +81,22 @@ object CombinedLeverController {
     }
 
     @SubscribeEvent
-    fun onLogout(event: ClientPlayerNetworkEvent.LoggingOut) = stop()
+    fun onLogout(event: ClientPlayerNetworkEvent.LoggingOut) = reset()
 
     @SubscribeEvent
-    fun onClone(event: ClientPlayerNetworkEvent.Clone) = stop()
+    fun onClone(event: ClientPlayerNetworkEvent.Clone) = reset()
+
+    private fun handleShiftOverride(minecraft: Minecraft): Boolean {
+        if (!CombinedInputCoordinator.isShiftCameraOnly(minecraft)) return false
+        val active = target
+        if (active != null && CombinedActivationKey.isDown(active.activationBinding, minecraft)) {
+            suppressedBinding = active.activationBinding
+        } else if (active == null && suppressedBinding == null) {
+            acquireTarget(minecraft)?.let { suppressedBinding = it.activationBinding }
+        }
+        stop()
+        return true
+    }
 
     private fun refreshSuppression(minecraft: Minecraft) {
         suppressedBinding?.let {
@@ -82,7 +105,13 @@ object CombinedLeverController {
     }
 
     private fun acquireTargetIfPossible(minecraft: Minecraft) {
-        if (target == null && suppressedBinding == null) target = acquireTarget(minecraft)
+        if (target != null || suppressedBinding != null) return
+        val candidate = acquireTarget(minecraft) ?: return
+        if (CombinedInputCoordinator.claimControl(minecraft)) {
+            target = candidate
+        } else {
+            suppressedBinding = candidate.activationBinding
+        }
     }
 
     private fun consumeMouseDelta(deltaX: Double, deltaY: Double) {
@@ -132,9 +161,7 @@ object CombinedLeverController {
                 val value = module.value(channel).coerceIn(-15, 15)
                 CombinedAxisTarget(channel, LeverAccumulator(value), value)
             }
-        return CombinedLeverTarget(
-            level.dimension(), desk.blockPos.immutable(), mount.socket(), binding, axes
-        )
+        return CombinedLeverTarget(level.dimension(), desk.blockPos.immutable(), mount.socket(), binding, axes)
     }
 
     private fun targetStillValid(minecraft: Minecraft): Boolean {
@@ -167,6 +194,12 @@ object CombinedLeverController {
     }
 
     private fun stop() {
+        CombinedInputCoordinator.releaseControl()
         target = null
+    }
+
+    private fun reset() {
+        stop()
+        suppressedBinding = null
     }
 }
