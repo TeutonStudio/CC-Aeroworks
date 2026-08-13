@@ -1,32 +1,44 @@
 package de.teutonstudio.ccaeroworks.input
 
 import com.mojang.blaze3d.platform.InputConstants
-import net.minecraft.client.KeyMapping
+import com.mred231.aeroworks.foundation.input.InputSource
+import de.teutonstudio.ccaeroworks.config.CCClientConfig
 import net.minecraft.client.Minecraft
-import net.neoforged.bus.api.IEventBus
-import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent
-import org.lwjgl.glfw.GLFW
+import net.minecraft.network.chat.Component
 
 object DisplayInteractionKey {
     const val TRANSLATION_KEY: String = "key.cc_aeroworks.display_interaction"
 
-    @JvmField
-    val KEY_MAPPING: KeyMapping = KeyMapping(
-        TRANSLATION_KEY,
-        InputConstants.Type.KEYSYM,
-        GLFW.GLFW_KEY_UNKNOWN,
-        KeyMapping.CATEGORY_MISC
-    )
+    @JvmStatic
+    fun binding(): String = CCClientConfig.displayInteractionBinding.get().trim()
 
-    fun register(modBus: IEventBus) {
-        modBus.addListener(::registerKeyMappings)
+    @JvmStatic
+    fun setBinding(key: InputConstants.Key?) {
+        CCClientConfig.displayInteractionBinding.set(key?.name.orEmpty())
+    }
+
+    @JvmStatic
+    fun clearBinding() {
+        CCClientConfig.displayInteractionBinding.set("")
+    }
+
+    @JvmStatic
+    fun isPhysicallyDown(minecraft: Minecraft): Boolean {
+        val binding = binding()
+        return binding.isNotBlank() && CombinedActivationKey.isDown(binding, minecraft)
     }
 
     @JvmStatic
     fun isDown(minecraft: Minecraft): Boolean =
-        KEY_MAPPING.isDown || CombinedActivationKey.isDown(KEY_MAPPING.saveString(), minecraft)
+        !CombinedInputCoordinator.isShiftCameraOnly(minecraft) && isPhysicallyDown(minecraft)
 
-    private fun registerKeyMappings(event: RegisterKeyMappingsEvent) {
-        event.register(KEY_MAPPING)
+    @JvmStatic
+    fun displayMessage(): Component {
+        val binding = binding()
+        return if (binding.isBlank()) {
+            Component.translatable("gui.aeroworks.joystick.bind_unbound")
+        } else {
+            InputSource.displayName(binding)
+        }
     }
 }
