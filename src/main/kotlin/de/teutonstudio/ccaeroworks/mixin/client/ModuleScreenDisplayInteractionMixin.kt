@@ -7,7 +7,6 @@ import de.teutonstudio.ccaeroworks.display.DeskDisplayType
 import de.teutonstudio.ccaeroworks.display.RadarDisplayType
 import de.teutonstudio.ccaeroworks.input.DisplayInteractionKey
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
-import net.minecraft.client.KeyMapping
 import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
 import net.minecraft.network.chat.Component
@@ -30,22 +29,44 @@ abstract class ModuleScreenDisplayInteractionMixin(
     private var ccaeroworks_capturingDisplayInteraction = false
 
     @Unique
+    private var ccaeroworks_displayModeButton: Button? = null
+
+    @Unique
     private var ccaeroworks_displayInteractionButton: Button? = null
 
     @Inject(method = ["init()V"], at = [At("TAIL")])
     private fun ccaeroworks_addDisplayInteractionKey(callback: CallbackInfo) {
         if (!ccaeroworks_isInteractiveLargeDisplay()) return
 
-        val buttonWidth = (imageWidth - 16).coerceAtMost(156)
+        // Mirror the normal combined-input presentation: mode on the left, activation binding on
+        // the right. The display only supports Combined, so the mode control is intentionally fixed.
+        val totalWidth = (imageWidth - 16).coerceAtMost(156)
+        val gap = 4
+        val modeWidth = (totalWidth * 2 / 5).coerceAtLeast(54)
+        val bindWidth = totalWidth - modeWidth - gap
         val buttonHeight = 20
-        val buttonX = leftPos + (imageWidth - buttonWidth) / 2
-        val buttonY = topPos + imageHeight - buttonHeight - 6
+        val rowX = leftPos + (imageWidth - totalWidth) / 2
+        val rowY = topPos + imageHeight - buttonHeight - 6
+
+        ccaeroworks_displayModeButton = addRenderableWidget(
+            Button.builder(Component.translatable("input.cc_aeroworks.combined")) { }.bounds(
+                rowX,
+                rowY,
+                modeWidth,
+                buttonHeight
+            ).build().also { it.active = false }
+        )
 
         ccaeroworks_displayInteractionButton = addRenderableWidget(
             Button.builder(ccaeroworks_displayInteractionMessage()) { button ->
                 ccaeroworks_capturingDisplayInteraction = true
                 button.setMessage(ccaeroworks_displayInteractionMessage())
-            }.bounds(buttonX, buttonY, buttonWidth, buttonHeight).build()
+            }.bounds(
+                rowX + modeWidth + gap,
+                rowY,
+                bindWidth,
+                buttonHeight
+            ).build()
         )
     }
 
@@ -76,19 +97,26 @@ abstract class ModuleScreenDisplayInteractionMixin(
         button: Int,
         callback: CallbackInfoReturnable<Boolean>
     ) {
-        if (!ccaeroworks_capturingDisplayInteraction) return
-        if (button < 0) return
+        if (ccaeroworks_capturingDisplayInteraction) {
+            if (button < 0) return
+            ccaeroworks_applyDisplayInteractionKey(InputConstants.Type.MOUSE.getOrCreate(button))
+            callback.returnValue = true
+            return
+        }
 
-        ccaeroworks_applyDisplayInteractionKey(InputConstants.Type.MOUSE.getOrCreate(button))
-        callback.returnValue = true
+        // Match the regular combined binding field: right-click clears the binding immediately.
+        if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT &&
+            ccaeroworks_displayInteractionButton?.isMouseOver(mouseX, mouseY) == true
+        ) {
+            DisplayInteractionKey.clearBinding()
+            ccaeroworks_refreshDisplayInteractionButton()
+            callback.returnValue = true
+        }
     }
 
     @Unique
     private fun ccaeroworks_applyDisplayInteractionKey(key: InputConstants.Key) {
-        val client = minecraft ?: return
-        client.options.setKey(DisplayInteractionKey.KEY_MAPPING, key)
-        KeyMapping.resetMapping()
-        client.options.save()
+        DisplayInteractionKey.setBinding(key)
         ccaeroworks_capturingDisplayInteraction = false
         ccaeroworks_refreshDisplayInteractionButton()
     }
@@ -99,14 +127,12 @@ abstract class ModuleScreenDisplayInteractionMixin(
     }
 
     @Unique
-    private fun ccaeroworks_displayInteractionMessage(): Component {
-        val label = Component.translatable(DisplayInteractionKey.TRANSLATION_KEY).append(": ")
-        return if (ccaeroworks_capturingDisplayInteraction) {
-            label.append(Component.translatable("gui.aeroworks.joystick.bind_capture_prompt"))
+    private fun ccaeroworks_displayInteractionMessage(): Component =
+        if (ccaeroworks_capturingDisplayInteraction) {
+            Component.translatable("gui.aeroworks.joystick.bind_capture_prompt")
         } else {
-            label.append(DisplayInteractionKey.KEY_MAPPING.translatedKeyMessage)
+            DisplayInteractionKey.displayMessage()
         }
-    }
 
     @Unique
     private fun ccaeroworks_isInteractiveLargeDisplay(): Boolean {
