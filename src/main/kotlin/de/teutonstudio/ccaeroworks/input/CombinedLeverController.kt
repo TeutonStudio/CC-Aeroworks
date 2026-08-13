@@ -21,22 +21,16 @@ object CombinedLeverController {
     private var suppressedBinding: String? = null
 
     @JvmStatic
-    fun isActive(): Boolean = CombinedInputCoordinator.consumesMouseInput()
+    fun isActive(): Boolean = target != null || DisplayCombinedInputController.isActive()
 
     @SubscribeEvent(priority = EventPriority.LOW)
     fun onClientTick(event: ClientTickEvent.Post) {
         val minecraft = Minecraft.getInstance()
         refreshSuppression(minecraft)
-        if (handleShiftOverride(minecraft)) return
+        if (handleShiftOverride(minecraft) || handleDisplayOverride(minecraft)) return
         acquireTargetIfPossible(minecraft)
         val active = target ?: return
         val activationDown = CombinedActivationKey.isDown(active.activationBinding, minecraft)
-
-        if (!CombinedInputCoordinator.ownsControl()) {
-            if (activationDown) suppressedBinding = active.activationBinding
-            stop()
-            return
-        }
         if (!activationDown || !targetStillValid(minecraft)) {
             if (activationDown) suppressedBinding = active.activationBinding
             stop()
@@ -49,17 +43,11 @@ object CombinedLeverController {
     fun onCalculateTurn(event: CalculatePlayerTurnEvent) {
         val minecraft = Minecraft.getInstance()
         refreshSuppression(minecraft)
-        if (handleShiftOverride(minecraft)) return
+        if (handleShiftOverride(minecraft) || handleDisplayOverride(minecraft)) return
         acquireTargetIfPossible(minecraft)
         val active = target ?: return
-        val activationDown = CombinedActivationKey.isDown(active.activationBinding, minecraft)
 
-        if (!CombinedInputCoordinator.ownsControl()) {
-            if (activationDown) suppressedBinding = active.activationBinding
-            stop()
-            return
-        }
-        if (!activationDown) {
+        if (!CombinedActivationKey.isDown(active.activationBinding, minecraft)) {
             stop()
             return
         }
@@ -98,6 +86,16 @@ object CombinedLeverController {
         return true
     }
 
+    private fun handleDisplayOverride(minecraft: Minecraft): Boolean {
+        if (!DisplayCombinedInputController.isActive()) return false
+        val active = target
+        if (active != null && CombinedActivationKey.isDown(active.activationBinding, minecraft)) {
+            suppressedBinding = active.activationBinding
+        }
+        stop()
+        return true
+    }
+
     private fun refreshSuppression(minecraft: Minecraft) {
         suppressedBinding?.let {
             if (!CombinedActivationKey.isDown(it, minecraft)) suppressedBinding = null
@@ -105,13 +103,7 @@ object CombinedLeverController {
     }
 
     private fun acquireTargetIfPossible(minecraft: Minecraft) {
-        if (target != null || suppressedBinding != null) return
-        val candidate = acquireTarget(minecraft) ?: return
-        if (CombinedInputCoordinator.claimControl(minecraft)) {
-            target = candidate
-        } else {
-            suppressedBinding = candidate.activationBinding
-        }
+        if (target == null && suppressedBinding == null) target = acquireTarget(minecraft)
     }
 
     private fun consumeMouseDelta(deltaX: Double, deltaY: Double) {
@@ -194,12 +186,11 @@ object CombinedLeverController {
     }
 
     private fun stop() {
-        CombinedInputCoordinator.releaseControl()
         target = null
     }
 
     private fun reset() {
-        stop()
+        target = null
         suppressedBinding = null
     }
 }
