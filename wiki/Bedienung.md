@@ -6,21 +6,37 @@ CC-Aeroworks unterscheidet Terminalzugriff, Modulbedienung und Einstellungen bew
 
 | Aktion | Eingabe | Voraussetzung |
 |---|---|---|
-| Computerterminal öffnen | Schleichen + Rechtsklick | leere Haupthand, aktives Pultnetz mit einem eingebetteten Computer |
+| Steuerungseinstellungen öffnen | Schleichen + Rechtsklick | Steuerungspult ansehen; native Aeroworks-Interaktion |
+| Computerterminal öffnen | Schaltfläche **Computer** | zuerst die Aeroworks-Steuerungseinstellungen öffnen; aktives Pultnetz mit eingebettetem Computer |
 | Steuerung bedienen | normaler Rechtsklick | montiertes Aeroworks-Modul direkt ansehen |
-| Steuerungseinstellungen öffnen | Schraubenschlüssel + Rechtsklick | horizontale Seite eines Steuerungspults anklicken |
+| Steuerungseinstellungen alternativ öffnen | Schraubenschlüssel + Rechtsklick | horizontale Seite eines Steuerungspults anklicken |
 | Pult drehen | Schraubenschlüssel + Rechtsklick | Ober- oder Unterseite anklicken |
 | Ponder-Erklärung öffnen | W halten | Maus über Computerpult-, Display- oder Radaritem |
+
+## Steuerungseinstellungen öffnen
+
+Aeroworks behält seine native Bedienung:
+
+1. Ein Steuerungspult ansehen.
+2. Schleichen beziehungsweise Shift halten.
+3. Mit leerer Hand rechtsklicken.
+4. Im Aeroworks-Modulbildschirm Modul, Kanal und Eingabetyp konfigurieren.
+
+CC-Aeroworks fängt diese Kombination nicht ab. Insbesondere dient Shift während einer aktiven **Kombiniert**-Session nur als Kamera-Override; ein normaler Shift+Rechtsklick außerhalb einer solchen Session bleibt eine Weltinteraktion und öffnet die Aeroworks-Konfiguration.
+
+Alternativ kann ein Create-Schraubenschlüssel auf einer horizontalen Pultseite verwendet werden. Ober- und Unterseite bleiben für die normale Create-Schraubenschlüsselrotation reserviert.
+
+Im Modus **Kombiniert** zeigt das mittlere Feld die Aktivierungstaste. Linksklick startet die Erfassung; Rechtsklick löscht die Belegung.
 
 ## Computer öffnen
 
 Bei einem gültigen Pultnetz mit genau einem eingebetteten Computer:
 
-1. Haupthand leeren.
-2. Schleichen.
-3. Ein beliebiges geladenes Pult des Netzwerks rechtsklicken.
+1. Mit Shift+Rechtsklick die Aeroworks-Steuerungseinstellungen öffnen.
+2. Dort die Schaltfläche **Computer** verwenden.
+3. Das eingebettete CC:Tweaked-Terminal wird geöffnet.
 
-Das angeklickte Pult muss nicht selbst das Computer-Steuerungspult sein. Der Computer wird eingeschaltet und sein Terminal geöffnet. Seine Position links, mittig oder rechts verändert den Peripheral-Graphen nicht.
+Wurde das Terminal aus einem konkreten Aeroworks-Modulbildschirm geöffnet, bleibt dessen `ConsoleSocket` erhalten. Dadurch kann die Steuerungsansicht anschließend wieder auf genau dasselbe Modul zurückwechseln, statt irgendein Pult oder einen veralteten Socket zu erraten.
 
 Ein externer Computer verwendet stattdessen sein normales CC:Tweaked-Terminal. Jedes direkt oder über ein Wired Modem verbundene Pult erscheint dort als eigener lokaler `ControlDesk`-Adapter. Ein einzelner Adapter vertritt nicht automatisch den gesamten Multiblock.
 
@@ -33,16 +49,6 @@ Montierte Lever, Joysticks, Throttle Quadrants und andere Aeroworks-Module behal
 3. Bei **Kombiniert** die konfigurierte Taste halten und die vorgesehene Mausachse bewegen.
 
 Die Details des kombinierten Modus stehen unter [[Kombinierte-Eingabe]].
-
-## Steuerungseinstellungen öffnen
-
-1. Einen Create-Schraubenschlüssel halten.
-2. Eine **horizontale Seite** des Steuerungspults rechtsklicken.
-3. Im Aeroworks-Modulbildschirm Modul, Kanal und Eingabetyp konfigurieren.
-
-Ober- und Unterseite bleiben für die normale Create-Schraubenschlüsselrotation reserviert.
-
-Im Modus **Kombiniert** zeigt das mittlere Feld die Aktivierungstaste. Linksklick startet die Erfassung; Rechtsklick löscht die Belegung.
 
 ## Ein eingebetteter Computer pro Netzwerk
 
