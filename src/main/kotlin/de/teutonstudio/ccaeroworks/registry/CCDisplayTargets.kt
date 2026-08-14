@@ -5,7 +5,11 @@ import com.simibubi.create.api.registry.CreateRegistries
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
 import de.teutonstudio.ccaeroworks.display.DeskDisplayTarget
+import de.teutonstudio.ccaeroworks.telemetry.TelemetryDisplayTarget
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.resources.ResourceLocation
 import net.neoforged.bus.api.IEventBus
+import net.neoforged.fml.ModList
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent
 import net.neoforged.neoforge.registries.DeferredHolder
 import net.neoforged.neoforge.registries.DeferredRegister
@@ -21,6 +25,12 @@ object CCDisplayTargets {
         Supplier { DeskDisplayTarget() }
     )
 
+    @JvmField
+    val TELEMETRY: DeferredHolder<DisplayTarget, TelemetryDisplayTarget> = TARGETS.register(
+        CCAeroworks.TELEMETRY_DISPLAY_TARGET_ID,
+        Supplier { TelemetryDisplayTarget() }
+    )
+
     fun register(bus: IEventBus) {
         TARGETS.register(bus)
         bus.addListener(::commonSetup)
@@ -34,8 +44,19 @@ object CCDisplayTargets {
             )
             DisplayTarget.BY_BLOCK_ENTITY.register(
                 CCBlockEntities.COMPUTER_CONTROL_DESK.get(),
-                CONTROL_DESK.get()
+                TELEMETRY.get()
             )
+            if (ModList.get().isLoaded("simulated")) {
+                val id = ResourceLocation.fromNamespaceAndPath("simulated", "docking_connector")
+                if (BuiltInRegistries.BLOCK_ENTITY_TYPE.containsKey(id)) {
+                    DisplayTarget.BY_BLOCK_ENTITY.register(
+                        BuiltInRegistries.BLOCK_ENTITY_TYPE.get(id),
+                        TELEMETRY.get()
+                    )
+                } else {
+                    CCAeroworks.LOGGER.warn("[CC-Aeroworks] Simulated is loaded but {} is not registered", id)
+                }
+            }
         }
     }
 }
