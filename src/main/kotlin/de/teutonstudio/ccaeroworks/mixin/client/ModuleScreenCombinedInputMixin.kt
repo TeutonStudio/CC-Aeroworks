@@ -52,9 +52,6 @@ abstract class ModuleScreenCombinedInputMixin {
         if (column.channel().id() !in CombinedInputSource.channels(module)) return
 
         if (CombinedInputSource.isCombinedOnly(module)) {
-            // Large display axes are real Aeroworks channels, but their only legal input mode is
-            // Combined. Consume the mode click and repair stale/legacy config instead of allowing
-            // vanilla to move the row to keyboard or mouse input.
             forceCombined(invoker, module, column, index)
             callback.returnValue = true
             return
@@ -64,7 +61,7 @@ abstract class ModuleScreenCombinedInputMixin {
         val combined = analog && module.analogSourceFor(column.channel().id()) == CombinedInputSource.ID
 
         when {
-            !analog -> return // Vanilla performs Buttons -> Analog.
+            !analog -> return
             !combined -> {
                 invoker.ccaeroworks_sendAnalogSource(index, CombinedInputSource.ID)
                 if (invoker.ccaeroworks_bindFor(column).isBlank()) {
@@ -160,6 +157,7 @@ abstract class ModuleScreenCombinedInputMixin {
         val module = invoker.ccaeroworks_module() ?: return
         if (!CombinedInputSource.supports(module)) return
         val menu = (this as AbstractContainerScreenAccessor).ccaeroworks_getMenu() as? ModuleMenu ?: return
+        val combinedIcon = CCAeroworks.id("textures/gui/combined_input_placeholder.png")
 
         menu.columns().forEachIndexed { index, column ->
             if (!CombinedInputSource.isCombined(module, column.channel().id())) return@forEachIndexed
@@ -170,10 +168,8 @@ abstract class ModuleScreenCombinedInputMixin {
             val iconX = bounds[0] + (width - iconSize) / 2
             val iconY = bounds[1] + (height - iconSize) / 2
 
-            // Cover Aeroworks' analog/mouse glyph first; Combined owns this mode and must not look
-            // like ordinary mouse input. The texture is deliberately a placeholder for final art.
-            graphics.fill(iconX, iconY, iconX + iconSize, iconY + iconSize, COMBINED_ICON_BACKGROUND)
-            graphics.blit(COMBINED_ICON, iconX, iconY, 0.0f, 0.0f, iconSize, iconSize, 16, 16)
+            graphics.fill(iconX, iconY, iconX + iconSize, iconY + iconSize, -0xddddde)
+            graphics.blit(combinedIcon, iconX, iconY, 0.0f, 0.0f, iconSize, iconSize, 16, 16)
         }
     }
 
@@ -230,9 +226,4 @@ abstract class ModuleScreenCombinedInputMixin {
     @Unique
     private fun isCombined(invoker: ModuleScreenInvoker, column: ModuleColumn): Boolean =
         invoker.ccaeroworks_module()?.let { CombinedInputSource.isCombined(it, column.channel().id()) } == true
-
-    private companion object {
-        val COMBINED_ICON = CCAeroworks.id("textures/gui/combined_input_placeholder.png")
-        const val COMBINED_ICON_BACKGROUND: Int = -0xddddde
-    }
 }
