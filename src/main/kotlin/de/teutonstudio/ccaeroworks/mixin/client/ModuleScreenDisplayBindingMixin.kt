@@ -4,6 +4,7 @@ import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import com.mred231.aeroworks.content.controls.ConsoleSocket
 import com.mred231.aeroworks.content.controls.ModuleMenu
 import com.mred231.aeroworks.content.controls.ModuleScreen
+import com.mred231.aeroworks.foundation.gui.AeroworksGuiTextures
 import de.teutonstudio.ccaeroworks.display.DeskDisplayType
 import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
@@ -108,20 +109,7 @@ abstract class ModuleScreenDisplayBindingMixin(
             listTop + ModuleScreenRowGeometry.LIST_HEIGHT
         )
         try {
-            graphics.fill(
-                rowLeft,
-                rowTop,
-                rowLeft + ROW_WIDTH,
-                rowTop + ModuleScreenRowGeometry.EXTENSION_ROW_HEIGHT,
-                ROW_BACKGROUND
-            )
-            graphics.fill(
-                rowLeft,
-                rowTop,
-                rowLeft + ROW_WIDTH,
-                rowTop + 1,
-                ROW_SEPARATOR
-            )
+            AeroworksGuiTextures.MODULE_ROW.render(graphics, rowLeft, rowTop)
         } finally {
             graphics.disableScissor()
         }
@@ -148,8 +136,7 @@ abstract class ModuleScreenDisplayBindingMixin(
 
     @Unique
     private fun ccaeroworks_addTouchScriptField(desk: ConsoleBlockEntity, socket: Int) {
-        val buttonWidth = 42
-        val fieldWidth = CONTROL_WIDTH - buttonWidth - CONTROL_GAP
+        val fieldWidth = CONTROL_WIDTH - SCRIPT_SET_BUTTON_WIDTH - CONTROL_GAP
         val rowLeft = (this as ModuleScreenInvoker).ccaeroworks_rowLeft()
         val rowTop = ccaeroworks_bindingRowTop()
         val controlX = rowLeft + CONTROL_INSET
@@ -178,7 +165,7 @@ abstract class ModuleScreenDisplayBindingMixin(
             }.bounds(
                 controlX + fieldWidth + CONTROL_GAP,
                 controlY,
-                buttonWidth,
+                SCRIPT_SET_BUTTON_WIDTH,
                 WIDGET_HEIGHT
             ).build()
         )
@@ -195,25 +182,24 @@ abstract class ModuleScreenDisplayBindingMixin(
         )
 
         ccaeroworks_radarSourceButton?.let { button ->
-            button.x = controlX
-            button.y = controlY
+            button.setX(controlX)
+            button.setY(controlY)
             button.visible = visible
             button.active = visible
         }
 
-        val field = ccaeroworks_touchScriptField
-        field?.let {
-            it.x = controlX
-            it.y = controlY
-            it.visible = visible
-            it.active = visible
-            if (!visible && it.isFocused) it.isFocused = false
+        ccaeroworks_touchScriptField?.let { field ->
+            field.setX(controlX)
+            field.setY(controlY)
+            field.visible = visible
+            field.active = visible
+            if (!visible && field.isFocused) field.setFocused(false)
         }
 
         ccaeroworks_touchScriptSetButton?.let { button ->
-            val fieldWidth = CONTROL_WIDTH - button.width - CONTROL_GAP
-            button.x = controlX + fieldWidth + CONTROL_GAP
-            button.y = controlY
+            val fieldWidth = CONTROL_WIDTH - SCRIPT_SET_BUTTON_WIDTH - CONTROL_GAP
+            button.setX(controlX + fieldWidth + CONTROL_GAP)
+            button.setY(controlY)
             button.visible = visible
             button.active = visible
         }
@@ -276,9 +262,8 @@ abstract class ModuleScreenDisplayBindingMixin(
         private const val CONTROL_INSET: Int = 8
         private const val CONTROL_WIDTH: Int = ROW_WIDTH - CONTROL_INSET * 2
         private const val CONTROL_GAP: Int = 4
+        private const val SCRIPT_SET_BUTTON_WIDTH: Int = 42
         private const val WIDGET_INSET_Y: Int = 5
         private const val WIDGET_HEIGHT: Int = 20
-        private const val ROW_BACKGROUND: Int = 0x55000000
-        private const val ROW_SEPARATOR: Int = 0x66808080
     }
 }
