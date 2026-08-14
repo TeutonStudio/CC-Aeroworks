@@ -68,7 +68,8 @@ data class CombinedControlSamplePayload(
             if (payload.sequence < 0 || payload.values.isEmpty() || payload.values.size > MAX_CHANNELS) return
             if (payload.values.map { it.channel }.toSet().size != payload.values.size) return
             if (payload.values.any { it.value !in -15..15 || it.channel.isBlank() || it.channel.length > 16 }) return
-            if (!level.hasChunkAt(payload.pos) || !level.mayInteract(player, payload.pos)) return
+            if (!level.hasChunkAt(payload.pos)) return
+            if (!level.mayInteract(player, SableSpatial.worldBlockPos(level, payload.pos))) return
 
             val desk = level.getBlockEntity(payload.pos) as? ConsoleBlockEntity ?: return
             if (payload.socket !in 0 until desk.socketCount()) return
