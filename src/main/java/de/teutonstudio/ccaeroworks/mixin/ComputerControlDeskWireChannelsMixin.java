@@ -9,9 +9,13 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /** Preserve ComputerControlDesk wire definitions on the CC computer item during conflict ejection. */
-@Mixin(ComputerControlDeskBlock.class)
+@Mixin(value = ComputerControlDeskBlock.class, remap = false)
 public abstract class ComputerControlDeskWireChannelsMixin {
-    @Inject(method = "standaloneComputer", at = @At("RETURN"))
+    @Inject(
+        method = "standaloneComputer(Lnet/minecraft/world/item/ItemStack;)Lnet/minecraft/world/item/ItemStack;",
+        at = @At("RETURN"),
+        remap = false
+    )
     private void ccaeroworks$copyWireChannels(
         final ItemStack source,
         final CallbackInfoReturnable<ItemStack> cir
