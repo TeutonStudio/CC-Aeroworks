@@ -9,4 +9,7 @@ import org.spongepowered.asm.mixin.gen.Accessor
 interface ConsoleScreenAccessor {
     @Accessor("console")
     fun ccaeroworks_getConsole(): ConsoleBlockEntity
+
+    @Accessor("windowLeft")
+    fun ccaeroworks_getWindowLeft(): Int
 }

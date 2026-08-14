@@ -16,7 +16,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo
 abstract class ConsoleScreenSwitchMixin(title: Component) : Screen(title) {
     @Inject(method = ["init()V"], at = [At("TAIL")])
     private fun ccaeroworks_addComputerButton(callback: CallbackInfo) {
-        val console = (this as ConsoleScreenAccessor).ccaeroworks_getConsole()
+        val accessor = this as ConsoleScreenAccessor
+        val console = accessor.ccaeroworks_getConsole()
 
         // ConsoleScreen only exists when Aeroworks' ConsoleScreenOpener.hasOverview() is true.
         // Remember OVERVIEW independently from ModuleScreen's DETAIL context. With one control
@@ -24,10 +25,14 @@ abstract class ConsoleScreenSwitchMixin(title: Component) : Screen(title) {
         ControlDeskUiSwitchState.rememberClientOverview(console)
         if (!ControlDeskUiSwitchState.clientCanSwitchToComputer()) return
 
-        val computerButton = ControlDeskNavigationButtons.computerButton(this, Runnable {
-            ControlDeskUiSwitchState.rememberClientOverview(console)
-            PacketDistributor.sendToServer(SwitchControlDeskUiPayload())
-        }) ?: return
+        val computerButton = ControlDeskNavigationButtons.computerButton(
+            this,
+            accessor.ccaeroworks_getWindowLeft(),
+            Runnable {
+                ControlDeskUiSwitchState.rememberClientOverview(console)
+                PacketDistributor.sendToServer(SwitchControlDeskUiPayload())
+            }
+        ) ?: return
 
         addRenderableWidget(computerButton)
     }

@@ -10,6 +10,7 @@ def read(path: str) -> str:
 
 module = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ModuleScreenSwitchMixin.kt")
 overview = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ConsoleScreenSwitchMixin.kt")
+overview_accessor = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ConsoleScreenAccessor.kt")
 computer = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/AbstractComputerScreenSwitchMixin.kt")
 state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ControlDeskUiSwitchState.kt")
 client_nav = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/ControlDeskUiClientNavigation.kt")
@@ -31,16 +32,23 @@ require("rememberClientControls(menu.contentHolder)" in module, "detail screen m
 require("rememberClientOverview(console)" in overview, "overview screen must retain overview return context")
 require("HoverTintIconButton" in aero_buttons, "Aeroworks navigation must use native HoverTintIconButton")
 
-# Computer owns Aeroworks' original left-most bottom-row slot. Native buttons move right, keeping
-# the whole row left-aligned instead of appending Computer after Done or outside the row.
-require("val leftmost = row.minOfOrNull { it.x }" in aero_buttons,
-        "PC button must derive Aeroworks' original left-most bottom-row position")
-require("row.forEach { it.setX(it.x + shift) }" in aero_buttons,
-        "native Aeroworks bottom-row actions must shift right for the PC slot")
-require("HoverTintIconButton(\n            leftmost," in aero_buttons,
-        "PC button must occupy the original left-most Aeroworks slot")
-require("leftmost - GAP - size" not in aero_buttons,
-        "PC button must not be placed outside the native row")
+# Aeroworks 1.3.0 anchors its content eight pixels inside the left edge of both relevant screens:
+# ModuleScreen rowLeft() == leftPos + 8, ConsoleScreen rowLeft == windowLeft + 8. Its Delete/Done
+# buttons are right-aligned independently, so CC-Aeroworks must never move native widgets.
+require("private const val UI_INSET = 8" in aero_buttons,
+        "PC button must use Aeroworks' eight-pixel left content inset")
+require("val buttonX = uiLeft + UI_INSET" in aero_buttons,
+        "PC button must derive X exclusively from the screen's left edge")
+require(".setX(" not in aero_buttons,
+        "PC navigation must never move Aeroworks' native Delete/Done buttons")
+require("computerButton(this, leftPos, Runnable" in module,
+        "ModuleScreen PC button must anchor to the native leftPos")
+require('@Accessor("windowLeft")' in overview_accessor and "ccaeroworks_getWindowLeft" in overview_accessor,
+        "ConsoleScreen must expose its exact native windowLeft geometry")
+require("accessor.ccaeroworks_getWindowLeft()" in overview,
+        "ConsoleScreen PC button must anchor to the native windowLeft")
+require("leftmost" not in aero_buttons and "shift" not in aero_buttons,
+        "PC button X must not be inferred from or shift the right-aligned native action row")
 
 # Catnip's Java withCallback() returns a generic T whose type is not inferable in Kotlin when
 # the return value is ignored. Keep the concrete widget type explicit or compileKotlin fails.
@@ -87,4 +95,4 @@ require("Inspect Aeroworks navigation layouts" not in workflow and "Inspect Aero
 require("python3 tools/verify-control-desk-ui-navigation.py" in workflow,
         "workflow must enforce UI navigation contract")
 
-print("Validated symmetric ControlDesk UI navigation: left-aligned native PC slot, conditional overview, exact detail return, CC-style Controls sidebar tab, and Kotlin-safe Catnip callback typing.")
+print("Validated symmetric ControlDesk UI navigation: PC is fixed to the native left content edge, Aeroworks' right-aligned Delete/Done actions remain untouched, detail return is exact, and the computer uses its CC-style Controls sidebar tab.")

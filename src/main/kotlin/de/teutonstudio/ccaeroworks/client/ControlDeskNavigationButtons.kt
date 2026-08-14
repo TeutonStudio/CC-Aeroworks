@@ -5,17 +5,16 @@ import net.createmod.catnip.gui.element.ScreenElement
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
-import kotlin.math.abs
 
 /**
- * Adds CC-Aeroworks navigation inside Aeroworks' native bottom action row.
+ * Adds the Computer action on the left side of Aeroworks' native bottom action row.
  *
- * The Computer button owns the original left-most slot. Existing Aeroworks actions are shifted
- * to the right while retaining their order, so the row reads Computer -> native actions -> Done
- * instead of appending Computer after the native row.
+ * Aeroworks 1.3.0 right-aligns its own destructive/confirm actions (Delete/Done). The Computer
+ * action therefore uses the screen's left content edge and never moves or derives its X position
+ * from those native right-aligned actions.
  */
 object ControlDeskNavigationButtons {
-    private const val GAP = 4
+    private const val UI_INSET = 8
     private const val AEROWORKS_HOVER_TINT = 0x80FF80
 
     private val COMPUTER_ICON = ScreenElement { graphics: GuiGraphics, x: Int, y: Int ->
@@ -28,27 +27,21 @@ object ControlDeskNavigationButtons {
         graphics.fill(x + 6, y + 13, x + 12, y + 14, light)
     }
 
-    fun computerButton(screen: Screen, callback: Runnable): HoverTintIconButton? {
-        val nativeButtons = screen.children()
+    fun computerButton(screen: Screen, uiLeft: Int, callback: Runnable): HoverTintIconButton? {
+        // Y and chrome still follow Aeroworks' native bottom-row button. X does not: Delete/Done
+        // are right-aligned and must remain exactly where Aeroworks put them.
+        val anchor = screen.children()
             .filterIsInstance<HoverTintIconButton>()
-        val anchor = nativeButtons.maxByOrNull { it.x } ?: return null
-        val row = nativeButtons.filter { abs(it.y - anchor.y) <= 1 }
-        val leftmost = row.minOfOrNull { it.x } ?: anchor.x
-        val size = anchor.width
-        val shift = size + GAP
-
-        // Keep the row left-aligned at Aeroworks' original position. The Computer action takes
-        // that first slot and all native actions move one slot to the right.
-        row.forEach { it.setX(it.x + shift) }
+            .maxByOrNull { it.x }
+            ?: return null
+        val buttonX = uiLeft + UI_INSET
 
         return HoverTintIconButton(
-            leftmost,
+            buttonX,
             anchor.y,
             COMPUTER_ICON,
             AEROWORKS_HOVER_TINT
         ).also { button ->
-            // Catnip exposes withCallback as <T extends AbstractSimiWidget> T withCallback(...).
-            // Kotlin cannot infer T when the generic return value is ignored.
             button.withCallback<HoverTintIconButton>(callback)
             button.setToolTip(Component.translatable("guide.cc_aeroworks.tab.computers"))
         }

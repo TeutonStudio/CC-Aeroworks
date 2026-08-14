@@ -27,7 +27,7 @@ abstract class ModuleScreenSwitchMixin(
         ControlDeskUiSwitchState.rememberClientControls(menu.contentHolder)
         if (!ControlDeskUiSwitchState.clientCanSwitchToComputer()) return
 
-        val computerButton = ControlDeskNavigationButtons.computerButton(this, Runnable {
+        val computerButton = ControlDeskNavigationButtons.computerButton(this, leftPos, Runnable {
             // Refresh the socket at the actual transition in case Aeroworks rebuilt the holder.
             ControlDeskUiSwitchState.rememberClientControls(menu.contentHolder)
             PacketDistributor.sendToServer(SwitchControlDeskUiPayload())
