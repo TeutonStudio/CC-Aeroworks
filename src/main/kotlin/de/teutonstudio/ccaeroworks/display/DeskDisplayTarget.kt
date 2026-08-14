@@ -5,7 +5,11 @@ import com.simibubi.create.api.behaviour.display.DisplayTarget
 import com.simibubi.create.content.redstone.displayLink.DisplayLinkContext
 import com.simibubi.create.content.redstone.displayLink.target.DisplayTargetStats
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockDisplayBounds
+import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.MutableComponent
+import net.minecraft.world.level.LevelAccessor
+import net.minecraft.world.phys.AABB
 
 class DeskDisplayTarget : DisplayTarget() {
     override fun acceptText(line: Int, text: List<MutableComponent>, context: DisplayLinkContext) {
@@ -25,4 +29,7 @@ class DeskDisplayTarget : DisplayTarget() {
         val rows = desk?.let(AeroworksDeskAccess::displays)?.size?.coerceAtLeast(1) ?: 1
         return DisplayTargetStats(rows, 3, this)
     }
+
+    override fun getMultiblockBounds(level: LevelAccessor, pos: BlockPos): AABB =
+        ConsoleMultiblockDisplayBounds.resolve(level, pos) ?: super.getMultiblockBounds(level, pos)
 }

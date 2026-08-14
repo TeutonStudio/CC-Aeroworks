@@ -46,7 +46,6 @@ object CCAeroworksClient {
         modBus.addListener<ModelEvent.ModifyBakingResult>(::modifyBakingResult)
         NeoForge.EVENT_BUS.addListener(RadarOverlayRenderer::renderLevel)
         NeoForge.EVENT_BUS.addListener(DisplayPointerRenderer::renderLevel)
-        NeoForge.EVENT_BUS.addListener(ConsoleMultiblockHighlightRenderer::render)
         RadarTrace.event(
             "C00_OVERLAY_LISTENER_REGISTERED",
             null,

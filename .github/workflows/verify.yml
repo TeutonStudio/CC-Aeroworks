@@ -62,8 +62,8 @@ jobs:
       - name: Validate display combined input
         run: python3 tools/verify-display-combined-input.py
 
-      - name: Validate multiblock selection highlight
-        run: python3 tools/verify-multiblock-highlight.py
+      - name: Validate Display Link multiblock highlight
+        run: python3 tools/verify-display-link-multiblock-highlight.py
 
       - name: Validate display source bindings
         run: python3 tools/verify-display-bindings.py
