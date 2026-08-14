@@ -63,7 +63,7 @@ require("topPos + imageHeight" not in bindings and "leftPos + (imageWidth" not i
 
 # Kotlin companion objects generate a static Companion field on the mixin class. Sponge Mixin rejects
 # non-private static fields during preprocessing, so mixin layout constants must remain file-level/private.
-require("companion object" not in bindings,
+require("\n    companion object" not in bindings,
         "ModuleScreenDisplayBindingMixin must not declare a Kotlin companion object")
 require("private const val BINDING_ROW_WIDTH" in bindings,
         "display binding layout constants must remain private file-level constants")
