@@ -2,6 +2,7 @@ package de.teutonstudio.ccaeroworks.input
 
 import com.mojang.blaze3d.platform.InputConstants
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.ConsoleControlClient
 import de.teutonstudio.ccaeroworks.config.CCClientConfig
 import de.teutonstudio.ccaeroworks.mixin.client.MouseHandlerAccessor
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
@@ -26,14 +27,30 @@ object CombinedLeverController {
     @JvmStatic
     fun isActive(): Boolean = target != null || DisplayCombinedInputController.isActive()
 
+    /**
+     * Abort an active Combined control at Aeroworks' actual ControlDesk-session boundary. The
+     * currently held activation binding stays suppressed until its physical release so the same
+     * key press cannot start another session after Aeroworks has already left control mode.
+     */
+    @JvmStatic
+    fun abortControlMode() {
+        val active = target ?: return
+        val minecraft = Minecraft.getInstance()
+        if (CombinedActivationKey.isDown(active.activationBinding, minecraft)) {
+            suppressedBinding = active.activationBinding
+        }
+        stop(flushFinal = true)
+    }
+
     @SubscribeEvent(priority = EventPriority.LOW)
     fun onKey(event: InputEvent.Key) {
         if (event.action == GLFW.GLFW_REPEAT) return
+        val minecraft = Minecraft.getInstance()
         val binding = InputConstants.Type.KEYSYM.getOrCreate(event.key).name
-        if (event.action == GLFW.GLFW_PRESS && CombinedInputCoordinator.isShiftCameraOnly(Minecraft.getInstance())) {
+        if (event.action == GLFW.GLFW_PRESS && CombinedInputCoordinator.isShiftCameraOnly(minecraft)) {
             val active = target
             if (active != null) {
-                if (CombinedActivationKey.isDown(active.activationBinding, Minecraft.getInstance())) {
+                if (CombinedActivationKey.isDown(active.activationBinding, minecraft)) {
                     suppressedBinding = active.activationBinding
                 }
                 stop(flushFinal = true)
@@ -41,7 +58,7 @@ object CombinedLeverController {
             return
         }
         when (event.action) {
-            GLFW.GLFW_PRESS -> onBindingPressed(binding, Minecraft.getInstance())
+            GLFW.GLFW_PRESS -> onBindingPressed(binding, minecraft)
             GLFW.GLFW_RELEASE -> onBindingReleased(binding)
         }
     }
@@ -111,6 +128,12 @@ object CombinedLeverController {
             return
         }
 
+        if (!ConsoleControlClient.isActive()) {
+            suppressedBinding = active.activationBinding
+            stop(flushFinal = true)
+            return
+        }
+
         event.mouseSensitivity = -1.0 / 3.0
         event.cinematicCameraEnabled = false
 
@@ -133,7 +156,11 @@ object CombinedLeverController {
     fun onClone(event: ClientPlayerNetworkEvent.Clone) = reset()
 
     private fun onBindingPressed(binding: String, minecraft: Minecraft): Boolean {
-        if (binding.isBlank() || suppressedBinding == binding || CombinedInputCoordinator.ownsDisplay()) return false
+        if (binding.isBlank() ||
+            suppressedBinding == binding ||
+            CombinedInputCoordinator.ownsDisplay() ||
+            !ConsoleControlClient.isActive()
+        ) return false
         target?.let { return it.activationBinding == binding }
 
         val candidate = acquireTarget(minecraft, binding) ?: return false
@@ -214,7 +241,8 @@ object CombinedLeverController {
         val player = minecraft.player ?: return false
         val level = minecraft.level ?: return false
         val active = target ?: return false
-        return CombinedInputCoordinator.ownsControl() &&
+        return ConsoleControlClient.isActive() &&
+            CombinedInputCoordinator.ownsControl() &&
             minecraft.screen == null &&
             minecraft.isWindowActive &&
             player.isAlive &&
