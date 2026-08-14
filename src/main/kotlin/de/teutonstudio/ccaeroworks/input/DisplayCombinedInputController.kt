@@ -1,5 +1,6 @@
 package de.teutonstudio.ccaeroworks.input
 
+import com.mojang.blaze3d.platform.InputConstants
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.config.CCClientConfig
 import de.teutonstudio.ccaeroworks.display.DeskDisplayGeometry
@@ -21,7 +22,7 @@ import kotlin.math.ceil
 
 object DisplayCombinedInputController {
     private var target: DisplayCombinedTarget? = null
-    private var suppressedUntilRelease = false
+    private var suppressedBindings: Set<String> = emptySet()
 
     @JvmStatic
     fun isActive(): Boolean = target != null
@@ -36,9 +37,14 @@ object DisplayCombinedInputController {
         if (handleShiftOverride(minecraft)) return
         acquireTargetIfPossible(minecraft)
         val active = target ?: return
+        val axes = activeAxes(minecraft, active)
 
-        if (!DisplayInteractionKey.isDown(minecraft) || !targetStillValid(minecraft, active)) {
-            if (DisplayInteractionKey.isPhysicallyDown(minecraft)) suppressedUntilRelease = true
+        if (axes == null) {
+            stop()
+            return
+        }
+        if (!targetStillValid(minecraft, active)) {
+            suppress(axes.bindings)
             stop()
         }
     }
@@ -50,13 +56,14 @@ object DisplayCombinedInputController {
         if (handleShiftOverride(minecraft)) return
         acquireTargetIfPossible(minecraft)
         val active = target ?: return
+        val axes = activeAxes(minecraft, active)
 
-        if (!DisplayInteractionKey.isDown(minecraft)) {
+        if (axes == null) {
             stop()
             return
         }
         if (!targetStillValid(minecraft, active)) {
-            suppressedUntilRelease = true
+            suppress(axes.bindings)
             stop()
             return
         }
@@ -70,10 +77,14 @@ object DisplayCombinedInputController {
 
         val mouse = minecraft.mouseHandler as MouseHandlerAccessor
         val sensitivity = CCClientConfig.displayPointerSensitivity.get()
-        active.u = (active.u + mouse.ccaeroworks_getAccumulatedDX() * sensitivity).coerceIn(0.0, 1.0)
-        // Screen V grows downwards, while raw mouse Y grows in the opposite visual direction here.
-        // Subtracting the delta makes moving the mouse up move the pseudo finger up on the display.
-        active.v = (active.v - mouse.ccaeroworks_getAccumulatedDY() * sensitivity).coerceIn(0.0, 1.0)
+        if (axes.x) {
+            active.u = (active.u + mouse.ccaeroworks_getAccumulatedDX() * sensitivity).coerceIn(0.0, 1.0)
+        }
+        if (axes.y) {
+            // Screen V grows downwards; subtract raw mouse Y so moving the mouse upward also moves
+            // the pseudo finger upward on the display.
+            active.v = (active.v - mouse.ccaeroworks_getAccumulatedDY() * sensitivity).coerceIn(0.0, 1.0)
+        }
     }
 
     @SubscribeEvent
@@ -83,16 +94,24 @@ object DisplayCombinedInputController {
         if (handleShiftOverride(minecraft)) return
         acquireTargetIfPossible(minecraft)
         val active = target ?: return
-        if (event.button != GLFW.GLFW_MOUSE_BUTTON_LEFT && event.button != GLFW.GLFW_MOUSE_BUTTON_RIGHT) return
-
-        // Consume press and release so vanilla attack/use state cannot leak through the pointer session.
-        event.isCanceled = true
-        if (event.action != GLFW.GLFW_PRESS || !DisplayInteractionKey.isDown(minecraft)) return
-        if (!targetStillValid(minecraft, active)) {
-            suppressedUntilRelease = true
+        val axes = activeAxes(minecraft, active) ?: run {
             stop()
             return
         }
+        if (event.button != GLFW.GLFW_MOUSE_BUTTON_LEFT && event.button != GLFW.GLFW_MOUSE_BUTTON_RIGHT) return
+
+        // An active display Combined session owns both action buttons so attack/use cannot leak to
+        // Minecraft. If a mouse button itself is used as an axis activation binding, its press is
+        // only the activation edge and must not simultaneously become a tap on the display.
+        event.isCanceled = true
+        if (event.action != GLFW.GLFW_PRESS) return
+        if (!targetStillValid(minecraft, active)) {
+            suppress(axes.bindings)
+            stop()
+            return
+        }
+        val pressedBinding = InputConstants.Type.MOUSE.getOrCreate(event.button).name
+        if (pressedBinding in axes.bindings) return
 
         val action = if (event.button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
             DisplayPointerAction.TAP
@@ -112,20 +131,61 @@ object DisplayCombinedInputController {
 
     private fun handleShiftOverride(minecraft: Minecraft): Boolean {
         if (!CombinedInputCoordinator.isShiftCameraOnly(minecraft)) return false
-        if (DisplayInteractionKey.isPhysicallyDown(minecraft)) suppressedUntilRelease = true
+
+        val active = target
+        if (active != null) {
+            activeAxes(minecraft, active)?.let { suppress(it.bindings) }
+        } else if (suppressedBindings.isEmpty()) {
+            // Shift has absolute camera priority. If an axis activation key is already held while
+            // Shift is down, remember that edge so releasing Shift cannot immediately re-enter
+            // Combined without a real release + press cycle.
+            acquireTarget(minecraft)?.let { candidate ->
+                activeAxes(minecraft, candidate)?.let { suppress(it.bindings) }
+            }
+        }
         stop()
         return true
     }
 
     private fun refreshSuppression(minecraft: Minecraft) {
-        if (suppressedUntilRelease && !DisplayInteractionKey.isPhysicallyDown(minecraft)) {
-            suppressedUntilRelease = false
+        if (suppressedBindings.isEmpty()) return
+        suppressedBindings = suppressedBindings.filterTo(linkedSetOf()) {
+            CombinedActivationKey.isDown(it, minecraft)
         }
     }
 
+    private fun suppress(bindings: Set<String>) {
+        if (bindings.isNotEmpty()) suppressedBindings = suppressedBindings + bindings
+    }
+
     private fun acquireTargetIfPossible(minecraft: Minecraft) {
-        if (target != null || suppressedUntilRelease || !DisplayInteractionKey.isDown(minecraft)) return
-        target = acquireTarget(minecraft)
+        if (target != null || suppressedBindings.isNotEmpty() || CombinedInputCoordinator.isShiftCameraOnly(minecraft)) return
+        val candidate = acquireTarget(minecraft) ?: return
+        if (activeAxes(minecraft, candidate) != null) target = candidate
+    }
+
+    private fun activeAxes(minecraft: Minecraft, active: DisplayCombinedTarget): ActiveAxes? {
+        val level = minecraft.level ?: return null
+        if (!level.isLoaded(active.pos)) return null
+        val desk = level.getBlockEntity(active.pos) as? ConsoleBlockEntity ?: return null
+        if (active.socket !in 0 until desk.socketCount()) return null
+        val module = desk.module(active.socket) ?: return null
+        if (!CombinedInputSource.isCombinedOnly(module)) return null
+
+        var x = false
+        var y = false
+        val bindings = linkedSetOf<String>()
+        for (channel in CombinedInputSource.channels(module)) {
+            if (!CombinedInputSource.isCombined(module, channel)) continue
+            val binding = CombinedInputSource.activationBinding(module, channel)
+            if (binding.isBlank() || !CombinedActivationKey.isDown(binding, minecraft)) continue
+            bindings += binding
+            when (CombinedInputSource.mouseAxis(channel)) {
+                CombinedInputSource.MouseAxis.X -> x = true
+                CombinedInputSource.MouseAxis.Y -> y = true
+            }
+        }
+        return if (x || y) ActiveAxes(x, y, bindings) else null
     }
 
     private fun acquireTarget(minecraft: Minecraft): DisplayCombinedTarget? {
@@ -144,7 +204,7 @@ object DisplayCombinedInputController {
             if (desk != null) {
                 val pointer = DeskDisplayGeometry.resolveRay(desk, from, to)
                     ?: DeskDisplayGeometry.resolveHit(desk, vanillaHit.location)
-                if (pointer != null) {
+                if (pointer != null && isCombinedDisplay(desk, pointer.socket)) {
                     return DisplayCombinedTarget(
                         dimension = level.dimension(),
                         pos = desk.blockPos.immutable(),
@@ -171,6 +231,7 @@ object DisplayCombinedInputController {
                     if (!level.isLoaded(pos)) continue
                     val desk = level.getBlockEntity(pos) as? ConsoleBlockEntity ?: continue
                     val pointer = DeskDisplayGeometry.resolveRay(desk, from, to) ?: continue
+                    if (!isCombinedDisplay(desk, pointer.socket)) continue
                     val distanceSquared = from.distanceToSqr(desk.blockPos.center)
                     if (distanceSquared >= bestDistanceSquared) continue
 
@@ -189,6 +250,12 @@ object DisplayCombinedInputController {
         return bestTarget
     }
 
+    private fun isCombinedDisplay(desk: ConsoleBlockEntity, socket: Int): Boolean {
+        if (!DeskDisplayGeometry.isInteractiveDisplay(desk, socket)) return false
+        val module = if (socket in 0 until desk.socketCount()) desk.module(socket) else null
+        return module != null && CombinedInputSource.isCombinedOnly(module)
+    }
+
     private fun targetStillValid(minecraft: Minecraft, active: DisplayCombinedTarget): Boolean {
         val player = minecraft.player ?: return false
         val level = minecraft.level ?: return false
@@ -197,7 +264,7 @@ object DisplayCombinedInputController {
         }
         if (!level.isLoaded(active.pos)) return false
         val desk = level.getBlockEntity(active.pos) as? ConsoleBlockEntity ?: return false
-        if (!DeskDisplayGeometry.isInteractiveDisplay(desk, active.socket)) return false
+        if (!isCombinedDisplay(desk, active.socket)) return false
 
         val maximumDistance = player.blockInteractionRange() + 1.0
         return player.distanceToSqr(active.pos.center) <= maximumDistance * maximumDistance
@@ -209,6 +276,12 @@ object DisplayCombinedInputController {
 
     private fun reset() {
         target = null
-        suppressedUntilRelease = false
+        suppressedBindings = emptySet()
     }
+
+    private data class ActiveAxes(
+        val x: Boolean,
+        val y: Boolean,
+        val bindings: Set<String>
+    )
 }
