@@ -49,7 +49,8 @@ data class SetCombinedLeverValuePayload(val pos: BlockPos, val socket: Int, val 
         fun handle(payload: SetCombinedLeverValuePayload, context: IPayloadContext) {
             val player = context.player() as? ServerPlayer ?: return
             val level = player.serverLevel()
-            if (payload.value !in -15..15 || !level.hasChunkAt(payload.pos) || !level.mayInteract(player, payload.pos)) return
+            if (payload.value !in -15..15 || !level.hasChunkAt(payload.pos)) return
+            if (!level.mayInteract(player, SableSpatial.worldBlockPos(level, payload.pos))) return
             val desk = level.getBlockEntity(payload.pos) as? ConsoleBlockEntity ?: return
             if (payload.socket !in 0 until desk.socketCount()) return
             val module = desk.module(payload.socket) ?: return
