@@ -4,8 +4,8 @@ import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskInputSnapshot
 import de.teutonstudio.ccaeroworks.display.DeskDisplayTouch
-import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
+import de.teutonstudio.ccaeroworks.display.DisplayInputBinding
 import de.teutonstudio.ccaeroworks.network.DisplayPointerAction
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.event.tick.ServerTickEvent
@@ -64,7 +64,9 @@ object ControlDeskPeripheralState {
         touch: DeskDisplayTouch,
         action: DisplayPointerAction
     ) {
-        val handlerPath = (DisplayBindings.get(desk, touch.socket) as? DisplayBinding.LuaHandler)?.path.orEmpty()
+        val handlerPath = (DisplayBindings.get(desk, touch.socket).input as? DisplayInputBinding.LuaHandler)
+            ?.path
+            .orEmpty()
         active.forEach { peripheral ->
             if (peripheral.validDesk() !== desk) return@forEach
             peripheral.computers.forEach { computer ->

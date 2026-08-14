@@ -6,8 +6,8 @@ import de.teutonstudio.ccaeroworks.compat.createradar.RadarDeskStateAccess
 import de.teutonstudio.ccaeroworks.display.DeskDisplayFormatter
 import de.teutonstudio.ccaeroworks.display.DeskDisplayPixels
 import de.teutonstudio.ccaeroworks.display.DeskDisplayState
-import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
+import de.teutonstudio.ccaeroworks.display.DisplayContentSource
 import de.teutonstudio.ccaeroworks.display.RadarDisplaySnapshot
 import de.teutonstudio.ccaeroworks.display.RadarDisplayType
 import de.teutonstudio.ccaeroworks.display.RadarSourceRegistry
@@ -50,9 +50,9 @@ object AeroworksDeskAccess {
         val localSnapshot = (desk as? RadarDeskStateAccess)?.ccaeroworks_getRadarSnapshot()
         return (0 until desk.socketCount()).mapNotNull { socket ->
             radarDisplayType(desk, socket)?.let { type ->
-                val snapshot = when (val binding = DisplayBindings.get(desk, socket)) {
-                    is DisplayBinding.RadarSource ->
-                        RadarSourceRegistry.resolveSnapshot(desk, binding.source)
+                val snapshot = when (val content = DisplayBindings.get(desk, socket).content) {
+                    is DisplayContentSource.RadarSource ->
+                        RadarSourceRegistry.resolveSnapshot(desk, content.source)
                             ?: RadarDisplaySnapshot.disconnected(desk.level?.gameTime ?: 0L)
                     else -> localSnapshot
                 }

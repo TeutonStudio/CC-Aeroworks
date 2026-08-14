@@ -27,20 +27,20 @@ object DisplayBindingService {
             throw LuaException("Module at socket $socket is not a Radar Display")
         }
 
-        val binding = if (sourceId.isBlank() || sourceId.equals("default", ignoreCase = true) ||
+        val content = if (sourceId.isBlank() || sourceId.equals("default", ignoreCase = true) ||
             sourceId.equals("local", ignoreCase = true)
         ) {
-            DisplayBinding.Default
+            DisplayContentSource.Default
         } else {
             val source = RadarSourceRegistry.find(desk, sourceId)
                 ?: throw LuaException("Radar source '$sourceId' is not available in this desk network")
-            DisplayBinding.RadarSource(source.key)
+            DisplayContentSource.RadarSource(source.key)
         }
 
-        if (!DisplayBindings.set(desk, socket, binding)) {
-            throw LuaException("Display binding is not supported at socket $socket")
+        if (!DisplayBindings.setContent(desk, socket, content)) {
+            throw LuaException("Display content source is not supported at socket $socket")
         }
-        return DisplayBindings.describe(binding)
+        return DisplayBindings.describe(DisplayBindings.get(desk, socket))
     }
 
     @Throws(LuaException::class)
@@ -51,15 +51,18 @@ object DisplayBindingService {
     ): Map<String, Any> {
         val socket = AeroworksDeskService.parseSocket(desk, rawSocket)
         val normalized = path.trim()
-        if (normalized.isEmpty()) throw LuaException("Touch handler path must not be empty")
-        if (normalized.length > DisplayBindings.MAX_HANDLER_PATH_LENGTH) {
-            throw LuaException("Touch handler path is too long")
+        val input = if (normalized.isEmpty()) {
+            DisplayInputBinding.Raw
+        } else {
+            if (normalized.length > DisplayBindings.MAX_HANDLER_PATH_LENGTH) {
+                throw LuaException("Touch handler path is too long")
+            }
+            DisplayInputBinding.LuaHandler(normalized)
         }
-        val binding = DisplayBinding.LuaHandler(normalized)
-        if (!DisplayBindings.set(desk, socket, binding)) {
+        if (!DisplayBindings.setInput(desk, socket, input)) {
             throw LuaException("Touch scripts are supported only by the large Desk Display")
         }
-        return DisplayBindings.describe(binding)
+        return DisplayBindings.describe(DisplayBindings.get(desk, socket))
     }
 
     @Throws(LuaException::class)
@@ -68,6 +71,6 @@ object DisplayBindingService {
         if (!DisplayBindings.clear(desk, socket)) {
             throw LuaException("Socket $socket is invalid")
         }
-        return DisplayBindings.describe(DisplayBinding.Default)
+        return DisplayBindings.describe(DisplayBinding())
     }
 }

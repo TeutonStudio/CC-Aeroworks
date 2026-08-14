@@ -5,8 +5,9 @@ import com.mred231.aeroworks.content.controls.ConsoleSocket
 import com.mred231.aeroworks.content.controls.ModuleMenu
 import com.mred231.aeroworks.content.controls.ModuleScreen
 import de.teutonstudio.ccaeroworks.display.DeskDisplayType
-import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
+import de.teutonstudio.ccaeroworks.display.DisplayContentSource
+import de.teutonstudio.ccaeroworks.display.DisplayInputBinding
 import de.teutonstudio.ccaeroworks.display.RadarSourceDescriptor
 import de.teutonstudio.ccaeroworks.display.RadarSourceRegistry
 import de.teutonstudio.ccaeroworks.network.SetDisplayTouchScriptPayload
@@ -71,7 +72,7 @@ abstract class ModuleScreenDisplayBindingMixin(
     @Unique
     private fun ccaeroworks_addRadarSourceButton(desk: ConsoleBlockEntity, socket: Int) {
         ccaeroworks_selectedRadarIngress =
-            (DisplayBindings.get(desk, socket) as? DisplayBinding.RadarSource)?.source?.ingressPos
+            (DisplayBindings.get(desk, socket).content as? DisplayContentSource.RadarSource)?.source?.ingressPos
 
         val buttonWidth = (imageWidth - 16).coerceAtMost(156)
         val buttonHeight = 20
@@ -92,7 +93,7 @@ abstract class ModuleScreenDisplayBindingMixin(
         val fieldWidth = rowWidth - buttonWidth - 4
         val rowX = leftPos + (imageWidth - rowWidth) / 2
         val rowY = topPos + imageHeight - 50
-        val currentPath = (DisplayBindings.get(desk, socket) as? DisplayBinding.LuaHandler)?.path.orEmpty()
+        val currentPath = (DisplayBindings.get(desk, socket).input as? DisplayInputBinding.LuaHandler)?.path.orEmpty()
 
         ccaeroworks_touchScriptField = EditBox(
             font,

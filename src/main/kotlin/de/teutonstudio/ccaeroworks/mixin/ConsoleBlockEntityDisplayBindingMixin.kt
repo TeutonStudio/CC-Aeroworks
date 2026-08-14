@@ -29,7 +29,7 @@ abstract class ConsoleBlockEntityDisplayBindingMixin : DisplayBindingStateAccess
         val desk = this as ConsoleBlockEntity
         if (socket !in 0 until desk.socketCount()) return
 
-        val changed = if (binding == DisplayBinding.Default) {
+        val changed = if (binding.isDefault) {
             ccaeroworks_displayBindings.remove(socket) != null
         } else {
             ccaeroworks_displayBindings.put(socket, binding) != binding
@@ -54,7 +54,7 @@ abstract class ConsoleBlockEntityDisplayBindingMixin : DisplayBindingStateAccess
 
         val entries = ListTag()
         ccaeroworks_displayBindings.forEach { (socket, binding) ->
-            if (binding == DisplayBinding.Default) return@forEach
+            if (binding.isDefault) return@forEach
             entries.add(CompoundTag().apply {
                 putInt("socket", socket)
                 put("binding", binding.toTag())
@@ -81,7 +81,7 @@ abstract class ConsoleBlockEntityDisplayBindingMixin : DisplayBindingStateAccess
             val socket = entry.getInt("socket")
             if (socket !in 0 until desk.socketCount()) continue
             val binding = DisplayBinding.fromTag(entry.getCompound("binding")) ?: continue
-            if (binding != DisplayBinding.Default) ccaeroworks_displayBindings[socket] = binding
+            if (!binding.isDefault) ccaeroworks_displayBindings[socket] = binding
         }
     }
 

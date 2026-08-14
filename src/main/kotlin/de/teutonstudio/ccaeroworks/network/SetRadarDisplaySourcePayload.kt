@@ -2,8 +2,8 @@ package de.teutonstudio.ccaeroworks.network
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
-import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
+import de.teutonstudio.ccaeroworks.display.DisplayContentSource
 import de.teutonstudio.ccaeroworks.display.RadarSourceKey
 import de.teutonstudio.ccaeroworks.display.RadarSourceRegistry
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
@@ -58,16 +58,16 @@ data class SetRadarDisplaySourcePayload(
             val module = desk.module(payload.socket) ?: return
             if (CCModuleTypes.radarDisplayType(module.type()) == null) return
 
-            val binding = payload.sourceIngressPos?.let { ingressPos ->
+            val content = payload.sourceIngressPos?.let { ingressPos ->
                 val source = RadarSourceRegistry.sources(desk)
                     .firstOrNull { it.ingressPos == ingressPos }
                     ?: return
-                DisplayBinding.RadarSource(
+                DisplayContentSource.RadarSource(
                     RadarSourceKey(level.dimension().location(), source.ingressPos)
                 )
-            } ?: DisplayBinding.Default
+            } ?: DisplayContentSource.Default
 
-            DisplayBindings.set(desk, payload.socket, binding)
+            DisplayBindings.setContent(desk, payload.socket, content)
         }
     }
 }
