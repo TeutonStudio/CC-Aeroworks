@@ -7,13 +7,14 @@ import net.minecraft.world.phys.Vec3
 import org.joml.Quaternionf
 
 /**
- * Applies Aeroworks' corrected client render anchor semantics to arbitrary desk
- * render passes. On normal levels this is the usual block-position minus camera
- * translation. On Sable SubLevels the local anchor is first transformed into the
- * current world render pose and only the SubLevel orientation is then applied.
+ * Projects Aeroworks render anchors through Sable without first storing their plot-grid
+ * position in a float matrix.
  *
- * Keeping this in one place prevents overlay renderers and Aeroworks' shared
- * SubLevel pose helper from drifting into different coordinate spaces again.
+ * Sable's render pose is an affine transform. The anchor itself is transformed in double
+ * precision, the camera is subtracted while it is still a Vec3, and the remaining linear
+ * transform is then applied to geometry rendered relative to that anchor. Rotation and
+ * scale therefore match Sable's native render matrix while avoiding its large-coordinate
+ * float translation loss.
  */
 object SableClientRenderPose {
     data class Result(
@@ -30,44 +31,21 @@ object SableClientRenderPose {
         z: Double,
         camera: Vec3,
         partialTicks: Float
-    ): Result = applyPosition(
+    ): Result = apply(
         poseStack,
         blockEntity,
         Vec3(x, y, z),
         camera,
-        partialTicks,
-        includeScale = false
+        partialTicks
     )
 
-    /**
-     * Applies the complete linear Sable render transform around an already-precise
-     * Aeroworks mount center. Placement outlines use this path so neither their
-     * fractional socket translation nor SubLevel scale is reconstructed from the
-     * float Matrix4f translation.
-     */
     @JvmStatic
-    fun applyOutline(
+    fun apply(
         poseStack: PoseStack,
         blockEntity: BlockEntity,
         localPosition: Vec3,
         camera: Vec3,
         partialTicks: Float
-    ): Result = applyPosition(
-        poseStack,
-        blockEntity,
-        localPosition,
-        camera,
-        partialTicks,
-        includeScale = true
-    )
-
-    private fun applyPosition(
-        poseStack: PoseStack,
-        blockEntity: BlockEntity,
-        localPosition: Vec3,
-        camera: Vec3,
-        partialTicks: Float,
-        includeScale: Boolean
     ): Result {
         val subLevel = Sable.HELPER.getContainingClient(blockEntity)
         if (subLevel == null) {
@@ -82,17 +60,34 @@ object SableClientRenderPose {
         poseStack.translate(relative.x, relative.y, relative.z)
         poseStack.mulPose(Quaternionf(renderPose.orientation()))
 
-        if (includeScale) {
-            val scale = renderPose.scale()
-            poseStack.scale(
-                scale.x().toFloat(),
-                scale.y().toFloat(),
-                scale.z().toFloat()
-            )
-        }
+        val scale = renderPose.scale()
+        poseStack.scale(
+            scale.x().toFloat(),
+            scale.y().toFloat(),
+            scale.z().toFloat()
+        )
 
         return Result(worldPosition, true)
     }
+
+    /**
+     * Kept as an explicit name for placement-outline callers. It intentionally has the
+     * same transform semantics as every other Aeroworks Sable anchor now.
+     */
+    @JvmStatic
+    fun applyOutline(
+        poseStack: PoseStack,
+        blockEntity: BlockEntity,
+        localPosition: Vec3,
+        camera: Vec3,
+        partialTicks: Float
+    ): Result = apply(
+        poseStack,
+        blockEntity,
+        localPosition,
+        camera,
+        partialTicks
+    )
 
     internal fun cameraRelative(position: Vec3, camera: Vec3): Vec3 = Vec3(
         position.x - camera.x,

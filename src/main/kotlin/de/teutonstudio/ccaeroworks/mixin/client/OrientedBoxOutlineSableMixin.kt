@@ -5,10 +5,10 @@ import de.teutonstudio.ccaeroworks.compat.sable.SableClientRenderPose
 import de.teutonstudio.ccaeroworks.compat.sable.SableControlOutlineBridge
 import dev.ryanhcode.sable.Sable
 import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
-import org.spongepowered.asm.mixin.Final
+import org.joml.Matrix4f
 import org.spongepowered.asm.mixin.Mixin
-import org.spongepowered.asm.mixin.Shadow
 import org.spongepowered.asm.mixin.Unique
 import org.spongepowered.asm.mixin.injection.At
 import org.spongepowered.asm.mixin.injection.Inject
@@ -16,38 +16,35 @@ import org.spongepowered.asm.mixin.injection.Redirect
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo
 
 /**
- * Gives Aeroworks placement outlines a precise Sable render anchor while retaining
- * Aeroworks' own outline geometry, color and socket orientation.
+ * Repairs the precision loss in Aeroworks 1.3.0 placement/removal outlines on Sable.
  *
- * Only the translation call inside OrientedBoxOutline is redirected. The outline's
- * native Matrix4f is never rewritten and ConsoleBlockEntity selection/mounting remains
- * untouched. On Sable, a captured MountSpot.center Vec3 is projected with the current
- * renderPose in double precision before the camera is subtracted. The SubLevel linear
- * transform (orientation and scale) is then applied exactly once to the local outline.
+ * Aeroworks builds each MountSpot with an exact Vec3 center and a Matrix4f whose
+ * translation is the same center cast to float. OrientedBoxOutline stores that exact
+ * Matrix4f object, extracts the lossy float translation in render(), and only then calls
+ * SubLevelPoseClient.translateTo(). We bind the constructor's frame identity back to its
+ * precise MountSpot.center and replace only that translation. Aeroworks keeps ownership
+ * of the local bounds, socket/desk rotation, color and line rendering.
  */
 @Mixin(
     targets = ["com.mred231.aeroworks.content.controls.OrientedBoxOutline"],
     remap = false
 )
 abstract class OrientedBoxOutlineSableMixin {
-    @Shadow
-    @Final
-    private lateinit var anchor: BlockEntity
-
     @Unique
     private var ccaeroworks_preciseSableFrame: SableControlOutlineBridge.Frame? = null
 
     @Inject(
-        method = ["<init>"],
+        method = ["<init>(Lnet/minecraft/world/phys/AABB;Lorg/joml/Matrix4f;Lnet/minecraft/world/level/block/entity/BlockEntity;)V"],
         at = [At("RETURN")],
         remap = false
     )
-    private fun ccaeroworks_bindPreciseSableFrame(callback: CallbackInfo) {
-        // Delegating constructors can reach RETURN more than once. Do not discard a frame
-        // that was already matched by the inner constructor.
-        if (ccaeroworks_preciseSableFrame == null) {
-            ccaeroworks_preciseSableFrame = SableControlOutlineBridge.bind(this, anchor)
-        }
+    private fun ccaeroworks_bindPreciseSableFrame(
+        localBounds: AABB,
+        frame: Matrix4f,
+        anchor: BlockEntity,
+        callback: CallbackInfo
+    ) {
+        ccaeroworks_preciseSableFrame = SableControlOutlineBridge.bind(frame, anchor)
     }
 
     @Redirect(
@@ -68,25 +65,24 @@ abstract class OrientedBoxOutlineSableMixin {
         camera: Vec3,
         partialTicks: Float
     ) {
-        val frame = ccaeroworks_preciseSableFrame
+        val preciseFrame = ccaeroworks_preciseSableFrame
         if (
-            frame != null &&
-            frame.anchor === blockEntity &&
+            preciseFrame != null &&
+            preciseFrame.anchor === blockEntity &&
             Sable.HELPER.getContainingClient(blockEntity) != null
         ) {
             SableClientRenderPose.applyOutline(
                 poseStack,
                 blockEntity,
-                frame.center,
+                preciseFrame.center,
                 camera,
                 partialTicks
             )
             return
         }
 
-        // Preserve the already-established CC-Aeroworks SubLevelPoseClient semantics for
-        // non-Sable outlines and for defensive fallback when no unique precise frame could
-        // be associated with this outline instance.
+        // Non-Sable outlines and third-party OrientedBoxOutline instances that were not
+        // created from an Aeroworks MountSpot keep their native coordinates.
         SableClientRenderPose.apply(
             poseStack,
             blockEntity,
