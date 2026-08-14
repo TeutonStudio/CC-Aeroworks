@@ -3,6 +3,7 @@ package de.teutonstudio.ccaeroworks.network
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.computercraft.ControlDeskPeripheralState
+import de.teutonstudio.ccaeroworks.compat.sable.SableSpatial
 import de.teutonstudio.ccaeroworks.input.CombinedInputSource
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import net.minecraft.core.BlockPos
@@ -58,7 +59,8 @@ data class SetCombinedLeverValuePayload(val pos: BlockPos, val socket: Int, val 
             val network = ConsoleMultiblockManager.resolve(level, payload.pos)
             val maximumDistance = player.blockInteractionRange() + 1.0
             if (network.members.none {
-                    player.distanceToSqr(it.pos.center) <= maximumDistance * maximumDistance
+                    SableSpatial.distanceSquared(level, player.position(), it.pos.center) <=
+                        maximumDistance * maximumDistance
                 }
             ) return
 
