@@ -11,7 +11,7 @@ Gemeinsamer Grundsatz für auswählbare Ressourcen:
 - ausgewählte Endpunkte werden nach Möglichkeit über stabile Desk-, Modul-, Display- und Kanalidentität verfolgt und nicht nach Discovery-Reihenfolge;
 - laufende Skripte reagieren auf relevante Attach/Detach-, Input- und Topologieereignisse und validieren kritische Endpunkte zusätzlich periodisch.
 
-Die Beispiele besitzen bewusst unterschiedliche Aufgaben. `dashboard.lua` ist der einzige allgemeine Input-zu-Display-Mapper. Diagnoseprogramme verändern keine Displays, damit rohe Aeroworks-Werte einschließlich Vorzeichen und Achsenrichtung unverfälscht sichtbar bleiben.
+Die Beispiele besitzen bewusst unterschiedliche Aufgaben. `dashboard.lua` ist der allgemeine Input-zu-Display-Mapper, `telemetry-dashboard.lua` inspiziert Create-Display-Link-Telemetrie einschließlich angedockter Sable-Module. Diagnoseprogramme verändern keine Displays, damit rohe Aeroworks- und Telemetriewerte unverfälscht sichtbar bleiben.
 
 ## `pixel-test.lua`
 
@@ -74,8 +74,36 @@ Pro Desk zeigt die Übersicht Position, Variante/Computerstatus sowie die Anzahl
 
 Große Pultlisten sind mit Pfeiltasten, Bild hoch/runter, Pos1 und Ende scrollbar. `r` aktualisiert sofort, `q` oder `Ctrl+T` beendet das Dashboard. Fehlende Pulte sind kein Lua-Crash: das Programm zeigt stattdessen, ob im eingebetteten Netz ein ungültiger Zustand vorliegt oder beim normalen Computer schlicht kein `ControlDesk` erreichbar ist.
 
+## `telemetry-dashboard.lua`
+
+Ist ein read-only Inspector für die globale `telemetry`-API des eingebetteten ComputerControlDesk.
+
+Das Skript zeigt:
+
+- Zahl frischer und veralteter lokaler Sources;
+- lokale Create-Display-Link-Quellen mit Alias, Typ und Wert;
+- alle Simulated-Docking-Connectoren des eigenen Sable-Sublevels;
+- Zustand und Remote-Sublevel jedes Docks;
+- bei verriegelten Docks die Telemetrie des gegenüberliegenden Connectors.
+
+Für `fill_level` zeigt es Prozentwerte, für Item-/Fluid-Zählungen und -Listen passende Summen. Unbekannte Create-Sources bleiben über ihren `displayText` sichtbar.
+
+Es reagiert auf:
+
+```text
+cc_aeroworks_telemetry_added
+cc_aeroworks_telemetry_changed
+cc_aeroworks_telemetry_removed
+cc_aeroworks_dock_changed
+cc_aeroworks_remote_telemetry_changed
+```
+
+Zusätzlich aktualisiert es alle zwei Sekunden, damit das Beispiel auch Lifecycle-Probleme sichtbar macht, bei denen absichtlich kein Event erzeugt wird. Pfeiltasten und Bild hoch/runter scrollen, `r` aktualisiert sofort und `q` beendet das Programm.
+
+Das Dashboard schreibt keine Aliase und verändert keine Displays. Für eine produktive Cockpitanzeige kann ein eigenes Programm beispielsweise `telemetry.get("fuel")` lesen und den Wert anschließend über ein Desk-Handle auf ein Pultdisplay schreiben.
+
 ## Erwartete Betriebsarten
 
-Ein **eingebetteter Computer Control Desk** besitzt die globale `peripherals`-API und kann das gesamte verbundene Pultnetz adressieren. Ein **normaler CC:Tweaked-Computer** besitzt diese API nicht; er sieht nur die über die normale CC:Tweaked-Peripheral-Infrastruktur erreichbaren `ControlDesk`-Adapter.
+Ein **eingebetteter Computer Control Desk** besitzt die globalen `peripherals`- und `telemetry`-APIs und kann das gesamte verbundene Pultnetz sowie seine Create-Telemetrie adressieren. Ein **normaler CC:Tweaked-Computer** besitzt diese APIs nicht; er sieht nur die über die normale CC:Tweaked-Peripheral-Infrastruktur erreichbaren `ControlDesk`-Adapter.
 
-`dashboard.lua`, `input-monitor.lua`, `pixel-test.lua` und `multiblock-dashboard.lua` erkennen beide Fälle selbstständig. `embedded-console.lua` ist absichtlich auf den eingebetteten Pfad beschränkt und dient dort der detaillierten Inspektion statt der Displaysteuerung.
+`dashboard.lua`, `input-monitor.lua`, `pixel-test.lua` und `multiblock-dashboard.lua` erkennen beide Peripheral-Betriebsarten selbstständig. `embedded-console.lua` und `telemetry-dashboard.lua` sind absichtlich auf den eingebetteten Pfad beschränkt und dienen dort der detaillierten Inspektion statt der Displaysteuerung.

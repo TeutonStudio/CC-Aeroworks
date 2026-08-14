@@ -3,6 +3,7 @@ package de.teutonstudio.ccaeroworks.computer
 import dan200.computercraft.api.ComputerCraftAPI
 import dan200.computercraft.api.component.ComputerComponent
 import de.teutonstudio.ccaeroworks.CCAeroworks
+import de.teutonstudio.ccaeroworks.telemetry.TelemetryLuaApi
 import java.lang.ref.WeakReference
 
 class ComputerConsoleAccess(owner: ComputerControlDeskBlockEntity) {
@@ -27,6 +28,11 @@ object CCLuaApis {
         ComputerCraftAPI.registerAPIFactory { system ->
             system.getComponent(CCComputerComponents.CONSOLE)?.let { access ->
                 ComputerConsoleLuaApi(access, system)
+            }
+        }
+        ComputerCraftAPI.registerAPIFactory { system ->
+            system.getComponent(CCComputerComponents.CONSOLE)?.let { access ->
+                TelemetryLuaApi(access, system)
             }
         }
         ComputerCraftAPI.registerAPIFactory { system ->

@@ -4,10 +4,10 @@
 
 | Eingebetteter Computer | Externer Computer |
 |---|---|
-| globale `peripherals`-API | lokales Peripheral `ControlDesk` |
-| sieht alle Pulte und deren Nachbargeräte | sieht nur das direkt verbundene Pult |
+| globale `peripherals`- und `telemetry`-APIs | lokales Peripheral `ControlDesk` |
+| sieht alle Pulte, Nachbargeräte und lokale Telemetrie | sieht nur das direkt verbundene Pult |
 | kein Modem erforderlich | direkt oder über Wired Modem |
-| `cc_aeroworks_peripheral_*`-Ereignisse | `cc_aeroworks_desk_input` |
+| `cc_aeroworks_*`-Ereignisse | `cc_aeroworks_desk_input` |
 
 Die alte globale `aeroworks`-API und die netzwerkweiten `getDesk...`-Methoden sind nicht Teil des neuen Vertrags.
 
@@ -190,7 +190,102 @@ Globale Graphzugriffe werden abgelehnt bei:
 - mehr als 64 Pulten,
 - einem Computer außerhalb des Besitzerverbunds.
 
+# Globale `telemetry`-API
+
+Nur der eingebettete Computer besitzt diese API:
+
+```lua
+local telemetry = require("cc_aeroworks.telemetry")
+```
+
+Lokale Methoden:
+
+```text
+list()
+get(nameOrId)
+find(type)
+rename(nameOrId, alias)
+clearName(nameOrId)
+getStatus()
+getDocks()
+getDock(nameOrId)
+renameDock(nameOrId, alias)
+clearDockName(nameOrId)
+```
+
+Strukturiert unterstützte Create-Display-Sources:
+
+```text
+create:fill_level   -> fill_level
+create:count_items  -> item_count
+create:list_items   -> item_list
+create:count_fluids -> fluid_amount
+create:list_fluids  -> fluid_list
+```
+
+Beispiel Füllstand:
+
+```lua
+local fuel = telemetry.get("fuel")
+if fuel then
+  print(fuel.value.current, fuel.value.maximum, fuel.value.percent)
+end
+```
+
+Source-Metadaten enthalten unter anderem:
+
+```lua
+{
+  id = "stabile-uuid",
+  alias = "fuel",
+  sourceType = "create:fill_level",
+  kind = "fill_level",
+  supported = true,
+  available = true,
+  stale = false,
+  lastSeenTick = 12345,
+  ageTicks = 4,
+  revision = 8,
+  value = { ... },
+  displayText = { "75%" }
+}
+```
+
+Unbekannte Create-Sources werden mit `supported=false` und `displayText` geliefert. Strukturierte Zahlen werden nicht aus dem formatierten Text geparst.
+
+## Dock-Handle
+
+Mit optionalem Create: Simulated:
+
+```lua
+local dock = telemetry.getDock("left_cargo")
+```
+
+Methoden:
+
+```text
+getInfo()
+listTelemetry()
+getTelemetry(nameOrId)
+renameTelemetry(nameOrId, alias)
+clearTelemetryName(nameOrId)
+getTransferBuffers()
+```
+
+Remote-Beispiel:
+
+```lua
+if dock and dock.getInfo().locked then
+  local remoteFuel = dock.getTelemetry("fuel")
+  if remoteFuel then print(remoteFuel.value.percent) end
+end
+```
+
+`getTransferBuffers()` beschreibt ausschließlich die Connector-Puffer für Items, Fluids und Energie. Tatsächliche Tank-/Cargo-Inhalte kommen über Display-Link-Telemetrie.
+
 ## Ereignisse
+
+Peripheral-Netz:
 
 ```lua
 local _, address, primaryType =
@@ -208,6 +303,18 @@ Lokales Pult:
 local _, peripheralName, socket, moduleId, value, channel, socketName =
   os.pullEvent("cc_aeroworks_desk_input")
 ```
+
+Telemetrie:
+
+```text
+cc_aeroworks_telemetry_added(sourceId, revision)
+cc_aeroworks_telemetry_changed(sourceId, revision)
+cc_aeroworks_telemetry_removed(sourceId)
+cc_aeroworks_dock_changed(dockId, state, locked, remoteSubLevelId)
+cc_aeroworks_remote_telemetry_changed(dockId, sourceId, action, revision)
+```
+
+`action` der Remote-Telemetrie ist `added`, `changed` oder `removed`.
 
 ## Sockets
 
@@ -228,3 +335,5 @@ local _, peripheralName, socket, moduleId, value, channel, socketName =
 ## Ponder
 
 Die Computerpulte besitzen getrennte Szenen für Netzwerkaufbau, Peripheral-Suche und Diagnose. Displays besitzen getrennte Szenen für Herstellung, Montage und Programmierung. Radar besitzt Szenen für automatisches Routing und Data-Link-Kompatibilität.
+
+Telemetrie wird zusätzlich über [[Telemetrie]] und die Repository-Dokumente `docs/telemetry.md` sowie `docs/docking-telemetry.md` beschrieben.

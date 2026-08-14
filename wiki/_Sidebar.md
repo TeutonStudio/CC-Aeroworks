@@ -5,6 +5,7 @@
 - [[Computer-Steuerungspulte]]
 - [[Peripheral-Netzwerk]]
 - [[API-Schnellreferenz]]
+- [[Telemetrie]]
 - [[Programmierbare-Displays]]
 - [[Radar-Routing]]
 - [[Kombinierte-Eingabe]]

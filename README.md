@@ -1,6 +1,6 @@
 # CC-Aeroworks
 
-CC-Aeroworks verbindet Create: Aeroworks Control Desks mit CC:Tweaked. Die Mod ergänzt adressierbare Pultadapter, ein netzwerkweites Peripheral-Verzeichnis für eingebettete Computer, programmierbare Displays, kombinierte Maussteuerung und optionale Create:-Radars-Anzeigen.
+CC-Aeroworks verbindet Create: Aeroworks Control Desks mit CC:Tweaked. Die Mod ergänzt adressierbare Pultadapter, ein netzwerkweites Peripheral-Verzeichnis für eingebettete Computer, Create-Display-Link-Telemetrie, programmierbare Displays, kombinierte Maussteuerung und optionale Create:-Radars-Anzeigen.
 
 ## Pultnetzwerke
 
@@ -96,6 +96,52 @@ Mit Schleichen und Rechtsklick bei leerer Haupthand lässt sich das Terminal von
 
 Pro Netzwerk ist höchstens ein eingebetteter Computer vorgesehen. Wird versehentlich ein weiteres Computerpult platziert, bleibt dort ein normales Aeroworks-Pult zurück und der zusätzliche CC:Tweaked-Computer wird mit ID, Label und Komponenten ausgeworfen. Konflikte aus Altwelten, Befehlen oder Strukturwerkzeugen bleiben diagnostizierbar und sperren den globalen Graphzugriff.
 
+## Create-Display-Link-Telemetrie
+
+Der eingebettete Computer stellt zusätzlich die globale API `telemetry` bereit. Ein Create Display Link kann direkt auf einen `ComputerControlDesk` zeigen und dessen Create-Quelle als strukturierten Messwert einspeisen.
+
+```text
+Tank / Lager
+    |
+Threshold Switch / Smart Observer
+    |
+Display Link
+    |
+ComputerControlDesk
+    |
+telemetry
+```
+
+Strukturiert unterstützt werden `fill_level`, Item Count/List und Fluid Amount/List. CC-Aeroworks liest dafür die Create-Messwerte und Behaviours direkt; formatierte Texte wie `50%` werden nicht wieder in Zahlen zurückgeparst.
+
+```lua
+local fuel = telemetry.get("fuel")
+if fuel then
+  print(fuel.value.current, fuel.value.maximum, fuel.value.percent)
+end
+```
+
+Mehrere Display Links dürfen denselben Computer als Ziel verwenden. Jede Quelle besitzt eine stabile ID, eine Revision und Frischeinformationen; eigene Aliase werden persistent am Endpoint gespeichert. Auf Sable basiert die Identität auf Sublevel-UUID und lokaler Linkposition, sodass ein fahrendes oder rotierendes Fahrzeug nicht ständig neue Sensoren erfindet.
+
+Mit optionalem Create: Simulated kann ein Docking Connector selbst Telemetrie-Endpunkt eines separaten Sable-Moduls sein. Der Fahrzeugcomputer findet alle Docks seines eigenen Sublevels und kann nach dem Verriegeln die Quellen des gegenüberliegenden Connectors abfragen:
+
+```lua
+local dock = telemetry.getDock("left_cargo")
+if dock and dock.getInfo().locked then
+  local remoteFuel = dock.getTelemetry("fuel")
+  if remoteFuel then print(remoteFuel.value.percent) end
+end
+```
+
+Ein Remote-Tankpod oder Anhänger benötigt dafür keinen eigenen CC:Tweaked-Computer. Seine Create-Sensoren und Display Links enden am Remote-Docking-Connector. Item-, Fluid- und Energiepuffer des Connectors werden über `getTransferBuffers()` separat als Diagnosewerte geführt und niemals als tatsächlicher Cargo-/Tankfüllstand ausgegeben.
+
+Details:
+
+- [`docs/telemetry.md`](docs/telemetry.md)
+- [`docs/docking-telemetry.md`](docs/docking-telemetry.md)
+- [`docs/telemetry-test-plan.md`](docs/telemetry-test-plan.md)
+- [`examples/cc/telemetry-dashboard.lua`](examples/cc/telemetry-dashboard.lua)
+
 ## Programmierbare Displays
 
 Die Displays unterstützen Text, Zahlen und frei beschreibbare Pixelraster. Standardmäßig besitzt das kleine Pultdisplay `7x5` und das große Pultdisplay `11x5` Pixel. Breite und Höhe beider Größen können in `cc_aeroworks-server.toml` auf jede positive Ganzzahl eingestellt werden.
@@ -138,6 +184,8 @@ Die bisherige Sammlung langer Einzelanimationen wurde durch acht lokalisierte St
 
 Alle Erklärtexte liegen auf Deutsch und Englisch vor. Feste Pixelgesamtzahlen, die alte zentrale Multiblock-API und der Data Link als ausschließlich lokales Displaykabel werden nicht mehr erklärt, weil falsche Dokumentation erstaunlicherweise selten hilft.
 
+Create-Telemetrie ist im API-Handbuch, Wiki und Beispielprogramm dokumentiert; die bestehende Ponder-Sammlung bleibt unverändert, damit deren exakt synchronisierter Sprach-/Storyboardvertrag nicht für ein nicht funktional erforderliches Erklärbild aufgeweitet wird.
+
 ## Kombinierte Eingabe
 
 Für Lever, Joystick und Throttle Quadrants kann im Aeroworks-Modulbildschirm der Input Type `Kombiniert` gewählt werden. Anschließend wird im mittleren Eingabefeld die Aktivierungstaste erfasst und beim Steuern gehalten.
@@ -151,6 +199,8 @@ Desk-Sockets heißen in Lua `left`, `right` und `big`; kompatible Indizes sind `
 - Create 6.0.10 mit Ponder API 1.0.82
 - Aeronautics/Aeroworks 1.3.0
 - CC:Tweaked API-Baseline 1.119.0; Metadatenbereich bis vor 1.121
+- Create: Simulated 1.3.0 optional für Docking-Telemetrie
+- Sable 2.0.1 für Sublevel-Integration
 - Create: Radars 0.4.4-1.21.1 optional
 - Create Big Cannons 5.11.7 optional
 - Ritchie's Projectile Library 2.1.2 als CBC-Laufzeitbibliothek
@@ -164,6 +214,7 @@ python3 tools/verify-repository.py
 python3 tools/verify-guide.py
 python3 tools/verify-peripheral-network.py
 python3 tools/verify-peripheral-tree.py
+python3 tools/verify-telemetry.py
 python3 tools/verify-radar.py
 python3 tools/verify-radar-link.py
 python3 tools/verify-display-recipes.py
@@ -185,6 +236,9 @@ Ein alternatives Verzeichnis wird mit `-Pmod_dependency_dir=/pfad/zu/mods` angeg
 ## Dokumentation und Tests
 
 - [Peripheral-Netzwerk und Lua-API](docs/cc-peripheral-api.md)
+- [Create-Display-Link-Telemetrie](docs/telemetry.md)
+- [Docking-Telemetrie](docs/docking-telemetry.md)
+- [Telemetrie-Testplan](docs/telemetry-test-plan.md)
 - [Hierarchische Peripheral-Ansicht](docs/peripheral-tree.md)
 - [Einführung zur Programmierung](docs/peripheral-programming.md)
 - [Konfiguration](docs/configuration.md)
@@ -195,6 +249,6 @@ Ein alternatives Verzeichnis wird mit `-Pmod_dependency_dir=/pfad/zu/mods` angeg
 - [Computerpult-, Display- und Ponder-Testplan](docs/computer-desk-guide-test-plan.md)
 - [Lua-Beispiele](examples/cc/)
 
-`.github/workflows/verify.yml` prüft bei Push und Pull Request Repositoryvertrag, Sprachen, Buch, Ponder, Peripheral-Graph, hierarchische Peripheral-Ansicht, Radar, Data Link, Rezepte und Itemmodelle. Der geschützte Vollbuild benötigt rechtmäßig bereitgestellte Mod-JARs über die Repository-Secrets `MOD_DEPENDENCY_URL` und `MOD_DEPENDENCY_SHA256`.
+`.github/workflows/verify.yml` prüft bei Push und Pull Request Repositoryvertrag, Sprachen, Buch, Ponder, Peripheral-Graph, hierarchische Peripheral-Ansicht, Telemetrie/Docking, Radar, Data Link, Rezepte und Itemmodelle. Der geschützte Vollbuild benötigt rechtmäßig bereitgestellte Mod-JARs über die Repository-Secrets `MOD_DEPENDENCY_URL` und `MOD_DEPENDENCY_SHA256`.
 
 Repository: `TeutonStudio/CC-Aeroworks`

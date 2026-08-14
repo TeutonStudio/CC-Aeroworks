@@ -17,6 +17,7 @@ import de.teutonstudio.ccaeroworks.registry.CCDisplayTargets
 import de.teutonstudio.ccaeroworks.registry.CCItems
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 import de.teutonstudio.ccaeroworks.registry.CCRecipeSerializers
+import de.teutonstudio.ccaeroworks.telemetry.TelemetryComputerRuntimes
 import net.minecraft.resources.ResourceLocation
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.bus.api.IEventBus
@@ -48,6 +49,7 @@ class CCAeroworks(modEventBus: IEventBus, modContainer: ModContainer) {
         NeoForge.EVENT_BUS.register(ConsoleMultiblockManager)
         NeoForge.EVENT_BUS.register(ConsoleMultiblockSkinUpdater)
         NeoForge.EVENT_BUS.register(ComputerConsoleInteractionHandler)
+        NeoForge.EVENT_BUS.register(TelemetryComputerRuntimes)
         if (FMLEnvironment.dist == Dist.CLIENT) CCAeroworksClient.register(modEventBus)
         LOGGER.info("[CC-Aeroworks] Initializing")
     }
@@ -55,6 +57,7 @@ class CCAeroworks(modEventBus: IEventBus, modContainer: ModContainer) {
     companion object {
         const val MOD_ID: String = "cc_aeroworks"
         const val DISPLAY_TARGET_ID: String = "control_desk"
+        const val TELEMETRY_DISPLAY_TARGET_ID: String = "telemetry"
         const val PERIPHERAL_TYPE: String = "cc_aeroworks_control_desk"
         const val INPUT_EVENT: String = "cc_aeroworks_desk_input"
         const val DESK_TOUCH_EVENT: String = "cc_aeroworks_desk_touch"
@@ -67,6 +70,11 @@ class CCAeroworks(modEventBus: IEventBus, modContainer: ModContainer) {
         const val CONSOLE_CHANGED_EVENT: String = "cc_aeroworks_console_changed"
         const val PERIPHERAL_ATTACHED_EVENT: String = "cc_aeroworks_peripheral_attached"
         const val PERIPHERAL_DETACHED_EVENT: String = "cc_aeroworks_peripheral_detached"
+        const val TELEMETRY_ADDED_EVENT: String = "cc_aeroworks_telemetry_added"
+        const val TELEMETRY_CHANGED_EVENT: String = "cc_aeroworks_telemetry_changed"
+        const val TELEMETRY_REMOVED_EVENT: String = "cc_aeroworks_telemetry_removed"
+        const val DOCK_CHANGED_EVENT: String = "cc_aeroworks_dock_changed"
+        const val REMOTE_TELEMETRY_CHANGED_EVENT: String = "cc_aeroworks_remote_telemetry_changed"
 
         @JvmField
         val LOGGER: Logger = LoggerFactory.getLogger("CC-Aeroworks")
