@@ -2,6 +2,7 @@ package de.teutonstudio.ccaeroworks.input
 
 import com.mojang.blaze3d.platform.InputConstants
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import de.teutonstudio.ccaeroworks.compat.sable.SableSpatial
 import de.teutonstudio.ccaeroworks.config.CCClientConfig
 import de.teutonstudio.ccaeroworks.mixin.client.MouseHandlerAccessor
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
@@ -237,7 +238,8 @@ object CombinedLeverController {
         val network = ConsoleMultiblockManager.resolve(level, active.pos)
         val maximumDistance = player.blockInteractionRange() + 1.0
         return network.members.any {
-            player.distanceToSqr(it.pos.center) <= maximumDistance * maximumDistance
+            SableSpatial.distanceSquared(level, player.position(), it.pos.center) <=
+                maximumDistance * maximumDistance
         }
     }
 
