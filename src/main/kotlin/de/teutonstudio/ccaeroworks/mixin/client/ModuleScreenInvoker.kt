@@ -12,6 +12,15 @@ interface ModuleScreenInvoker {
     @Invoker("module")
     fun ccaeroworks_module(): MountedModule?
 
+    @Invoker("listLeft")
+    fun ccaeroworks_listLeft(): Int
+
+    @Invoker("listTop")
+    fun ccaeroworks_listTop(): Int
+
+    @Invoker("rowLeft")
+    fun ccaeroworks_rowLeft(): Int
+
     @Invoker("modeToggleAt")
     fun ccaeroworks_modeToggleAt(mouseX: Int, mouseY: Int): Int
 
