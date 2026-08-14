@@ -29,6 +29,7 @@
     "client.CreativeModeInventoryScreenAccessor",
     "client.CreativeModeTabAccessor",
     "client.CreativeModeTabSectionsMixin",
+    "client.DriveByWireDisplaySourceMixin",
     "client.InputSourceMixin",
     "client.ModuleScreenAccessor",
     "client.ModuleScreenInvoker",
