@@ -27,6 +27,16 @@ import org.spongepowered.asm.mixin.injection.At
 import org.spongepowered.asm.mixin.injection.Inject
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo
 
+// Keep layout constants outside the mixin class. A Kotlin companion object emits a static
+// Companion field on the mixin, which Sponge Mixin rejects unless the field is private.
+private const val BINDING_ROW_WIDTH: Int = 235
+private const val BINDING_CONTROL_INSET: Int = 8
+private const val BINDING_CONTROL_WIDTH: Int = BINDING_ROW_WIDTH - BINDING_CONTROL_INSET * 2
+private const val BINDING_CONTROL_GAP: Int = 4
+private const val BINDING_SCRIPT_SET_BUTTON_WIDTH: Int = 42
+private const val BINDING_WIDGET_INSET_Y: Int = 5
+private const val BINDING_WIDGET_HEIGHT: Int = 20
+
 @Mixin(value = [ModuleScreen::class], remap = false)
 abstract class ModuleScreenDisplayBindingMixin(
     menu: ModuleMenu,
@@ -126,21 +136,21 @@ abstract class ModuleScreenDisplayBindingMixin(
             Button.builder(ccaeroworks_radarSourceMessage()) {
                 ccaeroworks_cycleRadarSource()
             }.bounds(
-                rowLeft + CONTROL_INSET,
-                rowTop + WIDGET_INSET_Y,
-                CONTROL_WIDTH,
-                WIDGET_HEIGHT
+                rowLeft + BINDING_CONTROL_INSET,
+                rowTop + BINDING_WIDGET_INSET_Y,
+                BINDING_CONTROL_WIDTH,
+                BINDING_WIDGET_HEIGHT
             ).build()
         )
     }
 
     @Unique
     private fun ccaeroworks_addTouchScriptField(desk: ConsoleBlockEntity, socket: Int) {
-        val fieldWidth = CONTROL_WIDTH - SCRIPT_SET_BUTTON_WIDTH - CONTROL_GAP
+        val fieldWidth = BINDING_CONTROL_WIDTH - BINDING_SCRIPT_SET_BUTTON_WIDTH - BINDING_CONTROL_GAP
         val rowLeft = (this as ModuleScreenInvoker).ccaeroworks_rowLeft()
         val rowTop = ccaeroworks_bindingRowTop()
-        val controlX = rowLeft + CONTROL_INSET
-        val controlY = rowTop + WIDGET_INSET_Y
+        val controlX = rowLeft + BINDING_CONTROL_INSET
+        val controlY = rowTop + BINDING_WIDGET_INSET_Y
         val currentPath = (DisplayBindings.get(desk, socket) as? DisplayBinding.LuaHandler)?.path.orEmpty()
 
         ccaeroworks_touchScriptField = EditBox(
@@ -148,7 +158,7 @@ abstract class ModuleScreenDisplayBindingMixin(
             controlX,
             controlY,
             fieldWidth,
-            WIDGET_HEIGHT,
+            BINDING_WIDGET_HEIGHT,
             Component.literal("Touch script")
         ).also { field ->
             field.setMaxLength(DisplayBindings.MAX_HANDLER_PATH_LENGTH)
@@ -163,21 +173,21 @@ abstract class ModuleScreenDisplayBindingMixin(
                     SetDisplayTouchScriptPayload(desk.blockPos, socket, path)
                 )
             }.bounds(
-                controlX + fieldWidth + CONTROL_GAP,
+                controlX + fieldWidth + BINDING_CONTROL_GAP,
                 controlY,
-                SCRIPT_SET_BUTTON_WIDTH,
-                WIDGET_HEIGHT
+                BINDING_SCRIPT_SET_BUTTON_WIDTH,
+                BINDING_WIDGET_HEIGHT
             ).build()
         )
     }
 
     @Unique
     private fun ccaeroworks_syncBindingWidgets(rowLeft: Int, rowTop: Int, listTop: Int) {
-        val controlX = rowLeft + CONTROL_INSET
-        val controlY = rowTop + WIDGET_INSET_Y
+        val controlX = rowLeft + BINDING_CONTROL_INSET
+        val controlY = rowTop + BINDING_WIDGET_INSET_Y
         val visible = ModuleScreenRowGeometry.fullyVisible(
             controlY,
-            WIDGET_HEIGHT,
+            BINDING_WIDGET_HEIGHT,
             listTop
         )
 
@@ -197,8 +207,8 @@ abstract class ModuleScreenDisplayBindingMixin(
         }
 
         ccaeroworks_touchScriptSetButton?.let { button ->
-            val fieldWidth = CONTROL_WIDTH - SCRIPT_SET_BUTTON_WIDTH - CONTROL_GAP
-            button.setX(controlX + fieldWidth + CONTROL_GAP)
+            val fieldWidth = BINDING_CONTROL_WIDTH - BINDING_SCRIPT_SET_BUTTON_WIDTH - BINDING_CONTROL_GAP
+            button.setX(controlX + fieldWidth + BINDING_CONTROL_GAP)
             button.setY(controlY)
             button.visible = visible
             button.active = visible
@@ -255,15 +265,5 @@ abstract class ModuleScreenDisplayBindingMixin(
             "#${source.memberIndex} ${source.status.name.lowercase()}"
         }
         return Component.literal("Radar source: $suffix")
-    }
-
-    companion object {
-        private const val ROW_WIDTH: Int = 235
-        private const val CONTROL_INSET: Int = 8
-        private const val CONTROL_WIDTH: Int = ROW_WIDTH - CONTROL_INSET * 2
-        private const val CONTROL_GAP: Int = 4
-        private const val SCRIPT_SET_BUTTON_WIDTH: Int = 42
-        private const val WIDGET_INSET_Y: Int = 5
-        private const val WIDGET_HEIGHT: Int = 20
     }
 }
