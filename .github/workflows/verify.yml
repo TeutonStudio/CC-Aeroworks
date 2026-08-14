@@ -53,6 +53,9 @@ jobs:
       - name: Validate guide and Ponder resources
         run: python3 tools/verify-guide.py
 
+      - name: Validate native ControlDesk interactions
+        run: python3 tools/verify-control-desk-interactions.py
+
       - name: Validate peripheral network architecture
         run: python3 tools/verify-peripheral-network.py
 
