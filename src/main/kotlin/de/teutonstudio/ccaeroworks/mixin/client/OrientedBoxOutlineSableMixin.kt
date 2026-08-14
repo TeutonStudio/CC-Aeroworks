@@ -16,14 +16,17 @@ import org.spongepowered.asm.mixin.injection.Redirect
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo
 
 /**
- * Repairs the precision loss in Aeroworks 1.3.0 placement/removal outlines on Sable.
+ * Repairs only Aeroworks' lossy mount-anchor translation on Sable.
  *
- * Aeroworks builds each MountSpot with an exact Vec3 center and a Matrix4f whose
- * translation is the same center cast to float. OrientedBoxOutline stores that exact
- * Matrix4f object, extracts the lossy float translation in render(), and only then calls
- * SubLevelPoseClient.translateTo(). We bind the constructor's frame identity back to its
- * precise MountSpot.center and replace only that translation. Aeroworks keeps ownership
- * of the local bounds, socket/desk rotation, color and line rendering.
+ * Aeroworks 1.3.0 stores MountSpot.center as a Vec3 but also writes that center into the
+ * MountSpot Matrix4f as floats. OrientedBoxOutline later reads the float translation back
+ * out before applying the Sable render pose. On large plot coordinates that loses the
+ * fractional socket offset.
+ *
+ * The global SubLevelPoseClient override used by earlier CC-Aeroworks fixes is deliberately
+ * gone. This mixin substitutes only the precise Vec3 center and then uses a narrow helper
+ * that mirrors Aeroworks 1.3.0's native baked-matrix composition exactly. Aeroworks keeps
+ * ownership of the local bounds, socket/desk rotation, color and line rendering.
  */
 @Mixin(
     targets = ["com.mred231.aeroworks.content.controls.OrientedBoxOutline"],
@@ -81,8 +84,6 @@ abstract class OrientedBoxOutlineSableMixin {
             return
         }
 
-        // Non-Sable outlines and third-party OrientedBoxOutline instances that were not
-        // created from an Aeroworks MountSpot keep their native coordinates.
         SableClientRenderPose.apply(
             poseStack,
             blockEntity,

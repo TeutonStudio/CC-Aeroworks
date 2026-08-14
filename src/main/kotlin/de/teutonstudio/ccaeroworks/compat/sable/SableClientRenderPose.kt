@@ -4,17 +4,19 @@ import com.mojang.blaze3d.vertex.PoseStack
 import dev.ryanhcode.sable.Sable
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.phys.Vec3
-import org.joml.Quaternionf
+import org.joml.Matrix4d
+import org.joml.Matrix4f
 
 /**
- * Projects Aeroworks render anchors through Sable without first storing their plot-grid
- * position in a float matrix.
+ * Mirrors Aeroworks 1.3.0's native SubLevelPoseClient transform for CC-Aeroworks
+ * overlays without globally replacing that helper.
  *
- * Sable's render pose is an affine transform. The anchor itself is transformed in double
- * precision, the camera is subtracted while it is still a Vec3, and the remaining linear
- * transform is then applied to geometry rendered relative to that anchor. Rotation and
- * scale therefore match Sable's native render matrix while avoiding its large-coordinate
- * float translation loss.
+ * The native helper is package-private, so callers outside Aeroworks cannot invoke it
+ * directly. Its matrix composition is intentionally reproduced in the same order and
+ * precision: a non-Sable anchor is translated camera-relative in one operation; a Sable
+ * anchor translates by -camera, multiplies the render pose baked through Matrix4d and
+ * converted to Matrix4f, then translates by the plot-local anchor. This preserves the
+ * native rotation-point semantics instead of rebuilding the affine transform piecemeal.
  */
 object SableClientRenderPose {
     data class Result(
@@ -49,30 +51,30 @@ object SableClientRenderPose {
     ): Result {
         val subLevel = Sable.HELPER.getContainingClient(blockEntity)
         if (subLevel == null) {
-            val relative = cameraRelative(localPosition, camera)
-            poseStack.translate(relative.x, relative.y, relative.z)
+            poseStack.translate(
+                localPosition.x - camera.x,
+                localPosition.y - camera.y,
+                localPosition.z - camera.z
+            )
             return Result(localPosition, false)
         }
 
+        poseStack.translate(-camera.x, -camera.y, -camera.z)
+
         val renderPose = subLevel.renderPose(partialTicks)
-        val worldPosition = renderPose.transformPosition(localPosition)
-        val relative = cameraRelative(worldPosition, camera)
-        poseStack.translate(relative.x, relative.y, relative.z)
-        poseStack.mulPose(Quaternionf(renderPose.orientation()))
+        val transform = Matrix4f(renderPose.bakeIntoMatrix(Matrix4d()))
+        poseStack.mulPose(transform)
+        poseStack.translate(localPosition.x, localPosition.y, localPosition.z)
 
-        val scale = renderPose.scale()
-        poseStack.scale(
-            scale.x().toFloat(),
-            scale.y().toFloat(),
-            scale.z().toFloat()
+        return Result(
+            renderPose.transformPosition(localPosition),
+            true
         )
-
-        return Result(worldPosition, true)
     }
 
     /**
-     * Kept as an explicit name for placement-outline callers. It intentionally has the
-     * same transform semantics as every other Aeroworks Sable anchor now.
+     * Semantic alias for placement-outline callers. It deliberately has exactly the
+     * same matrix composition as Aeroworks' native helper.
      */
     @JvmStatic
     fun applyOutline(
