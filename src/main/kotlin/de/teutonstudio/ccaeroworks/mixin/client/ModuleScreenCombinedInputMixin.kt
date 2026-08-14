@@ -19,16 +19,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable
 
 @Mixin(value = [ModuleScreen::class], remap = false)
 abstract class ModuleScreenCombinedInputMixin {
-    @Unique
-    private val ccaeroworks_modeToggleBounds = linkedMapOf<Int, IntArray>()
-
     @Inject(method = ["init()V"], at = [At("TAIL")])
     private fun initializeCombinedChannels(callback: CallbackInfo) {
         val invoker = this as ModuleScreenInvoker
         val module = invoker.ccaeroworks_module() ?: return
         if (!CombinedInputSource.supports(module)) return
-        val accessor = this as AbstractContainerScreenAccessor
-        val menu = accessor.ccaeroworks_getMenu() as? ModuleMenu ?: return
+        val menu = (this as AbstractContainerScreenAccessor).ccaeroworks_getMenu() as? ModuleMenu ?: return
 
         if (CombinedInputSource.isCombinedOnly(module)) {
             menu.columns().forEachIndexed { index, column ->
@@ -36,8 +32,6 @@ abstract class ModuleScreenCombinedInputMixin {
                 forceCombined(invoker, module, column, index)
             }
         }
-
-        discoverModeToggleBounds(invoker, module, menu, accessor)
     }
 
     @Inject(method = ["mouseClicked(DDI)Z"], at = [At("HEAD")], cancellable = true)
@@ -157,50 +151,39 @@ abstract class ModuleScreenCombinedInputMixin {
         val module = invoker.ccaeroworks_module() ?: return
         if (!CombinedInputSource.supports(module)) return
         val menu = (this as AbstractContainerScreenAccessor).ccaeroworks_getMenu() as? ModuleMenu ?: return
+        val screen = this as ModuleScreenAccessor
+        val groups = ModuleScreenRowGeometry.nativeGroups(menu.columns())
+        val listLeft = invoker.ccaeroworks_listLeft()
+        val listTop = invoker.ccaeroworks_listTop()
+        val rowLeft = invoker.ccaeroworks_rowLeft()
+        val renderedScroll = screen.ccaeroworks_getRenderedScroll()
         val combinedIcon = CCAeroworks.id("textures/gui/combined_input_placeholder.png")
 
-        menu.columns().forEachIndexed { index, column ->
-            if (!CombinedInputSource.isCombined(module, column.channel().id())) return@forEachIndexed
-            val bounds = ccaeroworks_modeToggleBounds[index] ?: return@forEachIndexed
-            val width = bounds[2] - bounds[0] + 1
-            val height = bounds[3] - bounds[1] + 1
-            val iconSize = minOf(16, width, height).coerceAtLeast(1)
-            val iconX = bounds[0] + (width - iconSize) / 2
-            val iconY = bounds[1] + (height - iconSize) / 2
+        graphics.enableScissor(
+            listLeft,
+            listTop,
+            listLeft + ModuleScreenRowGeometry.LIST_WIDTH,
+            listTop + ModuleScreenRowGeometry.LIST_HEIGHT
+        )
+        try {
+            menu.columns().forEachIndexed { index, column ->
+                if (!CombinedInputSource.isCombined(module, column.channel().id())) return@forEachIndexed
+                val bounds = ModuleScreenRowGeometry.modeToggleRect(
+                    groups,
+                    index,
+                    rowLeft,
+                    listTop,
+                    renderedScroll
+                ) ?: return@forEachIndexed
+                val iconSize = minOf(16, bounds.width, bounds.height).coerceAtLeast(1)
+                val iconX = bounds.x + (bounds.width - iconSize) / 2
+                val iconY = bounds.y + (bounds.height - iconSize) / 2
 
-            graphics.fill(iconX, iconY, iconX + iconSize, iconY + iconSize, -0xddddde)
-            graphics.blit(combinedIcon, iconX, iconY, 0.0f, 0.0f, iconSize, iconSize, 16, 16)
-        }
-    }
-
-    @Unique
-    private fun discoverModeToggleBounds(
-        invoker: ModuleScreenInvoker,
-        module: com.mred231.aeroworks.content.controls.MountedModule,
-        menu: ModuleMenu,
-        accessor: AbstractContainerScreenAccessor
-    ) {
-        ccaeroworks_modeToggleBounds.clear()
-        val supported = CombinedInputSource.channels(module).toSet()
-        if (supported.isEmpty()) return
-
-        val minX = accessor.ccaeroworks_getLeftPos()
-        val minY = accessor.ccaeroworks_getTopPos()
-        val maxX = minX + accessor.ccaeroworks_getImageWidth()
-        val maxY = minY + accessor.ccaeroworks_getImageHeight()
-
-        for (y in minY until maxY) {
-            for (x in minX until maxX) {
-                val index = invoker.ccaeroworks_modeToggleAt(x, y)
-                if (index !in menu.columns().indices) continue
-                val channel = menu.columns()[index].channel().id()
-                if (channel !in supported) continue
-                val bounds = ccaeroworks_modeToggleBounds.getOrPut(index) { intArrayOf(x, y, x, y) }
-                if (x < bounds[0]) bounds[0] = x
-                if (y < bounds[1]) bounds[1] = y
-                if (x > bounds[2]) bounds[2] = x
-                if (y > bounds[3]) bounds[3] = y
+                graphics.fill(iconX, iconY, iconX + iconSize, iconY + iconSize, -0xddddde)
+                graphics.blit(combinedIcon, iconX, iconY, 0.0f, 0.0f, iconSize, iconSize, 16, 16)
             }
+        } finally {
+            graphics.disableScissor()
         }
     }
 
