@@ -44,7 +44,10 @@ object ControlDeskNavigationButtons {
             COMPUTER_ICON,
             AEROWORKS_HOVER_TINT
         ).also { button ->
-            button.withCallback(callback)
+            // Catnip exposes withCallback as <T extends AbstractSimiWidget> T withCallback(...).
+            // Kotlin cannot infer T when the generic return value is ignored, so keep the
+            // concrete Aeroworks widget type explicit here.
+            button.withCallback<HoverTintIconButton>(callback)
             button.setToolTip(Component.translatable("guide.cc_aeroworks.tab.computers"))
         }
     }
