@@ -34,6 +34,14 @@ object DisplayCombinedInputController {
     fun onKey(event: InputEvent.Key) {
         if (event.action == GLFW.GLFW_REPEAT) return
         val binding = InputConstants.Type.KEYSYM.getOrCreate(event.key).name
+        if (event.action == GLFW.GLFW_PRESS && CombinedInputCoordinator.isShiftCameraOnly(Minecraft.getInstance())) {
+            val active = target
+            if (active != null) {
+                suppressedBindings += active.heldBindings
+                stop()
+            }
+            return
+        }
         when (event.action) {
             GLFW.GLFW_PRESS -> onBindingPressed(binding, Minecraft.getInstance())
             GLFW.GLFW_RELEASE -> onBindingReleased(binding)
@@ -81,6 +89,12 @@ object DisplayCombinedInputController {
         val minecraft = Minecraft.getInstance()
         refreshSuppression(minecraft)
         val active = target ?: return
+
+        if (CombinedInputCoordinator.isShiftCameraOnly(minecraft)) {
+            suppressedBindings += active.heldBindings
+            stop()
+            return
+        }
 
         active.heldBindings.removeIf { !CombinedActivationKey.isDown(it, minecraft) }
         if (active.heldBindings.isEmpty() || !basicSessionValid(minecraft)) {
@@ -143,7 +157,7 @@ object DisplayCombinedInputController {
     fun onClone(event: ClientPlayerNetworkEvent.Clone) = reset()
 
     private fun onBindingPressed(binding: String, minecraft: Minecraft): Boolean {
-        if (binding.isBlank() || binding in suppressedBindings) return false
+        if (binding.isBlank() || binding in suppressedBindings || CombinedInputCoordinator.ownsControl()) return false
 
         target?.let { active ->
             if (binding != active.xBinding && binding != active.yBinding) return false

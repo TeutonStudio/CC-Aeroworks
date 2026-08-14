@@ -30,6 +30,16 @@ object CombinedLeverController {
     fun onKey(event: InputEvent.Key) {
         if (event.action == GLFW.GLFW_REPEAT) return
         val binding = InputConstants.Type.KEYSYM.getOrCreate(event.key).name
+        if (event.action == GLFW.GLFW_PRESS && CombinedInputCoordinator.isShiftCameraOnly(Minecraft.getInstance())) {
+            val active = target
+            if (active != null) {
+                if (CombinedActivationKey.isDown(active.activationBinding, Minecraft.getInstance())) {
+                    suppressedBinding = active.activationBinding
+                }
+                stop(flushFinal = true)
+            }
+            return
+        }
         when (event.action) {
             GLFW.GLFW_PRESS -> onBindingPressed(binding, Minecraft.getInstance())
             GLFW.GLFW_RELEASE -> onBindingReleased(binding)
@@ -56,6 +66,14 @@ object CombinedLeverController {
         val minecraft = Minecraft.getInstance()
         refreshSuppression(minecraft)
         val active = target ?: return
+
+        if (CombinedInputCoordinator.isShiftCameraOnly(minecraft)) {
+            if (CombinedActivationKey.isDown(active.activationBinding, minecraft)) {
+                suppressedBinding = active.activationBinding
+            }
+            stop(flushFinal = true)
+            return
+        }
 
         if (!basicSessionValid(minecraft) || !CombinedActivationKey.isDown(active.activationBinding, minecraft)) {
             stop(flushFinal = true)
@@ -115,7 +133,7 @@ object CombinedLeverController {
     fun onClone(event: ClientPlayerNetworkEvent.Clone) = reset()
 
     private fun onBindingPressed(binding: String, minecraft: Minecraft): Boolean {
-        if (binding.isBlank() || suppressedBinding == binding) return false
+        if (binding.isBlank() || suppressedBinding == binding || CombinedInputCoordinator.ownsDisplay()) return false
         target?.let { return it.activationBinding == binding }
 
         val candidate = acquireTarget(minecraft, binding) ?: return false
