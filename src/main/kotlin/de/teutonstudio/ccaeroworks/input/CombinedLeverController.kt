@@ -1,22 +1,25 @@
 package de.teutonstudio.ccaeroworks.input
 
+import com.mojang.blaze3d.platform.InputConstants
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.config.CCClientConfig
-import de.teutonstudio.ccaeroworks.mixin.ConsoleBlockEntityInvoker
 import de.teutonstudio.ccaeroworks.mixin.client.MouseHandlerAccessor
-import de.teutonstudio.ccaeroworks.network.SetCombinedLeverValuePayload
-import java.util.function.Predicate
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
+import de.teutonstudio.ccaeroworks.network.CombinedChannelValue
+import de.teutonstudio.ccaeroworks.network.CombinedControlSamplePayload
 import net.minecraft.client.Minecraft
-import net.minecraft.world.phys.BlockHitResult
-import net.minecraft.world.phys.HitResult
 import net.neoforged.bus.api.EventPriority
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.client.event.CalculatePlayerTurnEvent
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent
 import net.neoforged.neoforge.client.event.ClientTickEvent
+import net.neoforged.neoforge.client.event.InputEvent
 import net.neoforged.neoforge.network.PacketDistributor
+import org.lwjgl.glfw.GLFW
 
 object CombinedLeverController {
+    private const val WATCHDOG_INTERVAL_TICKS = 5
+
     private var target: CombinedLeverTarget? = null
     private var suppressedBinding: String? = null
 
@@ -24,48 +27,103 @@ object CombinedLeverController {
     fun isActive(): Boolean = target != null || DisplayCombinedInputController.isActive()
 
     @SubscribeEvent(priority = EventPriority.LOW)
+    fun onKey(event: InputEvent.Key) {
+        if (event.action == GLFW.GLFW_REPEAT) return
+        val binding = InputConstants.Type.KEYSYM.getOrCreate(event.key).name
+        if (event.action == GLFW.GLFW_PRESS && CombinedInputCoordinator.isShiftCameraOnly(Minecraft.getInstance())) {
+            val active = target
+            if (active != null) {
+                if (CombinedActivationKey.isDown(active.activationBinding, Minecraft.getInstance())) {
+                    suppressedBinding = active.activationBinding
+                }
+                stop(flushFinal = true)
+            }
+            return
+        }
+        when (event.action) {
+            GLFW.GLFW_PRESS -> onBindingPressed(binding, Minecraft.getInstance())
+            GLFW.GLFW_RELEASE -> onBindingReleased(binding)
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.LOW)
+    fun onMouseButton(event: InputEvent.MouseButton.Pre) {
+        val binding = InputConstants.Type.MOUSE.getOrCreate(event.button).name
+        val consumed = when (event.action) {
+            GLFW.GLFW_PRESS -> onBindingPressed(binding, Minecraft.getInstance())
+            GLFW.GLFW_RELEASE -> onBindingReleased(binding)
+            else -> false
+        }
+        if (consumed) event.isCanceled = true
+    }
+
+    /**
+     * Client ticks are a watchdog only. Target acquisition is edge-driven and never happens here.
+     * The hot control path therefore does not raycast, resolve the multiblock or inspect modules.
+     */
+    @SubscribeEvent(priority = EventPriority.LOW)
     fun onClientTick(event: ClientTickEvent.Post) {
         val minecraft = Minecraft.getInstance()
         refreshSuppression(minecraft)
-        if (handleShiftOverride(minecraft) || handleDisplayOverride(minecraft)) return
-        acquireTargetIfPossible(minecraft)
         val active = target ?: return
-        val activationDown = CombinedActivationKey.isDown(active.activationBinding, minecraft)
-        if (!activationDown || !targetStillValid(minecraft)) {
-            if (activationDown) suppressedBinding = active.activationBinding
-            stop()
+
+        if (CombinedInputCoordinator.isShiftCameraOnly(minecraft)) {
+            if (CombinedActivationKey.isDown(active.activationBinding, minecraft)) {
+                suppressedBinding = active.activationBinding
+            }
+            stop(flushFinal = true)
             return
         }
+
+        if (!basicSessionValid(minecraft) || !CombinedActivationKey.isDown(active.activationBinding, minecraft)) {
+            stop(flushFinal = true)
+            return
+        }
+
+        active.watchdogTicks++
+        if (active.watchdogTicks >= WATCHDOG_INTERVAL_TICKS) {
+            active.watchdogTicks = 0
+            if (!targetStillValid(minecraft, active)) {
+                suppressedBinding = active.activationBinding
+                stop(flushFinal = true)
+                return
+            }
+        }
+
         sendPending()
     }
 
     @SubscribeEvent(priority = EventPriority.LOW)
     fun onCalculateTurn(event: CalculatePlayerTurnEvent) {
-        val minecraft = Minecraft.getInstance()
-        refreshSuppression(minecraft)
-        if (handleShiftOverride(minecraft) || handleDisplayOverride(minecraft)) return
-        acquireTargetIfPossible(minecraft)
         val active = target ?: return
+        val minecraft = Minecraft.getInstance()
 
-        if (!CombinedActivationKey.isDown(active.activationBinding, minecraft)) {
-            stop()
+        if (CombinedInputCoordinator.isShiftCameraOnly(minecraft)) {
+            if (CombinedActivationKey.isDown(active.activationBinding, minecraft)) {
+                suppressedBinding = active.activationBinding
+            }
+            stop(flushFinal = true)
             return
         }
-        if (!targetStillValid(minecraft)) {
-            suppressedBinding = active.activationBinding
-            stop()
+
+        if (!CombinedActivationKey.isDown(active.activationBinding, minecraft)) {
+            stop(flushFinal = true)
             return
         }
 
         event.mouseSensitivity = -1.0 / 3.0
         event.cinematicCameraEnabled = false
-        if (active.discardNextMouseSample) {
-            active.discardNextMouseSample = false
-            return
-        }
 
         val mouse = minecraft.mouseHandler as MouseHandlerAccessor
-        consumeMouseDelta(mouse.ccaeroworks_getAccumulatedDX(), mouse.ccaeroworks_getAccumulatedDY())
+        var deltaX = mouse.ccaeroworks_getAccumulatedDX()
+        var deltaY = mouse.ccaeroworks_getAccumulatedDY()
+        if (active.baselinePending) {
+            deltaX -= active.baselineDX
+            deltaY -= active.baselineDY
+            active.baselinePending = false
+        }
+
+        if (deltaX != 0.0 || deltaY != 0.0) consumeMouseDelta(deltaX, deltaY)
     }
 
     @SubscribeEvent
@@ -74,36 +132,39 @@ object CombinedLeverController {
     @SubscribeEvent
     fun onClone(event: ClientPlayerNetworkEvent.Clone) = reset()
 
-    private fun handleShiftOverride(minecraft: Minecraft): Boolean {
-        if (!CombinedInputCoordinator.isShiftCameraOnly(minecraft)) return false
-        val active = target
-        if (active != null && CombinedActivationKey.isDown(active.activationBinding, minecraft)) {
-            suppressedBinding = active.activationBinding
-        } else if (active == null && suppressedBinding == null) {
-            acquireTarget(minecraft)?.let { suppressedBinding = it.activationBinding }
+    private fun onBindingPressed(binding: String, minecraft: Minecraft): Boolean {
+        if (binding.isBlank() || suppressedBinding == binding || CombinedInputCoordinator.ownsDisplay()) return false
+        target?.let { return it.activationBinding == binding }
+
+        val candidate = acquireTarget(minecraft, binding) ?: return false
+        if (CombinedInputCoordinator.isShiftCameraOnly(minecraft)) {
+            suppressedBinding = binding
+            return false
         }
-        stop()
+        if (!CombinedInputCoordinator.claimControl(minecraft)) return false
+
+        target = candidate
         return true
     }
 
-    private fun handleDisplayOverride(minecraft: Minecraft): Boolean {
-        if (!DisplayCombinedInputController.isActive()) return false
-        val active = target
-        if (active != null && CombinedActivationKey.isDown(active.activationBinding, minecraft)) {
-            suppressedBinding = active.activationBinding
+    private fun onBindingReleased(binding: String): Boolean {
+        var consumed = false
+        if (suppressedBinding == binding) {
+            suppressedBinding = null
+            consumed = true
         }
-        stop()
-        return true
+        val active = target
+        if (active != null && active.activationBinding == binding) {
+            stop(flushFinal = true)
+            consumed = true
+        }
+        return consumed
     }
 
     private fun refreshSuppression(minecraft: Minecraft) {
         suppressedBinding?.let {
             if (!CombinedActivationKey.isDown(it, minecraft)) suppressedBinding = null
         }
-    }
-
-    private fun acquireTargetIfPossible(minecraft: Minecraft) {
-        if (target == null && suppressedBinding == null) target = acquireTarget(minecraft)
     }
 
     private fun consumeMouseDelta(deltaX: Double, deltaY: Double) {
@@ -124,73 +185,102 @@ object CombinedLeverController {
         sendPending()
     }
 
-    private fun acquireTarget(minecraft: Minecraft): CombinedLeverTarget? {
-        val player = minecraft.player ?: return null
+    private fun acquireTarget(minecraft: Minecraft, binding: String): CombinedLeverTarget? {
         val level = minecraft.level ?: return null
-        val hit = minecraft.hitResult as? BlockHitResult ?: return null
-        if (hit.type != HitResult.Type.BLOCK) return null
-        val desk = level.getBlockEntity(hit.blockPos) as? ConsoleBlockEntity ?: return null
-        val from = player.eyePosition
-        val to = from.add(player.getViewVector(1.0f).scale(player.blockInteractionRange()))
-        val mount = (desk as ConsoleBlockEntityInvoker).ccaeroworks_nearestMount(from, to, Predicate { spot ->
-            val candidate = spot.target()
-            if (!spot.occupied() || candidate.subPath() != null) return@Predicate false
-            val candidateModule = desk.module(candidate.socket()) ?: return@Predicate false
-            CombinedInputSource.channels(candidateModule).any { channel ->
-                CombinedInputSource.isCombined(candidateModule, channel) &&
-                    CombinedActivationKey.isDown(CombinedInputSource.activationBinding(candidateModule, channel), minecraft)
-            }
-        }) ?: return null
-        val module = desk.module(mount.socket()) ?: return null
-        val firstChannel = CombinedInputSource.channels(module).firstOrNull {
-            CombinedInputSource.isCombined(module, it) &&
-                CombinedActivationKey.isDown(CombinedInputSource.activationBinding(module, it), minecraft)
-        } ?: return null
-        val binding = CombinedInputSource.activationBinding(module, firstChannel)
-        val axes = CombinedInputSource.channels(module)
-            .filter { CombinedInputSource.isCombined(module, it) && CombinedInputSource.activationBinding(module, it) == binding }
-            .map { channel ->
-                val value = module.value(channel).coerceIn(-15, 15)
-                CombinedAxisTarget(channel, LeverAccumulator(value), value)
-            }
-        return CombinedLeverTarget(level.dimension(), desk.blockPos.immutable(), mount.socket(), binding, axes)
+        val candidates = CombinedInputContext.candidates(minecraft, binding)
+        val candidate = CombinedInputContext.choose(minecraft, binding, candidates, display = false) ?: return null
+        val desk = level.getBlockEntity(candidate.pos) as? ConsoleBlockEntity ?: return null
+        val module = desk.module(candidate.socket) ?: return null
+        val axes = candidate.channels.map { channel ->
+            val value = module.value(channel).coerceIn(-15, 15)
+            CombinedAxisTarget(channel, LeverAccumulator(value), value)
+        }
+        if (axes.isEmpty()) return null
+
+        val mouse = minecraft.mouseHandler as MouseHandlerAccessor
+        CombinedInputContext.rememberSelection(binding, candidate)
+        return CombinedLeverTarget(
+            dimension = level.dimension(),
+            pos = candidate.pos.immutable(),
+            socket = candidate.socket,
+            activationBinding = binding,
+            axes = axes,
+            baselineDX = mouse.ccaeroworks_getAccumulatedDX(),
+            baselineDY = mouse.ccaeroworks_getAccumulatedDY()
+        )
     }
 
-    private fun targetStillValid(minecraft: Minecraft): Boolean {
-        val active = target ?: return false
+    private fun basicSessionValid(minecraft: Minecraft): Boolean {
         val player = minecraft.player ?: return false
         val level = minecraft.level ?: return false
-        if (minecraft.screen != null || !minecraft.isWindowActive || !player.isAlive || level.dimension() != active.dimension) return false
-        if (!level.isLoaded(active.pos)) return false
+        val active = target ?: return false
+        return CombinedInputCoordinator.ownsControl() &&
+            minecraft.screen == null &&
+            minecraft.isWindowActive &&
+            player.isAlive &&
+            level.dimension() == active.dimension
+    }
+
+    private fun targetStillValid(minecraft: Minecraft, active: CombinedLeverTarget): Boolean {
+        val player = minecraft.player ?: return false
+        val level = minecraft.level ?: return false
+        if (level.dimension() != active.dimension || !level.isLoaded(active.pos)) return false
         val desk = level.getBlockEntity(active.pos) as? ConsoleBlockEntity ?: return false
         if (active.socket !in 0 until desk.socketCount()) return false
         val module = desk.module(active.socket) ?: return false
-        return active.axes.isNotEmpty() && active.axes.all { axis ->
-            CombinedInputSource.isCombined(module, axis.channel) &&
-                CombinedInputSource.activationBinding(module, axis.channel) == active.activationBinding
+        if (active.axes.isEmpty() || active.axes.any { axis ->
+                !CombinedInputSource.isCombined(module, axis.channel) ||
+                    CombinedInputSource.activationBinding(module, axis.channel) != active.activationBinding
+            }
+        ) return false
+
+        val network = ConsoleMultiblockManager.resolve(level, active.pos)
+        val maximumDistance = player.blockInteractionRange() + 1.0
+        return network.members.any {
+            player.distanceToSqr(it.pos.center) <= maximumDistance * maximumDistance
         }
     }
 
-    private fun sendPending() {
+    private fun sendPending(force: Boolean = false, finalSample: Boolean = false) {
         val active = target ?: return
-        val interval = 1_000_000_000L / CCClientConfig.combinedLeverPacketRate.get().coerceIn(1, 20)
+        val hasPending = active.axes.any { it.pendingValue != null }
+        if (!hasPending && !finalSample) return
+
         val now = System.nanoTime()
-        active.axes.forEach { axis ->
-            val pending = axis.pendingValue ?: return@forEach
-            if (now - axis.lastPacketNanos < interval) return@forEach
-            PacketDistributor.sendToServer(SetCombinedLeverValuePayload(active.pos, active.socket, axis.channel, pending))
-            axis.sentValue = pending
-            axis.pendingValue = null
-            axis.lastPacketNanos = now
+        val interval = 1_000_000_000L / CCClientConfig.combinedLeverPacketRate.get().coerceIn(1, 20)
+        if (!force && now - active.lastPacketNanos < interval) return
+
+        val values = active.axes.map { axis ->
+            CombinedChannelValue(axis.channel, axis.pendingValue ?: axis.sentValue)
         }
+        active.sequence++
+        PacketDistributor.sendToServer(
+            CombinedControlSamplePayload(
+                pos = active.pos,
+                socket = active.socket,
+                sequence = active.sequence,
+                finalSample = finalSample,
+                values = values
+            )
+        )
+        active.axes.forEach { axis ->
+            val current = axis.pendingValue ?: axis.sentValue
+            axis.sentValue = current
+            axis.pendingValue = null
+        }
+        active.lastPacketNanos = now
     }
 
-    private fun stop() {
+    private fun stop(flushFinal: Boolean) {
+        if (flushFinal) sendPending(force = true, finalSample = true)
         target = null
+        CombinedInputCoordinator.releaseControl()
     }
 
     private fun reset() {
         target = null
         suppressedBinding = null
+        CombinedInputCoordinator.releaseControl()
+        CombinedInputContext.reset()
     }
 }

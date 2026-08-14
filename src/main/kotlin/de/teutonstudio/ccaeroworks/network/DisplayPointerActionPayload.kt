@@ -4,6 +4,7 @@ import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.computer.DeskDisplayInputDispatcher
 import de.teutonstudio.ccaeroworks.display.DeskDisplayGeometry
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import net.minecraft.core.BlockPos
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
@@ -66,8 +67,13 @@ data class DisplayPointerActionPayload(
 
             val desk = level.getBlockEntity(payload.pos) as? ConsoleBlockEntity ?: return
             if (desk.hasController() && !desk.checkUser(player.uuid)) return
+
+            val network = ConsoleMultiblockManager.resolve(level, payload.pos)
             val maximumDistance = player.blockInteractionRange() + 1.0
-            if (player.distanceToSqr(payload.pos.center) > maximumDistance * maximumDistance) return
+            if (network.members.none {
+                    player.distanceToSqr(it.pos.center) <= maximumDistance * maximumDistance
+                }
+            ) return
 
             val touch = DeskDisplayGeometry.touch(desk, payload.socket, payload.u, payload.v) ?: return
             val tick = level.gameTime

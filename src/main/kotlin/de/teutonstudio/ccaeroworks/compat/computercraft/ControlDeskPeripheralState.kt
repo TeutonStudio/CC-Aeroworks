@@ -2,6 +2,7 @@ package de.teutonstudio.ccaeroworks.compat.computercraft
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
+import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskInputSnapshot
 import de.teutonstudio.ccaeroworks.display.DeskDisplayTouch
 import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
@@ -19,6 +20,43 @@ object ControlDeskPeripheralState {
 
     internal fun deactivate(peripheral: ControlDeskPeripheral) {
         active.remove(peripheral)
+    }
+
+    /**
+     * Combined control samples already run on the server thread, so publish their CC event
+     * immediately instead of waiting for the next 20 Hz snapshot diff. The snapshot cache is
+     * patched when it exists so the fallback poll does not emit the same change twice.
+     */
+    fun queueImmediateInput(
+        desk: ConsoleBlockEntity,
+        socket: Int,
+        moduleId: String,
+        channel: String,
+        value: Int
+    ) {
+        active.forEach { peripheral ->
+            if (peripheral.validDesk() !== desk) return@forEach
+            peripheral.computers.forEach { computer ->
+                computer.queueEvent(
+                    CCAeroworks.INPUT_EVENT,
+                    *DeskInputEventArguments.create(
+                        computer.attachmentName,
+                        socket,
+                        moduleId,
+                        value,
+                        channel
+                    )
+                )
+            }
+
+            val previous = peripheral.lastInputs ?: return@forEach
+            val updated = previous.toMutableMap()
+            val existing = updated[socket]
+            val channels = existing?.channels.orEmpty().toMutableMap()
+            channels[channel] = value
+            updated[socket] = DeskInputSnapshot(moduleId, channels)
+            peripheral.lastInputs = updated
+        }
     }
 
     internal fun queueDisplayInput(
