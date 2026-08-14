@@ -1,9 +1,9 @@
 package de.teutonstudio.ccaeroworks.mixin.client
 
+import com.mred231.aeroworks.content.controls.ModuleColumn
 import com.mred231.aeroworks.content.controls.ModuleMenu
 import com.mred231.aeroworks.content.controls.ModuleScreen
 import com.mred231.aeroworks.content.controls.ModuleSetting
-import com.mred231.aeroworks.content.controls.ModuleTypes
 import de.teutonstudio.ccaeroworks.input.CombinedInputSource
 import net.minecraft.ChatFormatting
 import net.minecraft.client.Minecraft
@@ -17,17 +17,41 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable
 
 @Mixin(value = [ModuleScreen::class], remap = false)
 abstract class ModuleScreenCombinedInputMixin {
+    @Inject(method = ["init()V"], at = [At("TAIL")])
+    private fun initializeCombinedOnlyChannels(callback: CallbackInfo) {
+        val invoker = this as ModuleScreenInvoker
+        val module = invoker.ccaeroworks_module() ?: return
+        if (!CombinedInputSource.isCombinedOnly(module)) return
+        val menu = (this as AbstractContainerScreenAccessor).ccaeroworks_getMenu() as? ModuleMenu ?: return
+
+        menu.columns().forEachIndexed { index, column ->
+            if (column.channel().id() !in CombinedInputSource.channels(module)) return@forEachIndexed
+            forceCombined(invoker, module, column, index)
+        }
+    }
+
     @Inject(method = ["mouseClicked(DDI)Z"], at = [At("HEAD")], cancellable = true)
     private fun cycleCombinedMode(mouseX: Double, mouseY: Double, button: Int, callback: CallbackInfoReturnable<Boolean>) {
         if (button != 0) return
         val invoker = this as ModuleScreenInvoker
+        val module = invoker.ccaeroworks_module() ?: return
         val index = invoker.ccaeroworks_modeToggleAt(mouseX.toInt(), mouseY.toInt())
-        if (index < 0 || !isSupported(invoker)) return
+        if (index < 0 || !CombinedInputSource.supports(module)) return
         val menu = (this as AbstractContainerScreenAccessor).ccaeroworks_getMenu() as? ModuleMenu ?: return
         val column = menu.columns().getOrNull(index) ?: return
+        if (column.channel().id() !in CombinedInputSource.channels(module)) return
+
+        if (CombinedInputSource.isCombinedOnly(module)) {
+            // Large display axes are real Aeroworks channels, but their only legal input mode is
+            // Combined. Consume the mode click and repair stale/legacy config instead of allowing
+            // vanilla to move the row to keyboard or mouse input.
+            forceCombined(invoker, module, column, index)
+            callback.returnValue = true
+            return
+        }
+
         val analog = invoker.ccaeroworks_analogDriven(column)
-        val combined = analog && invoker.ccaeroworks_module()
-            ?.analogSourceFor(column.channel().id()) == CombinedInputSource.ID
+        val combined = analog && module.analogSourceFor(column.channel().id()) == CombinedInputSource.ID
 
         when {
             !analog -> return // Vanilla performs Buttons -> Analog.
@@ -48,8 +72,9 @@ abstract class ModuleScreenCombinedInputMixin {
     @Inject(method = ["mouseClicked(DDI)Z"], at = [At("HEAD")], cancellable = true)
     private fun captureCombinedKey(mouseX: Double, mouseY: Double, button: Int, callback: CallbackInfoReturnable<Boolean>) {
         val invoker = this as ModuleScreenInvoker
+        val module = invoker.ccaeroworks_module() ?: return
         val index = invoker.ccaeroworks_bindAreaAt(mouseX.toInt(), mouseY.toInt())
-        if (index < 0 || !isSupported(invoker)) return
+        if (index < 0 || !CombinedInputSource.supports(module)) return
         val menu = (this as AbstractContainerScreenAccessor).ccaeroworks_getMenu() as? ModuleMenu ?: return
         val column = menu.columns().getOrNull(index) ?: return
         if (!isCombined(invoker, column)) return
@@ -66,9 +91,10 @@ abstract class ModuleScreenCombinedInputMixin {
         at = [At("HEAD")],
         cancellable = true
     )
-    private fun showCombinedKey(column: com.mred231.aeroworks.content.controls.ModuleColumn, capturing: Boolean, maxWidth: Int, callback: CallbackInfoReturnable<String>) {
+    private fun showCombinedKey(column: ModuleColumn, capturing: Boolean, maxWidth: Int, callback: CallbackInfoReturnable<String>) {
         val invoker = this as ModuleScreenInvoker
-        if (!isSupported(invoker) || !isCombined(invoker, column)) return
+        val module = invoker.ccaeroworks_module() ?: return
+        if (!CombinedInputSource.supports(module) || !isCombined(invoker, column)) return
         val menu = (this as AbstractContainerScreenAccessor).ccaeroworks_getMenu() as? ModuleMenu ?: return
         val columnIndex = menu.columns().indexOf(column)
         val actuallyCapturing = (this as ModuleScreenAccessor).ccaeroworks_getCapturingColumn() == columnIndex
@@ -89,11 +115,12 @@ abstract class ModuleScreenCombinedInputMixin {
     )
     private fun renderCombinedTooltip(graphics: GuiGraphics, mouseX: Int, mouseY: Int, columnIndex: Int, callback: CallbackInfo) {
         val invoker = this as ModuleScreenInvoker
-        if (!isSupported(invoker)) return
+        val module = invoker.ccaeroworks_module() ?: return
+        if (!CombinedInputSource.supports(module)) return
         val menu = (this as AbstractContainerScreenAccessor).ccaeroworks_getMenu() as? ModuleMenu ?: return
         val column = menu.columns().getOrNull(columnIndex) ?: return
         if (!invoker.ccaeroworks_analogDriven(column) ||
-            invoker.ccaeroworks_module()?.analogSourceFor(column.channel().id()) != CombinedInputSource.ID
+            module.analogSourceFor(column.channel().id()) != CombinedInputSource.ID
         ) return
         val axisSuffix = when (CombinedInputSource.mouseAxis(column.channel().id())) {
             CombinedInputSource.MouseAxis.X -> "x"
@@ -108,9 +135,24 @@ abstract class ModuleScreenCombinedInputMixin {
         callback.cancel()
     }
 
-    private fun isSupported(invoker: ModuleScreenInvoker): Boolean =
-        invoker.ccaeroworks_module()?.let(CombinedInputSource::supports) == true
+    private fun forceCombined(
+        invoker: ModuleScreenInvoker,
+        module: com.mred231.aeroworks.content.controls.MountedModule,
+        column: ModuleColumn,
+        index: Int
+    ) {
+        val channel = column.channel().id()
+        if (!module.analogActiveFor(channel)) {
+            invoker.ccaeroworks_sendChannelFlag(column, ModuleSetting.ANALOG_ACTIVE, true)
+        }
+        if (module.analogSourceFor(channel) != CombinedInputSource.ID) {
+            invoker.ccaeroworks_sendAnalogSource(index, CombinedInputSource.ID)
+        }
+        if (invoker.ccaeroworks_bindFor(column).isBlank()) {
+            invoker.ccaeroworks_sendBind(index, "key.keyboard.k")
+        }
+    }
 
-    private fun isCombined(invoker: ModuleScreenInvoker, column: com.mred231.aeroworks.content.controls.ModuleColumn): Boolean =
+    private fun isCombined(invoker: ModuleScreenInvoker, column: ModuleColumn): Boolean =
         invoker.ccaeroworks_module()?.let { CombinedInputSource.isCombined(it, column.channel().id()) } == true
 }
