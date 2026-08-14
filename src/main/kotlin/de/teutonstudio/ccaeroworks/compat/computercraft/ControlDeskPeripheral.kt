@@ -11,6 +11,7 @@ import dan200.computercraft.api.peripheral.IPeripheral
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskService
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskInputSnapshot
+import de.teutonstudio.ccaeroworks.display.DisplayBindingService
 import java.lang.ref.WeakReference
 
 class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral {
@@ -129,6 +130,26 @@ class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral {
     @LuaFunction(mainThread = true)
     fun clearDisplayPixels(arguments: IArguments) =
         AeroworksDeskService.clearDisplayPixels(desk(), arguments.get(0))
+
+    @LuaFunction(mainThread = true)
+    fun getRadarSources(): List<Map<String, Any>> =
+        DisplayBindingService.getRadarSources(desk())
+
+    @LuaFunction(mainThread = true)
+    fun getDisplayBinding(arguments: IArguments): Map<String, Any> =
+        DisplayBindingService.getBinding(desk(), arguments.get(0))
+
+    @LuaFunction(mainThread = true)
+    fun setRadarSource(arguments: IArguments): Map<String, Any> =
+        DisplayBindingService.setRadarSource(desk(), arguments.get(0), arguments.getString(1))
+
+    @LuaFunction(mainThread = true)
+    fun setDisplayTouchScript(arguments: IArguments): Map<String, Any> =
+        DisplayBindingService.setTouchScript(desk(), arguments.get(0), arguments.getString(1))
+
+    @LuaFunction(mainThread = true)
+    fun clearDisplayBinding(arguments: IArguments): Map<String, Any> =
+        DisplayBindingService.clearBinding(desk(), arguments.get(0))
 
     internal fun validDesk(): ConsoleBlockEntity? = blockEntity.get()?.takeIf {
         !it.isRemoved && it.level != null && it.level?.isLoaded(it.blockPos) == true

@@ -3,6 +3,8 @@ package de.teutonstudio.ccaeroworks.compat.computercraft
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.display.DeskDisplayTouch
+import de.teutonstudio.ccaeroworks.display.DisplayBinding
+import de.teutonstudio.ccaeroworks.display.DisplayBindings
 import de.teutonstudio.ccaeroworks.network.DisplayPointerAction
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.event.tick.ServerTickEvent
@@ -24,6 +26,7 @@ object ControlDeskPeripheralState {
         touch: DeskDisplayTouch,
         action: DisplayPointerAction
     ) {
+        val handlerPath = (DisplayBindings.get(desk, touch.socket) as? DisplayBinding.LuaHandler)?.path.orEmpty()
         active.forEach { peripheral ->
             if (peripheral.validDesk() !== desk) return@forEach
             peripheral.computers.forEach { computer ->
@@ -37,7 +40,8 @@ object ControlDeskPeripheralState {
                     touch.x,
                     touch.y,
                     touch.width,
-                    touch.height
+                    touch.height,
+                    handlerPath
                 )
                 if (action == DisplayPointerAction.TAP) {
                     queueCompatibleTouch(computer, touch)

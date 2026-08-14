@@ -25,5 +25,15 @@ object CCPayloads {
             SwitchControlDeskUiPayload.STREAM_CODEC,
             SwitchControlDeskUiPayload::handle
         )
+        registrar.playToServer(
+            SetRadarDisplaySourcePayload.TYPE,
+            SetRadarDisplaySourcePayload.STREAM_CODEC,
+            SetRadarDisplaySourcePayload::handle
+        )
+        registrar.playToServer(
+            SetDisplayTouchScriptPayload.TYPE,
+            SetDisplayTouchScriptPayload.STREAM_CODEC,
+            SetDisplayTouchScriptPayload::handle
+        )
     }
 }

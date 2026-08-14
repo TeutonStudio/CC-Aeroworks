@@ -62,6 +62,9 @@ jobs:
       - name: Validate display combined input
         run: python3 tools/verify-display-combined-input.py
 
+      - name: Validate display source bindings
+        run: python3 tools/verify-display-bindings.py
+
       - name: Validate peripheral network architecture
         run: python3 tools/verify-peripheral-network.py
 
@@ -70,6 +73,9 @@ jobs:
 
       - name: Validate ComputerControlDesk wire channels
         run: python3 tools/verify-wire-channels.py
+
+      - name: Validate Create telemetry and docking relay
+        run: python3 tools/verify-telemetry.py
 
       - name: Validate optional radar integration
         run: python3 tools/verify-radar.py
