@@ -102,7 +102,6 @@ class DeskIoDisplayConfigScreen(
     }
 
     override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        renderBackground(guiGraphics, mouseX, mouseY, partialTick)
         super.render(guiGraphics, mouseX, mouseY, partialTick)
         val panelWidth = minOf(360, width - 24)
         val left = (width - panelWidth) / 2

@@ -15,7 +15,7 @@ import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component
 import net.neoforged.neoforge.network.PacketDistributor
 
-/** Unified read-only overview for controls, displays, Display Link information and wire outputs. */
+/** Unified overview for controls, displays, Display Link information and wire outputs. */
 class DeskIoOverviewScreen(
     private val origin: BlockPos,
     private val snapshotJson: String,
@@ -97,9 +97,7 @@ class DeskIoOverviewScreen(
     }
 
     override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        renderBackground(guiGraphics, mouseX, mouseY, partialTick)
         super.render(guiGraphics, mouseX, mouseY, partialTick)
-
         val panelWidth = minOf(390, width - 24)
         val left = (width - panelWidth) / 2
         guiGraphics.drawCenteredString(font, title, width / 2, 16, 0xFFFFFF)
@@ -150,7 +148,8 @@ class DeskIoOverviewScreen(
             CATEGORY_OUTPUT -> {
                 val signal = value.int("value")
                 val connections = value.int("connections")
-                "$signal/15 · $connections link${if (connections == 1) "" else "s"}"
+                val backend = value.string("backend")
+                "$signal/15 · $connections link${if (connections == 1) "" else "s"} · $backend"
             }
             else -> ""
         }
