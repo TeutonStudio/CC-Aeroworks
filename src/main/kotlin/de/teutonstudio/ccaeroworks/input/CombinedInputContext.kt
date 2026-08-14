@@ -115,27 +115,60 @@ object CombinedInputContext {
             return snapshot
         }
 
-        val cached = cachedContext ?: return null
-        if (cached.dimension != level.dimension() || !level.isLoaded(cached.anchor)) {
+        val cached = cachedContext
+        if (cached != null) {
+            if (cached.dimension == level.dimension() && level.isLoaded(cached.anchor)) {
+                val snapshot = ConsoleMultiblockManager.resolve(level, cached.anchor)
+                val maximumDistance = player.blockInteractionRange() + 2.0
+                if (snapshot.members.any {
+                        player.distanceToSqr(it.pos.center) <= maximumDistance * maximumDistance
+                    }
+                ) {
+                    return snapshot
+                }
+            }
             cachedContext = null
-            return null
         }
 
-        val snapshot = ConsoleMultiblockManager.resolve(level, cached.anchor)
-        val maximumDistance = player.blockInteractionRange() + 2.0
-        if (snapshot.members.none {
-                player.distanceToSqr(it.pos.center) <= maximumDistance * maximumDistance
-            }
-        ) {
-            cachedContext = null
-            return null
-        }
+        val nearbyDesk = findDeskNearViewRay(minecraft) ?: return null
+        val snapshot = ConsoleMultiblockManager.resolve(level, nearbyDesk)
+        remember(level.dimension(), snapshot)
         return snapshot
     }
 
     fun reset() {
         cachedContext = null
         lastSelections.clear()
+    }
+
+    /**
+     * Initial acquisition for visual modules which do not own Vanilla's collision hit. This scans
+     * only a narrow 3x3x3 corridor around the view ray at half-block intervals, not the former
+     * reach-sized world cube.
+     */
+    private fun findDeskNearViewRay(minecraft: Minecraft): BlockPos? {
+        val player = minecraft.player ?: return null
+        val level = minecraft.level ?: return null
+        val reach = player.blockInteractionRange()
+        val direction = player.getViewVector(1.0f)
+        val steps = kotlin.math.ceil(reach * 2.0).toInt().coerceAtLeast(1)
+        val visited = hashSetOf<Long>()
+
+        for (step in 0..steps) {
+            val distance = minOf(reach, step * 0.5)
+            val point = player.eyePosition.add(direction.scale(distance))
+            val center = BlockPos.containing(point)
+            for (dx in -1..1) {
+                for (dy in -1..1) {
+                    for (dz in -1..1) {
+                        val pos = center.offset(dx, dy, dz)
+                        if (!visited.add(pos.asLong()) || !level.isLoaded(pos)) continue
+                        if (level.getBlockEntity(pos) is ConsoleBlockEntity) return pos.immutable()
+                    }
+                }
+            }
+        }
+        return null
     }
 
     private fun remember(dimension: ResourceKey<Level>, snapshot: ConsoleMultiblockSnapshot) {

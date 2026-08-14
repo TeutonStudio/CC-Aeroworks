@@ -1,105 +1,179 @@
-# Optimierung des kombinierten Eingabemodus
+# Combined Control Focus
 
 ## Ziel
 
-Der Eingabetyp `Kombiniert` ist für einen schnellen Wechsel zwischen normaler Maussteuerung und der Bedienung eines Lever-, Joystick- oder Throttle-Kanals gedacht. Die Umschaltgrenzen müssen deshalb auf dem Maus-/Turn-Pfad liegen und dürfen nicht ausschließlich vom 20-Hz-Client-Tick abhängen.
+Der Eingabetyp `Kombiniert` ist für schnelles Umschalten zwischen Kamera und Cockpit-Steuerung
+gedacht. Während eine Combined-Taste gehalten wird, muss der ausgewählte Regler exklusiv die Maus
+besitzen. Rendering, permanentes Targeting und Multiblock-Suche dürfen nicht im heißen Mauspfad
+liegen.
 
-## Behobene Fehlerquellen
-
-### Doppelte Mausverarbeitung
-
-Vor dieser Änderung konnten dieselben physischen Mausdeltas über zwei Wege in `CombinedLeverController.consumeMouseDelta` gelangen:
-
-- direkt über `CalculatePlayerTurnEvent` und die akkumulierten MouseHandler-Deltas;
-- zusätzlich über Aeroworks `ConsoleControlClient.feedMouseDelta` beziehungsweise `JoystickControlClient.feedMouseDelta`.
-
-`CalculatePlayerTurnEvent` ist nun der einzige autoritative Combined-Input-Pfad. Der Aeroworks-Hook verhindert während einer aktiven Combined-Session lediglich, dass Aeroworks dieselbe Mausbewegung selbst verarbeitet.
-
-### Nachlauf beim Loslassen
-
-Der Aktivierungszustand wurde bisher hauptsächlich in `ClientTickEvent.Post` geprüft. Zwischen dem Loslassen einer Taste und dem nächsten Client-Tick konnte deshalb noch ein Turn-Event auftreten und ein Mausdelta auf das Steuerobjekt anwenden.
-
-Der Turn-Event prüft die Aktivierungstaste nun unmittelbar vor jeder möglichen Verarbeitung. Ist die Taste bereits losgelassen, endet die Session sofort und das aktuelle Mausdelta bleibt bei der normalen Kamerasteuerung.
-
-### Übergangsdelta beim Aktivieren
-
-Eine Mausbewegung, mit der ein Spieler unmittelbar vor dem Tastendruck auf ein Modul zielt, kann zeitlich im selben akkumulierten Maus-Sample wie die Aktivierung liegen. Dieses Sample darf nicht zum neuen Steuerwert werden.
-
-Jedes neu erworbene Combined-Ziel verwirft deshalb genau das erste Turn-Sample. Die Kamera ist für dieses Grenzsample bereits eingefroren. Ab dem folgenden Sample wird ohne zusätzliche Zeitverzögerung normal gesteuert.
-
-## Zustandsverhalten
+## Session-Lebenszyklus
 
 ```text
-normal
-  |
-  | gültiges Ziel + Aktivierungstaste
-  v
-aktiviert
-  |
-  | erstes Turn-Sample verwerfen
-  v
-steuern
-  |
-  | Taste loslassen
-  v
-normal
+PRESS
+  -> Multiblock-Kontext auflösen
+  -> Binding auf ein Modul auflösen
+  -> Maus-Baseline speichern
+  -> exklusiven CONTROL- oder DISPLAY-Owner claimen
+  -> Focus Session
+
+MOUSE
+  -> nur DX/DY + lokaler Akkumulator
+  -> höchstens configured packet rate
+  -> atomisches Multi-Channel-Sample
+
+alle 5 Client-Ticks
+  -> Watchdog: Desk/Socket/Modul/Binding/Reichweite prüfen
+
+RELEASE / Shift / Fokusverlust
+  -> finales Sample ohne Rate-Limit senden
+  -> Owner freigeben
+  -> Kamera wieder normal
 ```
 
-Wird das Ziel ungültig, während die Aktivierungstaste weiterhin gehalten wird, bleibt die bestehende Suppression erhalten. Ein anderes Modul mit derselben Taste kann dadurch nicht mitten im Tastendruck übernommen werden.
+Target-Akquise geschieht ausschließlich an physischen PRESS-Kanten. `ClientTickEvent` und
+`CalculatePlayerTurnEvent` erwerben niemals ein neues Ziel.
 
-## Manueller Regressionstest
+## Multiblock-Kontext
 
-### Schnelles Aktivieren
+`CombinedInputContext` verwendet den kanonischen `ConsoleMultiblockManager`.
 
-1. Maus sichtbar in Richtung eines Combined-Moduls bewegen.
-2. Während der Bewegung die Aktivierungstaste drücken.
-3. Bewegung unmittelbar fortsetzen.
+Beim ersten Zugriff gilt:
 
-Erwartung:
+1. trifft Minecraft bereits irgendeinen ControlDesk, wird dessen vollständiger Desk-Multiblock
+   als Kontext gespeichert;
+2. besitzt ein visuelles Modul wie das große Display keinen geeigneten Vanilla-Hit, wird nur ein
+   schmaler 3x3x3-Korridor entlang des Sichtstrahls in Halbblock-Schritten geprüft;
+3. danach bleibt der Multiblock-Kontext erhalten, solange der Spieler in Reichweite eines seiner
+   Mitglieder steht.
 
-- Die Zielbewegung vor beziehungsweise am Aktivierungsrand verändert den Steuerwert nicht.
-- Ab dem folgenden Maus-Sample reagiert das Modul ohne merkliche zusätzliche Zeitverzögerung.
-- Die Kamera bleibt während der aktiven Session stehen.
+Damit muss nicht mehr bei jedem Wechsel exakt das einzelne Steuerobjekt angesehen werden. Ein
+eindeutiges Binding im bekannten Pultnetz kann direkt aufgelöst werden.
 
-### Schnelles Loslassen
+Bei mehrfach belegten Tasten ist die Auswahl absichtlich konservativ:
 
-1. Combined-Modul aktiv bewegen.
-2. Während einer fortlaufenden Mausbewegung die Aktivierungstaste loslassen.
-3. Maus ohne Pause weiterbewegen.
+1. das aktuell direkt anvisierte passende Modul gewinnt;
+2. sonst wird die letzte Auswahl für diese Taste wiederverwendet;
+3. ohne eindeutige oder erinnerte Auswahl startet keine Session.
 
-Erwartung:
+## Exklusiver Mausbesitz
 
-- Nach dem Loslassen wird kein weiteres Delta auf das Modul angewendet.
-- Die Mausbewegung des Release-Turns steht wieder der Kamera zur Verfügung.
-- Es gibt keine sichtbare Nachlaufphase bis zum nächsten Client-Tick.
+`CombinedInputCoordinator` kennt zwei Owner:
 
-### Wiederholtes Umschalten
+- `CONTROL` für Lever, Joystick, Wheel, Yoke und Throttle;
+- `DISPLAY` für den großen Display-/Radar-Pointer.
 
-1. Mindestens zwanzigmal schnell `drücken -> bewegen -> loslassen` wiederholen.
-2. Dazwischen die Kamera jeweils weiterbewegen.
+Ownership ist nicht preemptiv. Eine zweite Combined-Taste kann eine aktive Session nicht mitten im
+Tastendruck übernehmen. Shift beendet die Session und gibt die Maus unmittelbar an die Kamera
+zurück.
 
-Erwartung:
+Aeroworks' eigener `feedMouseDelta`-Pfad bleibt während einer Combined-Session unterdrückt. Somit
+wird jedes physische Mausdelta nur einmal verarbeitet.
 
-- Keine schleichende Drift durch Übergangsdeltas.
-- Keine doppelte Wertänderung pro physischer Mausbewegung.
-- Keine hängenbleibende Kamerasperre.
+## Maus-Baseline statt verlorenem ersten Frame
 
-### Joystick mit gemeinsamer Taste
+Beim PRESS werden die aktuellen `MouseHandler`-Deltas gespeichert. Beim ersten Turn-Event wird nur
+die Differenz zu dieser Baseline verarbeitet.
 
-1. Joystick `x` und `y` auf dieselbe Aktivierungstaste legen.
-2. Diagonal bewegen.
+Dadurch gelangt die Mausbewegung vor dem Aktivierungsrand nicht in den Regler, ohne pauschal das
+komplette erste Maus-Sample zu verwerfen.
 
-Erwartung:
+## Netzwerk
 
-- X und Y werden parallel aus demselben autoritativen Turn-Sample aktualisiert.
-- Das Sample wird nicht zusätzlich über Aeroworks `feedMouseDelta` ein zweites Mal eingerechnet.
+Normale Steuerobjekte verwenden `CombinedControlSamplePayload`.
 
-### Throttle mit gemeinsamer Taste
+Ein Sample enthält:
 
-1. Zwei Throttle-Kanäle auf dieselbe Aktivierungstaste legen.
-2. Vertikal bewegen.
+- Desk-Position;
+- Socket;
+- Sequenznummer;
+- Kennzeichnung des finalen Samples;
+- alle zusammengehörigen Channel-Werte.
 
-Erwartung:
+Joystick-/Yoke-Achsen werden damit gemeinsam übertragen statt als voneinander unabhängige Pakete.
 
-- Beide Kanäle folgen derselben Bewegung.
-- Jeder Kanal wird pro physischem Maus-Sample nur einmal akkumuliert.
+Die normale Paketfrequenz bleibt über `combinedLeverPacketRate` auf maximal 20/s begrenzt. Beim
+Session-Ende wird dieses Limit absichtlich übergangen und der aktuelle Zustand immer noch einmal
+gesendet. Ein kurzer `drücken -> bewegen -> loslassen`-Vorgang kann deshalb nicht mehr seinen
+letzten `pendingValue` verlieren.
+
+Der Server besitzt für Combined-Samples keine `first packet per tick wins`-Sperre mehr. Später
+eintreffende Samples dürfen den Zustand desselben Server-Ticks aktualisieren. Der alte
+`SetCombinedLeverValuePayload` bleibt für Protokoll-Kompatibilität registriert und verwendet
+dieselbe Latest-Wins-Semantik.
+
+Serverseitige Reichweitenprüfung erfolgt gegen irgendein Mitglied desselben ControlDesk-Multiblocks,
+nicht ausschließlich gegen den Block, auf dem das Zielmodul montiert ist.
+
+## CC:Tweaked-Ereignisse
+
+Direkt angeschlossene `ControlDesk`-Peripherals erhalten Combined-Eingabeänderungen unmittelbar im
+Server-Payload-Handler. Der bestehende Snapshot-Diff in `ServerTickEvent.Post` bleibt als Fallback
+für native Aeroworks-Änderungen und andere Eingabequellen erhalten.
+
+Existiert bereits ein Snapshot, wird er nach dem Immediate-Event gepatcht, damit das Fallback
+dasselbe Ereignis im nächsten Tick nicht noch einmal ausgibt.
+
+## Watchdog
+
+Während einer aktiven Session werden keine Raycasts und keine Mount-Suchen pro Mausframe
+durchgeführt. Die vollständige Weltvalidierung läuft nur alle fünf Client-Ticks.
+
+Sofort geprüft werden weiterhin die billigen Zustände:
+
+- Fensterfokus;
+- geöffnete GUI;
+- Spieler lebt;
+- Dimension;
+- physischer Release der Aktivierungstaste;
+- Shift-Override.
+
+Der 5-Tick-Watchdog prüft zusätzlich:
+
+- Desk noch geladen;
+- Socket und Modul noch vorhanden;
+- Channel weiterhin Combined und mit demselben Binding konfiguriert;
+- Spieler noch in Reichweite des Desk-Multiblocks.
+
+## Manuelle Regressionstests
+
+### Schneller Impuls
+
+1. Combined-Taste drücken.
+2. Regler kurz bewegen.
+3. Vor Ablauf von 50 ms wieder loslassen.
+
+Erwartung: Die Endposition kommt serverseitig an.
+
+### Blick weg
+
+1. Eine Combined-Session im Desk-Netz erfolgreich benutzen.
+2. Kamera auf einen anderen Bereich des Cockpits drehen.
+3. Taste eines eindeutig belegten anderen Moduls drücken.
+
+Erwartung: Das Modul wird aus dem gecachten Multiblock-Kontext gewählt, ohne dass sein einzelnes
+Modell exakt getroffen werden muss.
+
+### Display ohne Vanilla-Hit
+
+1. Großes Display sichtbar anvisieren, sodass der Vanilla-Hit nicht zwingend den Desk trifft.
+2. Display-Combined-Taste drücken.
+
+Erwartung: Der schmale View-Ray-Korridor findet den zugehörigen Desk; kein großer Weltwürfel wird
+gescannt.
+
+### Mehrfachbelegung
+
+1. Zwei Module im selben Netz auf dieselbe Taste legen.
+2. Eines davon direkt ansehen und Taste drücken.
+3. Später erneut drücken, ohne beide eindeutig anzusehen.
+
+Erwartung: Zuerst entscheidet das direkt anvisierte Modul, danach darf die letzte eindeutige Auswahl
+wiederverwendet werden. Ohne Tiebreaker wird kein zufälliges Modul übernommen.
+
+### Shift
+
+1. Combined-Taste halten und steuern.
+2. Shift drücken.
+
+Erwartung: finales Sample wird übertragen, Focus endet und die Maus steuert sofort wieder die Kamera.

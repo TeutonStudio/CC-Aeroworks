@@ -59,6 +59,8 @@ require("WATCHDOG_INTERVAL_TICKS = 5" in control and "WATCHDOG_INTERVAL_TICKS = 
         "active Combined sessions must move world validation to the low-frequency watchdog")
 require("CombinedInputContext.candidates" in control and "CombinedInputContext.candidates" in controller,
         "control and display input must share the multiblock binding context")
+require("findDeskNearViewRay" in context and "for (dx in -1..1)" in context,
+        "initial visual-module acquisition must use the narrow view-ray corridor fallback")
 require("for (x in center.x - radius" not in controller and "kotlin.math.ceil" not in controller,
         "display activation must not scan a world cube on every key press")
 
