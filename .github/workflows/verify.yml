@@ -38,7 +38,7 @@ jobs:
           java-version: "21"
           cache: gradle
 
-      - name: Inspect Aeroworks control UI bytecode
+      - name: Inspect Aeroworks navigation layouts
         shell: bash
         run: |
           set -euo pipefail
@@ -46,18 +46,14 @@ jobs:
           curl --fail --location --retry 3 \
             --output "${jar_file}" \
             "https://cdn.modrinth.com/data/P26k79kP/versions/EYVmBa7H/aeroworks-1.3.0.jar"
-          classes=$(jar tf "${jar_file}" | grep '^com/mred231/aeroworks/content/controls/.*\.class$' | grep -E '(Screen|Menu)' | sed 's#/#.#g;s#\.class$##' | sort)
-          echo 'CONTROL_UI_CLASSES'
-          printf '%s\n' "${classes}"
-          echo 'DONE_OWNERS'
-          for cls in ${classes}; do
-            if javap -classpath "${jar_file}" -p -c "${cls}" 2>/dev/null | grep -q 'gui.aeroworks.module.done'; then
-              echo "${cls}"
-            fi
-          done
-          echo 'UI_HEADERS'
-          for cls in ${classes}; do
-            javap -classpath "${jar_file}" -p "${cls}" 2>/dev/null | sed -n '1,18p'
+          for cls in \
+            com.mred231.aeroworks.content.controls.ConsoleScreen \
+            com.mred231.aeroworks.content.controls.ConsoleScreenOpener \
+            com.mred231.aeroworks.content.controls.ModuleScreen; do
+            echo "===== ${cls} SIGNATURES ====="
+            javap -classpath "${jar_file}" -p -s "${cls}"
+            echo "===== ${cls} INIT/DONE BYTECODE ====="
+            javap -classpath "${jar_file}" -p -c "${cls}" | grep -B18 -A45 -E 'gui\.aeroworks\.module\.done|init\(\)|ConsoleScreenOpener|reopenModuleMenu' || true
           done
 
       - name: Prepare executable files
