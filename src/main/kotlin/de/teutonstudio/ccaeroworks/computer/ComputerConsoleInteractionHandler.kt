@@ -2,10 +2,6 @@ package de.teutonstudio.ccaeroworks.computer
 
 import com.simibubi.create.content.equipment.wrench.WrenchItem
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
-import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
-import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
-import net.minecraft.network.chat.Component
-import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.common.util.TriState
@@ -18,11 +14,10 @@ object ComputerConsoleInteractionHandler {
             return
         }
 
-        if (event.hand == InteractionHand.MAIN_HAND &&
-            event.entity.isCrouching &&
-            event.itemStack.isEmpty &&
-            openComputerTerminal(event)
-        ) {
+        // Sneak + right-click is Aeroworks' native configuration gesture. Do not reserve it for
+        // the embedded computer: doing so prevents ModuleScreen from opening at all. The computer
+        // remains reachable from the Computer button injected into Aeroworks' ModuleScreen.
+        if (event.entity.isCrouching && event.itemStack.isEmpty) {
             return
         }
 
@@ -66,59 +61,6 @@ object ComputerConsoleInteractionHandler {
         // BlockState.useItemOn returns ItemInteractionResult in Minecraft 1.21.1, while
         // RightClickBlock cancellation expects InteractionResult. The native call has already
         // performed the menu-opening side effect, so consume the original event explicitly.
-        event.cancellationResult = InteractionResult.SUCCESS
-        event.isCanceled = true
-    }
-
-    private fun openComputerTerminal(event: PlayerInteractEvent.RightClickBlock): Boolean {
-        // A world-opened terminal has no preceding Aeroworks ModuleScreen to return to.
-        // Drop any old client ConsoleSocket so the CC button can never resurrect a stale desk.
-        if (event.level.isClientSide) {
-            ControlDeskUiSwitchState.clearClientControlsContext()
-        }
-        ControlDeskUiSwitchState.remember(event)
-
-        // The client consumes the deliberately reserved interaction. Computer creation and
-        // menu opening are server-only operations and are handled by the matching server event.
-        if (event.level.isClientSide) {
-            consume(event)
-            return true
-        }
-
-        val snapshot = ConsoleMultiblockManager.resolve(event.level, event.pos)
-        val direct = event.level.getBlockEntity(event.pos) as? ComputerControlDeskBlockEntity
-        val handled = when {
-            direct != null -> direct.openTerminal(event.entity, direct = true)
-            snapshot.state == ConsoleNetworkState.ACTIVE -> snapshot.owner?.openTerminal(event.entity) == true
-            snapshot.state == ConsoleNetworkState.CONFLICT -> {
-                event.entity.displayClientMessage(
-                    Component.translatable("message.cc_aeroworks.console_conflict"),
-                    true
-                )
-                true
-            }
-            snapshot.state == ConsoleNetworkState.TOO_LARGE -> {
-                event.entity.displayClientMessage(
-                    Component.translatable("message.cc_aeroworks.console_too_large"),
-                    true
-                )
-                true
-            }
-            snapshot.state == ConsoleNetworkState.PARTIALLY_LOADED -> {
-                event.entity.displayClientMessage(
-                    Component.translatable("message.cc_aeroworks.console_partially_loaded"),
-                    true
-                )
-                true
-            }
-            else -> false
-        }
-
-        if (handled) consume(event)
-        return handled
-    }
-
-    private fun consume(event: PlayerInteractEvent.RightClickBlock) {
         event.cancellationResult = InteractionResult.SUCCESS
         event.isCanceled = true
     }
