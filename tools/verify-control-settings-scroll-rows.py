@@ -56,6 +56,8 @@ require('method = ["renderBg(Lnet/minecraft/client/gui/GuiGraphics;FII)V"]' in b
         "binding widget positions must be synchronized from the native renderBg scroll update")
 require("graphics.enableScissor" in bindings and "fullyVisible" in bindings,
         "binding rows/widgets must stay inside the native list viewport")
+require("AeroworksGuiTextures.MODULE_ROW.render" in bindings,
+        "extension configuration rows must reuse Aeroworks' native MODULE_ROW styling")
 require("topPos + imageHeight" not in bindings and "leftPos + (imageWidth" not in bindings,
         "display binding controls must not return to absolute inventory-overlapping placement")
 
@@ -63,6 +65,6 @@ require("python3 tools/verify-control-settings-scroll-rows.py" in workflow,
         "repository workflow must enforce the scroll-row architecture")
 
 print(
-    "Validated ControlDesk settings rows: native Aeroworks geometry, renderedScroll anchoring, "
+    "Validated ControlDesk settings rows: native Aeroworks geometry and row styling, renderedScroll anchoring, "
     "scissored Combined decoration, and radar/script configuration inside the shared scroll content."
 )
