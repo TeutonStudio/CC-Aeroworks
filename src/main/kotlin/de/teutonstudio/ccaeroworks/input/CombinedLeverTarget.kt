@@ -9,14 +9,15 @@ data class CombinedLeverTarget(
     val pos: BlockPos,
     val socket: Int,
     val activationBinding: String,
-    val axes: List<CombinedAxisTarget>
-) {
-    /** Drops the activation-boundary sample so aiming motion cannot leak into the control value. */
-    var discardNextMouseSample: Boolean = true
-}
+    val axes: List<CombinedAxisTarget>,
+    var mouseBaselineX: Double,
+    var mouseBaselineY: Double,
+    var subtractMouseBaseline: Boolean = true
+)
 
 data class CombinedAxisTarget(
     val channel: String,
+    val mouseAxis: CombinedInputSource.MouseAxis,
     val accumulator: LeverAccumulator,
     var sentValue: Int,
     var pendingValue: Int? = null,

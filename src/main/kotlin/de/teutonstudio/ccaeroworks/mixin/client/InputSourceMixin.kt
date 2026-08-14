@@ -14,7 +14,7 @@ abstract class InputSourceMixin {
         @JvmStatic
         @Inject(method = ["displayName(Ljava/lang/String;)Lnet/minecraft/network/chat/Component;"], at = [At("HEAD")], cancellable = true)
         private fun displayCombinedName(source: String, callback: CallbackInfoReturnable<Component>) {
-            if (source == CombinedInputSource.ID) {
+            if (CombinedInputSource.isCombinedSource(source)) {
                 callback.returnValue = Component.translatable("input.cc_aeroworks.combined")
             }
         }

@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.mixin.client
 
-import de.teutonstudio.ccaeroworks.input.CombinedLeverController
+import de.teutonstudio.ccaeroworks.input.CombinedInputCoordinator
 import org.spongepowered.asm.mixin.Mixin
 import org.spongepowered.asm.mixin.injection.At
 import org.spongepowered.asm.mixin.injection.Inject
@@ -18,9 +18,7 @@ abstract class AeroworksAnalogInputMixin {
         @JvmStatic
         @Inject(method = ["feedMouseDelta(DD)V"], at = [At("HEAD")], cancellable = true)
         private fun suppressAeroworksMouseRouting(deltaX: Double, deltaY: Double, callback: CallbackInfo) {
-            if (CombinedLeverController.isActive()) {
-                // CalculatePlayerTurnEvent is the single authoritative combined-input mouse path.
-                // Aeroworks must not feed the same physical delta into the accumulator a second time.
+            if (CombinedInputCoordinator.reservesMouseFromAeroworks()) {
                 callback.cancel()
             }
         }

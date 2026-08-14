@@ -5,11 +5,10 @@ import net.minecraft.client.Minecraft
 import org.lwjgl.glfw.GLFW
 
 /**
- * Owns the mouse while a combined-input session is active.
+ * Single ownership gate for Combined mouse input.
  *
- * Display input deliberately has pre-emption priority over an already active analog control so
- * pressing the display activation key cannot leak the same mouse sample into a lever/joystick.
- * Shift is an absolute camera override and prevents either owner from being claimed.
+ * The owner survives the Shift camera override. Shift therefore changes routing only; it never
+ * destroys a valid session or forces a new raycast when the player releases Shift.
  */
 object CombinedInputCoordinator {
     enum class Owner {
@@ -41,8 +40,13 @@ object CombinedInputCoordinator {
     @JvmStatic
     fun claimDisplay(minecraft: Minecraft): Boolean {
         if (isShiftCameraOnly(minecraft)) return false
-        owner = Owner.DISPLAY
-        return true
+        return when (owner) {
+            null, Owner.DISPLAY -> {
+                owner = Owner.DISPLAY
+                true
+            }
+            Owner.CONTROL -> false
+        }
     }
 
     @JvmStatic
@@ -52,10 +56,21 @@ object CombinedInputCoordinator {
     fun ownsDisplay(): Boolean = owner == Owner.DISPLAY
 
     @JvmStatic
+    fun hasOwner(): Boolean = owner != null
+
+    /** True while Combined owns mouse motion rather than the camera. */
+    @JvmStatic
     fun consumesMouseInput(): Boolean {
         val minecraft = Minecraft.getInstance()
-        return !isShiftCameraOnly(minecraft) && owner != null
+        return owner != null && !isShiftCameraOnly(minecraft)
     }
+
+    /**
+     * Aeroworks must not receive the same raw delta while a Combined session exists, including
+     * during Shift override where that delta belongs exclusively to the vanilla camera.
+     */
+    @JvmStatic
+    fun reservesMouseFromAeroworks(): Boolean = owner != null
 
     @JvmStatic
     fun releaseControl() {
