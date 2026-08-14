@@ -14,15 +14,29 @@ object CombinedInputSource {
         "cc_aeroworks:large_radar_display"
     )
 
+    /**
+     * Every continuous Aeroworks control is available in Combined mode. Binary button modules are
+     * intentionally absent because mouse motion has no continuous axis to map onto their press
+     * channels. The two large CC-Aeroworks displays expose real X/Y channels and are Combined-only.
+     */
     private val supportedChannels: Map<String, List<String>> = mapOf(
         "aeroworks:lever" to listOf(LEVER_CHANNEL),
         "aeroworks:joystick" to listOf(X_CHANNEL, Y_CHANNEL),
+        "aeroworks:wheel" to listOf("wheel"),
+        "aeroworks:yoke" to listOf("turn", "pitch"),
         "aeroworks:throttle_quadrant" to listOf("red", "amber", "green", "blue"),
         "cc_aeroworks:three_digit_display" to listOf(X_CHANNEL, Y_CHANNEL),
         "cc_aeroworks:large_radar_display" to listOf(X_CHANNEL, Y_CHANNEL)
     )
 
-    fun mouseAxis(channel: String): MouseAxis = if (channel == X_CHANNEL) MouseAxis.X else MouseAxis.Y
+    private val horizontalChannels: Set<String> = setOf(
+        X_CHANNEL,
+        "wheel",
+        "turn"
+    )
+
+    fun mouseAxis(channel: String): MouseAxis =
+        if (channel in horizontalChannels) MouseAxis.X else MouseAxis.Y
 
     fun channelsFor(moduleId: String): List<String> = supportedChannels[moduleId].orEmpty()
 
