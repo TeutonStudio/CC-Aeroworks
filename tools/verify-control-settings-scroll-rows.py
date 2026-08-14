@@ -61,10 +61,17 @@ require("AeroworksGuiTextures.MODULE_ROW.render" in bindings,
 require("topPos + imageHeight" not in bindings and "leftPos + (imageWidth" not in bindings,
         "display binding controls must not return to absolute inventory-overlapping placement")
 
+# Kotlin companion objects generate a static Companion field on the mixin class. Sponge Mixin rejects
+# non-private static fields during preprocessing, so mixin layout constants must remain file-level/private.
+require("companion object" not in bindings,
+        "ModuleScreenDisplayBindingMixin must not declare a Kotlin companion object")
+require("private const val BINDING_ROW_WIDTH" in bindings,
+        "display binding layout constants must remain private file-level constants")
+
 require("python3 tools/verify-control-settings-scroll-rows.py" in workflow,
         "repository workflow must enforce the scroll-row architecture")
 
 print(
     "Validated ControlDesk settings rows: native Aeroworks geometry and row styling, renderedScroll anchoring, "
-    "scissored Combined decoration, and radar/script configuration inside the shared scroll content."
+    "scissored Combined decoration, mixin-safe Kotlin constants, and radar/script configuration inside the shared scroll content."
 )
