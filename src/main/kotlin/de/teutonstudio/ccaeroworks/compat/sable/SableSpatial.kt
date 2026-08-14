@@ -2,6 +2,8 @@ package de.teutonstudio.ccaeroworks.compat.sable
 
 import dev.ryanhcode.sable.Sable
 import dev.ryanhcode.sable.companion.math.BoundingBox3d
+import dev.ryanhcode.sable.sublevel.SubLevel
+import net.minecraft.core.BlockPos
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.phys.Vec3
@@ -17,7 +19,7 @@ object SableSpatial {
     data class RaySpace(
         val from: Vec3,
         val to: Vec3,
-        val subLevel: dev.ryanhcode.sable.sublevel.SubLevel?
+        val subLevel: SubLevel?
     )
 
     /**
@@ -54,6 +56,22 @@ object SableSpatial {
         }
         return spaces
     }
+
+    /**
+     * True when [pos] belongs to exactly the coordinate space represented by [subLevel]. This
+     * prevents a local scan from accidentally accepting a block from a different Sable plot.
+     */
+    @JvmStatic
+    fun belongsTo(level: Level, pos: BlockPos, subLevel: SubLevel?): Boolean =
+        Sable.HELPER.getContaining(level, pos) === subLevel
+
+    /**
+     * Projects a local/plot block position to the corresponding visible world block. Vanilla
+     * permission checks such as Level#mayInteract operate in this world coordinate space.
+     */
+    @JvmStatic
+    fun worldBlockPos(level: Level, pos: BlockPos): BlockPos =
+        BlockPos.containing(Sable.HELPER.projectOutOfSubLevel(level, pos.center))
 
     /**
      * Distance comparison where either point may be a Sable plot coordinate.
