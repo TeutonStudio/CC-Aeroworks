@@ -262,6 +262,49 @@ Globale Graphzugriffe werden abgelehnt bei:
 
 Die Position des Computer-Steuerungspults innerhalb der Reihe beeinflusst das Ergebnis nicht.
 
+## Globale `controls`-API
+
+Nur der eingebettete Computer besitzt die Control-Authority-API:
+
+```lua
+local controls = require("cc_aeroworks.controls")
+```
+
+Methoden:
+
+- `getChannels() -> table`
+- `getState(deskId, socket, channel) -> table`
+- `override(deskId, socket, channel, value) -> table`
+- `overrideBatch(commands) -> number`
+- `release(deskId, socket, channel) -> boolean`
+- `releaseAll() -> number`
+
+`override` übernimmt einen kontinuierlichen Steuerkanal im Modus `hard`. Solange der Override aktiv ist, werden normale Aeroworks-Schreibversuche für genau diesen Kanal abgefangen. Der Computerwert selbst wird über Aeroworks' normalen Controller-Setter geschrieben; dadurch bleiben Fahrzeugwert und sichtbare Stellung des Steuerobjekts derselbe Zustand.
+
+Unterstützt werden Lever, Joystick, Wheel, Yoke und die vier Kanäle des Throttle Quadrant. Die Display-X/Y-Kanäle des virtuellen Fingers sowie binäre Buttons gehören nicht zu diesem Vertrag. Werte müssen ganzzahlig in `-15..15` liegen.
+
+Beispiel für gekoppelte Yoke-Achsen:
+
+```lua
+controls.overrideBatch({
+  { desk = yokeDeskId, socket = "big", channel = "turn", value = rollCommand },
+  { desk = yokeDeskId, socket = "big", channel = "pitch", value = pitchCommand },
+})
+```
+
+Die komplette Batch-Liste wird vor dem ersten Write geprüft. Wiederholte identische Sollwerte lösen keinen erneuten Aeroworks-Write aus.
+
+Overrides sind nicht persistent und werden bei Computer-Aus, BlockEntity-Invalidierung, ungültigem Multiblock oder verschwundenem Ziel automatisch freigegeben. `release` lässt den letzten effektiven Kanalwert stehen und gibt ab diesem Punkt die normale Eingabe wieder frei.
+
+Ereignisse:
+
+```text
+cc_aeroworks_control_override(action, deskId, deskIndex, socket, socketName, channel, value, mode)
+cc_aeroworks_control_release(deskId, socket, socketName, channel, reason)
+```
+
+Die ausführliche Beschreibung steht in `docs/control-overrides.md`; ein ausführbares Beispiel liegt unter `examples/cc/control-override-demo.lua`.
+
 ## Aktualisierung und Ereignisse
 
 Block-, Nachbar- und Chunkänderungen invalidieren den Multiblock-Cache. Capability-Änderungen ohne sichtbare Blockänderung können explizit aktualisiert werden:

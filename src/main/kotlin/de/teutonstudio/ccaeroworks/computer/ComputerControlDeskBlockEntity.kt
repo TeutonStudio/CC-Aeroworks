@@ -21,6 +21,7 @@ import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskService
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskInputSnapshot
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskIdentityAccess
+import de.teutonstudio.ccaeroworks.computer.control.ControlOverrideManager
 import de.teutonstudio.ccaeroworks.computer.wire.WireChannelBank
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
@@ -100,6 +101,7 @@ class ComputerControlDeskBlockEntity(
         val computer = getServerComputer() ?: if (computerId >= 0 || startOn) {
             createServerComputer()
         } else {
+            ControlOverrideManager.tick(this, false)
             wireBank.tick(false)
             return
         }
@@ -121,6 +123,7 @@ class ComputerControlDeskBlockEntity(
             sendData()
         }
 
+        ControlOverrideManager.tick(this, newPowered)
         wireBank.tick(newPowered)
         publishConsoleEvents(computer)
         PeripheralNetworkRuntimes.tick(this)
@@ -227,6 +230,7 @@ class ComputerControlDeskBlockEntity(
     }
 
     override fun invalidate() {
+        ControlOverrideManager.releaseAll(this, "invalidated")
         wireBank.shutdown()
         closeComputer()
         super.invalidate()

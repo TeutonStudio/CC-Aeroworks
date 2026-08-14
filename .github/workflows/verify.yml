@@ -62,6 +62,9 @@ jobs:
       - name: Validate display combined input
         run: python3 tools/verify-display-combined-input.py
 
+      - name: Validate ComputerControlDesk control overrides
+        run: python3 tools/verify-control-overrides.py
+
       - name: Validate Display Link multiblock highlight
         run: python3 tools/verify-display-link-multiblock-highlight.py
 

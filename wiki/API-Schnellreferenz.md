@@ -4,8 +4,8 @@
 
 | Eingebetteter Computer | Externer Computer |
 |---|---|
-| globale `peripherals`- und `telemetry`-APIs | lokales Peripheral `ControlDesk` |
-| sieht alle Pulte, Nachbargeräte und lokale Telemetrie | sieht nur das direkt verbundene Pult |
+| globale `peripherals`-, `controls`- und `telemetry`-APIs | lokales Peripheral `ControlDesk` |
+| sieht alle Pulte, Nachbargeräte, lokale Telemetrie und darf Steuerautorität übernehmen | sieht nur das direkt verbundene Pult |
 | kein Modem erforderlich | direkt oder über Wired Modem |
 | `cc_aeroworks_*`-Ereignisse | `cc_aeroworks_desk_input` |
 
@@ -190,6 +190,59 @@ Globale Graphzugriffe werden abgelehnt bei:
 - mehr als 64 Pulten,
 - einem Computer außerhalb des Besitzerverbunds.
 
+# Globale `controls`-API
+
+Nur der eingebettete Computer besitzt diese API:
+
+```lua
+local controls = require("cc_aeroworks.controls")
+```
+
+Methoden:
+
+```text
+getChannels()
+getState(deskId, socket, channel)
+override(deskId, socket, channel, value)
+overrideBatch(commands)
+release(deskId, socket, channel)
+releaseAll()
+```
+
+Kontinuierliche Fahrzeugkanäle:
+
+```text
+aeroworks:lever             -> lever
+aeroworks:joystick          -> x, y
+aeroworks:wheel             -> wheel
+aeroworks:yoke              -> turn, pitch
+aeroworks:throttle_quadrant -> red, amber, green, blue
+```
+
+Display-Pointer-X/Y und binäre Buttons sind nicht Teil der Override-API. Werte sind ganzzahlig `-15..15`.
+
+Beispiel:
+
+```lua
+controls.overrideBatch({
+  { desk = yokeDeskId, socket = "big", channel = "turn", value = rollCommand },
+  { desk = yokeDeskId, socket = "big", channel = "pitch", value = pitchCommand },
+})
+```
+
+`hard`-Overrides blockieren normale Writes auf den übernommenen Kanal. Computerwrites laufen über Aeroworks' normalen Controller-Setter, sodass effektiver Steuerwert und sichtbare Modulstellung zusammenbleiben. Identische Sollwerte werden nicht erneut geschrieben.
+
+Overrides sind reine Laufzeit-Zustände. Computer-Aus, BlockEntity-Invalidierung, ein ungültiges Multiblock oder ein verschwundenes Ziel geben sie automatisch frei.
+
+Ereignisse:
+
+```text
+cc_aeroworks_control_override(action, deskId, deskIndex, socket, socketName, channel, value, mode)
+cc_aeroworks_control_release(deskId, socket, socketName, channel, reason)
+```
+
+Details: `docs/control-overrides.md`.
+
 # Globale `telemetry`-API
 
 Nur der eingebettete Computer besitzt diese API:
@@ -302,6 +355,13 @@ Lokales Pult:
 ```lua
 local _, peripheralName, socket, moduleId, value, channel, socketName =
   os.pullEvent("cc_aeroworks_desk_input")
+```
+
+Control-Authority:
+
+```text
+cc_aeroworks_control_override(action, deskId, deskIndex, socket, socketName, channel, value, mode)
+cc_aeroworks_control_release(deskId, socket, socketName, channel, reason)
 ```
 
 Telemetrie:
