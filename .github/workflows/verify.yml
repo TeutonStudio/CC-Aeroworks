@@ -38,6 +38,29 @@ jobs:
           java-version: "21"
           cache: gradle
 
+      - name: Inspect Aeroworks control UI bytecode
+        shell: bash
+        run: |
+          set -euo pipefail
+          jar_file="${RUNNER_TEMP}/aeroworks-1.3.0.jar"
+          curl --fail --location --retry 3 \
+            --output "${jar_file}" \
+            "https://cdn.modrinth.com/data/P26k79kP/versions/EYVmBa7H/aeroworks-1.3.0.jar"
+          echo '=== CONTROL UI CLASSES ==='
+          jar tf "${jar_file}" | grep '^com/mred231/aeroworks/content/controls/.*\.class$' | grep -E '(Screen|Menu|Socket)' | sort
+          echo '=== DONE KEY OWNERS ==='
+          for cls in $(jar tf "${jar_file}" | grep '^com/mred231/aeroworks/content/controls/.*\.class$' | sed 's#/#.#g;s#\.class$##'); do
+            if javap -classpath "${jar_file}" -p -c "${cls}" 2>/dev/null | grep -q 'gui.aeroworks.module.done'; then
+              echo "--- ${cls} ---"
+              javap -classpath "${jar_file}" -p -c "${cls}"
+            fi
+          done
+          echo '=== SCREEN/MENU SIGNATURES ==='
+          for cls in $(jar tf "${jar_file}" | grep '^com/mred231/aeroworks/content/controls/.*\.class$' | grep -E '(Screen|Menu)' | sed 's#/#.#g;s#\.class$##'); do
+            echo "--- ${cls} ---"
+            javap -classpath "${jar_file}" -p -s "${cls}" || true
+          done
+
       - name: Prepare executable files
         run: chmod +x gradlew tools/*.py
 
