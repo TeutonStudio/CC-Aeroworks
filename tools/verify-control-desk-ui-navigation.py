@@ -33,6 +33,13 @@ require("HoverTintIconButton" in aero_buttons, "Aeroworks navigation must use na
 require("maxByOrNull { it.x }" in aero_buttons and "leftmost - GAP - size" in aero_buttons,
         "PC button must anchor left of Aeroworks' existing bottom action row")
 
+# Catnip's Java withCallback() returns a generic T whose type is not inferable in Kotlin when
+# the return value is ignored. Keep the concrete widget type explicit or compileKotlin fails.
+require("withCallback<HoverTintIconButton>(callback)" in aero_buttons,
+        "Aeroworks button callback must specify Catnip's generic widget return type explicitly")
+require("button.withCallback(callback)" not in aero_buttons,
+        "raw Catnip withCallback(callback) call reintroduces the Kotlin type-inference failure")
+
 # The old top-centred text buttons are explicitly forbidden.
 for name, text in (("ModuleScreen", module), ("computer", computer)):
     require("buttonX = leftPos + (imageWidth - buttonWidth) / 2" not in text,
@@ -71,4 +78,4 @@ require("Inspect Aeroworks navigation layouts" not in workflow and "Inspect Aero
 require("python3 tools/verify-control-desk-ui-navigation.py" in workflow,
         "workflow must enforce UI navigation contract")
 
-print("Validated symmetric ControlDesk UI navigation: native Aeroworks bottom-row PC buttons, conditional overview, exact detail return, and CC-style Controls sidebar tab.")
+print("Validated symmetric ControlDesk UI navigation: native Aeroworks bottom-row PC buttons, conditional overview, exact detail return, CC-style Controls sidebar tab, and Kotlin-safe Catnip callback typing.")
