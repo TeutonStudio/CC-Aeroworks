@@ -64,7 +64,8 @@ data class DisplayPointerActionPayload(
             val player = context.player() as? ServerPlayer ?: return
             val level = player.serverLevel()
             if (!payload.u.isFinite() || !payload.v.isFinite() || payload.u !in 0.0..1.0 || payload.v !in 0.0..1.0) return
-            if (!level.hasChunkAt(payload.pos) || !level.mayInteract(player, payload.pos)) return
+            if (!level.hasChunkAt(payload.pos)) return
+            if (!level.mayInteract(player, SableSpatial.worldBlockPos(level, payload.pos))) return
 
             val desk = level.getBlockEntity(payload.pos) as? ConsoleBlockEntity ?: return
             if (desk.hasController() && !desk.checkUser(player.uuid)) return
