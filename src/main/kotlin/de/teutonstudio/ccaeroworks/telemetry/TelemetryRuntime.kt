@@ -62,7 +62,7 @@ internal object TelemetryRuntime {
     fun endpoint(target: BlockEntity, create: Boolean = false): TelemetryEndpointState? {
         val level = target.level as? ServerLevel ?: return null
         val endpointId = TelemetryIdentity.endpointId(level, target.blockPos)
-        val endpoints = endpointsByLevel.getOrPut(level, ::linkedMapOf)
+        val endpoints = endpointsByLevel.getOrPut(level) { linkedMapOf() }
         endpoints[endpointId]?.let { return it }
         if (!create) return null
         val kind = if (target is ComputerControlDeskBlockEntity) {
@@ -96,9 +96,12 @@ internal object TelemetryRuntime {
         val normalized = alias.trim()
         require(normalized.isNotEmpty()) { "Telemetry alias must not be blank" }
         val duplicate = endpoint.sources.values.any { candidate ->
-            candidate.id != source.id && aliasFor(target, candidate.id)?.equals(normalized, ignoreCase = true) == true
+            candidate.id != source.id && (
+                aliasFor(target, candidate.id)?.equals(normalized, ignoreCase = true) == true ||
+                    candidate.createLabel?.equals(normalized, ignoreCase = true) == true
+                )
         }
-        require(!duplicate) { "Telemetry alias '$normalized' is already used by this endpoint" }
+        require(!duplicate) { "Telemetry name '$normalized' is already used by this endpoint" }
         setAlias(target, source.id, normalized)
         return source
     }

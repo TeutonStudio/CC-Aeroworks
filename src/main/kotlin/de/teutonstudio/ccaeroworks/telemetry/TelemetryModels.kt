@@ -22,7 +22,7 @@ internal data class FillLevelTelemetryPayload(
 
     override fun toLua(): Map<String, Any> {
         val fraction = if (maximum > minimum) {
-            ((current - minimum).toDouble() / (maximum - minimum).toDouble()).coerceIn(0.0, 1.0)
+            ((current - minimum).toDouble() / (maximum - minimum).toDouble()).coerceAtLeast(0.0)
         } else {
             0.0
         }

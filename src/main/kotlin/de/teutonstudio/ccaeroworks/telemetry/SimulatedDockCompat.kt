@@ -26,6 +26,7 @@ internal data class DockSnapshot(
     val remoteName: String?
 ) {
     fun fingerprint(): String = listOf(
+        alias.orEmpty(),
         state,
         connected,
         locked,

@@ -25,6 +25,20 @@ class TelemetryPayloadTest {
     }
 
     @Test
+    fun fillLevelMatchesCreateByClampingOnlyTheLowerBound() {
+        val payload = FillLevelTelemetryPayload(
+            contentType = "fluid",
+            current = 20_000,
+            minimum = 0,
+            maximum = 16_000
+        )
+
+        val lua = payload.toLua()
+        assertEquals(1.25, lua["fraction"])
+        assertEquals(125.0, lua["percent"])
+    }
+
+    @Test
     fun fillLevelWithEmptyRangeDoesNotDivideByZero() {
         val payload = FillLevelTelemetryPayload(
             contentType = "custom",

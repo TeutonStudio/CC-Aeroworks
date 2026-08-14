@@ -31,3 +31,19 @@ Die aktuell wirksame Auflösung ist in Lua über `getDisplaySize(socket)` sowie 
 Der Pixel-Editor im API-Handbuch übernimmt diese synchronisierten Werte beim Erzeugen seines Editorzustands. Nach einer geänderten Serverkonfiguration sollte das Handbuch deshalb neu geöffnet werden, damit ein bereits offener Editor nicht mit seinem alten Raster weiterarbeitet.
 
 Eine Auflösungsänderung verändert den Rastervertrag. Bereits gespeicherte Pixelraster mit abweichender Länge werden nicht gestreckt oder zugeschnitten und müssen anschließend neu geschrieben werden. Textzustände bleiben davon unberührt.
+
+## Server und Create-Telemetrie
+
+Unter `telemetry` steuert die Serverkonfiguration den Runtime-Speicher und die Lifecycle-Prüfungen der Create-Display-Link-Telemetrie:
+
+- `telemetry.maxSourcesPerEndpoint`: maximale Zahl gespeicherter Display-Link-Quellen pro ComputerControlDesk oder Docking Connector; Standard `128`, Bereich `1..4096`.
+- `telemetry.maxListEntries`: maximale Zahl zurückgegebener Einträge einer Item-/Fluidliste; Standard `128`, Bereich `1..4096`. `entryCount` und Gesamtmengen bleiben vollständig und `truncated=true` markiert die Kürzung.
+- `telemetry.staleAfterTicks`: Alter ohne Refresh, ab dem eine Source `stale=true` meldet; Standard `220`, Bereich `1..72000`.
+- `telemetry.validationIntervalTicks`: Intervall für die Prüfung, ob bekannte Display Links noch existieren, dieselbe Source verwenden und auf denselben Endpoint zeigen; Standard `20`, Bereich `1..1200`.
+- `telemetry.dockScanIntervalTicks`: Intervall für den Sable-sublevelweiten Scan nach optionalen Simulated-Docking-Connectoren; Standard `40`, Bereich `1..1200`.
+
+Diese Werte ändern weder Creates eigene Display-Link-Reichweite noch dessen Source-Refreshrate. CC-Aeroworks legt also keinen zweiten unsichtbaren Funkstandard über Create, weil einer bereits genug ist.
+
+Aktuelle Telemetriewerte werden nicht in NBT geschrieben. Persistiert werden nur benutzerdefinierte Source- und Dock-Aliase; Messwerte werden nach Serverstart durch die Create-Display-Links wieder in den Runtime-Cache übertragen.
+
+Details: [`telemetry.md`](telemetry.md) und [`docking-telemetry.md`](docking-telemetry.md).
