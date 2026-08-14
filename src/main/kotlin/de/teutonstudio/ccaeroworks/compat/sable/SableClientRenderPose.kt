@@ -30,26 +30,73 @@ object SableClientRenderPose {
         z: Double,
         camera: Vec3,
         partialTicks: Float
+    ): Result = applyPosition(
+        poseStack,
+        blockEntity,
+        Vec3(x, y, z),
+        camera,
+        partialTicks,
+        includeScale = false
+    )
+
+    /**
+     * Applies the complete linear Sable render transform around an already-precise
+     * Aeroworks mount center. Placement outlines use this path so neither their
+     * fractional socket translation nor SubLevel scale is reconstructed from the
+     * float Matrix4f translation.
+     */
+    @JvmStatic
+    fun applyOutline(
+        poseStack: PoseStack,
+        blockEntity: BlockEntity,
+        localPosition: Vec3,
+        camera: Vec3,
+        partialTicks: Float
+    ): Result = applyPosition(
+        poseStack,
+        blockEntity,
+        localPosition,
+        camera,
+        partialTicks,
+        includeScale = true
+    )
+
+    private fun applyPosition(
+        poseStack: PoseStack,
+        blockEntity: BlockEntity,
+        localPosition: Vec3,
+        camera: Vec3,
+        partialTicks: Float,
+        includeScale: Boolean
     ): Result {
-        val localPosition = Vec3(x, y, z)
         val subLevel = Sable.HELPER.getContainingClient(blockEntity)
         if (subLevel == null) {
-            poseStack.translate(
-                x - camera.x,
-                y - camera.y,
-                z - camera.z
-            )
+            val relative = cameraRelative(localPosition, camera)
+            poseStack.translate(relative.x, relative.y, relative.z)
             return Result(localPosition, false)
         }
 
         val renderPose = subLevel.renderPose(partialTicks)
         val worldPosition = renderPose.transformPosition(localPosition)
-        poseStack.translate(
-            worldPosition.x - camera.x,
-            worldPosition.y - camera.y,
-            worldPosition.z - camera.z
-        )
+        val relative = cameraRelative(worldPosition, camera)
+        poseStack.translate(relative.x, relative.y, relative.z)
         poseStack.mulPose(Quaternionf(renderPose.orientation()))
+
+        if (includeScale) {
+            val scale = renderPose.scale()
+            poseStack.scale(
+                scale.x().toFloat(),
+                scale.y().toFloat(),
+                scale.z().toFloat()
+            )
+        }
+
         return Result(worldPosition, true)
     }
+
+    internal fun cameraRelative(position: Vec3, camera: Vec3): Vec3 = Vec3(
+        position.x - camera.x,
+        position.y - camera.y,
+        position.z - camera.z
+    )
 }

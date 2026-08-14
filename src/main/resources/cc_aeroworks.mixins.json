@@ -29,6 +29,7 @@
     "client.AbstractComputerScreenSwitchMixin",
     "client.MouseHandlerAccessor",
     "client.AeroworksAnalogInputMixin",
+    "client.ConsoleBlockEntitySableOutlineCaptureMixin",
     "client.ConsoleRendererMixin",
     "client.ConsoleScreenAccessor",
     "client.ConsoleScreenSwitchMixin",
@@ -44,6 +45,7 @@
     "client.ModuleScreenCombinedInputMixin",
     "client.ModuleScreenDisplayBindingMixin",
     "client.ModuleScreenSwitchMixin",
+    "client.OrientedBoxOutlineSableMixin",
     "client.SubLevelPoseClientMixin"
   ],
   "injectors": {
