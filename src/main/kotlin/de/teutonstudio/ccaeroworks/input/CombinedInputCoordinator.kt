@@ -5,11 +5,11 @@ import net.minecraft.client.Minecraft
 import org.lwjgl.glfw.GLFW
 
 /**
- * Owns the mouse while a combined-input session is active.
+ * Exclusive mouse ownership for Combined control focus.
  *
- * Display input deliberately has pre-emption priority over an already active analog control so
- * pressing the display activation key cannot leak the same mouse sample into a lever/joystick.
- * Shift is an absolute camera override and prevents either owner from being claimed.
+ * Ownership is deliberately non-preemptive: once a control or display session owns the mouse,
+ * another binding cannot steal it halfway through the physical key press. Shift remains the
+ * explicit camera-only escape hatch.
  */
 object CombinedInputCoordinator {
     enum class Owner {
@@ -41,8 +41,13 @@ object CombinedInputCoordinator {
     @JvmStatic
     fun claimDisplay(minecraft: Minecraft): Boolean {
         if (isShiftCameraOnly(minecraft)) return false
-        owner = Owner.DISPLAY
-        return true
+        return when (owner) {
+            null, Owner.DISPLAY -> {
+                owner = Owner.DISPLAY
+                true
+            }
+            Owner.CONTROL -> false
+        }
     }
 
     @JvmStatic

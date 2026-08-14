@@ -2,17 +2,25 @@ package de.teutonstudio.ccaeroworks.network
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
+import de.teutonstudio.ccaeroworks.compat.computercraft.ControlDeskPeripheralState
 import de.teutonstudio.ccaeroworks.input.CombinedInputSource
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import net.minecraft.core.BlockPos
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
 import net.minecraft.server.level.ServerPlayer
 import net.neoforged.neoforge.network.handling.IPayloadContext
-import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 
-data class SetCombinedLeverValuePayload(val pos: BlockPos, val socket: Int, val channel: String, val value: Int) : CustomPacketPayload {
+/**
+ * Legacy single-channel Combined packet kept for protocol compatibility.
+ *
+ * New clients send CombinedControlSamplePayload. If an older client still uses this packet, later
+ * packets are intentionally allowed to overwrite earlier packets in the same server tick instead
+ * of the former first-value-wins behaviour.
+ */
+data class SetCombinedLeverValuePayload(val pos: BlockPos, val socket: Int, val channel: String, val value: Int) :
+    CustomPacketPayload {
     override fun type(): CustomPacketPayload.Type<out CustomPacketPayload> = TYPE
 
     companion object {
@@ -36,8 +44,6 @@ data class SetCombinedLeverValuePayload(val pos: BlockPos, val socket: Int, val 
                 }
             }
 
-        private val lastAcceptedTick = ConcurrentHashMap<RateKey, Long>()
-
         @JvmStatic
         fun handle(payload: SetCombinedLeverValuePayload, context: IPayloadContext) {
             val player = context.player() as? ServerPlayer ?: return
@@ -48,14 +54,22 @@ data class SetCombinedLeverValuePayload(val pos: BlockPos, val socket: Int, val 
             val module = desk.module(payload.socket) ?: return
             if (!CombinedInputSource.isCombined(module, payload.channel)) return
             if (desk.hasController() && !desk.checkUser(player.uuid)) return
-            val maximumDistance = player.blockInteractionRange() + 1.0
-            if (player.distanceToSqr(payload.pos.center) > maximumDistance * maximumDistance) return
-            val tick = level.gameTime
-            val rateKey = RateKey(player.uuid, payload.pos.asLong(), payload.socket, payload.channel)
-            if (lastAcceptedTick.put(rateKey, tick) == tick) return
-            desk.setChannelFromController(payload.socket, payload.channel, payload.value)
-        }
 
-        private data class RateKey(val player: UUID, val pos: Long, val socket: Int, val channel: String)
+            val network = ConsoleMultiblockManager.resolve(level, payload.pos)
+            val maximumDistance = player.blockInteractionRange() + 1.0
+            if (network.members.none {
+                    player.distanceToSqr(it.pos.center) <= maximumDistance * maximumDistance
+                }
+            ) return
+
+            desk.setChannelFromController(payload.socket, payload.channel, payload.value)
+            ControlDeskPeripheralState.queueImmediateInput(
+                desk,
+                payload.socket,
+                CombinedInputSource.moduleId(module),
+                payload.channel,
+                payload.value
+            )
+        }
     }
 }
