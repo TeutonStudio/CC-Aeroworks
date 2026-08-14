@@ -36,7 +36,7 @@ public abstract class DriveByWireClientWireNetworkHandlerMixin {
     private static String currentChannel;
 
     @Inject(method = "handleWireUse", at = @At("HEAD"), cancellable = true)
-    private static void ccaeroworks$rejectDeskWithoutChannels(
+    private static void ccaeroworks$validateDeskChannelSelection(
         final Player player,
         final ItemStack heldItem,
         final Level level,
@@ -44,16 +44,35 @@ public abstract class DriveByWireClientWireNetworkHandlerMixin {
         final Direction face,
         final CallbackInfo ci
     ) {
-        if (selectedSource != null || !(level.getBlockState(pos).getBlock() instanceof ComputerControlDeskBlock)) {
+        if (selectedSource == null) {
+            if (!(level.getBlockState(pos).getBlock() instanceof ComputerControlDeskBlock)) {
+                return;
+            }
+            if (!ccaeroworks$channels(level, pos).isEmpty()) {
+                return;
+            }
+
+            player.displayClientMessage(
+                Component.literal("No ComputerControlDesk wire channels configured. Use: wires add <name>"),
+                true
+            );
+            ci.cancel();
             return;
         }
 
-        if (!ccaeroworks$channels(level, pos).isEmpty()) {
+        if (!(level.getBlockState(selectedSource).getBlock() instanceof ComputerControlDeskBlock)) {
             return;
         }
 
+        final List<String> channels = ccaeroworks$channels(level, selectedSource);
+        if (channels.contains(currentChannel)) {
+            return;
+        }
+
+        selectedSource = null;
+        currentChannel = "world";
         player.displayClientMessage(
-            Component.literal("No ComputerControlDesk wire channels configured. Use: wires add <name>"),
+            Component.literal("The selected ComputerControlDesk wire channel no longer exists. Select the source again."),
             true
         );
         ci.cancel();
