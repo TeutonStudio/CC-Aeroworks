@@ -59,6 +59,9 @@ jobs:
       - name: Validate hierarchical peripheral tree
         run: python3 tools/verify-peripheral-tree.py
 
+      - name: Validate ComputerControlDesk wire channels
+        run: python3 tools/verify-wire-channels.py
+
       - name: Validate optional radar integration
         run: python3 tools/verify-radar.py
 
