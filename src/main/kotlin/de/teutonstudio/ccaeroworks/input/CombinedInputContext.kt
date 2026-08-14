@@ -170,6 +170,7 @@ object CombinedInputContext {
                         for (dz in -1..1) {
                             val pos = center.offset(dx, dy, dz)
                             if (!visited.add(pos.asLong()) || !level.isLoaded(pos)) continue
+                            if (!SableSpatial.belongsTo(level, pos, raySpace.subLevel)) continue
                             if (level.getBlockEntity(pos) is ConsoleBlockEntity) return pos.immutable()
                         }
                     }
