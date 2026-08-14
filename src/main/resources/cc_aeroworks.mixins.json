@@ -29,6 +29,7 @@
     "client.AbstractComputerScreenSwitchMixin",
     "client.MouseHandlerAccessor",
     "client.AeroworksAnalogInputMixin",
+    "client.AeroworksControlSessionMixin",
     "client.ConsoleBlockEntitySableOutlineCaptureMixin",
     "client.ConsoleRendererMixin",
     "client.ConsoleScreenAccessor",
