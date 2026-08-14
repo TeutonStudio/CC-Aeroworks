@@ -13,12 +13,25 @@ def require(condition: bool, message: str) -> None:
         raise SystemExit(f"FAIL: {message}")
 
 
-geometry = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ModuleScreenRowGeometry.kt")
+geometry_path = "src/main/kotlin/de/teutonstudio/ccaeroworks/client/ModuleScreenRowGeometry.kt"
+old_geometry_path = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ModuleScreenRowGeometry.kt"
+geometry = read(geometry_path)
 accessor = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ModuleScreenAccessor.kt")
 invoker = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ModuleScreenInvoker.kt")
 combined = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ModuleScreenCombinedInputMixin.kt")
 bindings = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ModuleScreenDisplayBindingMixin.kt")
 workflow = read(".github/workflows/verify.yml")
+
+# Ordinary helper classes must stay outside the configured Mixin package tree. Sponge Mixin reserves
+# de.teutonstudio.ccaeroworks.mixin.* and throws IllegalClassLoadError if injected code loads helpers there.
+require(not old_geometry_path.exists(),
+        "ModuleScreenRowGeometry must not live under the reserved mixin package tree")
+require("package de.teutonstudio.ccaeroworks.client" in geometry,
+        "ModuleScreenRowGeometry must live in a normal client package")
+require("import de.teutonstudio.ccaeroworks.client.ModuleScreenRowGeometry" in combined,
+        "Combined-input mixin must import the non-mixin geometry helper")
+require("import de.teutonstudio.ccaeroworks.client.ModuleScreenRowGeometry" in bindings,
+        "display-binding mixin must import the non-mixin geometry helper")
 
 # Aeroworks 1.3.0 bytecode contract used by all CC-Aeroworks row extensions.
 require("LIST_WIDTH: Int = 251" in geometry, "ModuleScreen list width must match Aeroworks 1.3.0")
@@ -72,6 +85,7 @@ require("python3 tools/verify-control-settings-scroll-rows.py" in workflow,
         "repository workflow must enforce the scroll-row architecture")
 
 print(
-    "Validated ControlDesk settings rows: native Aeroworks geometry and row styling, renderedScroll anchoring, "
-    "scissored Combined decoration, mixin-safe Kotlin constants, and radar/script configuration inside the shared scroll content."
+    "Validated ControlDesk settings rows: helper outside the reserved mixin package, native Aeroworks geometry "
+    "and row styling, renderedScroll anchoring, scissored Combined decoration, mixin-safe Kotlin constants, "
+    "and radar/script configuration inside the shared scroll content."
 )

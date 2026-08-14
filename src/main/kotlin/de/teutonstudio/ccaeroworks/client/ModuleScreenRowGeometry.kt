@@ -1,9 +1,13 @@
-package de.teutonstudio.ccaeroworks.mixin.client
+package de.teutonstudio.ccaeroworks.client
 
 import com.mred231.aeroworks.content.controls.ModuleColumn
 
 /**
  * Aeroworks 1.3.0 ModuleScreen list geometry, mirrored from its verified bytecode layout.
+ *
+ * This is deliberately outside the Mixin package tree. Sponge Mixin reserves every class under
+ * de.teutonstudio.ccaeroworks.mixin.* for mixin processing and rejects ordinary helper classes
+ * when injected code tries to load them directly.
  *
  * Keeping these values in one place lets CC-Aeroworks decorate native rows and append its own
  * configuration rows without caching absolute screen coordinates. Every screen-space Y value is

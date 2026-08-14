@@ -5,6 +5,7 @@ import com.mred231.aeroworks.content.controls.ModuleMenu
 import com.mred231.aeroworks.content.controls.ModuleScreen
 import com.mred231.aeroworks.content.controls.ModuleSetting
 import de.teutonstudio.ccaeroworks.CCAeroworks
+import de.teutonstudio.ccaeroworks.client.ModuleScreenRowGeometry
 import de.teutonstudio.ccaeroworks.input.CombinedInputSource
 import net.minecraft.ChatFormatting
 import net.minecraft.client.Minecraft

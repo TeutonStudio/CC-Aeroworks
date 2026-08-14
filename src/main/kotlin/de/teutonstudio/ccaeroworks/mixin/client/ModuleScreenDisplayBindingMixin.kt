@@ -5,6 +5,7 @@ import com.mred231.aeroworks.content.controls.ConsoleSocket
 import com.mred231.aeroworks.content.controls.ModuleMenu
 import com.mred231.aeroworks.content.controls.ModuleScreen
 import com.mred231.aeroworks.foundation.gui.AeroworksGuiTextures
+import de.teutonstudio.ccaeroworks.client.ModuleScreenRowGeometry
 import de.teutonstudio.ccaeroworks.display.DeskDisplayType
 import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
