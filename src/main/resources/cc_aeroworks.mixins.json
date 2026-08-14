@@ -35,11 +35,11 @@
     "client.CreativeModeTabAccessor",
     "client.CreativeModeTabSectionsMixin",
     "client.DriveByWireClientWireNetworkHandlerMixin",
+    "client.DriveByWireDisplaySourceMixin",
     "client.InputSourceMixin",
     "client.ModuleScreenAccessor",
     "client.ModuleScreenInvoker",
     "client.ModuleScreenCombinedInputMixin",
-    "client.ModuleScreenDisplayInteractionMixin",
     "client.ModuleScreenSwitchMixin",
     "client.SubLevelPoseClientMixin"
   ],

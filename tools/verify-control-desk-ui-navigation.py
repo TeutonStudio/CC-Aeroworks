@@ -30,8 +30,17 @@ require("ControlDeskNavigationButtons.computerButton" in overview, "ConsoleScree
 require("rememberClientControls(menu.contentHolder)" in module, "detail screen must retain exact ConsoleSocket")
 require("rememberClientOverview(console)" in overview, "overview screen must retain overview return context")
 require("HoverTintIconButton" in aero_buttons, "Aeroworks navigation must use native HoverTintIconButton")
-require("maxByOrNull { it.x }" in aero_buttons and "leftmost - GAP - size" in aero_buttons,
-        "PC button must anchor left of Aeroworks' existing bottom action row")
+
+# Computer owns Aeroworks' original left-most bottom-row slot. Native buttons move right, keeping
+# the whole row left-aligned instead of appending Computer after Done or outside the row.
+require("val leftmost = row.minOfOrNull { it.x }" in aero_buttons,
+        "PC button must derive Aeroworks' original left-most bottom-row position")
+require("row.forEach { it.setX(it.x + shift) }" in aero_buttons,
+        "native Aeroworks bottom-row actions must shift right for the PC slot")
+require("HoverTintIconButton(\n            leftmost," in aero_buttons,
+        "PC button must occupy the original left-most Aeroworks slot")
+require("leftmost - GAP - size" not in aero_buttons,
+        "PC button must not be placed outside the native row")
 
 # Catnip's Java withCallback() returns a generic T whose type is not inferable in Kotlin when
 # the return value is ignored. Keep the concrete widget type explicit or compileKotlin fails.
@@ -78,4 +87,4 @@ require("Inspect Aeroworks navigation layouts" not in workflow and "Inspect Aero
 require("python3 tools/verify-control-desk-ui-navigation.py" in workflow,
         "workflow must enforce UI navigation contract")
 
-print("Validated symmetric ControlDesk UI navigation: native Aeroworks bottom-row PC buttons, conditional overview, exact detail return, CC-style Controls sidebar tab, and Kotlin-safe Catnip callback typing.")
+print("Validated symmetric ControlDesk UI navigation: left-aligned native PC slot, conditional overview, exact detail return, CC-style Controls sidebar tab, and Kotlin-safe Catnip callback typing.")

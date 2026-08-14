@@ -1,25 +1,64 @@
 package de.teutonstudio.ccaeroworks.input
 
+import com.mred231.aeroworks.content.controls.ModuleType
 import com.mred231.aeroworks.content.controls.ModuleTypes
 import com.mred231.aeroworks.content.controls.MountedModule
 
 object CombinedInputSource {
     const val ID: String = "cc_aeroworks.combined"
     const val LEVER_CHANNEL: String = "lever"
+    const val X_CHANNEL: String = "x"
+    const val Y_CHANNEL: String = "y"
 
-    private val supportedChannels: Map<String, List<String>> = mapOf(
-        "aeroworks:lever" to listOf(LEVER_CHANNEL),
-        "aeroworks:joystick" to listOf("x", "y"),
-        "aeroworks:throttle_quadrant" to listOf("red", "amber", "green", "blue")
+    private val displayPointerModules: Set<String> = setOf(
+        "cc_aeroworks:three_digit_display",
+        "cc_aeroworks:large_radar_display"
     )
 
-    fun mouseAxis(channel: String): MouseAxis = if (channel == "x") MouseAxis.X else MouseAxis.Y
+    /**
+     * Every continuous Aeroworks control is available in Combined mode. Binary button modules are
+     * intentionally absent because mouse motion has no continuous axis to map onto their press
+     * channels. The two large CC-Aeroworks displays expose real X/Y channels and are Combined-only.
+     */
+    private val supportedChannels: Map<String, List<String>> = mapOf(
+        "aeroworks:lever" to listOf(LEVER_CHANNEL),
+        "aeroworks:joystick" to listOf(X_CHANNEL, Y_CHANNEL),
+        "aeroworks:wheel" to listOf("wheel"),
+        "aeroworks:yoke" to listOf("turn", "pitch"),
+        "aeroworks:throttle_quadrant" to listOf("red", "amber", "green", "blue"),
+        "cc_aeroworks:three_digit_display" to listOf(X_CHANNEL, Y_CHANNEL),
+        "cc_aeroworks:large_radar_display" to listOf(X_CHANNEL, Y_CHANNEL)
+    )
+
+    private val horizontalChannels: Set<String> = setOf(
+        X_CHANNEL,
+        "wheel",
+        "turn"
+    )
+
+    fun mouseAxis(channel: String): MouseAxis =
+        if (channel in horizontalChannels) MouseAxis.X else MouseAxis.Y
 
     fun channelsFor(moduleId: String): List<String> = supportedChannels[moduleId].orEmpty()
 
-    fun channels(module: MountedModule): List<String> = channelsFor(ModuleTypes.idOf(module.type()).toString())
+    fun moduleId(module: MountedModule): String = ModuleTypes.idOf(module.type()).toString()
+
+    fun moduleId(moduleType: ModuleType): String = ModuleTypes.idOf(moduleType).toString()
+
+    fun channels(module: MountedModule): List<String> = channelsFor(moduleId(module))
 
     fun supports(module: MountedModule): Boolean = channels(module).isNotEmpty()
+
+    /**
+     * Display pointer modules keep real Aeroworks ControlChannels so ModuleScreen can configure
+     * their independent X/Y activation keys. They are nevertheless a separate semantic kind from
+     * vehicle controls: their channels exist only to drive the local pseudo-finger interaction.
+     */
+    fun isDisplayPointerModule(module: MountedModule): Boolean = moduleId(module) in displayPointerModules
+
+    fun isDisplayPointerModule(moduleType: ModuleType): Boolean = moduleId(moduleType) in displayPointerModules
+
+    fun isCombinedOnly(module: MountedModule): Boolean = isDisplayPointerModule(module)
 
     fun isCombined(module: MountedModule, channel: String): Boolean =
         channel in channels(module) && module.analogActiveFor(channel) && module.analogSourceFor(channel) == ID
