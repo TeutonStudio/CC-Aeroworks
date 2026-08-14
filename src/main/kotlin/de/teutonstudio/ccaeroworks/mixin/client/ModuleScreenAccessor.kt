@@ -11,4 +11,13 @@ interface ModuleScreenAccessor {
 
     @Accessor("capturingColumn")
     fun ccaeroworks_setCapturingColumn(column: Int)
+
+    @Accessor("contentHeight")
+    fun ccaeroworks_getContentHeight(): Int
+
+    @Accessor("contentHeight")
+    fun ccaeroworks_setContentHeight(height: Int)
+
+    @Accessor("renderedScroll")
+    fun ccaeroworks_getRenderedScroll(): Float
 }
