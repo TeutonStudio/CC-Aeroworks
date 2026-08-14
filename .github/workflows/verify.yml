@@ -62,6 +62,9 @@ jobs:
       - name: Validate display combined input
         run: python3 tools/verify-display-combined-input.py
 
+      - name: Validate display source bindings
+        run: python3 tools/verify-display-bindings.py
+
       - name: Validate peripheral network architecture
         run: python3 tools/verify-peripheral-network.py
 
