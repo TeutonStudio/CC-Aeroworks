@@ -38,24 +38,6 @@ jobs:
           java-version: "21"
           cache: gradle
 
-      - name: Inspect Aeroworks navigation layouts
-        shell: bash
-        run: |
-          set -euo pipefail
-          jar_file="${RUNNER_TEMP}/aeroworks-1.3.0.jar"
-          curl --fail --location --retry 3 \
-            --output "${jar_file}" \
-            "https://cdn.modrinth.com/data/P26k79kP/versions/EYVmBa7H/aeroworks-1.3.0.jar"
-          for cls in \
-            com.mred231.aeroworks.content.controls.ConsoleScreen \
-            com.mred231.aeroworks.content.controls.ConsoleScreenOpener \
-            com.mred231.aeroworks.content.controls.ModuleScreen; do
-            echo "===== ${cls} SIGNATURES ====="
-            javap -classpath "${jar_file}" -p -s "${cls}"
-            echo "===== ${cls} INIT/DONE BYTECODE ====="
-            javap -classpath "${jar_file}" -p -c "${cls}" | grep -B18 -A45 -E 'gui\.aeroworks\.module\.done|init\(\)|ConsoleScreenOpener|reopenModuleMenu' || true
-          done
-
       - name: Prepare executable files
         run: chmod +x gradlew tools/*.py
 
@@ -73,6 +55,9 @@ jobs:
 
       - name: Validate native ControlDesk interactions
         run: python3 tools/verify-control-desk-interactions.py
+
+      - name: Validate ControlDesk UI navigation
+        run: python3 tools/verify-control-desk-ui-navigation.py
 
       - name: Validate peripheral network architecture
         run: python3 tools/verify-peripheral-network.py

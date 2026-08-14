@@ -23,10 +23,13 @@
   ],
   "client": [
     "client.AbstractContainerScreenAccessor",
+    "client.AbstractComputerScreenAccessor",
     "client.AbstractComputerScreenSwitchMixin",
     "client.MouseHandlerAccessor",
     "client.AeroworksAnalogInputMixin",
     "client.ConsoleRendererMixin",
+    "client.ConsoleScreenAccessor",
+    "client.ConsoleScreenSwitchMixin",
     "client.ConsoleVisualMixin",
     "client.CreativeModeInventoryScreenAccessor",
     "client.CreativeModeTabAccessor",

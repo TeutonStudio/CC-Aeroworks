@@ -2,9 +2,11 @@ package de.teutonstudio.ccaeroworks.mixin.client
 
 import dan200.computercraft.client.gui.AbstractComputerScreen
 import dan200.computercraft.shared.computer.inventory.AbstractComputerMenu
+import de.teutonstudio.ccaeroworks.client.ControlDeskComputerSidebar
+import de.teutonstudio.ccaeroworks.client.ControlDeskUiClientNavigation
 import de.teutonstudio.ccaeroworks.computer.ControlDeskUiSwitchState
 import de.teutonstudio.ccaeroworks.registry.CCItems
-import net.minecraft.client.gui.components.Button
+import net.minecraft.client.gui.components.Renderable
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
 import net.minecraft.network.chat.Component
 import net.minecraft.world.entity.player.Inventory
@@ -20,30 +22,33 @@ abstract class AbstractComputerScreenSwitchMixin(
     title: Component
 ) : AbstractContainerScreen<AbstractComputerMenu>(menu, inventory, title) {
     @Inject(method = ["init()V"], at = [At("TAIL")])
-    private fun ccaeroworks_addControlsButton(callback: CallbackInfo) {
+    private fun ccaeroworks_addControlsTab(callback: CallbackInfo) {
         val item = menu.displayStack.item
         if (item !== CCItems.COMPUTER_CONTROL_DESK.get() &&
             item !== CCItems.ADVANCED_COMPUTER_CONTROL_DESK.get()
         ) return
-
-        // There is no generic Aeroworks "controls" screen: ModuleScreen edits one exact
-        // ConsoleSocket. Only offer the return button when a preceding ModuleScreen supplied
-        // that exact native context. Directly opened terminals therefore cannot accidentally
-        // jump to a stale or arbitrary module.
         if (!ControlDeskUiSwitchState.clientCanReturnToControls()) return
 
-        // Attach the switch directly to the top edge of CC:Tweaked's visual screen.
-        // Keeping it inside the GUI's horizontal footprint also keeps JEI's side panels
-        // from claiming the same click area.
-        val buttonWidth = 82
-        val buttonHeight = 20
-        val buttonX = leftPos + (imageWidth - buttonWidth) / 2
-        val buttonY = (topPos - buttonHeight).coerceAtLeast(0)
+        val accessor = this as AbstractComputerScreenAccessor
+        val family = accessor.ccaeroworks_getFamily()
+        val layout = ControlDeskComputerSidebar.layout(
+            leftPos,
+            topPos,
+            accessor.ccaeroworks_getSidebarYOffset()
+        )
 
+        // Draw a third, one-button segment directly below CC:Tweaked's native Power/Terminate
+        // sidebar. The helper reuses the native normal/advanced yellow sidebar sprite.
+        addRenderableOnly(Renderable { graphics, _, _, _ ->
+            ControlDeskComputerSidebar.renderBackground(graphics, layout, family)
+        })
+
+        // DynamicImageButton intentionally matches CC:Tweaked's native sidebar widget type.
+        // AbstractComputerScreen already restores terminal focus after these buttons are clicked.
         addRenderableWidget(
-            Button.builder(Component.translatable("guide.cc_aeroworks.tab.controls")) {
-                ControlDeskUiSwitchState.reopenClientControls()
-            }.bounds(buttonX, buttonY, buttonWidth, buttonHeight).build()
+            ControlDeskComputerSidebar.controlsButton(layout) {
+                ControlDeskUiClientNavigation.reopenControls()
+            }
         )
     }
 }

@@ -1,35 +1,31 @@
 package de.teutonstudio.ccaeroworks.mixin.client
 
-import com.mred231.aeroworks.content.controls.ModuleMenu
-import com.mred231.aeroworks.content.controls.ModuleScreen
+import com.mred231.aeroworks.content.controls.ConsoleScreen
 import de.teutonstudio.ccaeroworks.client.ControlDeskNavigationButtons
 import de.teutonstudio.ccaeroworks.computer.ControlDeskUiSwitchState
 import de.teutonstudio.ccaeroworks.network.SwitchControlDeskUiPayload
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
+import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
-import net.minecraft.world.entity.player.Inventory
 import net.neoforged.neoforge.network.PacketDistributor
 import org.spongepowered.asm.mixin.Mixin
 import org.spongepowered.asm.mixin.injection.At
 import org.spongepowered.asm.mixin.injection.Inject
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo
 
-@Mixin(value = [ModuleScreen::class], remap = false)
-abstract class ModuleScreenSwitchMixin(
-    menu: ModuleMenu,
-    inventory: Inventory,
-    title: Component
-) : AbstractContainerScreen<ModuleMenu>(menu, inventory, title) {
+@Mixin(value = [ConsoleScreen::class], remap = false)
+abstract class ConsoleScreenSwitchMixin(title: Component) : Screen(title) {
     @Inject(method = ["init()V"], at = [At("TAIL")])
     private fun ccaeroworks_addComputerButton(callback: CallbackInfo) {
-        // A desk-mounted ModuleScreen has an exact ConsoleSocket, including recursive subPath.
-        // This is the authoritative DETAIL return target. Held modules deliberately clear it.
-        ControlDeskUiSwitchState.rememberClientControls(menu.contentHolder)
+        val console = (this as ConsoleScreenAccessor).ccaeroworks_getConsole()
+
+        // ConsoleScreen only exists when Aeroworks' ConsoleScreenOpener.hasOverview() is true.
+        // Remember OVERVIEW independently from ModuleScreen's DETAIL context. With one control
+        // Aeroworks skips this screen entirely, so no overview is ever assumed to exist.
+        ControlDeskUiSwitchState.rememberClientOverview(console)
         if (!ControlDeskUiSwitchState.clientCanSwitchToComputer()) return
 
         val computerButton = ControlDeskNavigationButtons.computerButton(this, Runnable {
-            // Refresh the socket at the actual transition in case Aeroworks rebuilt the holder.
-            ControlDeskUiSwitchState.rememberClientControls(menu.contentHolder)
+            ControlDeskUiSwitchState.rememberClientOverview(console)
             PacketDistributor.sendToServer(SwitchControlDeskUiPayload())
         }) ?: return
 
