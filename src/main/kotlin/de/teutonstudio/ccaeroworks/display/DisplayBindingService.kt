@@ -3,6 +3,7 @@ package de.teutonstudio.ccaeroworks.display
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import dan200.computercraft.api.lua.LuaException
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskService
+import de.teutonstudio.ccaeroworks.computer.DisplayBindingEvents
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 
 object DisplayBindingService {
@@ -40,6 +41,30 @@ object DisplayBindingService {
         if (!DisplayBindings.setContent(desk, socket, content)) {
             throw LuaException("Display content source is not supported at socket $socket")
         }
+        DisplayBindingEvents.notifyChanged(desk, socket)
+        return DisplayBindings.describe(DisplayBindings.get(desk, socket))
+    }
+
+    @Throws(LuaException::class)
+    fun setScriptSource(
+        desk: ConsoleBlockEntity,
+        rawSocket: Any?,
+        path: String
+    ): Map<String, Any> {
+        val socket = AeroworksDeskService.parseSocket(desk, rawSocket)
+        val normalized = path.trim()
+        val content = if (normalized.isEmpty()) {
+            DisplayContentSource.Default
+        } else {
+            if (normalized.length > DisplayBindings.MAX_SCRIPT_PATH_LENGTH) {
+                throw LuaException("Display source script path is too long")
+            }
+            DisplayContentSource.ScriptSource(normalized)
+        }
+        if (!DisplayBindings.setContent(desk, socket, content)) {
+            throw LuaException("Script sources are supported only by the large Desk Display")
+        }
+        DisplayBindingEvents.notifyChanged(desk, socket)
         return DisplayBindings.describe(DisplayBindings.get(desk, socket))
     }
 
@@ -60,8 +85,9 @@ object DisplayBindingService {
             DisplayInputBinding.LuaHandler(normalized)
         }
         if (!DisplayBindings.setInput(desk, socket, input)) {
-            throw LuaException("Touch scripts are supported only by the large Desk Display")
+            throw LuaException("Touch scripts are supported only by large interactive displays")
         }
+        DisplayBindingEvents.notifyChanged(desk, socket)
         return DisplayBindings.describe(DisplayBindings.get(desk, socket))
     }
 
@@ -71,6 +97,7 @@ object DisplayBindingService {
         if (!DisplayBindings.clear(desk, socket)) {
             throw LuaException("Socket $socket is invalid")
         }
+        DisplayBindingEvents.notifyChanged(desk, socket)
         return DisplayBindings.describe(DisplayBinding())
     }
 }

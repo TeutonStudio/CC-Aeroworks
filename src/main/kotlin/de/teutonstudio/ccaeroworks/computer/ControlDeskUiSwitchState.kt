@@ -58,9 +58,14 @@ object ControlDeskUiSwitchState {
         }
 
         val player = event.entity as? ServerPlayer ?: return
+        remember(player, event.pos)
+    }
+
+    /** Stores the same server session for non-vanilla UI requests such as the I/O overview. */
+    fun remember(player: ServerPlayer, pos: BlockPos) {
         sessions[player.uuid] = Session(
-            event.level.dimension(),
-            event.pos.immutable()
+            player.serverLevel().dimension(),
+            pos.immutable()
         )
     }
 

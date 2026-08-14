@@ -1,22 +1,17 @@
 package de.teutonstudio.ccaeroworks.computer
 
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
+import de.teutonstudio.ccaeroworks.network.RequestDeskIoOverviewPayload
 import net.minecraft.world.InteractionHand
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent
+import net.neoforged.neoforge.network.PacketDistributor
 
 /**
- * Keeps enough desk context for the Aeroworks -> embedded-computer UI switch without taking
- * ownership of Aeroworks' world interaction.
+ * Routes desk configuration into the unified I/O overview whenever the desk network has an
+ * embedded ComputerControlDesk. Networks without one keep Aeroworks' native configuration flow.
  *
- * Aeroworks itself owns the ControlDesk controls:
- * - empty-hand right-click enters control mode,
- * - sneak + empty-hand right-click opens the native module/configuration UI,
- * - wrench interactions remain native Aeroworks/Create behaviour.
- *
- * The configuration screen's Computer button uses [ControlDeskUiSwitchState] to find the
- * ComputerControlDesk which owns the row, so remember the native configuration click on both
- * logical sides and otherwise leave the event completely untouched.
+ * Normal control operation, module mounting and wrench behaviour remain untouched.
  */
 object ComputerConsoleInteractionHandler {
     @SubscribeEvent
@@ -26,7 +21,12 @@ object ComputerConsoleInteractionHandler {
         if (!event.entity.isCrouching || !event.itemStack.isEmpty) return
 
         ControlDeskUiSwitchState.remember(event)
-        // Deliberately do not cancel the event or alter useBlock/useItem. Aeroworks must receive
-        // the original sneak + right-click so its native configuration menu can open.
+        if (!event.level.isClientSide) return
+        if (!ControlDeskUiSwitchState.clientCanSwitchToComputer()) return
+
+        // Own only the configuration click. The server performs the authoritative reach/network
+        // validation again before returning the compact I/O snapshot.
+        PacketDistributor.sendToServer(RequestDeskIoOverviewPayload(event.pos.immutable()))
+        event.isCanceled = true
     }
 }

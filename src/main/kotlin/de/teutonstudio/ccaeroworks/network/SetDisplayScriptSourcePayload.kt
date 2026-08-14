@@ -5,8 +5,7 @@ import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.computer.DisplayBindingEvents
 import de.teutonstudio.ccaeroworks.display.DeskDisplayType
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
-import de.teutonstudio.ccaeroworks.display.DisplayInputBinding
-import de.teutonstudio.ccaeroworks.display.RadarDisplayType
+import de.teutonstudio.ccaeroworks.display.DisplayContentSource
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 import net.minecraft.core.BlockPos
 import net.minecraft.network.RegistryFriendlyByteBuf
@@ -15,7 +14,8 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload
 import net.minecraft.server.level.ServerPlayer
 import net.neoforged.neoforge.network.handling.IPayloadContext
 
-data class SetDisplayTouchScriptPayload(
+/** Configures the visible content owner of a normal large Desk Display. Blank path restores manual/API mode. */
+data class SetDisplayScriptSourcePayload(
     val pos: BlockPos,
     val socket: Int,
     val path: String
@@ -24,28 +24,28 @@ data class SetDisplayTouchScriptPayload(
 
     companion object {
         @JvmField
-        val TYPE: CustomPacketPayload.Type<SetDisplayTouchScriptPayload> =
-            CustomPacketPayload.Type(CCAeroworks.id("set_display_touch_script"))
+        val TYPE: CustomPacketPayload.Type<SetDisplayScriptSourcePayload> =
+            CustomPacketPayload.Type(CCAeroworks.id("set_display_script_source"))
 
         @JvmField
-        val STREAM_CODEC: StreamCodec<RegistryFriendlyByteBuf, SetDisplayTouchScriptPayload> =
-            object : StreamCodec<RegistryFriendlyByteBuf, SetDisplayTouchScriptPayload> {
-                override fun decode(buffer: RegistryFriendlyByteBuf): SetDisplayTouchScriptPayload =
-                    SetDisplayTouchScriptPayload(
+        val STREAM_CODEC: StreamCodec<RegistryFriendlyByteBuf, SetDisplayScriptSourcePayload> =
+            object : StreamCodec<RegistryFriendlyByteBuf, SetDisplayScriptSourcePayload> {
+                override fun decode(buffer: RegistryFriendlyByteBuf): SetDisplayScriptSourcePayload =
+                    SetDisplayScriptSourcePayload(
                         buffer.readBlockPos(),
                         buffer.readVarInt(),
-                        buffer.readUtf(DisplayBindings.MAX_HANDLER_PATH_LENGTH)
+                        buffer.readUtf(DisplayBindings.MAX_SCRIPT_PATH_LENGTH)
                     )
 
-                override fun encode(buffer: RegistryFriendlyByteBuf, payload: SetDisplayTouchScriptPayload) {
+                override fun encode(buffer: RegistryFriendlyByteBuf, payload: SetDisplayScriptSourcePayload) {
                     buffer.writeBlockPos(payload.pos)
                     buffer.writeVarInt(payload.socket)
-                    buffer.writeUtf(payload.path, DisplayBindings.MAX_HANDLER_PATH_LENGTH)
+                    buffer.writeUtf(payload.path, DisplayBindings.MAX_SCRIPT_PATH_LENGTH)
                 }
             }
 
         @JvmStatic
-        fun handle(payload: SetDisplayTouchScriptPayload, context: IPayloadContext) {
+        fun handle(payload: SetDisplayScriptSourcePayload, context: IPayloadContext) {
             val player = context.player() as? ServerPlayer ?: return
             val level = player.serverLevel()
             if (!level.hasChunkAt(payload.pos) || !level.mayInteract(player, payload.pos)) return
@@ -57,18 +57,16 @@ data class SetDisplayTouchScriptPayload(
             if (payload.socket !in 0 until desk.socketCount()) return
 
             val module = desk.module(payload.socket) ?: return
-            val interactive = CCModuleTypes.displayType(module.type()) == DeskDisplayType.THREE_DIGIT ||
-                CCModuleTypes.radarDisplayType(module.type()) == RadarDisplayType.LARGE
-            if (!interactive) return
+            if (CCModuleTypes.displayType(module.type()) != DeskDisplayType.THREE_DIGIT) return
 
             val normalized = payload.path.trim()
-            val input = if (normalized.isEmpty()) {
-                DisplayInputBinding.Raw
+            val content = if (normalized.isEmpty()) {
+                DisplayContentSource.Default
             } else {
-                if (normalized.length > DisplayBindings.MAX_HANDLER_PATH_LENGTH) return
-                DisplayInputBinding.LuaHandler(normalized)
+                if (normalized.length > DisplayBindings.MAX_SCRIPT_PATH_LENGTH) return
+                DisplayContentSource.ScriptSource(normalized)
             }
-            if (DisplayBindings.setInput(desk, payload.socket, input)) {
+            if (DisplayBindings.setContent(desk, payload.socket, content)) {
                 DisplayBindingEvents.notifyChanged(desk, payload.socket)
             }
         }

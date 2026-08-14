@@ -34,12 +34,22 @@ sealed interface DisplayContentSource {
 
     data class RadarSource(val source: RadarSourceKey) : DisplayContentSource
 
+    /**
+     * A Lua controller path for a programmable large display. The bundled CraftOS dispatcher loads
+     * the module and lets it render through the normal Desk display API.
+     */
+    data class ScriptSource(val path: String) : DisplayContentSource
+
     fun toTag(): CompoundTag = CompoundTag().apply {
         when (this@DisplayContentSource) {
             Default -> putString("type", "default")
             is RadarSource -> {
                 putString("type", "radar_source")
                 put("source", source.toTag())
+            }
+            is ScriptSource -> {
+                putString("type", "script_source")
+                putString("path", path)
             }
         }
     }
@@ -48,6 +58,9 @@ sealed interface DisplayContentSource {
         fun fromTag(tag: CompoundTag): DisplayContentSource? = when (tag.getString("type")) {
             "default", "" -> Default
             "radar_source" -> RadarSourceKey.fromTag(tag.getCompound("source"))?.let(::RadarSource)
+            "script_source" -> tag.getString("path")
+                .takeIf { it.isNotBlank() && it.length <= DisplayBindings.MAX_SCRIPT_PATH_LENGTH }
+                ?.let(::ScriptSource)
             else -> null
         }
     }
@@ -84,8 +97,8 @@ sealed interface DisplayInputBinding {
  * Per-display routing configuration.
  *
  * Content and input deliberately live in separate axes: a radar can use a remote radar ingress
- * while still routing pointer input through a Lua handler, and a normal display can keep raw touch
- * events without changing whoever owns its visible content.
+ * while routing pointer input through a Lua handler, and a normal display can use a script source
+ * while retaining either raw or routed touch input.
  */
 data class DisplayBinding(
     val content: DisplayContentSource = DisplayContentSource.Default,
@@ -103,7 +116,7 @@ data class DisplayBinding(
     companion object {
         private const val CURRENT_VERSION = 2
 
-        /** Reads both the new orthogonal format and the old one-of radar_source/lua_handler format. */
+        /** Reads both the orthogonal format and the old one-of radar_source/lua_handler format. */
         fun fromTag(tag: CompoundTag): DisplayBinding? {
             if (tag.contains("content") || tag.contains("input")) {
                 val content = if (tag.contains("content")) {
@@ -140,6 +153,7 @@ interface DisplayBindingStateAccess {
 
 object DisplayBindings {
     const val MAX_HANDLER_PATH_LENGTH: Int = 256
+    const val MAX_SCRIPT_PATH_LENGTH: Int = 256
 
     fun get(desk: ConsoleBlockEntity, socket: Int): DisplayBinding {
         val binding = (desk as? DisplayBindingStateAccess)
@@ -174,17 +188,23 @@ object DisplayBindings {
     fun supports(desk: ConsoleBlockEntity, socket: Int, binding: DisplayBinding): Boolean {
         if (socket !in 0 until desk.socketCount()) return false
         val module = desk.module(socket) ?: return binding.isDefault
+        val displayType = CCModuleTypes.displayType(module.type())
+        val radarType = CCModuleTypes.radarDisplayType(module.type())
 
-        val contentSupported = when (binding.content) {
+        val contentSupported = when (val content = binding.content) {
             DisplayContentSource.Default -> true
-            is DisplayContentSource.RadarSource -> CCModuleTypes.radarDisplayType(module.type()) != null
+            is DisplayContentSource.RadarSource -> radarType != null
+            is DisplayContentSource.ScriptSource ->
+                displayType == DeskDisplayType.THREE_DIGIT &&
+                    content.path.isNotBlank() &&
+                    content.path.length <= MAX_SCRIPT_PATH_LENGTH
         }
         if (!contentSupported) return false
 
         return when (val input = binding.input) {
             DisplayInputBinding.Raw -> true
             is DisplayInputBinding.LuaHandler ->
-                CCModuleTypes.displayType(module.type()) == DeskDisplayType.THREE_DIGIT &&
+                (displayType == DeskDisplayType.THREE_DIGIT || radarType == RadarDisplayType.LARGE) &&
                     input.path.isNotBlank() &&
                     input.path.length <= MAX_HANDLER_PATH_LENGTH
         }
@@ -206,6 +226,10 @@ object DisplayBindings {
                 put("type", "lua_handler")
                 put("path", binding.input.path)
             }
+            binding.content is DisplayContentSource.ScriptSource && binding.input == DisplayInputBinding.Raw -> {
+                put("type", "script_source")
+                put("path", binding.content.path)
+            }
             binding.isDefault -> put("type", "default")
             else -> put("type", "composite")
         }
@@ -222,6 +246,10 @@ object DisplayBindings {
             "x" to content.source.ingressPos.x,
             "y" to content.source.ingressPos.y,
             "z" to content.source.ingressPos.z
+        )
+        is DisplayContentSource.ScriptSource -> linkedMapOf(
+            "type" to "script_source",
+            "path" to content.path
         )
     }
 

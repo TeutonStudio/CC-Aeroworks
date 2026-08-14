@@ -144,6 +144,10 @@ class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral {
         DisplayBindingService.setRadarSource(desk(), arguments.get(0), arguments.getString(1))
 
     @LuaFunction(mainThread = true)
+    fun setDisplayScriptSource(arguments: IArguments): Map<String, Any> =
+        DisplayBindingService.setScriptSource(desk(), arguments.get(0), arguments.getString(1))
+
+    @LuaFunction(mainThread = true)
     fun setDisplayTouchScript(arguments: IArguments): Map<String, Any> =
         DisplayBindingService.setTouchScript(desk(), arguments.get(0), arguments.getString(1))
 

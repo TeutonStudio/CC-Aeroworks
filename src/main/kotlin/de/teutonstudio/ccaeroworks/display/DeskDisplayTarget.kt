@@ -18,6 +18,11 @@ class DeskDisplayTarget : DisplayTarget() {
         val displays = AeroworksDeskAccess.displays(desk)
         text.forEachIndexed { offset, component ->
             displays.getOrNull(line + offset)?.let { display ->
+                // A script_source owns automatic content production. Manual Desk API writes remain
+                // available because the configured Lua controller renders through that same API.
+                if (DisplayBindings.get(desk, display.socket).content is DisplayContentSource.ScriptSource) {
+                    return@let
+                }
                 AeroworksDeskAccess.setDisplayText(desk, display.socket, component.string)
             }
         }

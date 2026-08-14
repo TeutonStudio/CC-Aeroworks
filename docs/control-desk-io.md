@@ -1,21 +1,38 @@
-# ControlDesk I/O inventory
+# ControlDesk I/O overview
 
-CC-Aeroworks is moving from an Aeroworks-only control list toward one shared cockpit I/O model. The model is server-authoritative and intentionally references the existing subsystem owners instead of duplicating their state.
+CC-Aeroworks uses one shared cockpit I/O model for Aeroworks controls, programmable displays, Create Display Link information sources and ComputerControlDesk wire outputs. The model is server-authoritative and references the existing subsystem owners instead of persisting a second copy of their state.
 
-The first implementation stage exposes the inventory through the embedded ComputerControlDesk as the read-only `deskio` API. The graphical overview will consume the same model in a later stage.
+## Configuration entry
 
-## Categories
+Sneak + empty-hand right-click on any ControlDesk in a network with an embedded ComputerControlDesk opens the CC-Aeroworks I/O overview. The client sends only the desk position; the server validates reach, interaction permission and the active multiblock before returning a compact snapshot.
 
-Every object belongs to one of four categories:
+Networks without an embedded computer retain Aeroworks' native configuration flow.
+
+The overview has four categories:
 
 - `control`: normal Aeroworks input modules such as yokes, levers and throttle quadrants;
-- `display`: normal and radar display modules, including their current display binding;
+- `display`: normal and radar display modules plus their content/input binding;
 - `information`: Create Display Link telemetry sources received by the ComputerControlDesk;
-- `output`: user-defined ComputerControlDesk wire/redstone channels.
+- `output`: persistent ComputerControlDesk wire/redstone channels.
 
-Display modules are never reported as controls merely because their pseudo-finger Combined input is implemented using Aeroworks ControlChannels internally.
+Display modules are never reported as controls merely because large-display pointer movement internally reuses Aeroworks ControlChannels.
 
-## Lua API
+Clicking a control delegates back to Aeroworks' native `ConsoleScreenOpener`, so the existing 0/1/many control behaviour and ModuleScreen configuration remain authoritative. Display rows open the CC-Aeroworks display routing editor. Information and output rows are diagnostic status entries.
+
+## Compact client snapshot
+
+The GUI does not receive the complete telemetry payload. Item/fluid lists can contain many entries and belong to the `telemetry` Lua API, not to a menu packet. The client snapshot contains only fields needed to render and configure the overview:
+
+- stable object identity and category;
+- module/member/socket identity for controls and displays;
+- current control values;
+- display content/input binding and available radar ingress choices;
+- information source type, freshness and a short value summary;
+- wire value, backend, enabled state and connection count.
+
+The packet is capped at 256 KiB and is refreshed explicitly after configuration changes or with the Refresh button.
+
+## Lua inventory API
 
 Only the embedded ComputerControlDesk exposes the global `deskio` table. The same API is available as `require("cc_aeroworks.deskio")`.
 
@@ -34,22 +51,7 @@ Methods:
 - `deskio.find(category) -> table`
 - `deskio.getSnapshot() -> table`
 
-`getSnapshot()` also returns category counts:
-
-```lua
-{
-  state = "active",
-  active = true,
-  revision = 42,
-  counts = {
-    control = 3,
-    display = 2,
-    information = 4,
-    output = 3
-  },
-  objects = { ... }
-}
-```
+`getSnapshot()` returns category counts in `counts.control`, `counts.display`, `counts.information` and `counts.output`.
 
 ## Stable object IDs
 
@@ -71,21 +73,82 @@ Wire outputs use the persistent wire-channel UUID:
 wire:<channel-id>
 ```
 
-This means renaming a telemetry alias or wire channel does not turn it into a different I/O object.
+Renaming a telemetry alias or wire channel therefore does not manufacture a different I/O object.
 
-## Display bindings
+## Orthogonal display bindings
 
-Display configuration now has two independent axes:
+Display configuration has two independent axes:
 
 - `content`: who supplies what is visible on the display;
 - `input`: how pointer/touch events are routed.
 
-The currently implemented content sources are `default` and `radar_source`. The currently implemented input bindings are `raw` and `lua_handler`.
+Content sources:
 
-Existing saves using the old one-of `radar_source` / `lua_handler` NBT format are migrated when read. Lua callers using the old top-level `type`, `source` or `path` fields continue to receive those fields when the binding only uses one non-default axis. New callers should inspect the nested `content` and `input` objects.
+- `default`: manual/API content for normal displays or the local radar snapshot for Radar Displays;
+- `radar_source`: a selected radar ingress from the same desk multiblock;
+- `script_source`: a Lua controller module for a normal large Desk Display.
 
-This separation is the prerequisite for a later real `script` content source. A script content source must not replace or overload the touch-handler setting.
+Input bindings:
 
-## Next stage
+- `raw`: only normal CC-Aeroworks display/touch events;
+- `lua_handler`: automatically dispatch pointer events to a configured Lua module.
 
-The next implementation stage will add a synchronized client snapshot and replace the Aeroworks-only overview path when non-control I/O objects are present. That UI will group the same inventory into Controls, Displays, Information and Outputs instead of manufacturing fake Aeroworks modules for Display Links or wire channels.
+Large normal displays support both script content and Lua input handlers. Large Radar Displays keep local/remote radar content and now independently support a Lua input handler. Small non-interactive displays retain their fixed input behaviour.
+
+Existing saves using the old one-of `radar_source` / `lua_handler` NBT format migrate when read. Lua callers using the old top-level `type`, `source` or `path` fields continue to receive those fields when only one non-default axis is active. New code should inspect `binding.content` and `binding.input`.
+
+The local ControlDesk API additionally exposes:
+
+```lua
+desk.setDisplayScriptSource("big", "/ui/main.lua")
+desk.setDisplayTouchScript("big", "/ui/touch.lua")
+desk.setRadarSource("big", sourceId)
+```
+
+Passing an empty script path restores `default` content or `raw` input respectively.
+
+## CraftOS display controller runtime
+
+`rom/autorun/cc_aeroworks_display_runtime.lua` is installed only when the embedded `deskio` and `peripherals` APIs exist. It hooks the CraftOS event-pull path instead of blocking the foreground shell or creating one process per display.
+
+A `script_source` file is a Lua module which returns a table. Supported callbacks are:
+
+```lua
+return {
+  onStart = function(ctx)
+    ctx.desk.clearDisplayPixels(ctx.socket)
+  end,
+
+  render = function(ctx)
+    ctx.desk.setDisplayPixel(ctx.socket, 1, 1, true)
+  end,
+
+  onEvent = function(ctx, event, ...)
+    -- React to telemetry, timers or other normal CraftOS events.
+  end,
+
+  onStop = function(ctx)
+  end,
+}
+```
+
+`ctx` contains at least `id`, `memberId`, `memberIndex`, `socket`, `socketName`, `moduleId`, `binding` and the resolved ControlDesk handle as `desk` when available.
+
+A configured `lua_handler` module may implement `onTap(ctx, event)`, `onDoubleTap(ctx, event)` and/or `onPointer(ctx, event)`. The event table contains the desk/socket/module identifiers, action, 1-based display cell, width and height.
+
+Callbacks are synchronous event callbacks and must not call `os.pullEvent` themselves or perform long blocking work. They may update the display through the supplied Desk handle and react to telemetry events. Binding changes publish `cc_aeroworks_display_binding_changed`, causing the dispatcher to refresh active controller modules.
+
+The runtime also exposes:
+
+```lua
+display_sources.list()
+display_sources.refresh()
+```
+
+for inspection and manual binding refresh.
+
+## Wire outputs in the overview
+
+The output category reads the existing `WireChannelBank`. Channel creation, deletion and rename remain hardware configuration through the bundled `wires` command; the I/O overview intentionally does not duplicate those mutating operations. Runtime programs continue to use `wires.set`, `wires.pulse`, `wires.reset` and related methods.
+
+This keeps the contract explicit: the GUI describes cockpit I/O, the `wires` command defines virtual hardware, and Lua drives the configured outputs.

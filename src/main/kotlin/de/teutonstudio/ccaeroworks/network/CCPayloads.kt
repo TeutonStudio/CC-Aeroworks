@@ -31,9 +31,24 @@ object CCPayloads {
             SwitchControlDeskUiPayload::handle
         )
         registrar.playToServer(
+            RequestDeskIoOverviewPayload.TYPE,
+            RequestDeskIoOverviewPayload.STREAM_CODEC,
+            RequestDeskIoOverviewPayload::handle
+        )
+        registrar.playToClient(
+            DeskIoOverviewPayload.TYPE,
+            DeskIoOverviewPayload.STREAM_CODEC,
+            DeskIoOverviewPayload::handle
+        )
+        registrar.playToServer(
             SetRadarDisplaySourcePayload.TYPE,
             SetRadarDisplaySourcePayload.STREAM_CODEC,
             SetRadarDisplaySourcePayload::handle
+        )
+        registrar.playToServer(
+            SetDisplayScriptSourcePayload.TYPE,
+            SetDisplayScriptSourcePayload.STREAM_CODEC,
+            SetDisplayScriptSourcePayload::handle
         )
         registrar.playToServer(
             SetDisplayTouchScriptPayload.TYPE,

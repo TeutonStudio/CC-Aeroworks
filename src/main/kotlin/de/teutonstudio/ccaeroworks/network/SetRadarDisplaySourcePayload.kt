@@ -2,6 +2,7 @@ package de.teutonstudio.ccaeroworks.network
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
+import de.teutonstudio.ccaeroworks.computer.DisplayBindingEvents
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
 import de.teutonstudio.ccaeroworks.display.DisplayContentSource
 import de.teutonstudio.ccaeroworks.display.RadarSourceKey
@@ -67,7 +68,9 @@ data class SetRadarDisplaySourcePayload(
                 )
             } ?: DisplayContentSource.Default
 
-            DisplayBindings.setContent(desk, payload.socket, content)
+            if (DisplayBindings.setContent(desk, payload.socket, content)) {
+                DisplayBindingEvents.notifyChanged(desk, payload.socket)
+            }
         }
     }
 }
