@@ -153,21 +153,29 @@ object DisplayCombinedInputController {
     fun onClone(event: ClientPlayerNetworkEvent.Clone) = reset()
 
     private fun onBindingPressed(binding: String, minecraft: Minecraft): Boolean {
-        heldBindings += binding
-        if (binding in suppressedBindings || CombinedInputCoordinator.isShiftCameraOnly(minecraft)) return false
-
-        val active = target
-        if (active != null) {
-            // A second independently configured axis may join the already selected display, but a
-            // binding for some other module never steals the target mid-session.
-            return bindingActivates(active, binding)
-        }
-
-        val candidate = acquireTarget(minecraft) ?: return false
+        val candidate = target ?: acquireTarget(minecraft) ?: return false
         if (!bindingActivates(candidate, binding)) return false
-        if (!CombinedInputCoordinator.claimDisplay(minecraft)) return false
 
-        target = candidate
+        // Only bindings which actually belong to the selected display enter our held-state. This
+        // keeps arbitrary keyboard and mouse input completely outside the display state machine.
+        heldBindings += binding
+
+        // Shift is a camera/native-interaction override. Remember this display binding as held but
+        // suppress it until a real release; returning false is important for Shift+RMB so Aeroworks'
+        // native configuration gesture is never consumed by the display controller.
+        if (CombinedInputCoordinator.isShiftCameraOnly(minecraft)) {
+            suppressedBindings += binding
+            return false
+        }
+        if (binding in suppressedBindings) return false
+
+        if (target == null) {
+            if (!CombinedInputCoordinator.claimDisplay(minecraft)) {
+                heldBindings -= binding
+                return false
+            }
+            target = candidate
+        }
         return true
     }
 
