@@ -2,6 +2,7 @@ package de.teutonstudio.ccaeroworks.network
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
+import de.teutonstudio.ccaeroworks.compat.sable.SableSpatial
 import de.teutonstudio.ccaeroworks.computer.DeskDisplayInputDispatcher
 import de.teutonstudio.ccaeroworks.display.DeskDisplayGeometry
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
@@ -71,7 +72,8 @@ data class DisplayPointerActionPayload(
             val network = ConsoleMultiblockManager.resolve(level, payload.pos)
             val maximumDistance = player.blockInteractionRange() + 1.0
             if (network.members.none {
-                    player.distanceToSqr(it.pos.center) <= maximumDistance * maximumDistance
+                    SableSpatial.distanceSquared(level, player.position(), it.pos.center) <=
+                        maximumDistance * maximumDistance
                 }
             ) return
 
