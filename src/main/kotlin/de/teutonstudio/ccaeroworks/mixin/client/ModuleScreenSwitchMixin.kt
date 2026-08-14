@@ -2,9 +2,9 @@ package de.teutonstudio.ccaeroworks.mixin.client
 
 import com.mred231.aeroworks.content.controls.ModuleMenu
 import com.mred231.aeroworks.content.controls.ModuleScreen
+import de.teutonstudio.ccaeroworks.client.ControlDeskNavigationButtons
 import de.teutonstudio.ccaeroworks.computer.ControlDeskUiSwitchState
 import de.teutonstudio.ccaeroworks.network.SwitchControlDeskUiPayload
-import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
 import net.minecraft.network.chat.Component
 import net.minecraft.world.entity.player.Inventory
@@ -22,26 +22,17 @@ abstract class ModuleScreenSwitchMixin(
 ) : AbstractContainerScreen<ModuleMenu>(menu, inventory, title) {
     @Inject(method = ["init()V"], at = [At("TAIL")])
     private fun ccaeroworks_addComputerButton(callback: CallbackInfo) {
-        // ModuleMenu inherits the public contentHolder field from Create's MenuBase.
-        // For a desk-mounted module Aeroworks populates it with the exact ConsoleSocket
-        // (desk position + socket + recursive subPath). Preserve that native return address
-        // before replacing this screen with the CC:Tweaked terminal.
+        // A desk-mounted ModuleScreen has an exact ConsoleSocket, including recursive subPath.
+        // This is the authoritative DETAIL return target. Held modules deliberately clear it.
         ControlDeskUiSwitchState.rememberClientControls(menu.contentHolder)
         if (!ControlDeskUiSwitchState.clientCanSwitchToComputer()) return
 
-        // Attach the switch directly to Aeroworks' visual screen instead of the
-        // physical monitor edge. JEI owns those outer side regions and may consume clicks there.
-        val buttonWidth = 96
-        val buttonHeight = 20
-        val buttonX = leftPos + (imageWidth - buttonWidth) / 2
-        val buttonY = (topPos - buttonHeight).coerceAtLeast(0)
+        val computerButton = ControlDeskNavigationButtons.computerButton(this, leftPos, Runnable {
+            // Refresh the socket at the actual transition in case Aeroworks rebuilt the holder.
+            ControlDeskUiSwitchState.rememberClientControls(menu.contentHolder)
+            PacketDistributor.sendToServer(SwitchControlDeskUiPayload())
+        }) ?: return
 
-        addRenderableWidget(
-            Button.builder(Component.translatable("guide.cc_aeroworks.tab.computers")) {
-                // Capture once more at the actual transition in case Aeroworks rebuilt the holder.
-                ControlDeskUiSwitchState.rememberClientControls(menu.contentHolder)
-                PacketDistributor.sendToServer(SwitchControlDeskUiPayload())
-            }.bounds(buttonX, buttonY, buttonWidth, buttonHeight).build()
-        )
+        addRenderableWidget(computerButton)
     }
 }

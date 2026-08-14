@@ -13,7 +13,6 @@ import de.teutonstudio.ccaeroworks.compat.createradar.RadarTrace
 import de.teutonstudio.ccaeroworks.input.CombinedInputSource
 import de.teutonstudio.ccaeroworks.input.CombinedLeverController
 import de.teutonstudio.ccaeroworks.input.DisplayCombinedInputController
-import de.teutonstudio.ccaeroworks.input.DisplayInteractionKey
 import de.teutonstudio.ccaeroworks.registry.CCBlockEntities
 import dev.engine_room.flywheel.lib.visualization.SimpleBlockEntityVisualizer
 import net.createmod.ponder.foundation.PonderIndex
@@ -41,7 +40,6 @@ object CCAeroworksClient {
             "CCAeroworksClient.register entered; registering RadarOverlayRenderer::renderLevel on NeoForge.EVENT_BUS"
         )
         DeskDisplayModels.init()
-        DisplayInteractionKey.register(modBus)
         modBus.addListener(::clientSetup)
         modBus.addListener(::registerRenderers)
         modBus.addListener<ModelEvent.RegisterAdditional>(ConsoleMultiblockModels::registerAdditional)

@@ -53,11 +53,23 @@ jobs:
       - name: Validate guide and Ponder resources
         run: python3 tools/verify-guide.py
 
+      - name: Validate native ControlDesk interactions
+        run: python3 tools/verify-control-desk-interactions.py
+
+      - name: Validate ControlDesk UI navigation
+        run: python3 tools/verify-control-desk-ui-navigation.py
+
+      - name: Validate display combined input
+        run: python3 tools/verify-display-combined-input.py
+
       - name: Validate peripheral network architecture
         run: python3 tools/verify-peripheral-network.py
 
       - name: Validate hierarchical peripheral tree
         run: python3 tools/verify-peripheral-tree.py
+
+      - name: Validate ComputerControlDesk wire channels
+        run: python3 tools/verify-wire-channels.py
 
       - name: Validate optional radar integration
         run: python3 tools/verify-radar.py

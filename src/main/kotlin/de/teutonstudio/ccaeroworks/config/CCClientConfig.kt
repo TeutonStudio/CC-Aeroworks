@@ -21,7 +21,7 @@ object CCClientConfig {
 
     @JvmField
     val displayPointerSensitivity: ModConfigSpec.DoubleValue = builder
-        .comment("Normalized display-surface movement per raw mouse unit while the display interaction key is held.")
+        .comment("Normalized display-surface movement per raw mouse unit while a display Combined channel is held.")
         .defineInRange("displayPointerSensitivity", 0.0025, 0.0001, 0.05)
 
     @JvmField

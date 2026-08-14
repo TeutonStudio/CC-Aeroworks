@@ -48,5 +48,17 @@ object CCDataComponents {
             }
         )
 
+    /** Encoded UUID/name definitions for ComputerControlDesk virtual wire channels. */
+    @JvmField
+    val WIRE_CHANNELS: DeferredHolder<DataComponentType<*>, DataComponentType<String>> = COMPONENTS.register(
+        "wire_channels",
+        Supplier<DataComponentType<String>> {
+            DataComponentType.builder<String>()
+                .persistent(Codec.STRING)
+                .networkSynchronized(ByteBufCodecs.STRING_UTF8)
+                .build()
+        }
+    )
+
     fun register(bus: IEventBus) = COMPONENTS.register(bus)
 }

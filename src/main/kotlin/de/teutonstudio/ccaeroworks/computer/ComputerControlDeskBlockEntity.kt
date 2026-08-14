@@ -21,6 +21,7 @@ import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskService
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskInputSnapshot
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskIdentityAccess
+import de.teutonstudio.ccaeroworks.computer.wire.WireChannelBank
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import de.teutonstudio.ccaeroworks.registry.CCDataComponents
@@ -56,6 +57,8 @@ class ComputerControlDeskBlockEntity(
     var radarDestinationDeskId: String? = null
         private set
 
+    internal val wireBank = WireChannelBank(this)
+
     private var instanceId: UUID? = null
     private var computerId: Int = -1
     private var label: String? = null
@@ -84,10 +87,22 @@ class ComputerControlDeskBlockEntity(
         sendData()
     }
 
+    fun wireChannelNames(): List<String> = wireBank.channelNames()
+
+    internal fun markWireChannelsChanged() {
+        setChanged()
+        sendData()
+    }
+
     override fun tick() {
         super.tick()
         val serverLevel = level as? ServerLevel ?: return
-        val computer = getServerComputer() ?: if (computerId >= 0 || startOn) createServerComputer() else return
+        val computer = getServerComputer() ?: if (computerId >= 0 || startOn) {
+            createServerComputer()
+        } else {
+            wireBank.tick(false)
+            return
+        }
 
         computer.setPosition(serverLevel, blockPos)
         if (startOn || powered) {
@@ -106,6 +121,7 @@ class ComputerControlDeskBlockEntity(
             sendData()
         }
 
+        wireBank.tick(newPowered)
         publishConsoleEvents(computer)
         PeripheralNetworkRuntimes.tick(this)
     }
@@ -211,6 +227,7 @@ class ComputerControlDeskBlockEntity(
     }
 
     override fun invalidate() {
+        wireBank.shutdown()
         closeComputer()
         super.invalidate()
     }
@@ -225,6 +242,9 @@ class ComputerControlDeskBlockEntity(
             tag.putInt(NBT_TERMINAL_HEIGHT, it.height())
         }
         radarDestinationDeskId?.let { tag.putString(NBT_RADAR_DESTINATION_DESK_ID, it) }
+        wireBank.encodedDefinitions().takeIf(String::isNotEmpty)?.let {
+            tag.putString(NBT_WIRE_CHANNELS, it)
+        }
         tag.putBoolean(NBT_POWERED, powered)
     }
 
@@ -239,6 +259,7 @@ class ComputerControlDeskBlockEntity(
             null
         }
         radarDestinationDeskId = tag.getString(NBT_RADAR_DESTINATION_DESK_ID).takeIf(String::isNotEmpty)
+        wireBank.loadEncodedDefinitions(tag.getString(NBT_WIRE_CHANNELS).takeIf(String::isNotEmpty))
         powered = tag.getBoolean(NBT_POWERED)
         if (!clientPacket) startOn = powered
     }
@@ -250,6 +271,7 @@ class ComputerControlDeskBlockEntity(
         builder.set(ModRegistry.DataComponents.TERMINAL_SIZE.get(), terminalSize)
         builder.set(CCDataComponents.COMPUTER_POWERED.get(), powered)
         builder.set(CCDataComponents.RADAR_DESTINATION_DESK_ID.get(), radarDestinationDeskId)
+        builder.set(CCDataComponents.WIRE_CHANNELS.get(), wireBank.encodedDefinitions().takeIf(String::isNotEmpty))
         builder.set(DataComponents.CUSTOM_NAME, label?.let { Component.literal(it) })
     }
 
@@ -263,6 +285,7 @@ class ComputerControlDeskBlockEntity(
         terminalSize = component.get(ModRegistry.DataComponents.TERMINAL_SIZE.get())
         powered = component.get(CCDataComponents.COMPUTER_POWERED.get()) ?: false
         radarDestinationDeskId = component.get(CCDataComponents.RADAR_DESTINATION_DESK_ID.get())
+        wireBank.loadEncodedDefinitions(component.get(CCDataComponents.WIRE_CHANNELS.get()))
         startOn = powered
         label = component.get(DataComponents.CUSTOM_NAME)?.string
     }
@@ -286,6 +309,9 @@ class ComputerControlDeskBlockEntity(
         stack.set(CCDataComponents.DESK_ID.get(), deskId.toString())
         stack.set(CCDataComponents.COMPUTER_POWERED.get(), powered)
         stack.set(CCDataComponents.RADAR_DESTINATION_DESK_ID.get(), radarDestinationDeskId)
+        wireBank.encodedDefinitions().takeIf(String::isNotEmpty)?.let {
+            stack.set(CCDataComponents.WIRE_CHANNELS.get(), it)
+        }
         stack.set(DataComponents.CUSTOM_NAME, label?.let { Component.literal(it) })
     }
 
@@ -388,5 +414,6 @@ class ComputerControlDeskBlockEntity(
         private const val NBT_TERMINAL_HEIGHT = "CCAeroworksTerminalHeight"
         private const val NBT_POWERED = "CCAeroworksPowered"
         private const val NBT_RADAR_DESTINATION_DESK_ID = "CCAeroworksRadarDestinationDeskId"
+        private const val NBT_WIRE_CHANNELS = "CCAeroworksWireChannels"
     }
 }
