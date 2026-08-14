@@ -71,6 +71,9 @@ jobs:
       - name: Validate display source bindings
         run: python3 tools/verify-display-bindings.py
 
+      - name: Validate shared ControlDesk I/O inventory
+        run: python3 tools/verify-desk-io-inventory.py
+
       - name: Validate peripheral network architecture
         run: python3 tools/verify-peripheral-network.py
 

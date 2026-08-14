@@ -44,6 +44,9 @@ object CCLuaApis {
         ComputerCraftAPI.registerAPIFactory { system ->
             system.getComponent(CCComputerComponents.CONSOLE)?.let(::ComputerWireAdminLuaApi)
         }
+        ComputerCraftAPI.registerAPIFactory { system ->
+            system.getComponent(CCComputerComponents.CONSOLE)?.let(::ComputerDeskIoLuaApi)
+        }
         registered = true
     }
 }
