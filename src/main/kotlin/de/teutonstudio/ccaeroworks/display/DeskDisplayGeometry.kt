@@ -27,7 +27,9 @@ data class DeskDisplayPointer(
         x = DeskDisplayGeometry.gridCoordinate(u, width),
         y = DeskDisplayGeometry.gridCoordinate(v, height),
         width = width,
-        height = height
+        height = height,
+        u = u,
+        v = v
     )
 }
 
