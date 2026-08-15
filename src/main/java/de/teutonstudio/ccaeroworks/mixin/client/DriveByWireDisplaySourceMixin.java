@@ -18,9 +18,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Display pointer ControlChannels are configuration-only and must not become native Drive By Wire
- * outputs. A display-only desk may still participate in the owning ComputerControlDesk's explicit
- * user wire channels; the companion DBW hook resolves that virtual source to the multiblock owner.
+ * Prevents local display-pointer x/y controls from becoming standalone DBW sources. Active
+ * ComputerControlDesk multiblocks are handled by the companion multiblock resolver, which filters
+ * display-only members while still allowing the player to scroll to controls on other desk members.
  */
 @Pseudo
 @Mixin(targets = "edn.stratodonut.drivebywire.client.ClientWireNetworkHandler", remap = false)
@@ -29,7 +29,7 @@ public abstract class DriveByWireDisplaySourceMixin {
     private static BlockPos selectedSource;
 
     @Inject(method = "handleWireUse", at = @At("HEAD"), cancellable = true, require = 0, remap = false)
-    private static void ccaeroworks_rejectDisplaySource(
+    private static void ccaeroworks_rejectStandaloneDisplaySource(
         final Player player,
         final ItemStack heldItem,
         final Level level,
@@ -40,17 +40,14 @@ public abstract class DriveByWireDisplaySourceMixin {
         if (selectedSource != null) {
             return;
         }
-
         if (!(level.getBlockEntity(pos) instanceof final ConsoleBlockEntity desk)) {
             return;
         }
 
         final var snapshot = ConsoleMultiblockManager.INSTANCE.resolve(level, pos);
-        if (snapshot.getState() == ConsoleNetworkState.ACTIVE
-            && snapshot.getOwner() != null
-            && !snapshot.getOwner().wireChannelNames().isEmpty()) {
-            // User-defined channels are a real ComputerControlDesk source even when this physical
-            // member only contains pointer/display channels.
+        if (snapshot.getState() == ConsoleNetworkState.ACTIVE && snapshot.getOwner() != null) {
+            // The multiblock hook owns selection here, including skipping display-only native
+            // channels and continuing through every other physical/user-defined desk endpoint.
             return;
         }
 

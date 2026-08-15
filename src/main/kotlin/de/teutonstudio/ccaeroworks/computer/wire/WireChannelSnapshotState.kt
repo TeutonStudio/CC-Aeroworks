@@ -1,14 +1,15 @@
 package de.teutonstudio.ccaeroworks.computer.wire
 
+import de.teutonstudio.ccaeroworks.compat.drivebywire.NativeDriveByWireChannels
 import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
-import de.teutonstudio.ccaeroworks.computer.channel.ChannelSignalMapping
+import de.teutonstudio.ccaeroworks.computer.channel.ControlDirectionalSignals
 import de.teutonstudio.ccaeroworks.computer.control.ControlOverrideManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 
 data class ControlChannelView(
     val id: String,
     val name: String,
-    /** Unified redstone-facing signal, always 0..15. */
+    /** Physical redstone-facing direction signal, always 0..15. */
     val value: Int,
     val overridden: Boolean,
     val connections: List<WireConnectionView>
@@ -61,14 +62,16 @@ object WireChannelSnapshotState {
 }
 
 /**
- * Projects the existing ControlOverrideManager discovery data into immutable UI groups.
- * Runtime authority remains with Aeroworks/ControlOverrideManager; DBW topology is read-only.
+ * Projects native signed Aeroworks axes into the same two-direction 0..15 channels that their
+ * physical Redstone Link/Drive By Wire output exposes. Runtime control authority still belongs to
+ * ControlOverrideManager; this is presentation/discovery only.
  */
 object ControlChannelSnapshotBuilder {
     fun build(owner: ComputerControlDeskBlockEntity): List<ControlModuleGroupView> {
         val level = owner.level ?: return emptyList()
         val network = ConsoleMultiblockManager.resolve(level, owner.blockPos)
         val positions = network.members.associate { it.id to it.pos }
+        val dbwChannelsByPos = hashMapOf<Long, List<String>>()
         val discovered = runCatching { ControlOverrideManager.listChannels(owner) }.getOrElse { return emptyList() }
         val groups = linkedMapOf<String, MutableControlModuleGroup>()
 
@@ -81,10 +84,11 @@ object ControlChannelSnapshotBuilder {
             val channel = row["channel"] as? String ?: return@forEach
             val nativeValue = (row["value"] as? Number)?.toInt() ?: 0
             val overridden = row["overridden"] as? Boolean ?: false
+            val sourcePos = positions[deskId] ?: return@forEach
             val groupId = "module:$deskId:$socket:$moduleId"
-            val connections = positions[deskId]
-                ?.let { sourcePos -> owner.wireBank.connectionTargets(sourcePos, channel) }
-                .orEmpty()
+            val nativeDbwChannels = dbwChannelsByPos.getOrPut(sourcePos.asLong()) {
+                NativeDriveByWireChannels.channels(level, sourcePos)
+            }
 
             val group = groups.getOrPut(groupId) {
                 MutableControlModuleGroup(
@@ -97,13 +101,19 @@ object ControlChannelSnapshotBuilder {
                     moduleId = moduleId
                 )
             }
-            group.channels += ControlChannelView(
-                id = "control:$deskId:$socket:$moduleId:$channel",
-                name = channel,
-                value = ChannelSignalMapping.fromControl(nativeValue),
-                overridden = overridden,
-                connections = connections
-            )
+
+            ControlDirectionalSignals.split(moduleId, channel, nativeValue, nativeDbwChannels).forEach { signal ->
+                val connections = signal.wireChannel
+                    ?.let { owner.wireBank.connectionTargets(sourcePos, it) }
+                    .orEmpty()
+                group.channels += ControlChannelView(
+                    id = "control:$deskId:$socket:$moduleId:$channel:${signal.direction}",
+                    name = signal.label,
+                    value = signal.value,
+                    overridden = overridden,
+                    connections = connections
+                )
+            }
         }
 
         return groups.values.map { group ->

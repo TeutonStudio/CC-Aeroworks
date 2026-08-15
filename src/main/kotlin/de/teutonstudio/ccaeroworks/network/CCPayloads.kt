@@ -65,5 +65,15 @@ object CCPayloads {
             WireChannelSnapshotPayload.STREAM_CODEC,
             WireChannelSnapshotPayload::handle
         )
+        registrar.playToServer(
+            RequestInformationSourceSnapshotPayload.TYPE,
+            RequestInformationSourceSnapshotPayload.STREAM_CODEC,
+            RequestInformationSourceSnapshotPayload::handle
+        )
+        registrar.playToClient(
+            InformationSourceSnapshotPayload.TYPE,
+            InformationSourceSnapshotPayload.STREAM_CODEC,
+            InformationSourceSnapshotPayload::handle
+        )
     }
 }

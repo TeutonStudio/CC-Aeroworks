@@ -5,10 +5,13 @@ import dan200.computercraft.shared.computer.inventory.AbstractComputerMenu
 import de.teutonstudio.ccaeroworks.client.ComputerDeskPage
 import de.teutonstudio.ccaeroworks.client.ControlDeskComputerSidebar
 import de.teutonstudio.ccaeroworks.client.ControlDeskUiClientNavigation
+import de.teutonstudio.ccaeroworks.client.InformationSourceManagerWidget
 import de.teutonstudio.ccaeroworks.client.WireChannelManagerWidget
 import de.teutonstudio.ccaeroworks.computer.ControlDeskUiSwitchState
+import de.teutonstudio.ccaeroworks.computer.source.InformationSourceSnapshotState
 import de.teutonstudio.ccaeroworks.computer.wire.WireChannelSnapshotState
 import de.teutonstudio.ccaeroworks.network.MutateWireChannelPayload
+import de.teutonstudio.ccaeroworks.network.RequestInformationSourceSnapshotPayload
 import de.teutonstudio.ccaeroworks.network.RequestWireChannelSnapshotPayload
 import de.teutonstudio.ccaeroworks.network.WireChannelMutation
 import de.teutonstudio.ccaeroworks.registry.CCItems
@@ -42,6 +45,9 @@ abstract class AbstractComputerScreenSwitchMixin(
     private var ccaeroworks_channelPanel: WireChannelManagerWidget? = null
 
     @Unique
+    private var ccaeroworks_sourcePanel: InformationSourceManagerWidget? = null
+
+    @Unique
     private var ccaeroworks_channelName: EditBox? = null
 
     @Unique
@@ -58,6 +64,9 @@ abstract class AbstractComputerScreenSwitchMixin(
 
     @Unique
     private var ccaeroworks_lastSnapshotRequest: Long = Long.MIN_VALUE
+
+    @Unique
+    private var ccaeroworks_lastSourceSnapshotRequest: Long = Long.MIN_VALUE
 
     @Inject(method = ["init()V"], at = [At("TAIL")])
     private fun ccaeroworks_addDeskTabs(callback: CallbackInfo) {
@@ -93,7 +102,7 @@ abstract class AbstractComputerScreenSwitchMixin(
             leftPos,
             topPos,
             accessor.ccaeroworks_getSidebarYOffset(),
-            extensionIndex
+            extensionIndex++
         )
         addRenderableOnly(Renderable { graphics, _, _, _ ->
             ControlDeskComputerSidebar.renderBackground(graphics, channelLayout, family)
@@ -104,20 +113,52 @@ abstract class AbstractComputerScreenSwitchMixin(
             }
         )
 
+        val sourceLayout = ControlDeskComputerSidebar.layout(
+            leftPos,
+            topPos,
+            accessor.ccaeroworks_getSidebarYOffset(),
+            extensionIndex
+        )
+        addRenderableOnly(Renderable { graphics, _, _, _ ->
+            ControlDeskComputerSidebar.renderBackground(graphics, sourceLayout, family)
+        })
+        addRenderableWidget(
+            ControlDeskComputerSidebar.sourcesButton(sourceLayout) {
+                ccaeroworks_setPage(
+                    if (ccaeroworks_page == ComputerDeskPage.INFORMATION_SOURCES) {
+                        ComputerDeskPage.TERMINAL
+                    } else {
+                        ComputerDeskPage.INFORMATION_SOURCES
+                    }
+                )
+            }
+        )
+
         ccaeroworks_createChannelManager(accessor)
+        ccaeroworks_createInformationSourceManager(accessor)
         ccaeroworks_setPage(ComputerDeskPage.TERMINAL)
     }
 
     @Inject(method = ["containerTick()V"], at = [At("TAIL")])
-    private fun ccaeroworks_refreshWireChannels(callback: CallbackInfo) {
-        if (ccaeroworks_page != ComputerDeskPage.CHANNELS) return
+    private fun ccaeroworks_refreshDeskPages(callback: CallbackInfo) {
         val now = Minecraft.getInstance().level?.gameTime ?: return
-        if (now - ccaeroworks_lastSnapshotRequest < 20L) return
-        ccaeroworks_requestWireSnapshot(now)
+        when (ccaeroworks_page) {
+            ComputerDeskPage.CHANNELS -> {
+                if (now - ccaeroworks_lastSnapshotRequest >= SNAPSHOT_INTERVAL_TICKS) {
+                    ccaeroworks_requestWireSnapshot(now)
+                }
+            }
+            ComputerDeskPage.INFORMATION_SOURCES -> {
+                if (now - ccaeroworks_lastSourceSnapshotRequest >= SNAPSHOT_INTERVAL_TICKS) {
+                    ccaeroworks_requestInformationSources(now)
+                }
+            }
+            ComputerDeskPage.TERMINAL -> Unit
+        }
     }
 
     @Inject(method = ["keyPressed(III)Z"], at = [At("HEAD")], cancellable = true)
-    private fun ccaeroworks_handleChannelKeys(
+    private fun ccaeroworks_handleDeskPageKeys(
         keyCode: Int,
         scanCode: Int,
         modifiers: Int,
@@ -127,8 +168,8 @@ abstract class AbstractComputerScreenSwitchMixin(
             ccaeroworks_channelName?.isFocused == true &&
             Minecraft.getInstance().options.keyInventory.matches(keyCode, scanCode)
         ) {
-            // The EditBox still receives charTyped, but AbstractContainerScreen must not interpret
-            // the same physical key as "close inventory" while the player is naming hardware.
+            // charTyped still inserts the character, but the container screen must not interpret
+            // the same physical key as its inventory-close binding while naming hardware.
             callback.returnValue = true
             return
         }
@@ -193,7 +234,22 @@ abstract class AbstractComputerScreenSwitchMixin(
         )
     }
 
-    /** Compatibility wrapper retained while the page model grows beyond the original wire-only tab. */
+    @Unique
+    private fun ccaeroworks_createInformationSourceManager(accessor: AbstractComputerScreenAccessor) {
+        val terminal = accessor.ccaeroworks_getTerminal() ?: return
+        val panel = InformationSourceManagerWidget(
+            terminal.x,
+            terminal.y,
+            terminal.width,
+            terminal.height,
+            font
+        )
+        panel.visible = false
+        panel.active = false
+        ccaeroworks_sourcePanel = addRenderableWidget(panel)
+    }
+
+    /** Compatibility wrapper retained for the existing Channels-tab contract. */
     @Unique
     private fun ccaeroworks_setChannelMode(enabled: Boolean) {
         ccaeroworks_setPage(if (enabled) ComputerDeskPage.CHANNELS else ComputerDeskPage.TERMINAL)
@@ -203,11 +259,13 @@ abstract class AbstractComputerScreenSwitchMixin(
     private fun ccaeroworks_setPage(page: ComputerDeskPage) {
         ccaeroworks_page = page
         val channelEnabled = page == ComputerDeskPage.CHANNELS
+        val sourceEnabled = page == ComputerDeskPage.INFORMATION_SOURCES
         val terminal = (this as AbstractComputerScreenAccessor).ccaeroworks_getTerminal()
         terminal?.visible = page == ComputerDeskPage.TERMINAL
         terminal?.active = page == ComputerDeskPage.TERMINAL
 
         ccaeroworks_channelPanel?.let { it.visible = channelEnabled; it.active = channelEnabled }
+        ccaeroworks_sourcePanel?.let { it.visible = sourceEnabled; it.active = sourceEnabled }
         ccaeroworks_channelName?.let { it.visible = channelEnabled; it.active = channelEnabled }
         ccaeroworks_addChannel?.let { it.visible = channelEnabled; it.active = channelEnabled }
         ccaeroworks_renameChannel?.let { it.visible = channelEnabled; it.active = channelEnabled }
@@ -218,12 +276,18 @@ abstract class AbstractComputerScreenSwitchMixin(
         }
         ccaeroworks_deleteArmed = null
 
-        if (channelEnabled) {
-            WireChannelSnapshotState.clear()
-            ccaeroworks_requestWireSnapshot(Minecraft.getInstance().level?.gameTime ?: 0L)
-            setFocused(ccaeroworks_channelName)
-        } else if (terminal != null) {
-            setFocused(terminal)
+        when (page) {
+            ComputerDeskPage.CHANNELS -> {
+                WireChannelSnapshotState.clear()
+                ccaeroworks_requestWireSnapshot(Minecraft.getInstance().level?.gameTime ?: 0L)
+                setFocused(ccaeroworks_channelName)
+            }
+            ComputerDeskPage.INFORMATION_SOURCES -> {
+                InformationSourceSnapshotState.clear()
+                ccaeroworks_requestInformationSources(Minecraft.getInstance().level?.gameTime ?: 0L)
+                setFocused(ccaeroworks_sourcePanel)
+            }
+            ComputerDeskPage.TERMINAL -> if (terminal != null) setFocused(terminal)
         }
     }
 
@@ -231,6 +295,12 @@ abstract class AbstractComputerScreenSwitchMixin(
     private fun ccaeroworks_requestWireSnapshot(now: Long) {
         ccaeroworks_lastSnapshotRequest = now
         PacketDistributor.sendToServer(RequestWireChannelSnapshotPayload())
+    }
+
+    @Unique
+    private fun ccaeroworks_requestInformationSources(now: Long) {
+        ccaeroworks_lastSourceSnapshotRequest = now
+        PacketDistributor.sendToServer(RequestInformationSourceSnapshotPayload())
     }
 
     @Unique
@@ -263,5 +333,9 @@ abstract class AbstractComputerScreenSwitchMixin(
         PacketDistributor.sendToServer(MutateWireChannelPayload(WireChannelMutation.REMOVE, selected.id, ""))
         ccaeroworks_deleteArmed = null
         ccaeroworks_deleteChannel?.message = Component.literal("Delete")
+    }
+
+    private companion object {
+        const val SNAPSHOT_INTERVAL_TICKS = 20L
     }
 }

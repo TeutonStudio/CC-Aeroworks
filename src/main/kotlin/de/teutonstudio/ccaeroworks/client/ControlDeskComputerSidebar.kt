@@ -28,6 +28,11 @@ object ControlDeskComputerSidebar {
         CCAeroworks.id("buttons/control_desk_channels_hover")
     )
 
+    private val SOURCES_TEXTURES = GuiSprites.ButtonTextures(
+        CCAeroworks.id("buttons/control_desk_sources"),
+        CCAeroworks.id("buttons/control_desk_sources_hover")
+    )
+
     data class Layout(val x: Int, val y: Int)
 
     fun layout(leftPos: Int, topPos: Int, sidebarYOffset: Int, extensionIndex: Int = 0): Layout =
@@ -60,6 +65,14 @@ object ControlDeskComputerSidebar {
             layout,
             CHANNELS_TEXTURES,
             Component.literal("Kanäle"),
+            onPress
+        )
+
+    fun sourcesButton(layout: Layout, onPress: () -> Unit): DynamicImageButton =
+        actionButton(
+            layout,
+            SOURCES_TEXTURES,
+            Component.literal("Informationsquellen"),
             onPress
         )
 
