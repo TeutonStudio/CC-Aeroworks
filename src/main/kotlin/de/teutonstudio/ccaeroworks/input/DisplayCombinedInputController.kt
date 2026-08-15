@@ -3,6 +3,7 @@ package de.teutonstudio.ccaeroworks.input
 import com.mojang.blaze3d.platform.InputConstants
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import com.mred231.aeroworks.content.controls.ConsoleControlClient
+import de.teutonstudio.ccaeroworks.compat.sable.SableInteractionGeometry
 import de.teutonstudio.ccaeroworks.config.CCClientConfig
 import de.teutonstudio.ccaeroworks.display.DeskDisplayGeometry
 import de.teutonstudio.ccaeroworks.mixin.client.MouseHandlerAccessor
@@ -286,9 +287,8 @@ object DisplayCombinedInputController {
         if (active.heldBindings.none { it in validBindings }) return false
 
         val network = ConsoleMultiblockManager.resolve(level, active.pos)
-        val maximumDistance = player.blockInteractionRange() + 1.0
         return network.members.any {
-            player.distanceToSqr(it.pos.center) <= maximumDistance * maximumDistance
+            SableInteractionGeometry.withinReach(player, level, it.pos)
         }
     }
 
