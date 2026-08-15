@@ -77,6 +77,7 @@ class CCAeroworks(modEventBus: IEventBus, modContainer: ModContainer) {
         const val TELEMETRY_REMOVED_EVENT: String = "cc_aeroworks_telemetry_removed"
         const val DOCK_CHANGED_EVENT: String = "cc_aeroworks_dock_changed"
         const val REMOTE_TELEMETRY_CHANGED_EVENT: String = "cc_aeroworks_remote_telemetry_changed"
+        const val UI_INVALIDATED_EVENT: String = "cc_aeroworks_ui_invalidated"
 
         @JvmField
         val LOGGER: Logger = LoggerFactory.getLogger("CC-Aeroworks")
