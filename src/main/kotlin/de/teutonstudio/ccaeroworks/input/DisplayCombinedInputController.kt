@@ -3,6 +3,8 @@ package de.teutonstudio.ccaeroworks.input
 import com.mojang.blaze3d.platform.InputConstants
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import com.mred231.aeroworks.content.controls.ConsoleControlClient
+import de.teutonstudio.ccaeroworks.compat.sable.SableClientSpatial
+import de.teutonstudio.ccaeroworks.compat.sable.SableSpatial
 import de.teutonstudio.ccaeroworks.config.CCClientConfig
 import de.teutonstudio.ccaeroworks.display.DeskDisplayGeometry
 import de.teutonstudio.ccaeroworks.mixin.client.MouseHandlerAccessor
@@ -240,7 +242,9 @@ object DisplayCombinedInputController {
 
         val from = player.eyePosition
         val to = from.add(player.getViewVector(1.0f).scale(player.blockInteractionRange()))
-        val pointer = DeskDisplayGeometry.resolveRay(desk, from, to)?.takeIf { it.socket == candidate.socket }
+        val localRay = SableClientSpatial.localRay(desk, from, to)
+        val pointer = DeskDisplayGeometry.resolveRay(desk, localRay.from, localRay.to)
+            ?.takeIf { it.socket == candidate.socket }
         val mouse = minecraft.mouseHandler as MouseHandlerAccessor
         CombinedInputContext.rememberSelection(binding, candidate)
 
@@ -288,7 +292,8 @@ object DisplayCombinedInputController {
         val network = ConsoleMultiblockManager.resolve(level, active.pos)
         val maximumDistance = player.blockInteractionRange() + 1.0
         return network.members.any {
-            player.distanceToSqr(it.pos.center) <= maximumDistance * maximumDistance
+            SableSpatial.distanceSquared(level, player.position(), it.pos.center) <=
+                maximumDistance * maximumDistance
         }
     }
 

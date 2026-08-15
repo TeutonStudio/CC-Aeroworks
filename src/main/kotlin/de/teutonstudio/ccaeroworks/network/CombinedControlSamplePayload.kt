@@ -3,6 +3,7 @@ package de.teutonstudio.ccaeroworks.network
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.computercraft.ControlDeskPeripheralState
+import de.teutonstudio.ccaeroworks.compat.sable.SableSpatial
 import de.teutonstudio.ccaeroworks.input.CombinedInputSource
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import net.minecraft.core.BlockPos
@@ -67,7 +68,8 @@ data class CombinedControlSamplePayload(
             if (payload.sequence < 0 || payload.values.isEmpty() || payload.values.size > MAX_CHANNELS) return
             if (payload.values.map { it.channel }.toSet().size != payload.values.size) return
             if (payload.values.any { it.value !in -15..15 || it.channel.isBlank() || it.channel.length > 16 }) return
-            if (!level.hasChunkAt(payload.pos) || !level.mayInteract(player, payload.pos)) return
+            if (!level.hasChunkAt(payload.pos)) return
+            if (!level.mayInteract(player, SableSpatial.worldBlockPos(level, payload.pos))) return
 
             val desk = level.getBlockEntity(payload.pos) as? ConsoleBlockEntity ?: return
             if (payload.socket !in 0 until desk.socketCount()) return
@@ -78,7 +80,8 @@ data class CombinedControlSamplePayload(
             val network = ConsoleMultiblockManager.resolve(level, payload.pos)
             val maximumDistance = player.blockInteractionRange() + 1.0
             if (network.members.none {
-                    player.distanceToSqr(it.pos.center) <= maximumDistance * maximumDistance
+                    SableSpatial.distanceSquared(level, player.position(), it.pos.center) <=
+                        maximumDistance * maximumDistance
                 }
             ) return
 

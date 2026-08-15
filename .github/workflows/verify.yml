@@ -62,6 +62,9 @@ jobs:
       - name: Validate display combined input
         run: python3 tools/verify-display-combined-input.py
 
+      - name: Validate Sable ControlDesk targeting
+        run: python3 tools/verify-sable-desk-targeting.py
+
       - name: Validate ComputerControlDesk control overrides
         run: python3 tools/verify-control-overrides.py
 
