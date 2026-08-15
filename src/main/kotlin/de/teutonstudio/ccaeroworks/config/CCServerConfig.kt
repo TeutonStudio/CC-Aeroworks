@@ -7,16 +7,7 @@ object CCServerConfig {
     private val builder = ModConfigSpec.Builder()
 
     @JvmField
-    val smallDisplayPixelWidth: ModConfigSpec.IntValue
-
-    @JvmField
-    val smallDisplayPixelHeight: ModConfigSpec.IntValue
-
-    @JvmField
-    val largeDisplayPixelWidth: ModConfigSpec.IntValue
-
-    @JvmField
-    val largeDisplayPixelHeight: ModConfigSpec.IntValue
+    val displayPartsPerBlock: ModConfigSpec.IntValue
 
     @JvmField
     val telemetryMaxSources: ModConfigSpec.IntValue
@@ -38,26 +29,21 @@ object CCServerConfig {
 
     init {
         builder
-            .comment("Pixel resolutions used by programmable desk displays. This server config is synced to clients.")
+            .comment(
+                "Logical display density in parts per block (PPB). Display pixel widths and heights are derived from the physical module surface, keeping the pixel grid square. This server config is synced to clients."
+            )
             .push("display")
 
-        builder.comment("Small display resolution.").push("small")
-        smallDisplayPixelWidth = builder
-            .comment("Exact horizontal pixel count. There is no artificial upper bound beyond a positive signed integer.")
-            .defineInRange("width", DeskDisplayType.DEFAULT_SMALL_PIXEL_WIDTH, 1, Int.MAX_VALUE)
-        smallDisplayPixelHeight = builder
-            .comment("Exact vertical pixel count. There is no artificial upper bound beyond a positive signed integer.")
-            .defineInRange("height", DeskDisplayType.DEFAULT_SMALL_PIXEL_HEIGHT, 1, Int.MAX_VALUE)
-        builder.pop()
-
-        builder.comment("Large display resolution.").push("large")
-        largeDisplayPixelWidth = builder
-            .comment("Exact horizontal pixel count. There is no artificial upper bound beyond a positive signed integer.")
-            .defineInRange("width", DeskDisplayType.DEFAULT_LARGE_PIXEL_WIDTH, 1, Int.MAX_VALUE)
-        largeDisplayPixelHeight = builder
-            .comment("Exact vertical pixel count. There is no artificial upper bound beyond a positive signed integer.")
-            .defineInRange("height", DeskDisplayType.DEFAULT_LARGE_PIXEL_HEIGHT, 1, Int.MAX_VALUE)
-        builder.pop()
+        displayPartsPerBlock = builder
+            .comment(
+                "Parts per full block edge. 16 PPB matches Minecraft's standard 16x16 texture density; 256 PPB is the CC-Aeroworks default. Small and large display resolutions are derived automatically from their block-relative surface sizes."
+            )
+            .defineInRange(
+                "ppb",
+                DeskDisplayType.DEFAULT_PARTS_PER_BLOCK,
+                DeskDisplayType.VANILLA_PARTS_PER_BLOCK,
+                Int.MAX_VALUE
+            )
 
         builder.pop()
 
@@ -85,16 +71,14 @@ object CCServerConfig {
     }
 
     @JvmStatic
-    fun pixelWidth(type: DeskDisplayType): Int = when (type) {
-        DeskDisplayType.TWO_DIGIT -> smallDisplayPixelWidth.loadedOr(DeskDisplayType.DEFAULT_SMALL_PIXEL_WIDTH)
-        DeskDisplayType.THREE_DIGIT -> largeDisplayPixelWidth.loadedOr(DeskDisplayType.DEFAULT_LARGE_PIXEL_WIDTH)
-    }
+    fun displayPartsPerBlockValue(): Int =
+        displayPartsPerBlock.loadedOr(DeskDisplayType.DEFAULT_PARTS_PER_BLOCK)
 
     @JvmStatic
-    fun pixelHeight(type: DeskDisplayType): Int = when (type) {
-        DeskDisplayType.TWO_DIGIT -> smallDisplayPixelHeight.loadedOr(DeskDisplayType.DEFAULT_SMALL_PIXEL_HEIGHT)
-        DeskDisplayType.THREE_DIGIT -> largeDisplayPixelHeight.loadedOr(DeskDisplayType.DEFAULT_LARGE_PIXEL_HEIGHT)
-    }
+    fun pixelWidth(type: DeskDisplayType): Int = type.pixelWidthAt(displayPartsPerBlockValue())
+
+    @JvmStatic
+    fun pixelHeight(type: DeskDisplayType): Int = type.pixelHeightAt(displayPartsPerBlockValue())
 
     @JvmStatic
     fun telemetryMaxSourcesValue(): Int = telemetryMaxSources.loadedOr(128)
