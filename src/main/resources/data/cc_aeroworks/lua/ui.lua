@@ -3,6 +3,7 @@ local rawTelemetry = require("cc_aeroworks.telemetry")
 
 local ui = {}
 local states = {}
+local remembered = {}
 local derived = {}
 local derivedByScope = {}
 local moduleCache = {}
@@ -25,8 +26,9 @@ local function copyTable(value)
 end
 
 local function runtimeKey(key)
-    if activeRuntime then return activeRuntime.id .. ":" .. tostring(key) end
-    return tostring(key)
+    assert(activeRuntime and composer and composer.node,
+        "ui.state/ui.remember/ui.derived must be created while composing a UI component")
+    return composer.node.id .. ":remember:" .. tostring(key)
 end
 
 local function propsEqual(a, b)
@@ -45,6 +47,16 @@ local function propsEqual(a, b)
         if a[k] == nil and v ~= nil then return false end
     end
     return true
+end
+
+function ui.remember(key, factory)
+    local id = runtimeKey(key)
+    local slot = remembered[id]
+    if not slot then
+        slot = { value = type(factory) == "function" and factory() or factory }
+        remembered[id] = slot
+    end
+    return slot.value
 end
 
 function ui.state(key, initial)
@@ -141,6 +153,10 @@ function ui.source(key, getter)
     }
 end
 
+function ui.invalidate(key)
+    native.changed(tostring(key))
+end
+
 local modifierMethods = {}
 modifierMethods.__index = modifierMethods
 
@@ -156,7 +172,6 @@ function modifierMethods:fillWidth() return modifierSet(self, "fillWidth", true)
 function modifierMethods:fillHeight() return modifierSet(self, "fillHeight", true) end
 function modifierMethods:fillMaxSize() return modifierSet(modifierSet(self, "fillWidth", true), "fillHeight", true) end
 function modifierMethods:padding(value) return modifierSet(self, "padding", value) end
-function modifierMethods:weight(value) return modifierSet(self, "weight", value) end
 function modifierMethods:key(value) return modifierSet(self, "key", value) end
 
 function ui.modifier()
@@ -174,11 +189,32 @@ local function effectiveProps(props)
     return result
 end
 
+local function disposeRemembered(node)
+    local prefix = node.id .. ":remember:"
+    for id in pairs(states) do
+        if string.sub(id, 1, #prefix) == prefix then states[id] = nil end
+    end
+    for id in pairs(remembered) do
+        if string.sub(id, 1, #prefix) == prefix then remembered[id] = nil end
+    end
+    local removeDerived = {}
+    for id in pairs(derived) do
+        if string.sub(id, 1, #prefix) == prefix then table.insert(removeDerived, id) end
+    end
+    for _, id in ipairs(removeDerived) do
+        local scopeId = "derived:" .. id
+        native.forgetScope(scopeId)
+        derivedByScope[scopeId] = nil
+        derived[id] = nil
+    end
+end
+
 local function disposeNode(runtime, node)
     if not node then return end
     if node.children then
         for _, child in ipairs(node.children) do disposeNode(runtime, child) end
     end
+    disposeRemembered(node)
     native.forgetScope(node.id .. ":composition")
     native.forgetScope(node.id .. ":layout")
     native.forgetScope(node.id .. ":draw")
@@ -511,6 +547,19 @@ local function unionRect(a, b)
     return { x=x1, y=y1, width=x2-x1, height=y2-y1 }
 end
 
+local function rectEquals(a, b)
+    if a == nil or b == nil then return a == b end
+    return a.x == b.x and a.y == b.y and a.width == b.width and a.height == b.height
+end
+
+local function snapshotBounds(runtime)
+    local result = {}
+    for id, node in pairs(runtime.nodes) do
+        if node.bounds then result[id] = copyTable(node.bounds) end
+    end
+    return result
+end
+
 local function safeFill(runtime, frame, x, y, width, height, enabled, clip)
     local x1 = math.max(1, x)
     local y1 = math.max(1, y)
@@ -655,36 +704,51 @@ end
 
 function Runtime:applyInvalidations(invalidations)
     local relevant = {}
+    local needsRelayout = false
     for _, inv in ipairs(invalidations) do
-        if string.sub(inv.id,1,#self.id) == self.id then table.insert(relevant,inv) end
+        if string.sub(inv.id,1,#self.id) == self.id then
+            table.insert(relevant,inv)
+            if inv.phase == "composition" or inv.phase == "layout" then needsRelayout = true end
+        end
     end
     if #relevant == 0 then return end
 
-    local oldBounds = {}
-    local compositionChanged, layoutChanged = false, false
+    local before = needsRelayout and snapshotBounds(self) or nil
+    local explicitlyDirtyIds = {}
     local dirty = nil
+
     for _, inv in ipairs(relevant) do
         local suffix = ":" .. inv.phase
         local nodeId = string.sub(inv.id,1,#inv.id-#suffix)
         local node = self.nodes[nodeId]
-        if node and node.bounds then oldBounds[nodeId] = copyTable(node.bounds) end
+        if node then explicitlyDirtyIds[nodeId] = true end
+
         if inv.phase == "composition" and node and node.componentFn then
             node.invalidComposition = true
             composeComponent(self,node)
-            compositionChanged = true
-        elseif inv.phase == "layout" then
-            layoutChanged = true
         elseif inv.phase == "draw" and node then
             dirty = unionRect(dirty,node.bounds)
         end
     end
 
-    if compositionChanged or layoutChanged then
+    if needsRelayout then
         self:layout()
-        for nodeId, bounds in pairs(oldBounds) do
-            dirty = unionRect(dirty,bounds)
-            local node = self.nodes[nodeId]
-            if node then dirty = unionRect(dirty,node.bounds) end
+        local seen = {}
+        for id, oldBounds in pairs(before) do
+            seen[id] = true
+            local node = self.nodes[id]
+            local newBounds = node and node.bounds or nil
+            if not rectEquals(oldBounds,newBounds) or explicitlyDirtyIds[id] then
+                dirty = unionRect(dirty,oldBounds)
+                dirty = unionRect(dirty,newBounds)
+            end
+        end
+        for id, node in pairs(self.nodes) do
+            if not seen[id] and node.bounds then
+                dirty = unionRect(dirty,node.bounds)
+            elseif explicitlyDirtyIds[id] and node.bounds then
+                dirty = unionRect(dirty,node.bounds)
+            end
         end
     end
     self:drawDirty(dirty)
