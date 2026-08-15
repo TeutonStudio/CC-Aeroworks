@@ -2,6 +2,7 @@ package de.teutonstudio.ccaeroworks.mixin.client
 
 import dan200.computercraft.client.gui.AbstractComputerScreen
 import dan200.computercraft.shared.computer.inventory.AbstractComputerMenu
+import de.teutonstudio.ccaeroworks.client.ComputerDeskPage
 import de.teutonstudio.ccaeroworks.client.ControlDeskComputerSidebar
 import de.teutonstudio.ccaeroworks.client.ControlDeskUiClientNavigation
 import de.teutonstudio.ccaeroworks.client.WireChannelManagerWidget
@@ -27,11 +28,6 @@ import org.spongepowered.asm.mixin.injection.Inject
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable
 import java.util.UUID
-
-private enum class ComputerDeskPage {
-    TERMINAL,
-    CHANNELS
-}
 
 @Mixin(value = [AbstractComputerScreen::class], remap = false)
 abstract class AbstractComputerScreenSwitchMixin(
