@@ -16,16 +16,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 /**
  * Final value-read guard for Drive By Wire.
  *
- * Aeroworks integrates modular ControlDesk values by teaching DBW's signal lookup about its native
- * socket/channel/sign IDs. Interactive displays deliberately reuse real Aeroworks x/y channels for
- * Combined pointer configuration, so this higher-priority guard returns zero before those local
- * pointer values can be interpreted as vehicle DBW output. Custom ComputerControlDesk wire channels
- * are stored values and do not parse as Aeroworks native IDs, so they pass through unchanged.
+ * Aeroworks integrates modular ControlDesk values into DBW's signal lookup. Interactive displays
+ * deliberately reuse real Aeroworks x/y channels for Combined pointer configuration, so this
+ * low-priority RETURN guard runs after normal integrations and forces those local pointer values
+ * back to zero before DBW can apply them to sinks. Custom ComputerControlDesk wire names do not
+ * parse as Aeroworks native IDs and pass through unchanged.
  */
 @Pseudo
-@Mixin(targets = "edn.stratodonut.drivebywire.wire.WireNetworkManager", remap = false, priority = 2100)
+@Mixin(targets = "edn.stratodonut.drivebywire.wire.WireNetworkManager", remap = false, priority = 500)
 public abstract class DriveByWireSignalFilterMixin {
-    @Inject(method = "getCurrentSignal", at = @At("HEAD"), cancellable = true, require = 0)
+    @Inject(method = "getCurrentSignal", at = @At("RETURN"), cancellable = true, require = 0)
     private void ccaeroworks$zeroDisplayPointerSignal(
         final Level level,
         final BlockPos source,

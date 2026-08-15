@@ -6,7 +6,6 @@ import dan200.computercraft.api.lua.LuaException
 import dan200.computercraft.api.lua.LuaFunction
 import de.teutonstudio.ccaeroworks.computer.channel.ChannelRegistry
 import de.teutonstudio.ccaeroworks.computer.channel.channelGroups
-import java.util.UUID
 
 /** High-level logical channel API layered over the existing controls and wires runtimes. */
 class ComputerChannelLuaApi(
@@ -49,15 +48,23 @@ class ComputerChannelLuaApi(
     fun overrideBatch(arguments: IArguments): Int = lua {
         val table = arguments.getTable(0)
         val indexed = table.entries.map { (rawIndex, rawCommand) ->
-            val index = (rawIndex as? Number)?.toInt()
-                ?: throw LuaException("overrideBatch must be an array")
+            val number = rawIndex as? Number ?: throw LuaException("overrideBatch must be an array")
+            val numericIndex = number.toDouble()
+            if (!numericIndex.isFinite() || numericIndex % 1.0 != 0.0 || numericIndex < 1.0 || numericIndex > Int.MAX_VALUE) {
+                throw LuaException("overrideBatch indexes must be positive integers")
+            }
+            val index = numericIndex.toInt()
             val command = rawCommand as? Map<*, *>
                 ?: throw LuaException("overrideBatch entry $index must be a table")
             val channel = command["channel"] as? String
                 ?: throw LuaException("overrideBatch entry $index is missing 'channel'")
-            val value = (command["value"] as? Number)?.toInt()
+            val valueNumber = command["value"] as? Number
                 ?: throw LuaException("overrideBatch entry $index is missing integer 'value'")
-            index to (channel to value)
+            val numericValue = valueNumber.toDouble()
+            if (!numericValue.isFinite() || numericValue % 1.0 != 0.0 || numericValue < Int.MIN_VALUE || numericValue > Int.MAX_VALUE) {
+                throw LuaException("overrideBatch entry $index field 'value' must be an integer")
+            }
+            index to (channel to numericValue.toInt())
         }.sortedBy { it.first }
         indexed.forEachIndexed { offset, (index, _) ->
             if (index != offset + 1) throw LuaException("overrideBatch indexes must start at 1 and be consecutive")
@@ -111,6 +118,12 @@ class ComputerChannelAdminLuaApi(
         if (ChannelRegistry.findById(owner, targetId) == null) throw LuaException("Unknown channel id '$targetId'")
         val bank = owner.channelGroups()
         return describe(bank.bind(bank.group(groupName).id, alias, targetId))
+    }
+
+    @LuaFunction(mainThread = true)
+    fun renameBinding(groupName: String, oldAlias: String, newAlias: String): Map<String, Any> {
+        val bank = owner().channelGroups()
+        return describe(bank.renameBinding(bank.group(groupName).id, oldAlias, newAlias))
     }
 
     @LuaFunction(mainThread = true)

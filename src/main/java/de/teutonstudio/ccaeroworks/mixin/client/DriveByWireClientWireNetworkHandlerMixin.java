@@ -36,6 +36,16 @@ public abstract class DriveByWireClientWireNetworkHandlerMixin {
     @Shadow
     private static String currentChannel;
 
+    @Shadow
+    private static void syncManager() {
+        throw new AssertionError();
+    }
+
+    @Shadow
+    public static void clearSource() {
+        throw new AssertionError();
+    }
+
     @Inject(method = "handleWireUse", at = @At("HEAD"), cancellable = true, require = 0)
     private static void ccaeroworks$handleDeskMultiblockSource(
         final Player player,
@@ -46,12 +56,12 @@ public abstract class DriveByWireClientWireNetworkHandlerMixin {
         final CallbackInfo ci
     ) {
         if (selectedSource == null) {
-            final DriveByWireDeskEndpoint endpoint =
-                DriveByWireDeskSelectionSession.INSTANCE.begin(level, pos);
+            final DriveByWireDeskEndpoint endpoint = DriveByWireDeskSelectionSession.INSTANCE.begin(level, pos);
             if (endpoint == null) {
                 return;
             }
             ccaeroworks$mirrorEndpoint(endpoint);
+            syncManager();
             ccaeroworks$showChannel(player, endpoint.getChannel());
             ci.cancel();
             return;
@@ -61,8 +71,7 @@ public abstract class DriveByWireClientWireNetworkHandlerMixin {
             return;
         }
 
-        final DriveByWireDeskEndpoint endpoint =
-            DriveByWireDeskSelectionSession.INSTANCE.current(level);
+        final DriveByWireDeskEndpoint endpoint = DriveByWireDeskSelectionSession.INSTANCE.current(level);
         if (endpoint == null) {
             ccaeroworks$clearDeskSelection();
             player.displayClientMessage(
@@ -73,8 +82,6 @@ public abstract class DriveByWireClientWireNetworkHandlerMixin {
             return;
         }
 
-        // Every real member is part of the selected logical source. Clicking the source again clears
-        // it instead of creating a nonsensical connection from one segment of the desk to another.
         if (DriveByWireDeskSelectionSession.INSTANCE.containsMember(level, pos)) {
             ccaeroworks$clearDeskSelection();
             ci.cancel();
@@ -103,8 +110,7 @@ public abstract class DriveByWireClientWireNetworkHandlerMixin {
             return;
         }
 
-        final DriveByWireDeskEndpoint endpoint =
-            DriveByWireDeskSelectionSession.INSTANCE.cycle(level, forward);
+        final DriveByWireDeskEndpoint endpoint = DriveByWireDeskSelectionSession.INSTANCE.cycle(level, forward);
         if (endpoint == null) {
             ccaeroworks$clearDeskSelection();
             ci.cancel();
@@ -132,8 +138,7 @@ public abstract class DriveByWireClientWireNetworkHandlerMixin {
         if (!DriveByWireDeskSelectionSession.INSTANCE.isActive()) {
             return;
         }
-        final DriveByWireDeskEndpoint endpoint =
-            DriveByWireDeskSelectionSession.INSTANCE.current(level);
+        final DriveByWireDeskEndpoint endpoint = DriveByWireDeskSelectionSession.INSTANCE.current(level);
         if (endpoint == null || !endpoint.getSourcePos().equals(pos)) {
             return;
         }
@@ -168,8 +173,6 @@ public abstract class DriveByWireClientWireNetworkHandlerMixin {
 
     @Unique
     private static void ccaeroworks$clearDeskSelection() {
-        selectedSource = null;
-        currentChannel = "world";
-        DriveByWireDeskSelectionSession.INSTANCE.clear();
+        clearSource();
     }
 }

@@ -106,6 +106,24 @@ class ChannelGroupBank(
         return replacement
     }
 
+    fun renameBinding(id: UUID, rawOldAlias: String, rawNewAlias: String): ChannelGroupDefinition {
+        val group = group(id)
+        val oldAlias = rawOldAlias.trim()
+        val newAlias = checkedName(rawNewAlias)
+        val index = group.bindings.indexOfFirst { it.alias == oldAlias }
+        require(index >= 0) { "Unknown binding '$oldAlias' in group '${group.name}'" }
+        require(group.bindings.none { it.alias == newAlias && it.alias != oldAlias }) {
+            "Binding '$newAlias' already exists in group '${group.name}'"
+        }
+        if (oldAlias == newAlias) return group
+        val bindings = group.bindings.toMutableList()
+        bindings[index] = bindings[index].copy(alias = newAlias)
+        val replacement = group.copy(bindings = bindings)
+        groups[groups.indexOf(group)] = replacement
+        changed()
+        return replacement
+    }
+
     fun unbind(id: UUID, rawAlias: String): ChannelGroupDefinition {
         val group = group(id)
         val alias = rawAlias.trim()
