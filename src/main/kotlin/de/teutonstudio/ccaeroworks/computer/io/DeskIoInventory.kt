@@ -1,8 +1,10 @@
 package de.teutonstudio.ccaeroworks.computer.io
 
+import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksModuleAccess
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskSockets
+import de.teutonstudio.ccaeroworks.compat.createradar.RadarNetworkTopology
 import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
 import de.teutonstudio.ccaeroworks.computer.PeripheralNetworkBuilder
 import de.teutonstudio.ccaeroworks.computer.channel.ComputerChannelRegistry
@@ -271,29 +273,68 @@ object DeskIoInventory {
         }
     }
 
-    private fun radarInformationObjects(owner: ComputerControlDeskBlockEntity): List<Map<String, Any>> =
-        RadarSourceRegistry.sources(owner).map { source ->
-            linkedMapOf<String, Any>(
-                "id" to "radar:${source.id}",
+    private fun radarInformationObjects(owner: ComputerControlDeskBlockEntity): List<Map<String, Any>> {
+        val level = owner.level ?: return emptyList()
+        val result = mutableListOf<Map<String, Any>>()
+        val seenControllers = hashSetOf<BlockPos>()
+
+        RadarSourceRegistry.sources(owner).forEach { source ->
+            val ingressDesk = level.getBlockEntity(source.ingressPos) as? ConsoleBlockEntity
+            val controller = ingressDesk?.let(RadarNetworkTopology::filtererForEndpoint)
+            val status = source.status.name.lowercase()
+
+            result += linkedMapOf<String, Any>(
+                "id" to "radar-data-link:${source.id}",
                 "category" to DeskIoCategory.INFORMATION.serializedName,
-                "kind" to "radar_network",
-                "label" to "Radar network · Desk ${source.memberIndex}",
+                "kind" to "radar_data_link",
+                "label" to "Radar Data Link · Desk ${source.memberIndex}",
                 "sourceId" to source.id,
-                "informationKind" to "radar",
+                "informationKind" to "radar_data_link",
                 "memberId" to source.memberId,
                 "memberIndex" to source.memberIndex,
-                "dataLinkX" to source.ingressPos.x,
-                "dataLinkY" to source.ingressPos.y,
-                "dataLinkZ" to source.ingressPos.z,
-                "status" to source.status.name.lowercase()
+                "x" to source.ingressPos.x,
+                "y" to source.ingressPos.y,
+                "z" to source.ingressPos.z,
+                "status" to status
             ).apply {
                 source.radarPos?.let { radar ->
                     put("radarX", radar.x)
                     put("radarY", radar.y)
                     put("radarZ", radar.z)
                 }
+                controller?.let { pos ->
+                    put("networkControllerX", pos.x)
+                    put("networkControllerY", pos.y)
+                    put("networkControllerZ", pos.z)
+                }
+            }
+
+            if (controller != null && seenControllers.add(controller.immutable())) {
+                result += linkedMapOf<String, Any>(
+                    "id" to "radar-network-controller:${level.dimension().location()}:${controller.x},${controller.y},${controller.z}",
+                    "category" to DeskIoCategory.INFORMATION.serializedName,
+                    "kind" to "radar_network_controller",
+                    "label" to "Radar Network Controller",
+                    "sourceId" to "${level.dimension().location()}:${controller.x},${controller.y},${controller.z}",
+                    "informationKind" to "radar_network_controller",
+                    "x" to controller.x,
+                    "y" to controller.y,
+                    "z" to controller.z,
+                    "status" to status,
+                    "dataLinkX" to source.ingressPos.x,
+                    "dataLinkY" to source.ingressPos.y,
+                    "dataLinkZ" to source.ingressPos.z
+                ).apply {
+                    source.radarPos?.let { radar ->
+                        put("radarX", radar.x)
+                        put("radarY", radar.y)
+                        put("radarZ", radar.z)
+                    }
+                }
             }
         }
+        return result
+    }
 
     private fun wireObjects(owner: ComputerControlDeskBlockEntity): List<Map<String, Any>> =
         owner.wireBank.describeChannels().mapNotNull { (name, raw) ->
@@ -332,7 +373,8 @@ object DeskIoInventory {
                 "id", "category", "kind", "label", "sourceId", "informationKind",
                 "sourceType", "supported", "available", "stale", "ageTicks", "revision",
                 "memberId", "memberIndex", "side", "x", "y", "z", "types", "inventory", "fluids",
-                "status", "dataLinkX", "dataLinkY", "dataLinkZ", "radarX", "radarY", "radarZ"
+                "status", "dataLinkX", "dataLinkY", "dataLinkZ", "radarX", "radarY", "radarZ",
+                "networkControllerX", "networkControllerY", "networkControllerZ"
             ).toMutableMap().apply {
                 put("summary", informationSummary(source))
             }
@@ -362,7 +404,7 @@ object DeskIoInventory {
                     else -> "storage"
                 }
             }
-            "radar_network" -> return source["status"]?.toString().orEmpty()
+            "radar_data_link", "radar_network_controller" -> return source["status"]?.toString().orEmpty()
         }
         val displayText = source["displayText"] as? List<*>
         displayText?.firstOrNull()?.toString()?.takeIf(String::isNotBlank)?.let { return it }

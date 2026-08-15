@@ -85,6 +85,7 @@ class DeskIoOverviewScreen(
         val bottomY = height - 28
         addRenderableWidget(
             Button.builder(Component.literal("Refresh")) {
+                DeskIoOverviewClient.preferCategory(category)
                 PacketDistributor.sendToServer(RequestDeskIoOverviewPayload(origin))
             }.bounds(left, bottomY, 80, 20).build()
         )

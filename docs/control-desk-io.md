@@ -2,17 +2,25 @@
 
 CC-Aeroworks uses one shared cockpit I/O model for Aeroworks controls, programmable displays, information sources and ComputerControlDesk wire outputs. The model is server-authoritative and references the existing subsystem owners instead of persisting duplicate runtime state.
 
-## Configuration entry
+## Computer navigation
 
-Sneak + empty-hand right-click on any ControlDesk in a network with an embedded ComputerControlDesk opens the CC-Aeroworks I/O overview. The client sends only the desk position; the server validates reach, interaction permission and the active multiblock before returning a compact snapshot.
+When the embedded ComputerControlDesk was opened from an Aeroworks control context, three CC:Tweaked-style vertical sidebar segments are placed below the native Power/Terminate sidebar:
 
-Networks without an embedded computer retain Aeroworks' native configuration flow.
+- `Controls` returns to Aeroworks' exact saved control context;
+- `Channels` requests a fresh server snapshot and opens the channel view;
+- `Information Sources` requests the same snapshot and opens the information view.
+
+The Channels and Information Sources entries do not cache world state client-side. Their server request repeats the normal reach, permission and active-network validation. Refresh preserves the selected category.
+
+Sneak + empty-hand right-click on a desk in a network with an embedded ComputerControlDesk remains a direct entry into the complete CC-Aeroworks I/O overview. Networks without an embedded computer retain Aeroworks' native configuration flow.
+
+## Overview categories
 
 The overview has four categories:
 
 - `control`: Aeroworks control modules plus user-defined logical channel groups;
 - `display`: normal and radar display modules plus their content/input binding;
-- `information`: Display Link telemetry, storage connections and radar-network ingress sources;
+- `information`: Display Links, storage connections, Radar Data Links and radar Network Controllers/Filterers;
 - `output`: persistent ComputerControlDesk wire/redstone channels.
 
 Display modules are never reported as controls merely because large-display pointer movement internally reuses Aeroworks ControlChannels.
@@ -45,9 +53,15 @@ The active ControlDesk peripheral graph is scanned for peripherals advertising `
 
 The overview does not copy inventory contents. Programs continue to access the actual peripheral through the existing hierarchical `peripherals` API.
 
-### Radar networks
+### Radar Data Links
 
-Every radar ingress visible through `RadarSourceRegistry` is also exposed as an information source with its Data-Link/desk ingress, radar position when known and current link status. The existing Create: Radars network remains authoritative.
+Every radar ingress visible through `RadarSourceRegistry` is exposed as a `radar_data_link` source. It identifies the desk endpoint, status and radar position when Create: Radars has assigned one.
+
+### Radar Network Controller / Filterer
+
+For each Data Link endpoint, CC-Aeroworks queries Create: Radars' authoritative `NetworkData.getFiltererForEndpoint(...)`. Each distinct returned Filterer becomes a `radar_network_controller` information source. Multiple Data Links attached to the same Filterer therefore do not manufacture duplicate controller rows.
+
+The topology helper is optional-mod guarded and stores no parallel link database. If Create: Radars is absent or its endpoint lookup is unavailable, no controller source is invented.
 
 ## Compact client snapshot
 
@@ -58,7 +72,7 @@ The GUI does not receive complete telemetry or storage payloads. The client snap
 - grouped control-channel names and current values;
 - user-group members and availability;
 - display content/input binding and available radar ingress choices;
-- information-source type, status and short summary;
+- information-source type, topology/status and short summary;
 - wire value, backend, enabled state and connection count.
 
 The packet is capped at 256 KiB and is refreshed explicitly after configuration changes or with the Refresh button.
@@ -116,6 +130,8 @@ Storage attachments use stable desk identity plus attachment side:
 storage:<desk-id>:<side>
 ```
 
+Radar Data Links retain the stable `RadarSourceRegistry` source identity. Radar Network Controller rows use dimension plus Filterer block position because that position is Create: Radars' network key.
+
 ## Orthogonal display bindings
 
 Display configuration keeps two independent axes:
@@ -133,7 +149,7 @@ Existing saves using the former one-of radar/script-handler binding format migra
 
 `rom/autorun/cc_aeroworks_display_runtime.lua` remains responsible for configured display controller modules and touch handlers. It consumes the shared `deskio` model and refreshes when `cc_aeroworks_display_binding_changed` is published.
 
-## Wire outputs
+## Wire outputs and control authority
 
 Wire definitions remain owned by `WireChannelBank`; the existing `wires` command still creates, renames and removes virtual hardware channels. Runtime code may use either the low-level `wires` API or the logical `channels.setWire` / `channels.pulseWire` / `channels.resetWire` methods.
 

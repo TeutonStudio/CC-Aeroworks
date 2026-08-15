@@ -10,10 +10,7 @@ import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Tooltip
 import net.minecraft.network.chat.Component
 
-/**
- * Geometry and rendering for the third ComputerControlDesk sidebar action.
- * The background deliberately reuses CC:Tweaked's family-specific sidebar sprite.
- */
+/** CC:Tweaked-style vertical navigation for ComputerControlDesk-specific pages. */
 object ControlDeskComputerSidebar {
     private const val TAB_GAP = 2
     private const val TAB_HEIGHT = 22
@@ -25,11 +22,22 @@ object ControlDeskComputerSidebar {
         CCAeroworks.id("buttons/control_desk_controls"),
         CCAeroworks.id("buttons/control_desk_controls_hover")
     )
+    private val CHANNELS_TEXTURES = GuiSprites.ButtonTextures(
+        CCAeroworks.id("buttons/control_desk_channels"),
+        CCAeroworks.id("buttons/control_desk_channels_hover")
+    )
+    private val SOURCES_TEXTURES = GuiSprites.ButtonTextures(
+        CCAeroworks.id("buttons/control_desk_sources"),
+        CCAeroworks.id("buttons/control_desk_sources_hover")
+    )
 
     data class Layout(val x: Int, val y: Int)
 
-    fun layout(leftPos: Int, topPos: Int, sidebarYOffset: Int): Layout =
-        Layout(leftPos, topPos + sidebarYOffset + ComputerSidebar.HEIGHT + TAB_GAP)
+    fun layout(leftPos: Int, topPos: Int, sidebarYOffset: Int, index: Int): Layout =
+        Layout(
+            leftPos,
+            topPos + sidebarYOffset + ComputerSidebar.HEIGHT + TAB_GAP + index * (TAB_HEIGHT + TAB_GAP)
+        )
 
     fun renderBackground(graphics: GuiGraphics, layout: Layout, family: ComputerFamily) {
         val sidebar = GuiSprites.getComputerTextures(family).sidebar() ?: return
@@ -42,16 +50,27 @@ object ControlDeskComputerSidebar {
         )
     }
 
-    fun controlsButton(layout: Layout, onPress: () -> Unit): DynamicImageButton {
-        val label = Component.translatable("guide.cc_aeroworks.tab.controls")
-        return DynamicImageButton(
-            layout.x + ICON_X,
-            layout.y + ICON_Y,
-            ICON_SIZE,
-            ICON_SIZE,
-            CONTROLS_TEXTURES::get,
-            { _ -> onPress() },
-            DynamicImageButton.HintedMessage(label, Tooltip.create(label))
-        )
-    }
+    fun controlsButton(layout: Layout, onPress: () -> Unit): DynamicImageButton =
+        button(layout, CONTROLS_TEXTURES, Component.translatable("guide.cc_aeroworks.tab.controls"), onPress)
+
+    fun channelsButton(layout: Layout, onPress: () -> Unit): DynamicImageButton =
+        button(layout, CHANNELS_TEXTURES, Component.literal("Channels"), onPress)
+
+    fun sourcesButton(layout: Layout, onPress: () -> Unit): DynamicImageButton =
+        button(layout, SOURCES_TEXTURES, Component.literal("Information Sources"), onPress)
+
+    private fun button(
+        layout: Layout,
+        textures: GuiSprites.ButtonTextures,
+        label: Component,
+        onPress: () -> Unit
+    ): DynamicImageButton = DynamicImageButton(
+        layout.x + ICON_X,
+        layout.y + ICON_Y,
+        ICON_SIZE,
+        ICON_SIZE,
+        textures::get,
+        { _ -> onPress() },
+        DynamicImageButton.HintedMessage(label, Tooltip.create(label))
+    )
 }

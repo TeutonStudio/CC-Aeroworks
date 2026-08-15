@@ -17,6 +17,7 @@ inventory = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/io/DeskIo
 api = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerDeskIoLuaApi.kt")
 channels_api = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerChannelsLuaApi.kt")
 channel_model = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/channel/ChannelGroupBank.kt")
+radar_topology = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/createradar/RadarNetworkTopology.kt")
 access = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerConsoleAccess.kt")
 binding = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DisplayBinding.kt")
 telemetry = read("src/main/kotlin/de/teutonstudio/ccaeroworks/telemetry/TelemetryRuntime.kt")
@@ -49,8 +50,14 @@ require("PeripheralNetworkBuilder.build" in inventory and '"storage_connection"'
         "inventory/fluid peripherals must appear as storage information sources")
 require('node.matches("inventory")' in inventory and 'node.matches("fluid_storage")' in inventory,
         "storage source classification must use CC peripheral capabilities")
-require("RadarSourceRegistry.sources" in inventory and '"radar_network"' in inventory,
-        "radar ingress networks must appear as information sources")
+require("RadarSourceRegistry.sources" in inventory and '"radar_data_link"' in inventory,
+        "radar Data Link ingress must appear as an information source")
+require('"radar_network_controller"' in inventory and "RadarNetworkTopology::filtererForEndpoint" in inventory,
+        "Create: Radars network controller/filterer must appear as a distinct information source")
+require("NetworkData" in radar_topology and "getFiltererForEndpoint" in radar_topology,
+        "radar topology bridge must query Create: Radars' authoritative endpoint mapping")
+require("ModList.get().isLoaded(CreateRadarCompat.MOD_ID)" in radar_topology,
+        "radar topology bridge must preserve the optional-mod boundary")
 require("wireBank.describeChannels" in inventory,
         "configured wire/redstone channels must appear as output objects")
 require('"module:${member.id}:$socket"' in inventory,
@@ -158,4 +165,4 @@ require("python3 tools/verify-desk-io-inventory.py" in workflow,
 require((ROOT / "docs/control-desk-io.md").is_file(), "Desk I/O architecture documentation is missing")
 require((ROOT / "docs/channels.md").is_file(), "channel registry documentation is missing")
 
-print("Validated ControlDesk I/O architecture: module-grouped controls, persistent user channel groups, high-level channels API, storage/radar information sources, display routing, wire outputs and CraftOS discovery.")
+print("Validated ControlDesk I/O architecture: module-grouped controls, persistent user channel groups, high-level channels API, Display Link/storage/Data Link/network-controller information sources, display routing, wire outputs and CraftOS discovery.")
