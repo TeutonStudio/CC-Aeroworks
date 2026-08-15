@@ -68,6 +68,9 @@ abstract class AbstractComputerScreenSwitchMixin(
     @Unique
     private var ccaeroworks_lastSourceSnapshotRequest: Long = Long.MIN_VALUE
 
+    @Unique
+    private val ccaeroworks_snapshotIntervalTicks: Long = 20L
+
     @Inject(method = ["init()V"], at = [At("TAIL")])
     private fun ccaeroworks_addDeskTabs(callback: CallbackInfo) {
         val item = menu.displayStack.item
@@ -144,12 +147,12 @@ abstract class AbstractComputerScreenSwitchMixin(
         val now = Minecraft.getInstance().level?.gameTime ?: return
         when (ccaeroworks_page) {
             ComputerDeskPage.CHANNELS -> {
-                if (now - ccaeroworks_lastSnapshotRequest >= SNAPSHOT_INTERVAL_TICKS) {
+                if (now - ccaeroworks_lastSnapshotRequest >= ccaeroworks_snapshotIntervalTicks) {
                     ccaeroworks_requestWireSnapshot(now)
                 }
             }
             ComputerDeskPage.INFORMATION_SOURCES -> {
-                if (now - ccaeroworks_lastSourceSnapshotRequest >= SNAPSHOT_INTERVAL_TICKS) {
+                if (now - ccaeroworks_lastSourceSnapshotRequest >= ccaeroworks_snapshotIntervalTicks) {
                     ccaeroworks_requestInformationSources(now)
                 }
             }
@@ -168,8 +171,6 @@ abstract class AbstractComputerScreenSwitchMixin(
             ccaeroworks_channelName?.isFocused == true &&
             Minecraft.getInstance().options.keyInventory.matches(keyCode, scanCode)
         ) {
-            // charTyped still inserts the character, but the container screen must not interpret
-            // the same physical key as its inventory-close binding while naming hardware.
             callback.returnValue = true
             return
         }
@@ -249,7 +250,6 @@ abstract class AbstractComputerScreenSwitchMixin(
         ccaeroworks_sourcePanel = addRenderableWidget(panel)
     }
 
-    /** Compatibility wrapper retained for the existing Channels-tab contract. */
     @Unique
     private fun ccaeroworks_setChannelMode(enabled: Boolean) {
         ccaeroworks_setPage(if (enabled) ComputerDeskPage.CHANNELS else ComputerDeskPage.TERMINAL)
@@ -333,9 +333,5 @@ abstract class AbstractComputerScreenSwitchMixin(
         PacketDistributor.sendToServer(MutateWireChannelPayload(WireChannelMutation.REMOVE, selected.id, ""))
         ccaeroworks_deleteArmed = null
         ccaeroworks_deleteChannel?.message = Component.literal("Delete")
-    }
-
-    private companion object {
-        const val SNAPSHOT_INTERVAL_TICKS = 20L
     }
 }
