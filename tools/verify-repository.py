@@ -253,7 +253,6 @@ def verify_lua_examples() -> None:
         "assert(next(desks)": "first-match-only desk assumption",
     }
     deprecated_patterns = {
-        "aeroworks.": "removed global aeroworks API",
         "cc_aeroworks_multiblock_input": "removed legacy multiblock input event",
         "setDeskDisplay": "removed network-wide display facade",
         "clearDeskDisplay": "removed network-wide display facade",
@@ -262,6 +261,8 @@ def verify_lua_examples() -> None:
     for filename, content in scripts.items():
         violations = [description for pattern, description in brittle_patterns.items() if pattern in content]
         violations += [description for pattern, description in deprecated_patterns.items() if pattern in content]
+        if re.search(r"(?<![A-Za-z0-9_])aeroworks\.", content):
+            violations.append("removed global aeroworks API")
         if violations:
             fail(f"{filename} contains brittle or deprecated example logic: {', '.join(sorted(set(violations)))}")
 
