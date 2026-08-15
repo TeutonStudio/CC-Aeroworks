@@ -40,7 +40,7 @@ def main() -> int:
     )
     require(
         "ControlDeskUiSwitchState.remember(event)" in handler,
-        "Native configuration click no longer establishes the server UI-switch session",
+        "Native configuration click no longer establishes the fallback server UI-switch session",
     )
 
     forbidden = (
@@ -65,8 +65,8 @@ def main() -> int:
         "Aeroworks ModuleScreen no longer captures its exact return socket",
     )
     require(
-        "SwitchControlDeskUiPayload()" in switch,
-        "Aeroworks ModuleScreen no longer provides the embedded-computer switch",
+        "SwitchControlDeskUiPayload(current.be().blockPos)" in switch,
+        "Aeroworks ModuleScreen must switch to the embedded computer using its current desk anchor",
     )
     require(
         '"aeroworks.ponder.console_configure.text_1": "Schleichen und rechtsklicken, um die Konfiguration zu öffnen"'
@@ -76,7 +76,7 @@ def main() -> int:
 
     print(
         "Validated native ControlDesk ownership: sneak + empty-hand right-click remains Aeroworks, "
-        "wrench input is not intercepted, and the ModuleScreen computer switch retains its session."
+        "wrench input is not intercepted, and ModuleScreen sends its exact desk anchor to the computer switch."
     )
     return 0
 
