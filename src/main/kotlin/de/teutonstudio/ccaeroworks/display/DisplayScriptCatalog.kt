@@ -52,8 +52,10 @@ object DisplayScriptCatalog {
         if (!force && existing != null && tick - existing.tick in 0..CACHE_TICKS) return existing.entries
 
         val computer = owner.getServerComputer() ?: owner.createServerComputer()
-        val entries = runCatching { scanMount(computer.createRootMount()) }
-            .getOrElse { emptyList() }
+        val entries = runCatching {
+            val rootMount = computer.createRootMount() ?: return@runCatching emptyList()
+            scanMount(rootMount)
+        }.getOrElse { emptyList() }
         cache[owner] = Cached(tick, entries)
         return entries
     }
