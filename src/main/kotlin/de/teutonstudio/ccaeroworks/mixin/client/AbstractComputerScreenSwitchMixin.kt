@@ -117,12 +117,22 @@ abstract class AbstractComputerScreenSwitchMixin(
     }
 
     @Inject(method = ["keyPressed(III)Z"], at = [At("HEAD")], cancellable = true)
-    private fun ccaeroworks_escapeChannelManager(
+    private fun ccaeroworks_handleChannelKeys(
         keyCode: Int,
         scanCode: Int,
         modifiers: Int,
         callback: CallbackInfoReturnable<Boolean>
     ) {
+        if (ccaeroworks_page == ComputerDeskPage.CHANNELS &&
+            ccaeroworks_channelName?.isFocused == true &&
+            Minecraft.getInstance().options.keyInventory.matches(keyCode, scanCode)
+        ) {
+            // The EditBox still receives charTyped, but AbstractContainerScreen must not interpret
+            // the same physical key as "close inventory" while the player is naming hardware.
+            callback.returnValue = true
+            return
+        }
+
         if (ccaeroworks_page == ComputerDeskPage.TERMINAL || keyCode != GLFW.GLFW_KEY_ESCAPE) return
         ccaeroworks_setPage(ComputerDeskPage.TERMINAL)
         callback.returnValue = true

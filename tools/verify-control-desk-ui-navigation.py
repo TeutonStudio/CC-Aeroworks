@@ -15,6 +15,7 @@ computer = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/Abstra
 computer_accessor = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/AbstractComputerScreenAccessor.kt")
 computer_page = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/ComputerDeskPage.kt")
 state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ControlDeskUiSwitchState.kt")
+switch_payload = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/SwitchControlDeskUiPayload.kt")
 client_nav = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/ControlDeskUiClientNavigation.kt")
 aero_buttons = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/ControlDeskNavigationButtons.kt")
 cc_sidebar = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/ControlDeskComputerSidebar.kt")
@@ -48,6 +49,23 @@ require('@Accessor("windowLeft")' in overview_accessor and "ccaeroworks_getWindo
         "ConsoleScreen must expose its exact native windowLeft geometry")
 require("accessor.ccaeroworks_getWindowLeft()" in overview,
         "ConsoleScreen PC button must anchor to the native windowLeft")
+
+# The computer transition must carry the currently visible desk anchor. A previous right-click is
+# not authoritative enough: it can differ by face/member from the screen the player is using now.
+require("data class SwitchControlDeskUiPayload" in switch_payload and "val anchorPos: BlockPos" in switch_payload,
+        "computer UI switch payload must carry an explicit desk anchor")
+require("buffer.writeBlockPos(payload.anchorPos)" in switch_payload and "buffer.readBlockPos()" in switch_payload,
+        "computer UI switch payload must serialize its desk anchor")
+require("SwitchControlDeskUiPayload(current.be().blockPos)" in module,
+        "detail screen must send its current ConsoleSocket desk position")
+require("SwitchControlDeskUiPayload(console.blockPos)" in overview,
+        "overview screen must send its current ConsoleBlockEntity position")
+require("switchToComputer(player, payload.anchorPos)" in switch_payload,
+        "server must validate the explicit anchor instead of relying on stale click state")
+require("validateAnchorAndResolveOwner" in state and "sessions[player.uuid] = Session" in state,
+        "validated explicit UI anchors must refresh the server session used by computer sub-pages")
+require("snapshot.members.any" in state,
+        "server interaction distance must accept the player standing by any member of the same desk multiblock")
 
 # Catnip generic callback must keep explicit widget type.
 require("withCallback<HoverTintIconButton>(callback)" in aero_buttons,
@@ -87,6 +105,8 @@ require('@Accessor("terminal")' in computer_accessor,
         "Computer screen mixin must access the native terminal widget instead of guessing its geometry")
 require("WIRE CHANNELS" in channel_widget,
         "channel work area must be a dedicated CC-style management list")
+require("options.keyInventory.matches(keyCode, scanCode)" in computer,
+        "focused channel-name input must consume the configured inventory key instead of hard-coding E")
 
 # Sponge Mixin reserves the configured mixin package tree. Ordinary runtime helpers must not be
 # emitted there: loading such a helper from an applied screen mixin can trigger IllegalClassLoadError.
@@ -115,4 +135,4 @@ require("Inspect Aeroworks navigation layouts" not in workflow and "Inspect Aero
 require("python3 tools/verify-control-desk-ui-navigation.py" in workflow,
         "workflow must enforce UI navigation contract")
 
-print("Validated symmetric ControlDesk navigation plus stacked CC-style Controls/Channels work-area tabs without disturbing Aeroworks' native action geometry or leaking runtime helpers into the Mixin package.")
+print("Validated explicit server-checked ComputerControlDesk anchors, keyboard-safe channel editing, symmetric ControlDesk navigation and no runtime helper leakage into the Mixin package.")

@@ -30,7 +30,7 @@ abstract class ConsoleScreenSwitchMixin(title: Component) : Screen(title) {
             accessor.ccaeroworks_getWindowLeft(),
             Runnable {
                 ControlDeskUiSwitchState.rememberClientOverview(console)
-                PacketDistributor.sendToServer(SwitchControlDeskUiPayload())
+                PacketDistributor.sendToServer(SwitchControlDeskUiPayload(console.blockPos))
             }
         ) ?: return
 

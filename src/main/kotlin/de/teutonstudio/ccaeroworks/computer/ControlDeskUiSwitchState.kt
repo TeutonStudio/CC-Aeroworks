@@ -2,6 +2,7 @@ package de.teutonstudio.ccaeroworks.computer
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import com.mred231.aeroworks.content.controls.ConsoleSocket
+import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import net.minecraft.core.BlockPos
@@ -13,8 +14,9 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Keeps the server-authoritative desk session used for switching into the embedded
- * computer and a client-side return context for Aeroworks' configuration screens.
+ * Keeps the server-authoritative desk session used by ComputerControlDesk sub-pages and a
+ * client-side return context for Aeroworks' configuration screens. UI switching itself carries the
+ * current desk anchor explicitly, so it never depends on whichever right-click happened previously.
  */
 object ControlDeskUiSwitchState {
     private data class Session(
@@ -53,10 +55,7 @@ object ControlDeskUiSwitchState {
         }
 
         val player = event.entity as? ServerPlayer ?: return
-        sessions[player.uuid] = Session(
-            event.level.dimension(),
-            event.pos.immutable()
-        )
+        sessions[player.uuid] = Session(event.level.dimension(), event.pos.immutable())
     }
 
     @JvmStatic
@@ -133,23 +132,56 @@ object ControlDeskUiSwitchState {
     @JvmStatic
     fun activeComputerDesk(player: ServerPlayer): ComputerControlDeskBlockEntity? {
         val session = validSession(player) ?: return null
-        val level = player.serverLevel()
-        (level.getBlockEntity(session.pos) as? ComputerControlDeskBlockEntity)?.let { return it }
-        val snapshot = ConsoleMultiblockManager.resolve(level, session.pos)
-        if (snapshot.state != ConsoleNetworkState.ACTIVE) return null
-        return snapshot.owner
+        return resolveOwner(player, session.pos)
     }
 
+    /**
+     * Switch using the exact desk anchor from the currently visible Aeroworks screen. Successful
+     * validation also refreshes the server session used by channel/source snapshot requests.
+     */
+    @JvmStatic
+    fun switchToComputer(player: ServerPlayer, anchorPos: BlockPos): Boolean {
+        val owner = validateAnchorAndResolveOwner(player, anchorPos) ?: return false
+        val level = player.serverLevel()
+        sessions[player.uuid] = Session(level.dimension(), anchorPos.immutable())
+        val direct = level.getBlockEntity(anchorPos) as? ComputerControlDeskBlockEntity
+        return if (direct != null) direct.openTerminal(player, direct = true) else owner.openTerminal(player)
+    }
+
+    /** Legacy fallback retained for callers which already established a validated server session. */
     @JvmStatic
     fun switchToComputer(player: ServerPlayer): Boolean {
         val session = validSession(player) ?: return false
-        val level = player.serverLevel()
-        val direct = level.getBlockEntity(session.pos) as? ComputerControlDeskBlockEntity
-        if (direct != null) return direct.openTerminal(player, direct = true)
+        return switchToComputer(player, session.pos)
+    }
 
-        val snapshot = ConsoleMultiblockManager.resolve(level, session.pos)
-        if (snapshot.state != ConsoleNetworkState.ACTIVE) return false
-        return snapshot.owner?.openTerminal(player) == true
+    private fun validateAnchorAndResolveOwner(
+        player: ServerPlayer,
+        anchorPos: BlockPos
+    ): ComputerControlDeskBlockEntity? {
+        val level = player.serverLevel()
+        if (!level.hasChunkAt(anchorPos) || !level.mayInteract(player, anchorPos)) return null
+        if (!AeroworksTypes.isControlDesk(level.getBlockState(anchorPos).block)) return null
+
+        val snapshot = ConsoleMultiblockManager.resolve(level, anchorPos)
+        val direct = level.getBlockEntity(anchorPos) as? ComputerControlDeskBlockEntity
+        val owner = direct ?: snapshot.owner ?: return null
+        if (direct == null && snapshot.state != ConsoleNetworkState.ACTIVE) return null
+
+        val maximumDistance = player.blockInteractionRange() + 1.0
+        val maxDistanceSqr = maximumDistance * maximumDistance
+        val inRange = player.distanceToSqr(anchorPos.center) <= maxDistanceSqr ||
+            snapshot.members.any { player.distanceToSqr(it.pos.center) <= maxDistanceSqr }
+        if (!inRange) return null
+        return owner
+    }
+
+    private fun resolveOwner(player: ServerPlayer, pos: BlockPos): ComputerControlDeskBlockEntity? {
+        val level = player.serverLevel()
+        (level.getBlockEntity(pos) as? ComputerControlDeskBlockEntity)?.let { return it }
+        val snapshot = ConsoleMultiblockManager.resolve(level, pos)
+        if (snapshot.state != ConsoleNetworkState.ACTIVE) return null
+        return snapshot.owner
     }
 
     private fun validSession(player: ServerPlayer): Session? {
@@ -160,13 +192,14 @@ object ControlDeskUiSwitchState {
             return null
         }
         if (!level.hasChunkAt(session.pos) || !level.mayInteract(player, session.pos)) return null
-        if (!de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes.isControlDesk(
-                level.getBlockState(session.pos).block
-            )
-        ) return null
+        if (!AeroworksTypes.isControlDesk(level.getBlockState(session.pos).block)) return null
 
+        val snapshot = ConsoleMultiblockManager.resolve(level, session.pos)
         val maximumDistance = player.blockInteractionRange() + 1.0
-        if (player.distanceToSqr(session.pos.center) > maximumDistance * maximumDistance) return null
+        val maxDistanceSqr = maximumDistance * maximumDistance
+        if (player.distanceToSqr(session.pos.center) > maxDistanceSqr &&
+            snapshot.members.none { player.distanceToSqr(it.pos.center) <= maxDistanceSqr }
+        ) return null
         return session
     }
 }
