@@ -702,6 +702,14 @@ function Runtime:switchApp(pathOrSpec)
     self:drawFull()
 end
 
+function Runtime:dispose()
+    if self.root then disposeNode(self, self.root) end
+    self.root = nil
+    self.nodes = {}
+    self.components = {}
+    native.clearFrame(self.deskId, self.socket)
+end
+
 function Runtime:applyInvalidations(invalidations)
     local relevant = {}
     local needsRelayout = false
@@ -793,21 +801,23 @@ function Runtime:getInfo()
     return { deskId=self.deskId,socket=self.socket,width=self.width,height=self.height,app=self.appPath }
 end
 
+local function loadController(path)
+    if not path or path == "" then return nil end
+    local controller = controllerCache[path]
+    if controller ~= nil then return controller end
+    local ok, value = pcall(loadModule,path)
+    controller = ok and value or false
+    controllerCache[path] = controller
+    if not ok then printError(tostring(value)) end
+    return controller
+end
+
 local function newRuntime(display, spec)
     local runtime = setmetatable({
         deskId=display.deskId, socket=display.socket, width=display.width, height=display.height,
         id="display:"..display.deskId..":"..tostring(display.socket), nodes={}, components={}, controller=nil
     },Runtime)
-    if display.controller and display.controller ~= "" then
-        local controller = controllerCache[display.controller]
-        if controller == nil then
-            local ok, value = pcall(loadModule,display.controller)
-            controller = ok and value or false
-            controllerCache[display.controller] = controller
-            if not ok then printError(tostring(value)) end
-        end
-        runtime.controller = controller
-    end
+    runtime.controller = loadController(display.controller)
     runtime:switchApp(spec)
     return runtime
 end
@@ -861,12 +871,28 @@ end
 function ui.supervise()
     local runtimes = {}
     local function key(deskId,socket) return tostring(deskId)..":"..tostring(socket) end
-    for _, display in ipairs(native.listDisplays()) do
-        if display.bootProgram and display.bootProgram ~= "" then
-            local ok, value = pcall(loadModule,display.bootProgram)
-            if ok then runtimes[key(display.deskId,display.socket)] = newRuntime(display,asApp(value))
-            else printError(tostring(value)) end
+
+    local function descriptor(deskId,socket,controller,bootProgram)
+        for _, display in ipairs(native.listDisplays()) do
+            if display.deskId == deskId and display.socket == socket then
+                display.controller = controller ~= nil and controller or display.controller
+                display.bootProgram = bootProgram ~= nil and bootProgram or display.bootProgram
+                return display
+            end
         end
+        return nil
+    end
+
+    local function start(display)
+        if not display or not display.bootProgram or display.bootProgram == "" then return nil end
+        local ok, value = pcall(loadModule,display.bootProgram)
+        if not ok then printError(tostring(value)); return nil end
+        return newRuntime(display,asApp(value))
+    end
+
+    for _, display in ipairs(native.listDisplays()) do
+        local runtime = start(display)
+        if runtime then runtimes[key(display.deskId,display.socket)] = runtime end
     end
 
     local function distribute(invalidations)
@@ -882,6 +908,14 @@ function ui.supervise()
         elseif name == "cc_aeroworks_telemetry_added" or name == "cc_aeroworks_telemetry_changed" or name == "cc_aeroworks_telemetry_removed" then
             native.changed("telemetry:"..tostring(event[2])); native.changed("telemetry:*")
             distribute(consumeReactiveInvalidations())
+        elseif name == "cc_aeroworks_display_application_changed" then
+            local deskId, socket = event[2], event[4]
+            local runtimeKeyValue = key(deskId,socket)
+            local old = runtimes[runtimeKeyValue]
+            if old then old:dispose(); runtimes[runtimeKeyValue] = nil end
+            local display = descriptor(deskId,socket,event[6],event[7])
+            local replacement = start(display)
+            if replacement then runtimes[runtimeKeyValue] = replacement end
         elseif name == "cc_aeroworks_console_display_input" then
             local runtime = runtimes[key(event[2],event[4])]
             if runtime then
