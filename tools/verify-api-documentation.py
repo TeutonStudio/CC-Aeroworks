@@ -25,8 +25,8 @@ LUA_FUNCTION = re.compile(
     r"@LuaFunction(?:\([^)]*\))?\s+fun\s+`?([A-Za-z0-9_]+)`?\s*\(",
     re.MULTILINE,
 )
-DOC_METHOD = re.compile(r'ApiMethodDocumentation\("([^"]+)"')
-DOC_EVENT = re.compile(r'ApiEventDocumentation\("(cc_aeroworks_[^"]+)"')
+DOC_METHOD = re.compile(r'ApiMethodDocumentation\(\s*"([^"]+)"', re.MULTILINE)
+DOC_EVENT = re.compile(r'ApiEventDocumentation\(\s*"(cc_aeroworks_[^"]+)"', re.MULTILINE)
 MODULE_START = re.compile(r'id\s*=\s*"([a-z_]+)"')
 SUMMARY_KEY = re.compile(r'summaryKey\s*=\s*"([^"]+)"')
 
