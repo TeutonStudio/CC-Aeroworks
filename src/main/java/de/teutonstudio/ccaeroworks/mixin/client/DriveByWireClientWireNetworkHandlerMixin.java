@@ -2,8 +2,7 @@ package de.teutonstudio.ccaeroworks.mixin.client;
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity;
 import de.teutonstudio.ccaeroworks.client.DriveByWireDeskEndpoint;
-import de.teutonstudio.ccaeroworks.client.DriveByWireDeskSelection;
-import de.teutonstudio.ccaeroworks.client.DriveByWireDeskSelectionResolver;
+import de.teutonstudio.ccaeroworks.client.DriveByWireDeskSelectionSession;
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockDisplayBounds;
 import net.createmod.catnip.data.Pair;
 import net.createmod.catnip.outliner.Outliner;
@@ -25,20 +24,17 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Makes every active ComputerControlDesk multiblock one scrollable DBW catalogue. Each endpoint
- * keeps its native physical source position, while user channels use the computer owner position.
+ * Treats one active ControlDesk multiblock as a logical DBW source while retaining the exact
+ * physical endpoint expected by Drive By Wire's server protocol.
  */
 @Pseudo
-@Mixin(targets = "edn.stratodonut.drivebywire.client.ClientWireNetworkHandler", remap = false)
+@Mixin(targets = "edn.stratodonut.drivebywire.client.ClientWireNetworkHandler", remap = false, priority = 2000)
 public abstract class DriveByWireClientWireNetworkHandlerMixin {
     @Shadow
     private static BlockPos selectedSource;
 
     @Shadow
     private static String currentChannel;
-
-    @Unique
-    private static BlockPos ccaeroworks$selectionAnchor;
 
     @Inject(method = "handleWireUse", at = @At("HEAD"), cancellable = true, require = 0)
     private static void ccaeroworks$handleDeskMultiblockSource(
@@ -50,34 +46,24 @@ public abstract class DriveByWireClientWireNetworkHandlerMixin {
         final CallbackInfo ci
     ) {
         if (selectedSource == null) {
-            final DriveByWireDeskSelection selection = DriveByWireDeskSelectionResolver.INSTANCE.resolve(level, pos);
-            if (selection == null) {
-                return;
-            }
-            final DriveByWireDeskEndpoint endpoint = selection.startAt(pos);
+            final DriveByWireDeskEndpoint endpoint =
+                DriveByWireDeskSelectionSession.INSTANCE.begin(level, pos);
             if (endpoint == null) {
-                player.displayClientMessage(Component.literal("No Drive By Wire channels on this control desk network."), true);
-                ci.cancel();
                 return;
             }
-
-            ccaeroworks$selectionAnchor = selection.getAnchor();
-            selectedSource = endpoint.getSourcePos().immutable();
-            currentChannel = endpoint.getChannel();
-            player.displayClientMessage(
-                Component.translatable("drivebywire.wire.channel.selected", Component.literal(currentChannel)),
-                true
-            );
+            ccaeroworks$mirrorEndpoint(endpoint);
+            ccaeroworks$showChannel(player, endpoint.getChannel());
             ci.cancel();
             return;
         }
 
-        if (ccaeroworks$selectionAnchor == null) {
+        if (!DriveByWireDeskSelectionSession.INSTANCE.isActive()) {
             return;
         }
-        final DriveByWireDeskSelection selection =
-            DriveByWireDeskSelectionResolver.INSTANCE.resolve(level, ccaeroworks$selectionAnchor);
-        if (selection == null || !selection.contains(selectedSource, currentChannel)) {
+
+        final DriveByWireDeskEndpoint endpoint =
+            DriveByWireDeskSelectionSession.INSTANCE.current(level);
+        if (endpoint == null) {
             ccaeroworks$clearDeskSelection();
             player.displayClientMessage(
                 Component.literal("The selected control-desk channel is no longer available. Select the source again."),
@@ -87,14 +73,17 @@ public abstract class DriveByWireClientWireNetworkHandlerMixin {
             return;
         }
 
-        // The visual source is the complete multiblock, so clicking any of its members again clears
-        // the source instead of accidentally wiring one desk segment into another segment.
-        if (selection.getMemberPositions().contains(pos)) {
+        // Every real member is part of the selected logical source. Clicking the source again clears
+        // it instead of creating a nonsensical connection from one segment of the desk to another.
+        if (DriveByWireDeskSelectionSession.INSTANCE.containsMember(level, pos)) {
             ccaeroworks$clearDeskSelection();
             ci.cancel();
+            return;
         }
-        // Otherwise the original DBW method sends its connection packet with the currently selected
-        // physical source position/channel. We deliberately do not replace that server protocol.
+
+        // Let DBW create/remove its normal packet, but only after mirroring the current physical
+        // endpoint. The logical multiblock session itself remains stable while scrolling.
+        ccaeroworks$mirrorEndpoint(endpoint);
     }
 
     @Inject(method = "changeChannel", at = @At("HEAD"), cancellable = true, require = 0)
@@ -103,40 +92,34 @@ public abstract class DriveByWireClientWireNetworkHandlerMixin {
         final boolean forward,
         final CallbackInfo ci
     ) {
-        if (ccaeroworks$selectionAnchor == null || selectedSource == null) {
+        if (!DriveByWireDeskSelectionSession.INSTANCE.isActive()) {
             return;
         }
         final Minecraft minecraft = Minecraft.getInstance();
         final Level level = minecraft.level;
         if (level == null) {
-            return;
-        }
-
-        final DriveByWireDeskSelection selection =
-            DriveByWireDeskSelectionResolver.INSTANCE.resolve(level, ccaeroworks$selectionAnchor);
-        final DriveByWireDeskEndpoint endpoint = selection == null
-            ? null
-            : selection.next(selectedSource, currentChannel, forward);
-        if (endpoint == null) {
             ccaeroworks$clearDeskSelection();
             ci.cancel();
             return;
         }
 
-        selectedSource = endpoint.getSourcePos().immutable();
-        currentChannel = endpoint.getChannel();
+        final DriveByWireDeskEndpoint endpoint =
+            DriveByWireDeskSelectionSession.INSTANCE.cycle(level, forward);
+        if (endpoint == null) {
+            ccaeroworks$clearDeskSelection();
+            ci.cancel();
+            return;
+        }
+        ccaeroworks$mirrorEndpoint(endpoint);
         if (minecraft.player != null) {
-            minecraft.player.displayClientMessage(
-                Component.translatable("drivebywire.wire.channel.selected", Component.literal(currentChannel)),
-                true
-            );
+            ccaeroworks$showChannel(minecraft.player, endpoint.getChannel());
         }
         ci.cancel();
     }
 
     @Inject(method = "clearSource", at = @At("TAIL"), require = 0)
-    private static void ccaeroworks$clearDeskAnchor(final CallbackInfo ci) {
-        ccaeroworks$selectionAnchor = null;
+    private static void ccaeroworks$clearDeskSession(final CallbackInfo ci) {
+        DriveByWireDeskSelectionSession.INSTANCE.clear();
     }
 
     @Inject(method = "drawOutline", at = @At("HEAD"), cancellable = true, require = 0)
@@ -146,24 +129,47 @@ public abstract class DriveByWireClientWireNetworkHandlerMixin {
         final int color,
         final CallbackInfo ci
     ) {
-        if (!(level.getBlockEntity(pos) instanceof ConsoleBlockEntity)) {
+        if (!DriveByWireDeskSelectionSession.INSTANCE.isActive()) {
             return;
         }
-        final AABB bounds = ConsoleMultiblockDisplayBounds.resolve(level, pos);
+        final DriveByWireDeskEndpoint endpoint =
+            DriveByWireDeskSelectionSession.INSTANCE.current(level);
+        if (endpoint == null || !endpoint.getSourcePos().equals(pos)) {
+            return;
+        }
+        final BlockPos anchor = DriveByWireDeskSelectionSession.INSTANCE.anchor(level);
+        if (anchor == null || !(level.getBlockEntity(anchor) instanceof ConsoleBlockEntity)) {
+            return;
+        }
+        final AABB bounds = ConsoleMultiblockDisplayBounds.resolve(level, anchor);
         if (bounds == null) {
             return;
         }
         Outliner.getInstance()
-            .showAABB(Pair.of("ccaeroworksWireDesk", pos), bounds)
+            .showAABB(Pair.of("ccaeroworksWireDesk", anchor), bounds)
             .colored(color)
             .lineWidth(0.0625F);
         ci.cancel();
     }
 
     @Unique
+    private static void ccaeroworks$mirrorEndpoint(final DriveByWireDeskEndpoint endpoint) {
+        selectedSource = endpoint.getSourcePos().immutable();
+        currentChannel = endpoint.getChannel();
+    }
+
+    @Unique
+    private static void ccaeroworks$showChannel(final Player player, final String channel) {
+        player.displayClientMessage(
+            Component.translatable("drivebywire.wire.channel.selected", Component.literal(channel)),
+            true
+        );
+    }
+
+    @Unique
     private static void ccaeroworks$clearDeskSelection() {
         selectedSource = null;
         currentChannel = "world";
-        ccaeroworks$selectionAnchor = null;
+        DriveByWireDeskSelectionSession.INSTANCE.clear();
     }
 }

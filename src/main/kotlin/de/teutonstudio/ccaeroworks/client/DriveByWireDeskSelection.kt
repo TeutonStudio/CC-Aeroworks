@@ -3,7 +3,7 @@ package de.teutonstudio.ccaeroworks.client
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.compat.drivebywire.NativeDriveByWireChannel
 import de.teutonstudio.ccaeroworks.compat.drivebywire.NativeDriveByWireChannels
-import de.teutonstudio.ccaeroworks.input.CombinedInputSource
+import de.teutonstudio.ccaeroworks.computer.channel.ControlChannelSemantics
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import net.minecraft.core.BlockPos
@@ -18,6 +18,7 @@ data class DriveByWireDeskEndpoint(
 data class DriveByWireDeskSelection(
     val anchor: BlockPos,
     val ownerPos: BlockPos,
+    val revision: Long,
     val memberPositions: Set<BlockPos>,
     val endpoints: List<DriveByWireDeskEndpoint>
 ) {
@@ -28,6 +29,9 @@ data class DriveByWireDeskSelection(
 
     fun contains(sourcePos: BlockPos, channel: String): Boolean =
         endpoints.any { it.sourcePos == sourcePos && it.channel == channel }
+
+    fun endpoint(sourcePos: BlockPos, channel: String): DriveByWireDeskEndpoint? =
+        endpoints.firstOrNull { it.sourcePos == sourcePos && it.channel == channel }
 
     fun next(sourcePos: BlockPos, channel: String, forward: Boolean): DriveByWireDeskEndpoint? {
         if (endpoints.isEmpty()) return null
@@ -42,9 +46,9 @@ data class DriveByWireDeskSelection(
  * One scrollable DBW catalogue for the complete active ControlDesk multiblock.
  *
  * Native entries come straight from Aeroworks ConsoleWireChannels and retain their physical member
- * position. Display-pointer x/y channels are removed individually by resolving their socket back to
- * the mounted module. User-defined ComputerControlDesk channels are appended exactly once at the
- * owner position, matching WireChannelBank's server-side signal source.
+ * position. Display-pointer x/y channels are excluded by the shared control-channel semantics.
+ * User-defined ComputerControlDesk channels are appended exactly once at the owner position,
+ * matching WireChannelBank's server-side signal source.
  */
 object DriveByWireDeskSelectionResolver {
     fun resolve(level: Level, anyMember: BlockPos): DriveByWireDeskSelection? {
@@ -75,6 +79,7 @@ object DriveByWireDeskSelectionResolver {
         return DriveByWireDeskSelection(
             anchor = snapshot.anchor.immutable(),
             ownerPos = owner.blockPos.immutable(),
+            revision = snapshot.revision,
             memberPositions = snapshot.members.mapTo(linkedSetOf()) { it.pos.immutable() },
             endpoints = endpoints
         )
@@ -88,6 +93,6 @@ object DriveByWireDeskSelectionResolver {
             .takeIf { it in 0 until desk.socketCount() }
             ?.let(desk::module)
             ?: return@filter false
-        !CombinedInputSource.isDisplayPointerModule(module)
+        ControlChannelSemantics.isDriveByWireExposed(module, channel.channelId)
     }
 }

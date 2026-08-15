@@ -1,6 +1,7 @@
 package de.teutonstudio.ccaeroworks.compat.drivebywire
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import de.teutonstudio.ccaeroworks.computer.channel.ControlChannelSemantics
 import net.neoforged.fml.ModList
 import java.lang.reflect.Method
 
@@ -47,20 +48,35 @@ object NativeDriveByWireChannels {
         }.getOrNull()
     }
 
+    fun parse(id: String): NativeDriveByWireChannel? {
+        val resolved = access ?: return null
+        val parsed = runCatching { resolved.parse.invoke(null, id) }.getOrNull() ?: return null
+        val socket = (runCatching { resolved.socket.invoke(parsed) }.getOrNull() as? Number)?.toInt()
+            ?: return null
+        val channelId = runCatching { resolved.channelId.invoke(parsed) }.getOrNull()?.toString()
+            ?.takeIf(String::isNotBlank)
+            ?: return null
+        val sign = (runCatching { resolved.sign.invoke(parsed) }.getOrNull() as? Number)?.toInt()
+            ?: return null
+        return NativeDriveByWireChannel(id, socket, channelId, sign)
+    }
+
     fun channels(desk: ConsoleBlockEntity): List<NativeDriveByWireChannel> {
         val resolved = access ?: return emptyList()
         val raw = runCatching { resolved.channelsFor.invoke(null, desk) }.getOrNull() as? Iterable<*> ?: return emptyList()
         return raw.mapNotNull { rawId ->
-            val id = rawId?.toString()?.takeIf(String::isNotBlank) ?: return@mapNotNull null
-            val parsed = runCatching { resolved.parse.invoke(null, id) }.getOrNull() ?: return@mapNotNull null
-            val socket = (runCatching { resolved.socket.invoke(parsed) }.getOrNull() as? Number)?.toInt()
-                ?: return@mapNotNull null
-            val channelId = runCatching { resolved.channelId.invoke(parsed) }.getOrNull()?.toString()
-                ?.takeIf(String::isNotBlank)
-                ?: return@mapNotNull null
-            val sign = (runCatching { resolved.sign.invoke(parsed) }.getOrNull() as? Number)?.toInt()
-                ?: return@mapNotNull null
-            NativeDriveByWireChannel(id, socket, channelId, sign)
+            rawId?.toString()?.takeIf(String::isNotBlank)?.let(::parse)
         }.distinctBy(NativeDriveByWireChannel::id)
+    }
+
+    /**
+     * Filter an already resolved Aeroworks channel list without recursively invoking channelsFor.
+     * Used from the ConsoleWireChannels return hook so display-pointer x/y never reach DBW cycling.
+     */
+    fun filterExposedIds(desk: ConsoleBlockEntity, ids: List<String>): List<String> = ids.filter { id ->
+        val parsed = parse(id) ?: return@filter false
+        if (parsed.socket !in 0 until desk.socketCount()) return@filter false
+        val module = desk.module(parsed.socket) ?: return@filter false
+        ControlChannelSemantics.isDriveByWireExposed(module, parsed.channelId)
     }
 }
