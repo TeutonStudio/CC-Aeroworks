@@ -58,11 +58,12 @@ data class SetDisplayTouchScriptPayload(
             if (CCModuleTypes.displayType(module.type()) != DeskDisplayType.THREE_DIGIT) return
 
             val normalized = payload.path.trim()
-            val binding = if (normalized.isEmpty()) {
-                DisplayBinding.Default
-            } else {
-                if (normalized.length > DisplayBindings.MAX_HANDLER_PATH_LENGTH) return
-                DisplayBinding.LuaHandler(normalized)
+            if (!DisplayBindings.validOptionalPath(normalized)) return
+            val existing = DisplayBindings.get(desk, payload.socket)
+            val boot = DisplayBindings.bootProgramPath(existing)
+            val binding = when {
+                normalized.isEmpty() && boot.isEmpty() -> DisplayBinding.Default
+                else -> DisplayBinding.LuaApplication(normalized, boot)
             }
             DisplayBindings.set(desk, payload.socket, binding)
         }
