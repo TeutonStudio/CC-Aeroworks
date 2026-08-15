@@ -24,20 +24,39 @@ Die Serverdatei heißt `cc_aeroworks-server.toml`. Sie liegt weltbezogen unter `
 - `display.large.width`: exakte Pixelbreite des großen Pultdisplays und der großen Radaranzeige; Standard `11`, positive Ganzzahl.
 - `display.large.height`: exakte Pixelhöhe des großen Pultdisplays und der großen Radaranzeige; Standard `5`, positive Ganzzahl.
 
-Die früheren Obergrenzen von 64 Pixeln Breite und 32 Pixeln Höhe wurden entfernt. Konfigurationsseitig gilt nur noch der Bereich positiver vorzeichenbehafteter Ganzzahlen. Ein einzelnes Raster muss technisch weiterhin in einen Java-String beziehungsweise ein Java-Array passen; außerdem steigen Speicherbedarf, Lua-Datenmenge und Renderaufwand mit `Breite × Höhe`. Die Mod skaliert den Pixelabstand bei großen Rastern herunter, damit die Anzeige auf dem physischen Modul bleibt. Das schützt jedoch niemanden vor einer absurden Milliardenpixel-Konfiguration. Manche Naturgesetze werden vom Serverbetreiber verwaltet.
+Die früheren Obergrenzen von 64 Pixeln Breite und 32 Pixeln Höhe wurden entfernt. Konfigurationsseitig gilt nur noch der Bereich positiver vorzeichenbehafteter Ganzzahlen. Die physisch sinnvolle Größe bleibt selbstverständlich endlich, auch wenn `Int.MAX_VALUE` sich davon emotional nicht beeindrucken lässt.
 
-Die aktuell wirksame Auflösung ist in Lua über `getDisplaySize(socket)` sowie in Displaybeschreibungen über `pixelWidth`, `pixelHeight`, `PIXEL_WIDTH` und `PIXEL_HEIGHT` verfügbar. Kotlin-Code kann dieselben Werte über `DeskDisplayType.pixelWidth`, `DeskDisplayType.pixelHeight` und `DeskDisplayType.pixelResolution` abrufen.
+### Raw Display API
 
-Der Pixel-Editor im API-Handbuch übernimmt diese synchronisierten Werte beim Erzeugen seines Editorzustands. Nach einer geänderten Serverkonfiguration sollte das Handbuch deshalb neu geöffnet werden, damit ein bereits offener Editor nicht mit seinem alten Raster weiterarbeitet.
+Die direkte Raw-Pixel-API verwendet weiterhin ein vollständiges Raster und ist deshalb für kleine beziehungsweise selten aktualisierte Anzeigen gedacht. Ein Raw-Raster muss technisch in einen Java-String beziehungsweise ein Java-Array passen; Lua-Datenmenge und Verarbeitungsaufwand steigen mit `Breite × Höhe`.
 
-Eine Auflösungsänderung verändert den Rastervertrag. Bereits gespeicherte Pixelraster mit abweichender Länge werden nicht gestreckt oder zugeschnitten und müssen anschließend neu geschrieben werden. Textzustände bleiben davon unberührt.
+Eine Auflösungsänderung verändert den Raw-Rastervertrag. Bereits gespeicherte Pixelraster mit abweichender Länge werden nicht gestreckt oder zugeschnitten und müssen anschließend neu geschrieben werden. Textzustände bleiben davon unberührt.
+
+### Reactive Display UI
+
+Das große Display besitzt zusätzlich einen transienten Reactive-UI-Framebuffer. Dieser wird nicht als vollständiger `0`/`1`-String gespeichert, sondern als sparse `64x64`-Bit-Tiles:
+
+- leere Tiles benötigen keinen Frame-Inhalt,
+- Draw-Invalidierungen rasterisieren nur betroffene Bounds neu,
+- ein Commit vergleicht geänderte Tile-Bits mit dem vorherigen Snapshot,
+- visuell identische Tiles erzeugen keinen Netzwerkpatch,
+- Netzwerkpatches werden auf höchstens 256 Tiles pro Payload geteilt,
+- Runtime-Frames werden nicht bei jeder Änderung in Welt-NBT persistiert.
+
+Damit bestimmt eine große konfigurierte Koordinatenfläche nicht automatisch die Kosten jedes UI-Updates. Eine vollständig gefüllte riesige Anzeige bleibt allerdings eine vollständig gefüllte riesige Anzeige. Die Architektur beseitigt unnötige Arbeit, keine Mathematik.
+
+Die aktuell wirksame Auflösung ist in Lua über `getDisplaySize(socket)` sowie in Displaybeschreibungen über `pixelWidth`, `pixelHeight`, `PIXEL_WIDTH` und `PIXEL_HEIGHT` verfügbar. Reactive UI erhält dieselben Maße über `ui.listDisplays()` beziehungsweise den gemounteten Display-Runtime-Descriptor. Kotlin-Code kann dieselben Werte über `DeskDisplayType.pixelWidth`, `DeskDisplayType.pixelHeight` und `DeskDisplayType.pixelResolution` abrufen.
+
+Der Pixel-Editor im Handbuch übernimmt die synchronisierten Werte beim Erzeugen seines Editorzustands. Nach einer geänderten Serverkonfiguration sollte das Handbuch deshalb neu geöffnet werden, damit ein bereits offener Editor nicht mit seinem alten Raster weiterarbeitet.
+
+Details zur reaktiven Architektur: [`reactive-display-ui.md`](reactive-display-ui.md).
 
 ## Server und Create-Telemetrie
 
 Unter `telemetry` steuert die Serverkonfiguration den Runtime-Speicher und die Lifecycle-Prüfungen der Create-Display-Link-Telemetrie:
 
 - `telemetry.maxSourcesPerEndpoint`: maximale Zahl gespeicherter Display-Link-Quellen pro ComputerControlDesk oder Docking Connector; Standard `128`, Bereich `1..4096`.
-- `telemetry.maxListEntries`: maximale Zahl zurückgegebener Einträge einer Item-/Fluidliste; Standard `128`, Bereich `1..4096`. `entryCount` und Gesamtmengen bleiben vollständig und `truncated=true` markiert die Kürzung.
+- `telemetry.maxListEntries`: maximale Zahl zurückgegebener Einträge einer Item-/Fluidliste pro Source; Standard `128`, Bereich `1..4096`. `entryCount` und Gesamtmengen bleiben vollständig und `truncated=true` markiert die Kürzung.
 - `telemetry.staleAfterTicks`: Alter ohne Refresh, ab dem eine Source `stale=true` meldet; Standard `220`, Bereich `1..72000`.
 - `telemetry.validationIntervalTicks`: Intervall für die Prüfung, ob bekannte Display Links noch existieren, dieselbe Source verwenden und auf denselben Endpoint zeigen; Standard `20`, Bereich `1..1200`.
 - `telemetry.dockScanIntervalTicks`: Intervall für den Sable-sublevelweiten Scan nach optionalen Simulated-Docking-Connectoren; Standard `40`, Bereich `1..1200`.
