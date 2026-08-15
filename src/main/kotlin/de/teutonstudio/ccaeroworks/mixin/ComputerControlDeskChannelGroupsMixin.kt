@@ -7,7 +7,6 @@ import de.teutonstudio.ccaeroworks.registry.CCDataComponents
 import net.minecraft.core.HolderLookup
 import net.minecraft.core.component.DataComponentMap
 import net.minecraft.nbt.CompoundTag
-import net.minecraft.world.level.block.entity.BlockEntity
 import org.spongepowered.asm.mixin.Mixin
 import org.spongepowered.asm.mixin.Unique
 import org.spongepowered.asm.mixin.injection.At
@@ -52,10 +51,5 @@ abstract class ComputerControlDeskChannelGroupsMixin : ChannelGroupOwnerAccess {
             CCDataComponents.CHANNEL_GROUPS.get(),
             ccaeroworks_channelGroups().encodedDefinitions().takeIf(String::isNotEmpty)
         )
-    }
-
-    @Inject(method = ["applyImplicitComponents"], at = [At("TAIL")])
-    private fun ccaeroworks_applyChannelGroups(input: BlockEntity.DataComponentInput, callback: CallbackInfo) {
-        ccaeroworks_channelGroups().loadEncodedDefinitions(input.get(CCDataComponents.CHANNEL_GROUPS.get()))
     }
 }

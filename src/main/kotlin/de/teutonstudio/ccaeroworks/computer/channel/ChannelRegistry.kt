@@ -203,7 +203,7 @@ object ChannelRegistry {
                 val socket = parts[2].toIntOrNull() ?: throw LuaException("Invalid module socket '${parts[2]}'")
                 val module = snapshot.modules.firstOrNull { it.deskId == parts[1] && it.socket == socket }
                     ?: throw LuaException("Unknown module path '$path'")
-                module.channels.map { channelEntry(it, "$path/${channel.name}") }
+                module.channels.map { channelEntry(it, "$path/${it.name}") }
             }
             path == "/wires" -> snapshot.wires.map { channelEntry(it, "/wires/${it.name}") }
             path == "/groups" -> snapshot.groups.map { group ->
