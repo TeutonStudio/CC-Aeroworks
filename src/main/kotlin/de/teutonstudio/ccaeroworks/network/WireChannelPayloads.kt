@@ -9,6 +9,7 @@ import de.teutonstudio.ccaeroworks.computer.wire.WireChannelBankView
 import de.teutonstudio.ccaeroworks.computer.wire.WireChannelManagerSnapshot
 import de.teutonstudio.ccaeroworks.computer.wire.WireChannelSnapshotState
 import de.teutonstudio.ccaeroworks.computer.wire.WireChannelView
+import de.teutonstudio.ccaeroworks.computer.wire.WireConnectionView
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
@@ -103,6 +104,8 @@ data class WireChannelSnapshotPayload(
     override fun type(): CustomPacketPayload.Type<out CustomPacketPayload> = TYPE
 
     companion object {
+        private const val MAX_CONNECTIONS_PER_CHANNEL = 128
+
         @JvmField
         val TYPE = CustomPacketPayload.Type<WireChannelSnapshotPayload>(
             CCAeroworks.id("wire_channel_snapshot")
@@ -132,8 +135,9 @@ data class WireChannelSnapshotPayload(
                             channels += ControlChannelView(
                                 id = buffer.readUtf(320),
                                 name = buffer.readUtf(64),
-                                value = buffer.readVarInt(),
-                                overridden = buffer.readBoolean()
+                                value = buffer.readVarInt().coerceIn(0, 15),
+                                overridden = buffer.readBoolean(),
+                                connections = readConnections(buffer)
                             )
                         }
                         groups += ControlModuleGroupView(
@@ -154,9 +158,16 @@ data class WireChannelSnapshotPayload(
                     repeat(count) {
                         val id = buffer.readUUID()
                         val name = buffer.readUtf(32)
-                        val value = buffer.readVarInt()
-                        val connections = buffer.readVarInt()
-                        channels += WireChannelView(id, name, value, connections, connections > 0)
+                        val value = buffer.readVarInt().coerceIn(0, 15)
+                        val targets = readConnections(buffer)
+                        channels += WireChannelView(
+                            id = id,
+                            name = name,
+                            value = value,
+                            connections = targets.size,
+                            connected = targets.isNotEmpty(),
+                            targets = targets
+                        )
                     }
                     return WireChannelSnapshotPayload(
                         WireChannelManagerSnapshot(
@@ -183,19 +194,44 @@ data class WireChannelSnapshotPayload(
                         group.channels.take(32).forEach { channel ->
                             buffer.writeUtf(channel.id, 320)
                             buffer.writeUtf(channel.name, 64)
-                            buffer.writeVarInt(channel.value)
+                            buffer.writeVarInt(channel.value.coerceIn(0, 15))
                             buffer.writeBoolean(channel.overridden)
+                            writeConnections(buffer, channel.connections)
                         }
                     }
                     buffer.writeVarInt(snapshot.wire.channels.size.coerceAtMost(32))
                     snapshot.wire.channels.take(32).forEach { channel ->
                         buffer.writeUUID(channel.id)
                         buffer.writeUtf(channel.name, 32)
-                        buffer.writeVarInt(channel.value)
-                        buffer.writeVarInt(channel.connections)
+                        buffer.writeVarInt(channel.value.coerceIn(0, 15))
+                        writeConnections(buffer, channel.targets)
                     }
                 }
             }
+
+        private fun readConnections(buffer: RegistryFriendlyByteBuf): List<WireConnectionView> {
+            val count = buffer.readVarInt()
+            require(count in 0..MAX_CONNECTIONS_PER_CHANNEL) { "Invalid wire connection count: $count" }
+            return List(count) {
+                WireConnectionView(
+                    x = buffer.readInt(),
+                    y = buffer.readInt(),
+                    z = buffer.readInt(),
+                    side = buffer.readUtf(8)
+                )
+            }
+        }
+
+        private fun writeConnections(buffer: RegistryFriendlyByteBuf, connections: List<WireConnectionView>) {
+            val limited = connections.take(MAX_CONNECTIONS_PER_CHANNEL)
+            buffer.writeVarInt(limited.size)
+            limited.forEach { connection ->
+                buffer.writeInt(connection.x)
+                buffer.writeInt(connection.y)
+                buffer.writeInt(connection.z)
+                buffer.writeUtf(connection.side, 8)
+            }
+        }
 
         @JvmStatic
         fun handle(payload: WireChannelSnapshotPayload, context: IPayloadContext) {

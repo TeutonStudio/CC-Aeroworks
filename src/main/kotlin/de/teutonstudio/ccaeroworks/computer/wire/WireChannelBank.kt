@@ -4,6 +4,7 @@ import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
+import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.neoforged.fml.ModList
 import java.util.UUID
@@ -14,12 +15,20 @@ data class WireChannelDefinition(
     val name: String
 )
 
+data class WireConnectionView(
+    val x: Int,
+    val y: Int,
+    val z: Int,
+    val side: String
+)
+
 data class WireChannelView(
     val id: UUID,
     val name: String,
     val value: Int,
     val connections: Int,
-    val connected: Boolean
+    val connected: Boolean,
+    val targets: List<WireConnectionView>
 )
 
 data class WireChannelBankView(
@@ -43,6 +52,9 @@ interface WireBackend {
     fun renameChannel(oldName: String, newName: String, value: Int)
 
     fun connectionCount(channel: String): Int
+
+    /** Read-only DBW topology lookup used by the channel GUI for any logical desk source. */
+    fun connectionTargets(sourcePos: BlockPos, channel: String): List<WireConnectionView> = emptyList()
 
     fun clearSignals()
 
@@ -220,6 +232,9 @@ class WireChannelBank(
         resetAllInternal()
     }
 
+    fun connectionTargets(sourcePos: BlockPos, channel: String): List<WireConnectionView> =
+        backend().connectionTargets(sourcePos, channel)
+
     fun snapshot(): WireChannelBankView {
         val activeBackend = backend()
         return WireChannelBankView(
@@ -227,13 +242,14 @@ class WireChannelBank(
             enabled = outputEnabled,
             channels = definitions.map { definition ->
                 val state = states[definition.id] ?: WireChannelState()
-                val connections = activeBackend.connectionCount(definition.name)
+                val targets = activeBackend.connectionTargets(owner.blockPos, definition.name)
                 WireChannelView(
                     id = definition.id,
                     name = definition.name,
                     value = state.value,
-                    connections = connections,
-                    connected = connections > 0
+                    connections = targets.size,
+                    connected = targets.isNotEmpty(),
+                    targets = targets
                 )
             }
         )
@@ -249,14 +265,22 @@ class WireChannelBank(
         val definition = definition(rawName)
         val state = states[definition.id] ?: WireChannelState()
         val activeBackend = backend()
-        val connections = activeBackend.connectionCount(definition.name)
+        val targets = activeBackend.connectionTargets(owner.blockPos, definition.name)
         return linkedMapOf(
             "id" to definition.id.toString(),
             "name" to definition.name,
             "value" to state.value,
             "backend" to activeBackend.name,
-            "connected" to (connections > 0),
-            "connections" to connections,
+            "connected" to targets.isNotEmpty(),
+            "connections" to targets.size,
+            "targets" to targets.map { target ->
+                linkedMapOf(
+                    "x" to target.x,
+                    "y" to target.y,
+                    "z" to target.z,
+                    "side" to target.side
+                )
+            },
             "enabled" to outputEnabled
         )
     }
