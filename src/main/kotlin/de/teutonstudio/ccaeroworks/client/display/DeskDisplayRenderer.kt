@@ -63,8 +63,8 @@ object DeskDisplayRenderer {
                     .rotate(socket.orientation())
                     .translate(-0.5, 0.0, -0.5)
                     .translate(x, 0.0, z)
-                    .light<SuperByteBuffer>(light)
-                    .renderInto(poseStack, consumer)
+                rendered.light<SuperByteBuffer>(light)
+                rendered.renderInto(poseStack, consumer)
             }
         }
     }
