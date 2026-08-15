@@ -82,7 +82,7 @@ object GpsSourceTracker {
             network = network,
             level = modemLevel,
             position = modemPosition,
-            range = modem.range,
+            transmissionRange = modem.range,
             interdimensional = modem.isInterdimensional,
             replyChannel = replyChannel,
             startedTick = now,
@@ -95,7 +95,7 @@ object GpsSourceTracker {
         if (probe.interdimensional) {
             network.transmitInterdimensional(packet)
         } else {
-            network.transmitSameDimension(packet, probe.range)
+            network.transmitSameDimension(packet, probe.getRange())
         }
     }
 
@@ -184,7 +184,7 @@ object GpsSourceTracker {
         private val network: PacketNetwork,
         private val level: Level,
         private val position: Vec3,
-        val range: Double,
+        private val transmissionRange: Double,
         val interdimensional: Boolean,
         private val replyChannel: Int,
         val startedTick: Long,
@@ -204,7 +204,7 @@ object GpsSourceTracker {
 
         override fun getLevel(): Level = level
         override fun getPosition(): Vec3 = position
-        override fun getRange(): Double = range
+        override fun getRange(): Double = transmissionRange
         override fun isInterdimensional(): Boolean = interdimensional
         override fun getSenderID(): String = senderId
 
