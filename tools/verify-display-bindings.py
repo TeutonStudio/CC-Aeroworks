@@ -28,6 +28,8 @@ payloads = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/CCPayloads.
 peripheral = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ControlDeskPeripheral.kt")
 dispatcher = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/DeskDisplayInputDispatcher.kt")
 peripheral_state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ControlDeskPeripheralState.kt")
+display_module = read("src/main/resources/data/computercraft/lua/rom/modules/main/display.lua")
+handler_runtime = read("src/main/resources/data/computercraft/lua/rom/autorun/cc_aeroworks_display_handlers.lua")
 mixins = read("src/main/resources/cc_aeroworks.mixins.json")
 workflow = read(".github/workflows/verify.yml")
 
@@ -103,6 +105,27 @@ for module_path in (
 require('require("display")' in read("src/main/resources/data/computercraft/lua/rom/modules/main/touchdisplay.lua"),
         "touchdisplay must build on the common display module")
 
+# Embedded display bindings execute automatically without consuming the raw CC event contract.
+require('"id" to (desk as DeskIdentityAccess).ccaeroworks_getDeskId().toString()' in peripheral,
+        "ControlDesk getInfo must expose the stable desk id used by embedded display events")
+require("info.id == event.deskId" in display_module,
+        "display.resolve must match embedded events by the stable desk id")
+require("os.pullEventRaw = function(filter)" in handler_runtime and "nativePullEventRaw()" in handler_runtime,
+        "display handler runtime must be a non-blocking CraftOS event hook")
+require('event[1] ~= "cc_aeroworks_console_display_input"' in handler_runtime,
+        "automatic handler runtime must consume embedded console display events")
+require("cc_aeroworks_desk_display_input" not in handler_runtime,
+        "automatic handler runtime must not execute owner-local script paths on external computers")
+require("loadfile(path)" in handler_runtime and "local cache" not in handler_runtime,
+        "selected display handlers must reload from disk instead of using a stale permanent cache")
+require('event[1] == filter or event[1] == "terminate"' in handler_runtime,
+        "event hook must preserve filtered pullEvent and termination semantics")
+require("lastSignature" in handler_runtime and "lastEpoch" in handler_runtime,
+        "event hook must deduplicate a touch event observed by parallel event consumers")
+require("handler.onTap or handler.onPointer" in handler_runtime and
+        "handler.onDoubleTap or handler.onPointer" in handler_runtime,
+        "automatic runtime must dispatch tap and double-tap callbacks")
+
 # Existing programmatic configuration and compatibility events remain available.
 for method in ("getRadarSources", "getDisplayBinding", "setRadarSource", "setDisplayTouchScript", "clearDisplayBinding"):
     require(f"fun {method}" in peripheral, f"ControlDesk API is missing {method}")
@@ -116,4 +139,4 @@ require((ROOT / "examples/cc/display-binding-router.lua").is_file(),
 require("python3 tools/verify-display-bindings.py" in workflow,
         "workflow must enforce the display binding architecture")
 
-print("Validated display bindings: row-based radar selection, bounded embedded-computer script discovery, server-authoritative catalog selection, bundled display/touchdisplay modules and legacy touch compatibility.")
+print("Validated display bindings: row-based radar selection, bounded embedded-computer script discovery, automatic reloadable touch handlers, stable desk identity, bundled display/touchdisplay modules and legacy touch compatibility.")
