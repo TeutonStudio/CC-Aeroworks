@@ -19,18 +19,39 @@ Ein Linksklick auf das vorhandene Modussymbol schaltet bei Lever, Joystick und j
 
 Die Serverdatei heißt `cc_aeroworks-server.toml`. Sie liegt weltbezogen unter `<welt>/serverconfig/cc_aeroworks-server.toml` und wird an verbundene Clients synchronisiert.
 
-- `display.small.width`: exakte Pixelbreite des kleinen Pultdisplays und der kleinen Radaranzeige; Standard `7`, positive Ganzzahl.
-- `display.small.height`: exakte Pixelhöhe des kleinen Pultdisplays und der kleinen Radaranzeige; Standard `5`, positive Ganzzahl.
-- `display.large.width`: exakte Pixelbreite des großen Pultdisplays und der großen Radaranzeige; Standard `11`, positive Ganzzahl.
-- `display.large.height`: exakte Pixelhöhe des großen Pultdisplays und der großen Radaranzeige; Standard `5`, positive Ganzzahl.
+- `display.ppb`: Pixeldichte in **Parts per Block**; Standard `256`, Minimum `16`.
 
-Die früheren Obergrenzen von 64 Pixeln Breite und 32 Pixeln Höhe wurden entfernt. Konfigurationsseitig gilt nur noch der Bereich positiver vorzeichenbehafteter Ganzzahlen. Ein einzelnes Raster muss technisch weiterhin in einen Java-String beziehungsweise ein Java-Array passen; außerdem steigen Speicherbedarf, Lua-Datenmenge und Renderaufwand mit `Breite × Höhe`. Die Mod skaliert den Pixelabstand bei großen Rastern herunter, damit die Anzeige auf dem physischen Modul bleibt. Das schützt jedoch niemanden vor einer absurden Milliardenpixel-Konfiguration. Manche Naturgesetze werden vom Serverbetreiber verwaltet.
+`16 PPB` entspricht der normalen Minecraft-Texturdichte von 16 Teilen pro Blockkante. Kleine und große Displays besitzen keine getrennt einstellbaren X/Y-Auflösungen mehr. Stattdessen wird das Raster aus der tatsächlichen Moduloberfläche und einer einzigen Pixeldichte abgeleitet. Dadurch besitzen X und Y immer denselben physischen Pixelabstand und jeder Pixel bleibt quadratisch.
 
-Die aktuell wirksame Auflösung ist in Lua über `getDisplaySize(socket)` sowie in Displaybeschreibungen über `pixelWidth`, `pixelHeight`, `PIXEL_WIDTH` und `PIXEL_HEIGHT` verfügbar. Kotlin-Code kann dieselben Werte über `DeskDisplayType.pixelWidth`, `DeskDisplayType.pixelHeight` und `DeskDisplayType.pixelResolution` abrufen.
+Die nutzbaren Displayflächen entsprechen den Modulmodellen:
 
-Der Pixel-Editor im API-Handbuch übernimmt diese synchronisierten Werte beim Erzeugen seines Editorzustands. Nach einer geänderten Serverkonfiguration sollte das Handbuch deshalb neu geöffnet werden, damit ein bereits offener Editor nicht mit seinem alten Raster weiterarbeitet.
+- kleines Display: `7/16 × 7/16` Block,
+- großes Display: `10/16 × 7/16` Block.
 
-Eine Auflösungsänderung verändert den Rastervertrag. Bereits gespeicherte Pixelraster mit abweichender Länge werden nicht gestreckt oder zugeschnitten und müssen anschließend neu geschrieben werden. Textzustände bleiben davon unberührt.
+Für jede Achse gilt:
+
+```text
+Pixelanzahl = floor(Oberfläche_in_16tel × PPB / 16)
+```
+
+Daraus ergeben sich beispielsweise:
+
+| PPB | kleines Display | großes Display |
+| ---: | ---: | ---: |
+| 16 | 7 × 7 | 10 × 7 |
+| 256 | 112 × 112 | 160 × 112 |
+
+Bei PPB-Werten, die nicht durch 16 teilbar sind, wird abgerundet. Der verbleibende Bruchteil wird beim Rendern symmetrisch als Rand verteilt, statt das Raster über die physische Modulfläche hinauszuschieben.
+
+Die alten Schlüssel `display.small.width`, `display.small.height`, `display.large.width` und `display.large.height` werden nicht mehr ausgewertet. Eine bestehende Serverkonfiguration erhält deshalb nach der Umstellung den neuen Standardwert `display.ppb = 256`, sofern kein PPB-Wert gesetzt wurde.
+
+Die aktuell wirksame Auflösung ist in Lua über `getDisplaySize(socket)` verfügbar. Die Rückgabe enthält `width`, `height`, `ppb`, `surfaceWidthParts` und `surfaceHeightParts`. Displaybeschreibungen enthalten zusätzlich weiterhin die kompatiblen Felder `pixelWidth`, `pixelHeight`, `PIXEL_WIDTH` und `PIXEL_HEIGHT`. Kotlin-Code kann dieselben Rasterwerte über `DeskDisplayType.pixelWidth`, `DeskDisplayType.pixelHeight` und `DeskDisplayType.pixelResolution` abrufen.
+
+Der Pixel-Editor im API-Handbuch verwendet das reale konfigurierte Raster. Hohe Auflösungen werden als kompakte Übersicht ohne hunderte überlappende Achsenbeschriftungen dargestellt; der kopierbare Lua-Rastercode bleibt vollständig, während die sichtbare Codevorschau gekürzt wird.
+
+Eine PPB-Änderung verändert den Rastervertrag. Pixelzustände werden seit dem neuen Format bitgepackt und speichern ihre eigene Breite und Höhe. Passt ein gespeichertes Raster nicht mehr zur aktuellen PPB-Auflösung, wird es als leeres Raster im Pixelmodus behandelt und nicht als Displaytext missverstanden. Das Raster muss anschließend durch das Skript neu gezeichnet werden. Textzustände bleiben davon unberührt.
+
+Touchereignisse melden weiterhin die rasterbezogenen Felder `x`, `y`, `width` und `height`. Zusätzlich werden die normierten Oberflächenkoordinaten `u` und `v` im Bereich `0..1` bereitgestellt. Das ROM-Modul `touchdisplay` stellt sie über `normalizedPosition(event)` bereit, damit Handler nicht von einer bestimmten PPB-Auflösung abhängen müssen.
 
 ## Server und Create-Telemetrie
 
