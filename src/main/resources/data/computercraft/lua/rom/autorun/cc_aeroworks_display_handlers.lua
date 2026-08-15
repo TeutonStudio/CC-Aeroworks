@@ -87,7 +87,10 @@ local function signatureFor(event)
         tostring(event[9]),
         tostring(event[12]),
         tostring(event[13]),
-        tostring(event[14])
+        tostring(event[14]),
+        tostring(event[15]),
+        tostring(event[16]),
+        tostring(event[17])
     }, "\0")
 end
 
@@ -128,7 +131,10 @@ local function dispatchConsoleEvent(event)
         height = event[11],
         handler = handlerPath,
         u = event[13],
-        v = event[14]
+        v = event[14],
+        deskX = event[15],
+        deskY = event[16],
+        deskZ = event[17]
     })
 end
 
