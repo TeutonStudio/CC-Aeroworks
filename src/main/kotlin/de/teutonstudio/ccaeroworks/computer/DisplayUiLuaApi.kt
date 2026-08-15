@@ -12,6 +12,7 @@ import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskService
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskSockets
 import de.teutonstudio.ccaeroworks.computer.reactive.ReactiveDependencyRuntime
 import de.teutonstudio.ccaeroworks.computer.reactive.ReactivePhase
+import de.teutonstudio.ccaeroworks.display.DisplayBindings
 import de.teutonstudio.ccaeroworks.display.reactive.ReactiveDisplayFrameBuilder
 import de.teutonstudio.ccaeroworks.display.reactive.ReactiveDisplayFrames
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
@@ -90,6 +91,7 @@ class DisplayUiLuaApi(
         if (snapshot.state != ConsoleNetworkState.ACTIVE || snapshot.owner !== owner) return emptyList()
         return snapshot.members.flatMap { member ->
             AeroworksDeskAccess.displays(member.desk).map { display ->
+                val binding = DisplayBindings.get(member.desk, display.socket)
                 linkedMapOf<String, Any>(
                     "deskId" to member.id,
                     "deskIndex" to member.index,
@@ -97,7 +99,9 @@ class DisplayUiLuaApi(
                     "socketName" to DeskSockets.name(display.socket),
                     "width" to display.type.pixelWidth,
                     "height" to display.type.pixelHeight,
-                    "runtime" to (ReactiveDisplayFrames.snapshot(member.desk, display.socket) != null)
+                    "runtime" to (ReactiveDisplayFrames.snapshot(member.desk, display.socket) != null),
+                    "controller" to DisplayBindings.controllerPath(binding),
+                    "bootProgram" to DisplayBindings.bootProgramPath(binding)
                 )
             }
         }
@@ -106,11 +110,7 @@ class DisplayUiLuaApi(
     @LuaFunction(mainThread = true)
     fun beginFrame(deskId: String, socket: Any?): ReactiveFrameLuaHandle {
         val desk = requiredDesk(deskId)
-        val parsedSocket = try {
-            AeroworksDeskService.parseSocket(desk, socket)
-        } catch (error: LuaException) {
-            throw error
-        }
+        val parsedSocket = AeroworksDeskService.parseSocket(desk, socket)
         val display = AeroworksDeskAccess.display(desk, parsedSocket)
             ?: throw LuaException("Module at socket $parsedSocket is not a CC-Aeroworks display")
         val builder = ReactiveDisplayFrames.begin(
