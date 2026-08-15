@@ -79,7 +79,9 @@ object ControlDeskPeripheralState {
                     touch.y,
                     touch.width,
                     touch.height,
-                    handlerPath
+                    handlerPath,
+                    touch.u,
+                    touch.v
                 )
                 if (action == DisplayPointerAction.TAP) {
                     queueCompatibleTouch(computer, touch)
@@ -110,8 +112,11 @@ object ControlDeskPeripheralState {
             touch.x,
             touch.y,
             touch.width,
-            touch.height
+            touch.height,
+            touch.u,
+            touch.v
         )
+        // CC:Tweaked monitor_touch remains intentionally unchanged for compatibility.
         computer.queueEvent(
             "monitor_touch",
             computer.attachmentName,
