@@ -2,7 +2,11 @@ package de.teutonstudio.ccaeroworks.network
 
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.computer.ControlDeskUiSwitchState
+import de.teutonstudio.ccaeroworks.computer.wire.ControlChannelSnapshotBuilder
+import de.teutonstudio.ccaeroworks.computer.wire.ControlChannelView
+import de.teutonstudio.ccaeroworks.computer.wire.ControlModuleGroupView
 import de.teutonstudio.ccaeroworks.computer.wire.WireChannelBankView
+import de.teutonstudio.ccaeroworks.computer.wire.WireChannelManagerSnapshot
 import de.teutonstudio.ccaeroworks.computer.wire.WireChannelSnapshotState
 import de.teutonstudio.ccaeroworks.computer.wire.WireChannelView
 import net.minecraft.network.RegistryFriendlyByteBuf
@@ -94,7 +98,7 @@ data class MutateWireChannelPayload(
 }
 
 data class WireChannelSnapshotPayload(
-    val snapshot: WireChannelBankView
+    val snapshot: WireChannelManagerSnapshot
 ) : CustomPacketPayload {
     override fun type(): CustomPacketPayload.Type<out CustomPacketPayload> = TYPE
 
@@ -110,6 +114,40 @@ data class WireChannelSnapshotPayload(
                 override fun decode(buffer: RegistryFriendlyByteBuf): WireChannelSnapshotPayload {
                     val backend = buffer.readUtf(32)
                     val enabled = buffer.readBoolean()
+                    val groupCount = buffer.readVarInt()
+                    require(groupCount in 0..192) { "Invalid control module group count: $groupCount" }
+                    val groups = ArrayList<ControlModuleGroupView>(groupCount)
+                    repeat(groupCount) {
+                        val id = buffer.readUtf(256)
+                        val label = buffer.readUtf(64)
+                        val deskId = buffer.readUtf(64)
+                        val deskIndex = buffer.readVarInt()
+                        val socket = buffer.readVarInt()
+                        val socketName = buffer.readUtf(32)
+                        val moduleId = buffer.readUtf(128)
+                        val channelCount = buffer.readVarInt()
+                        require(channelCount in 0..32) { "Invalid control channel count: $channelCount" }
+                        val channels = ArrayList<ControlChannelView>(channelCount)
+                        repeat(channelCount) {
+                            channels += ControlChannelView(
+                                id = buffer.readUtf(320),
+                                name = buffer.readUtf(64),
+                                value = buffer.readVarInt(),
+                                overridden = buffer.readBoolean()
+                            )
+                        }
+                        groups += ControlModuleGroupView(
+                            id = id,
+                            label = label,
+                            deskId = deskId,
+                            deskIndex = deskIndex,
+                            socket = socket,
+                            socketName = socketName,
+                            moduleId = moduleId,
+                            channels = channels
+                        )
+                    }
+
                     val count = buffer.readVarInt()
                     require(count in 0..32) { "Invalid wire channel count: $count" }
                     val channels = ArrayList<WireChannelView>(count)
@@ -120,14 +158,37 @@ data class WireChannelSnapshotPayload(
                         val connections = buffer.readVarInt()
                         channels += WireChannelView(id, name, value, connections, connections > 0)
                     }
-                    return WireChannelSnapshotPayload(WireChannelBankView(backend, enabled, channels))
+                    return WireChannelSnapshotPayload(
+                        WireChannelManagerSnapshot(
+                            wire = WireChannelBankView(backend, enabled, channels),
+                            controlGroups = groups
+                        )
+                    )
                 }
 
                 override fun encode(buffer: RegistryFriendlyByteBuf, payload: WireChannelSnapshotPayload) {
-                    buffer.writeUtf(payload.snapshot.backend, 32)
-                    buffer.writeBoolean(payload.snapshot.enabled)
-                    buffer.writeVarInt(payload.snapshot.channels.size.coerceAtMost(32))
-                    payload.snapshot.channels.take(32).forEach { channel ->
+                    val snapshot = payload.snapshot
+                    buffer.writeUtf(snapshot.wire.backend, 32)
+                    buffer.writeBoolean(snapshot.wire.enabled)
+                    buffer.writeVarInt(snapshot.controlGroups.size.coerceAtMost(192))
+                    snapshot.controlGroups.take(192).forEach { group ->
+                        buffer.writeUtf(group.id, 256)
+                        buffer.writeUtf(group.label, 64)
+                        buffer.writeUtf(group.deskId, 64)
+                        buffer.writeVarInt(group.deskIndex)
+                        buffer.writeVarInt(group.socket)
+                        buffer.writeUtf(group.socketName, 32)
+                        buffer.writeUtf(group.moduleId, 128)
+                        buffer.writeVarInt(group.channels.size.coerceAtMost(32))
+                        group.channels.take(32).forEach { channel ->
+                            buffer.writeUtf(channel.id, 320)
+                            buffer.writeUtf(channel.name, 64)
+                            buffer.writeVarInt(channel.value)
+                            buffer.writeBoolean(channel.overridden)
+                        }
+                    }
+                    buffer.writeVarInt(snapshot.wire.channels.size.coerceAtMost(32))
+                    snapshot.wire.channels.take(32).forEach { channel ->
                         buffer.writeUUID(channel.id)
                         buffer.writeUtf(channel.name, 32)
                         buffer.writeVarInt(channel.value)
@@ -145,5 +206,9 @@ data class WireChannelSnapshotPayload(
 
 private fun sendSnapshot(player: ServerPlayer) {
     val owner = ControlDeskUiSwitchState.activeComputerDesk(player) ?: return
-    PacketDistributor.sendToPlayer(player, WireChannelSnapshotPayload(owner.wireBank.snapshot()))
+    val snapshot = WireChannelManagerSnapshot(
+        wire = owner.wireBank.snapshot(),
+        controlGroups = ControlChannelSnapshotBuilder.build(owner)
+    )
+    PacketDistributor.sendToPlayer(player, WireChannelSnapshotPayload(snapshot))
 }

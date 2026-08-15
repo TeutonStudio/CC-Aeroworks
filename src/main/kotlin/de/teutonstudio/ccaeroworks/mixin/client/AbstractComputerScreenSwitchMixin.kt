@@ -28,6 +28,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable
 import java.util.UUID
 
+private enum class ComputerDeskPage {
+    TERMINAL,
+    CHANNELS
+}
+
 @Mixin(value = [AbstractComputerScreen::class], remap = false)
 abstract class AbstractComputerScreenSwitchMixin(
     menu: AbstractComputerMenu,
@@ -35,7 +40,7 @@ abstract class AbstractComputerScreenSwitchMixin(
     title: Component
 ) : AbstractContainerScreen<AbstractComputerMenu>(menu, inventory, title) {
     @Unique
-    private var ccaeroworks_channelMode: Boolean = false
+    private var ccaeroworks_page: ComputerDeskPage = ComputerDeskPage.TERMINAL
 
     @Unique
     private var ccaeroworks_channelPanel: WireChannelManagerWidget? = null
@@ -82,7 +87,7 @@ abstract class AbstractComputerScreenSwitchMixin(
             })
             addRenderableWidget(
                 ControlDeskComputerSidebar.controlsButton(controlsLayout) {
-                    ccaeroworks_setChannelMode(false)
+                    ccaeroworks_setPage(ComputerDeskPage.TERMINAL)
                     ControlDeskUiClientNavigation.reopenControls()
                 }
             )
@@ -99,16 +104,17 @@ abstract class AbstractComputerScreenSwitchMixin(
         })
         addRenderableWidget(
             ControlDeskComputerSidebar.channelsButton(channelLayout) {
-                ccaeroworks_setChannelMode(!ccaeroworks_channelMode)
+                ccaeroworks_setChannelMode(ccaeroworks_page != ComputerDeskPage.CHANNELS)
             }
         )
 
         ccaeroworks_createChannelManager(accessor)
+        ccaeroworks_setPage(ComputerDeskPage.TERMINAL)
     }
 
     @Inject(method = ["containerTick()V"], at = [At("TAIL")])
     private fun ccaeroworks_refreshWireChannels(callback: CallbackInfo) {
-        if (!ccaeroworks_channelMode) return
+        if (ccaeroworks_page != ComputerDeskPage.CHANNELS) return
         val now = Minecraft.getInstance().level?.gameTime ?: return
         if (now - ccaeroworks_lastSnapshotRequest < 20L) return
         ccaeroworks_requestWireSnapshot(now)
@@ -121,8 +127,8 @@ abstract class AbstractComputerScreenSwitchMixin(
         modifiers: Int,
         callback: CallbackInfoReturnable<Boolean>
     ) {
-        if (!ccaeroworks_channelMode || keyCode != GLFW.GLFW_KEY_ESCAPE) return
-        ccaeroworks_setChannelMode(false)
+        if (ccaeroworks_page == ComputerDeskPage.TERMINAL || keyCode != GLFW.GLFW_KEY_ESCAPE) return
+        ccaeroworks_setPage(ComputerDeskPage.TERMINAL)
         callback.returnValue = true
     }
 
@@ -181,25 +187,32 @@ abstract class AbstractComputerScreenSwitchMixin(
         )
     }
 
+    /** Compatibility wrapper retained while the page model grows beyond the original wire-only tab. */
     @Unique
     private fun ccaeroworks_setChannelMode(enabled: Boolean) {
-        ccaeroworks_channelMode = enabled
-        val terminal = (this as AbstractComputerScreenAccessor).ccaeroworks_getTerminal()
-        terminal?.visible = !enabled
-        terminal?.active = !enabled
+        ccaeroworks_setPage(if (enabled) ComputerDeskPage.CHANNELS else ComputerDeskPage.TERMINAL)
+    }
 
-        ccaeroworks_channelPanel?.let { it.visible = enabled; it.active = enabled }
-        ccaeroworks_channelName?.let { it.visible = enabled; it.active = enabled }
-        ccaeroworks_addChannel?.let { it.visible = enabled; it.active = enabled }
-        ccaeroworks_renameChannel?.let { it.visible = enabled; it.active = enabled }
+    @Unique
+    private fun ccaeroworks_setPage(page: ComputerDeskPage) {
+        ccaeroworks_page = page
+        val channelEnabled = page == ComputerDeskPage.CHANNELS
+        val terminal = (this as AbstractComputerScreenAccessor).ccaeroworks_getTerminal()
+        terminal?.visible = page == ComputerDeskPage.TERMINAL
+        terminal?.active = page == ComputerDeskPage.TERMINAL
+
+        ccaeroworks_channelPanel?.let { it.visible = channelEnabled; it.active = channelEnabled }
+        ccaeroworks_channelName?.let { it.visible = channelEnabled; it.active = channelEnabled }
+        ccaeroworks_addChannel?.let { it.visible = channelEnabled; it.active = channelEnabled }
+        ccaeroworks_renameChannel?.let { it.visible = channelEnabled; it.active = channelEnabled }
         ccaeroworks_deleteChannel?.let {
-            it.visible = enabled
-            it.active = enabled
+            it.visible = channelEnabled
+            it.active = channelEnabled
             it.message = Component.literal("Delete")
         }
         ccaeroworks_deleteArmed = null
 
-        if (enabled) {
+        if (channelEnabled) {
             WireChannelSnapshotState.clear()
             ccaeroworks_requestWireSnapshot(Minecraft.getInstance().level?.gameTime ?: 0L)
             setFocused(ccaeroworks_channelName)
