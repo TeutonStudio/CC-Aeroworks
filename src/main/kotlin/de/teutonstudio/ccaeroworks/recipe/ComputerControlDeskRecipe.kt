@@ -19,8 +19,10 @@ class ComputerControlDeskRecipe(category: CraftingBookCategory) : CustomRecipe(c
     override fun assemble(input: CraftingInput, registries: HolderLookup.Provider): ItemStack {
         val ingredients = findIngredients(input) ?: return ItemStack.EMPTY
         val result = ItemStack(
-            if (ingredients.advanced) CCItems.ADVANCED_COMPUTER_CONTROL_DESK.get()
-            else CCItems.COMPUTER_CONTROL_DESK.get()
+            when (ingredients.computerTier) {
+                ComputerTier.NORMAL -> CCItems.COMPUTER_CONTROL_DESK.get()
+                ComputerTier.ADVANCED -> CCItems.ADVANCED_COMPUTER_CONTROL_DESK.get()
+            }
         )
 
         // Aeroworks' controller_contents and any future desk components are copied first.
@@ -38,7 +40,7 @@ class ComputerControlDeskRecipe(category: CraftingBookCategory) : CustomRecipe(c
     private fun findIngredients(input: CraftingInput): Ingredients? {
         var desk = ItemStack.EMPTY
         var computer = ItemStack.EMPTY
-        var advanced = false
+        var computerTier: ComputerTier? = null
 
         for (slot in 0 until input.size()) {
             val stack = input.getItem(slot)
@@ -52,23 +54,29 @@ class ComputerControlDeskRecipe(category: CraftingBookCategory) : CustomRecipe(c
                 stack.`is`(ModRegistry.Items.COMPUTER_NORMAL.get()) -> {
                     if (!computer.isEmpty) return null
                     computer = stack
-                    advanced = false
+                    computerTier = ComputerTier.NORMAL
                 }
                 stack.`is`(ModRegistry.Items.COMPUTER_ADVANCED.get()) -> {
                     if (!computer.isEmpty) return null
                     computer = stack
-                    advanced = true
+                    computerTier = ComputerTier.ADVANCED
                 }
                 else -> return null
             }
         }
 
-        return if (!desk.isEmpty && !computer.isEmpty) Ingredients(desk, computer, advanced) else null
+        val tier = computerTier ?: return null
+        return if (!desk.isEmpty && !computer.isEmpty) Ingredients(desk, computer, tier) else null
     }
 
     private data class Ingredients(
         val desk: ItemStack,
         val computer: ItemStack,
-        val advanced: Boolean
+        val computerTier: ComputerTier
     )
+
+    private enum class ComputerTier {
+        NORMAL,
+        ADVANCED
+    }
 }
