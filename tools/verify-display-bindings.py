@@ -26,6 +26,7 @@ script_payload = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/SetDi
 catalog_payload = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/DisplayScriptCatalogPayloads.kt")
 payloads = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/CCPayloads.kt")
 peripheral = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ControlDeskPeripheral.kt")
+computer_desk = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerControlDeskBlockEntity.kt")
 dispatcher = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/DeskDisplayInputDispatcher.kt")
 peripheral_state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ControlDeskPeripheralState.kt")
 display_module = read("src/main/resources/data/computercraft/lua/rom/modules/main/display.lua")
@@ -134,6 +135,21 @@ require("handler.onTap or handler.onPointer" in handler_runtime and
         "handler.onDoubleTap or handler.onPointer" in handler_runtime,
         "automatic runtime must dispatch tap and double-tap callbacks")
 
+# A touch must not disappear if source discovery created an embedded computer which is still off.
+require("MAX_PENDING_COMPUTER_EVENTS" in computer_desk and "pendingComputerEvents" in computer_desk,
+        "embedded event delivery must use a bounded pending queue")
+require("fun queueComputerEventWhenReady" in computer_desk and "computer.turnOn()" in computer_desk,
+        "embedded event delivery must start CraftOS when a display event arrives")
+require("pendingComputerEvents.isNotEmpty()" in computer_desk and
+        "if (newPowered) flushPendingComputerEvents(computer)" in computer_desk,
+        "pending display events must flush only after CC:Tweaked reports the computer as on")
+require("pendingComputerEvents.clear()" in computer_desk,
+        "pending embedded events must be discarded when the computer is closed")
+require(dispatcher.count("owner.queueComputerEventWhenReady(") >= 2,
+        "display and legacy touch events must use start-safe embedded delivery")
+require("computer.queueEvent(" not in dispatcher,
+        "display dispatcher must not directly queue events which CC:Tweaked drops while off")
+
 # The explicit compatibility router must execute the same display/touchdisplay modules correctly.
 require("handlerRequire = require" in router_example and
         "loadfile(path, nil, createHandlerEnvironment())" in router_example,
@@ -154,4 +170,4 @@ require((ROOT / "examples/cc/display-binding-router.lua").is_file(),
 require("python3 tools/verify-display-bindings.py" in workflow,
         "workflow must enforce the display binding architecture")
 
-print("Validated display bindings: row-based radar selection, bounded embedded-computer script discovery, automatic reloadable touch handlers with CraftOS module environments, stable desk identity, bundled display/touchdisplay modules and legacy touch compatibility.")
+print("Validated display bindings: row-based radar selection, bounded embedded-computer script discovery, start-safe automatic reloadable touch handlers with CraftOS module environments, stable desk identity, bundled display/touchdisplay modules and legacy touch compatibility.")
