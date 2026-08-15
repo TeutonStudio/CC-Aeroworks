@@ -4,6 +4,7 @@ import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
+import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.neoforged.fml.ModList
 import java.util.UUID
@@ -12,6 +13,28 @@ import java.util.UUID
 data class WireChannelDefinition(
     val id: UUID,
     val name: String
+)
+
+data class WireConnectionView(
+    val x: Int,
+    val y: Int,
+    val z: Int,
+    val side: String
+)
+
+data class WireChannelView(
+    val id: UUID,
+    val name: String,
+    val value: Int,
+    val connections: Int,
+    val connected: Boolean,
+    val targets: List<WireConnectionView>
+)
+
+data class WireChannelBankView(
+    val backend: String,
+    val enabled: Boolean,
+    val channels: List<WireChannelView>
 )
 
 private data class WireChannelState(
@@ -29,6 +52,9 @@ interface WireBackend {
     fun renameChannel(oldName: String, newName: String, value: Int)
 
     fun connectionCount(channel: String): Int
+
+    /** Read-only DBW topology lookup used by the channel GUI for any logical desk source. */
+    fun connectionTargets(sourcePos: BlockPos, channel: String): List<WireConnectionView> = emptyList()
 
     fun clearSignals()
 
@@ -119,8 +145,11 @@ class WireChannelBank(
         return definition
     }
 
-    fun removeChannel(rawName: String): WireChannelDefinition {
-        val definition = definition(rawName)
+    fun removeChannel(rawName: String): WireChannelDefinition =
+        removeChannel(definition(rawName).id)
+
+    fun removeChannel(id: UUID): WireChannelDefinition {
+        val definition = definition(id)
         val state = states[definition.id] ?: WireChannelState()
         state.pulseEndTick = null
         if (state.value != 0) {
@@ -134,8 +163,11 @@ class WireChannelBank(
         return definition
     }
 
-    fun renameChannel(rawOldName: String, rawNewName: String): WireChannelDefinition {
-        val oldDefinition = definition(rawOldName)
+    fun renameChannel(rawOldName: String, rawNewName: String): WireChannelDefinition =
+        renameChannel(definition(rawOldName).id, rawNewName)
+
+    fun renameChannel(id: UUID, rawNewName: String): WireChannelDefinition {
+        val oldDefinition = definition(id)
         val newName = checkedName(rawNewName)
         if (definitions.any { it.name == newName && it.id != oldDefinition.id }) {
             throw IllegalArgumentException("Wire channel '$newName' already exists")
@@ -200,6 +232,29 @@ class WireChannelBank(
         resetAllInternal()
     }
 
+    fun connectionTargets(sourcePos: BlockPos, channel: String): List<WireConnectionView> =
+        backend().connectionTargets(sourcePos, channel)
+
+    fun snapshot(): WireChannelBankView {
+        val activeBackend = backend()
+        return WireChannelBankView(
+            backend = activeBackend.name,
+            enabled = outputEnabled,
+            channels = definitions.map { definition ->
+                val state = states[definition.id] ?: WireChannelState()
+                val targets = activeBackend.connectionTargets(owner.blockPos, definition.name)
+                WireChannelView(
+                    id = definition.id,
+                    name = definition.name,
+                    value = state.value,
+                    connections = targets.size,
+                    connected = targets.isNotEmpty(),
+                    targets = targets
+                )
+            }
+        )
+    }
+
     fun describeChannels(): Map<String, Any> = linkedMapOf<String, Any>().apply {
         definitions.forEach { definition ->
             put(definition.name, describeChannel(definition.name))
@@ -210,13 +265,22 @@ class WireChannelBank(
         val definition = definition(rawName)
         val state = states[definition.id] ?: WireChannelState()
         val activeBackend = backend()
+        val targets = activeBackend.connectionTargets(owner.blockPos, definition.name)
         return linkedMapOf(
             "id" to definition.id.toString(),
             "name" to definition.name,
             "value" to state.value,
             "backend" to activeBackend.name,
-            "connected" to (activeBackend.connectionCount(definition.name) > 0),
-            "connections" to activeBackend.connectionCount(definition.name),
+            "connected" to targets.isNotEmpty(),
+            "connections" to targets.size,
+            "targets" to targets.map { target ->
+                linkedMapOf(
+                    "x" to target.x,
+                    "y" to target.y,
+                    "z" to target.z,
+                    "side" to target.side
+                )
+            },
             "enabled" to outputEnabled
         )
     }
@@ -281,6 +345,10 @@ class WireChannelBank(
         return definitions.firstOrNull { it.name == name }
             ?: throw NoSuchElementException("Unknown wire channel '$name'")
     }
+
+    private fun definition(id: UUID): WireChannelDefinition =
+        definitions.firstOrNull { it.id == id }
+            ?: throw NoSuchElementException("Unknown wire channel '$id'")
 
     private fun checkedName(rawName: String): String {
         val name = rawName.trim()

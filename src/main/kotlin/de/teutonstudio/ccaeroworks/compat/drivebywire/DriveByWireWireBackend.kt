@@ -3,6 +3,7 @@ package de.teutonstudio.ccaeroworks.compat.drivebywire
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
 import de.teutonstudio.ccaeroworks.computer.wire.WireBackend
+import de.teutonstudio.ccaeroworks.computer.wire.WireConnectionView
 import edn.stratodonut.drivebywire.wire.WireNetworkManager
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -26,7 +27,7 @@ class DriveByWireWireBackend(
     override fun removeChannel(channel: String) {
         val level = owner.level ?: return
         WireNetworkManager.trySetSignalAt(level, owner.blockPos, channel, 0)
-        val sinks = sinks(channel)
+        val sinks = sinks(owner.blockPos, channel)
         sinks.forEach { sink ->
             WireNetworkManager.removeConnection(
                 level,
@@ -41,7 +42,7 @@ class DriveByWireWireBackend(
     override fun renameChannel(oldName: String, newName: String, value: Int) {
         if (oldName == newName) return
         val level = owner.level ?: return
-        val oldSinks = sinks(oldName)
+        val oldSinks = sinks(owner.blockPos, oldName)
 
         WireNetworkManager.trySetSignalAt(level, owner.blockPos, oldName, 0)
         oldSinks.forEach { sink ->
@@ -78,17 +79,30 @@ class DriveByWireWireBackend(
         }
     }
 
-    override fun connectionCount(channel: String): Int = sinks(channel).size
+    override fun connectionCount(channel: String): Int = sinks(owner.blockPos, channel).size
+
+    override fun connectionTargets(sourcePos: BlockPos, channel: String): List<WireConnectionView> =
+        sinks(sourcePos, channel)
+            .map { sink ->
+                val pos = BlockPos.of(sink.position())
+                WireConnectionView(
+                    x = pos.x,
+                    y = pos.y,
+                    z = pos.z,
+                    side = Direction.from3DDataValue(sink.direction()).name.lowercase()
+                )
+            }
+            .sortedWith(compareBy(WireConnectionView::x, WireConnectionView::y, WireConnectionView::z, WireConnectionView::side))
 
     override fun clearSignals() {
         val level = owner.level ?: return
         WireNetworkManager.get(level).clearSourceSignals(level, owner.blockPos)
     }
 
-    private fun sinks(channel: String) = owner.level
+    private fun sinks(sourcePos: BlockPos, channel: String) = owner.level
         ?.let(WireNetworkManager::get)
         ?.network
-        ?.get(owner.blockPos.asLong())
+        ?.get(sourcePos.asLong())
         ?.get(channel)
         ?.toList()
         .orEmpty()

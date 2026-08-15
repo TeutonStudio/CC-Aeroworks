@@ -4,35 +4,42 @@
 --   desk.setDisplayTouchScript("big", "/ui/main.lua")
 --
 -- A handler module may return a table containing onTap, onDoubleTap or onPointer.
--- The router caches loaded handlers and keeps the existing raw events available.
+-- Handlers are reloaded for every event so edits take effect immediately.
 
-local cache = {}
+local handlerBaseEnvironment = _ENV
+local handlerGlobalEnvironment = _G
+local handlerRequire = require
+local handlerPackage = package
+
+local function createHandlerEnvironment()
+    local environment = {
+        _G = handlerGlobalEnvironment,
+        require = handlerRequire,
+        package = handlerPackage,
+    }
+    return setmetatable(environment, { __index = handlerBaseEnvironment })
+end
 
 local function loadHandler(path)
     if path == nil or path == "" then return nil end
-    if cache[path] ~= nil then return cache[path] end
 
-    local chunk, loadError = loadfile(path)
+    local chunk, loadError = loadfile(path, nil, createHandlerEnvironment())
     if chunk == nil then
         printError("display handler " .. path .. ": " .. tostring(loadError))
-        cache[path] = false
         return nil
     end
 
     local ok, handler = pcall(chunk)
     if not ok then
         printError("display handler " .. path .. ": " .. tostring(handler))
-        cache[path] = false
         return nil
     end
 
     if type(handler) ~= "table" then
         printError("display handler " .. path .. " must return a table")
-        cache[path] = false
         return nil
     end
 
-    cache[path] = handler
     return handler
 end
 

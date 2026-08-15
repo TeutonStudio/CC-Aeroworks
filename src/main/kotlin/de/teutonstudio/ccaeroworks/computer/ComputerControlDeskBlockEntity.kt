@@ -45,6 +45,7 @@ import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
+import java.util.ArrayDeque
 import java.util.UUID
 
 class ComputerControlDeskBlockEntity(
@@ -60,6 +61,11 @@ class ComputerControlDeskBlockEntity(
 
     internal val wireBank = WireChannelBank(this)
 
+    private data class PendingComputerEvent(
+        val name: String,
+        val arguments: Array<Any?>
+    )
+
     private var instanceId: UUID? = null
     private var computerId: Int = -1
     private var label: String? = null
@@ -70,6 +76,7 @@ class ComputerControlDeskBlockEntity(
     private var lastNetworkRevision: Long = Long.MIN_VALUE
     private var lastInputs: Map<String, Map<Int, DeskInputSnapshot>> = emptyMap()
     private val directMenuOpeners = hashSetOf<UUID>()
+    private val pendingComputerEvents = ArrayDeque<PendingComputerEvent>()
 
     private val peripheralAccess: ComponentAccess<dan200.computercraft.api.peripheral.IPeripheral> =
         PlatformHelper.get().createPeripheralAccess(this) {}
@@ -95,10 +102,32 @@ class ComputerControlDeskBlockEntity(
         sendData()
     }
 
+    /**
+     * Queue an event for the embedded CraftOS runtime without losing the event while the computer
+     * is starting. CC:Tweaked intentionally drops queueEvent calls while a computer is off, while
+     * turnOn() only schedules an asynchronous start. Display interactions need to survive that gap.
+     */
+    internal fun queueComputerEventWhenReady(name: String, vararg arguments: Any?) {
+        val copiedArguments = arrayOf(*arguments)
+        val computer = getServerComputer() ?: createServerComputer()
+        if (computer.isOn) {
+            computer.queueEvent(name, copiedArguments)
+            return
+        }
+
+        while (pendingComputerEvents.size >= MAX_PENDING_COMPUTER_EVENTS) {
+            pendingComputerEvents.removeFirst()
+        }
+        pendingComputerEvents.addLast(PendingComputerEvent(name, copiedArguments))
+        computer.turnOn()
+    }
+
     override fun tick() {
         super.tick()
         val serverLevel = level as? ServerLevel ?: return
-        val computer = getServerComputer() ?: if (computerId >= 0 || startOn) {
+        val computer = getServerComputer() ?: if (
+            computerId >= 0 || startOn || pendingComputerEvents.isNotEmpty()
+        ) {
             createServerComputer()
         } else {
             ControlOverrideManager.tick(this, false)
@@ -107,7 +136,7 @@ class ComputerControlDeskBlockEntity(
         }
 
         computer.setPosition(serverLevel, blockPos)
-        if (startOn || powered) {
+        if (startOn || powered || pendingComputerEvents.isNotEmpty()) {
             computer.turnOn()
             startOn = false
         }
@@ -123,6 +152,7 @@ class ComputerControlDeskBlockEntity(
             sendData()
         }
 
+        if (newPowered) flushPendingComputerEvents(computer)
         ControlOverrideManager.tick(this, newPowered)
         wireBank.tick(newPowered)
         publishConsoleEvents(computer)
@@ -319,7 +349,15 @@ class ComputerControlDeskBlockEntity(
         stack.set(DataComponents.CUSTOM_NAME, label?.let { Component.literal(it) })
     }
 
+    private fun flushPendingComputerEvents(computer: ServerComputer) {
+        while (computer.isOn && pendingComputerEvents.isNotEmpty()) {
+            val event = pendingComputerEvents.removeFirst()
+            computer.queueEvent(event.name, event.arguments)
+        }
+    }
+
     private fun closeComputer() {
+        pendingComputerEvents.clear()
         getServerComputer()?.close()
         instanceId = null
     }
@@ -411,6 +449,7 @@ class ComputerControlDeskBlockEntity(
     }
 
     companion object {
+        private const val MAX_PENDING_COMPUTER_EVENTS = 64
         private const val NBT_COMPUTER_ID = "CCAeroworksComputerId"
         private const val NBT_LABEL = "CCAeroworksLabel"
         private const val NBT_CAPACITY = "CCAeroworksCapacity"

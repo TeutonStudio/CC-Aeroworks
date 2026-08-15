@@ -79,7 +79,8 @@ def main() -> int:
     require('override fun getType(): String = "ControlDesk"' in local, "Local desk primary type is not ControlDesk")
     for alias in ("control_desk", "cc_aeroworks:control_desk", "CCAeroworks.PERIPHERAL_TYPE"):
         require(alias in local, f"Local desk alias is missing: {alias}")
-    require("getDesk" not in local, "Local desk adapter still contains network-wide getDesk methods")
+    require("fun getDesk(" not in local and "fun getDesks(" not in local,
+            "Local desk adapter still contains network-wide getDesk methods")
     require("MULTIBLOCK_INPUT_EVENT" not in state, "Legacy multiblock input polling is still active")
     require("MULTIBLOCK_CHANGED_EVENT" not in state, "Legacy multiblock change polling is still active")
 

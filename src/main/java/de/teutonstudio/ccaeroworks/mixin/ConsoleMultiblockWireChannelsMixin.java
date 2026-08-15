@@ -8,22 +8,14 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/** Preserve virtual wire definitions when a duplicate embedded computer is ejected from a desk row. */
+/** Preserve virtual wire definitions and user groups when an embedded computer is ejected. */
 @Mixin(value = ConsoleMultiblockManager.class, remap = false)
 public abstract class ConsoleMultiblockWireChannelsMixin {
-    @Inject(
-        method = "standaloneComputer(Lnet/minecraft/world/item/ItemStack;Z)Lnet/minecraft/world/item/ItemStack;",
-        at = @At("RETURN"),
-        remap = false
-    )
-    private void ccaeroworks$copyWireChannels(
-        final ItemStack source,
-        final boolean advanced,
-        final CallbackInfoReturnable<ItemStack> cir
-    ) {
+    @Inject(method = "standaloneComputer(Lnet/minecraft/world/item/ItemStack;Z)Lnet/minecraft/world/item/ItemStack;", at = @At("RETURN"), remap = false)
+    private void ccaeroworks$copyChannelConfiguration(final ItemStack source, final boolean advanced, final CallbackInfoReturnable<ItemStack> cir) {
         final String channels = source.get(CCDataComponents.WIRE_CHANNELS.get());
-        if (channels != null && !channels.isBlank()) {
-            cir.getReturnValue().set(CCDataComponents.WIRE_CHANNELS.get(), channels);
-        }
+        if (channels != null && !channels.isBlank()) cir.getReturnValue().set(CCDataComponents.WIRE_CHANNELS.get(), channels);
+        final String groups = source.get(CCDataComponents.CHANNEL_GROUPS.get());
+        if (groups != null && !groups.isBlank()) cir.getReturnValue().set(CCDataComponents.CHANNEL_GROUPS.get(), groups);
     }
 }

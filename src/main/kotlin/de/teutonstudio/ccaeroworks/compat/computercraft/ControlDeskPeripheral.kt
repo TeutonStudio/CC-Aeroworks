@@ -10,6 +10,7 @@ import dan200.computercraft.api.peripheral.IComputerAccess
 import dan200.computercraft.api.peripheral.IPeripheral
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskService
+import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskIdentityAccess
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskInputSnapshot
 import de.teutonstudio.ccaeroworks.display.DisplayBindingService
 import java.lang.ref.WeakReference
@@ -50,6 +51,7 @@ class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral {
         val desk = desk()
         val pos = desk.blockPos
         return linkedMapOf(
+            "id" to (desk as DeskIdentityAccess).ccaeroworks_getDeskId().toString(),
             "type" to type,
             "x" to pos.x,
             "y" to pos.y,

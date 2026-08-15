@@ -4,7 +4,7 @@ import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
-import de.teutonstudio.ccaeroworks.display.DeskDisplayType
+import de.teutonstudio.ccaeroworks.display.DisplayScriptCatalog
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 import net.minecraft.core.BlockPos
 import net.minecraft.network.RegistryFriendlyByteBuf
@@ -55,14 +55,15 @@ data class SetDisplayTouchScriptPayload(
             if (payload.socket !in 0 until desk.socketCount()) return
 
             val module = desk.module(payload.socket) ?: return
-            if (CCModuleTypes.displayType(module.type()) != DeskDisplayType.THREE_DIGIT) return
-
+            val displayType = CCModuleTypes.displayType(module.type()) ?: return
             val normalized = payload.path.trim()
             val binding = if (normalized.isEmpty()) {
                 DisplayBinding.Default
             } else {
                 if (normalized.length > DisplayBindings.MAX_HANDLER_PATH_LENGTH) return
-                DisplayBinding.LuaHandler(normalized)
+                val owner = DisplayScriptCatalog.ownerFor(desk) ?: return
+                val descriptor = DisplayScriptCatalog.find(owner, normalized, displayType) ?: return
+                DisplayBinding.LuaHandler(descriptor.path)
             }
             DisplayBindings.set(desk, payload.socket, binding)
         }

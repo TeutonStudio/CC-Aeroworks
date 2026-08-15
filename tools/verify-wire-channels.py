@@ -1,88 +1,43 @@
 #!/usr/bin/env python3
-"""Validate the ComputerControlDesk virtual wire-channel contract."""
-
-from __future__ import annotations
-
+"""Validate directional channels, logical groups, high-level API and DBW multiblock selection."""
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]
-
-
-def read(relative: str) -> str:
-    return (ROOT / relative).read_text(encoding="utf-8")
-
-
-def require(condition: bool, message: str) -> None:
-    if not condition:
-        raise AssertionError(message)
-
-
-def main() -> int:
-    bank = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/wire/WireChannelBank.kt")
-    api = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerWireLuaApi.kt")
-    access = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerConsoleAccess.kt")
-    desk = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerControlDeskBlockEntity.kt")
-    backend = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/drivebywire/DriveByWireWireBackend.kt")
-    components = read("src/main/kotlin/de/teutonstudio/ccaeroworks/registry/CCDataComponents.kt")
-    autorun = read("src/main/resources/data/computercraft/lua/rom/autorun/cc_aeroworks_wires.lua")
-    command = read("src/main/resources/data/computercraft/lua/rom/programs/cc_aeroworks_wires.lua")
-    mixin = read("src/main/java/de/teutonstudio/ccaeroworks/mixin/client/DriveByWireClientWireNetworkHandlerMixin.java")
-    docs = read("docs/wire-channels.md")
-
-    require('Regex("[a-z][a-z0-9_-]{0,31}")' in bank, "Wire names are not constrained")
-    require("const val MAX_CHANNELS: Int = 32" in bank, "Wire channel limit changed unexpectedly")
-    require("val id: UUID" in bank and "val name: String" in bank, "Wire definitions lack stable UUID/name identity")
-    require("pulseEndTick" in bank, "Server-side pulse state is missing")
-    require("snapshot.state == ConsoleNetworkState.ACTIVE && snapshot.owner === owner" in bank,
-            "Wire output is not gated by active multiblock ownership")
-    require("resetAllInternal()" in bank and "clearSignals()" in bank, "Wire fail-safe clearing is missing")
-
-    public_api = api.split("class ComputerWireAdminLuaApi", 1)[0]
-    for method in ("list", "exists", "get", "set", "pulse", "reset", "resetAll", "getInfo", "getBackend", "isEnabled"):
-        require(f"fun {method}" in public_api, f"Public wires API is missing {method}")
-    for forbidden in ("addChannel", "removeChannel", "renameChannel", "fun add(", "fun remove(", "fun rename("):
-        require(forbidden not in public_api, f"Public wires API exposes configuration mutation: {forbidden}")
-    require('getNames(): Array<String> = arrayOf("__cc_aeroworks_wire_admin")' in api,
-            "Private wire command bridge is missing")
-
-    require("ComputerWireLuaApi" in access and "ComputerWireAdminLuaApi" in access,
-            "Wire APIs are not scoped through the ComputerControlDesk component")
-    require("wireBank.tick(newPowered)" in desk, "Wire runtime is not tied to computer power")
-    require("wireBank.shutdown()" in desk, "Wire outputs are not cleared during block invalidation")
-    require("CCDataComponents.WIRE_CHANNELS" in desk, "Wire definitions are not transferred through item components")
-    require('"wire_channels"' in components and ".persistent(Codec.STRING)" in components,
-            "Persistent wire-channel data component is missing")
-
-    require("WireNetworkManager.trySetSignalAt" in backend, "Drive By Wire values are not forwarded")
-    require("WireNetworkManager.removeConnection" in backend, "Deleted/renamed channels do not update DBW connections")
-    require("WireNetworkManager.createConnection" in backend, "Rename does not migrate DBW connections")
-
-    require('rawget(_G, "wires")' in autorun, "Autorun does not detect the ComputerControlDesk wires API")
-    require('shell.setAlias("wires", "cc_aeroworks_wires")' in autorun,
-            "ComputerControlDesk does not receive the wires shell alias")
-    for verb in ('command == "add"', 'command == "remove"', 'command == "rename"', 'command == "info"'):
-        require(verb in command, f"Bundled wires command is missing {verb}")
-    require("runtime.set" not in command and "runtime.pulse" not in command,
-            "Configuration command must not become a runtime signal-control command")
-
-    require("@Pseudo" in mixin, "Optional Drive By Wire client hook is not guarded with @Pseudo")
-    require("selectedSource" in mixin and "wireChannelNames()" in mixin,
-            "Drive By Wire selection is not resolved per ComputerControlDesk block entity")
-
-    require("created only through the bundled ComputerControlDesk shell command" in docs,
-            "Command-only configuration rule is not documented")
-    require("never copied or restored" in docs, "Transient fail-safe signal behavior is not documented")
-
-    print(
-        "Validated command-only wire configuration, public runtime API separation, persistent UUID definitions, "
-        "fail-safe output lifecycle, Drive By Wire forwarding and per-desk channel selection."
-    )
-    return 0
-
-
-if __name__ == "__main__":
-    try:
-        raise SystemExit(main())
-    except (AssertionError, OSError, UnicodeDecodeError) as exception:
-        print(f"ERROR: {exception}")
-        raise SystemExit(1)
+ROOT=Path(__file__).resolve().parents[1]
+def read(path:str)->str:return(ROOT/path).read_text(encoding="utf-8")
+def require(condition:bool,message:str)->None:
+    if not condition:raise AssertionError(message)
+def main()->int:
+    bank=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/wire/WireChannelBank.kt"); wire_api=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerWireLuaApi.kt"); channel_api=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerChannelLuaApi.kt"); access=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerConsoleAccess.kt"); backend=read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/drivebywire/DriveByWireWireBackend.kt"); native=read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/drivebywire/NativeDriveByWireChannels.kt"); selection=read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/DriveByWireDeskSelection.kt"); session=read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/DriveByWireDeskSelectionSession.kt"); direction=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/channel/ControlDirectionalSignals.kt"); semantics=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/channel/ControlChannelSemantics.kt"); registry=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/channel/ChannelRegistry.kt"); groups=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/channel/ChannelGroupBank.kt"); group_mixin=read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/ComputerControlDeskChannelGroupsMixin.kt"); group_item_mixin=read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/BlockEntityChannelGroupsMixin.kt"); mixin=read("src/main/java/de/teutonstudio/ccaeroworks/mixin/client/DriveByWireClientWireNetworkHandlerMixin.java"); signal=read("src/main/java/de/teutonstudio/ccaeroworks/mixin/compat/DriveByWireSignalFilterMixin.java"); catalog=read("src/main/java/de/teutonstudio/ccaeroworks/mixin/compat/ConsoleWireChannelsDisplayFilterMixin.java"); screen=read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/AbstractComputerScreenSwitchMixin.kt"); widget=read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/WireChannelManagerWidget.kt"); network=read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/WireChannelPayloads.kt"); payloads=read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/CCPayloads.kt"); state=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ControlDeskUiSwitchState.kt"); components=read("src/main/kotlin/de/teutonstudio/ccaeroworks/registry/CCDataComponents.kt"); command=read("src/main/resources/data/computercraft/lua/rom/programs/cc_aeroworks_channels.lua"); docs=read("docs/wire-channels.md"); mixins_json=read("src/main/resources/cc_aeroworks.mixins.json")
+    require('Regex("[a-z][a-z0-9_-]{0,31}")' in bank and "const val MAX_CHANNELS: Int = 32" in bank and "value in 0..15" in bank,"wire definition/redstone contract changed")
+    public_wire=wire_api.split("class ComputerWireAdminLuaApi",1)[0]
+    for method in("list","exists","get","set","pulse","reset","resetAll","getInfo","getBackend","isEnabled"):require(f"fun {method}" in public_wire,f"legacy wires API missing {method}")
+    require("WireNetworkManager.trySetSignalAt" in backend and "WireNetworkManager.createConnection" in backend and "connectionTargets(sourcePos: BlockPos" in bank,"DBW backend/topology bridge missing")
+    require('CONSOLE_WIRE_CHANNELS = "com.mred231.aeroworks.compat.drivebywire.ConsoleWireChannels"' in native and 'getMethod("channelsFor", ConsoleBlockEntity::class.java)' in native and 'getMethod("parse", String::class.java)' in native,"native Aeroworks DBW identity bridge missing")
+    require("filterExposedIds" in native and "isDriveByWireExposed" in native and "MultiChannelWireSource" not in native,"native discovery must use shared semantics")
+    require("(-value).coerceIn(0, 15)" in direction and "value.coerceIn(0, 15)" in direction and "sign = -1" in direction and "sign = 1" in direction,"signed axes must split to directional 0..15 outputs")
+    require("DISPLAY_POINTER" in semantics and "getCurrentSignal" in signal and '@At("RETURN")' in signal and "cir.setReturnValue(0)" in signal and "filterExposedIds" in catalog,"display pointers must be isolated at discovery and final late DBW read")
+    require("snapshot.members.forEach" in selection and "owner.wireChannelNames()" in selection,"whole multiblock endpoint catalogue missing")
+    require("object DriveByWireDeskSelectionSession" in session and all(x in session for x in("fun begin","fun cycle","fun current")),"logical DBW session missing")
+    require("DriveByWireDeskSelectionSession.INSTANCE.begin" in mixin and "DriveByWireDeskSelectionSession.INSTANCE.cycle" in mixin and "selectedSource = endpoint.getSourcePos()" in mixin and "currentChannel = endpoint.getChannel()" in mixin,"DBW transport state must mirror logical session endpoint")
+    require("syncManager()" in mixin and "clearSource()" in mixin,"logical DBW selection must preserve native sync/clear lifecycle")
+    require("containsMember" in mixin and "ConsoleMultiblockDisplayBounds.resolve" in mixin,"whole desk click/outline semantics missing")
+    require("DriveByWireDeskSelectionResolver.INSTANCE.resolve(level, pos)" in mixin and "ccaeroworksWireDeskPreview" in mixin,"pre-click DBW hover must resolve the whole ControlDesk multiblock")
+    require("ccaeroworks$drawDeskBounds" in mixin and "ccaeroworksWireDeskSelected" in mixin,"preview and selected DBW outlines must share the same multiblock bounds renderer")
+    preview=mixin.split("if (!DriveByWireDeskSelectionSession.INSTANCE.isActive())",1)[1].split("final DriveByWireDeskEndpoint endpoint",1)[0]
+    require("DriveByWireDeskSelectionSession.INSTANCE.begin" not in preview and "selectedSource =" not in preview,"DBW hover preview must remain visual and must not start/mutate selection state")
+    require('id = "control:$deskId:$socket:$moduleId:$nativeChannel:${signal.direction}"' in registry and 'id = "wire:${channel.id}"' in registry,"canonical channel ids missing")
+    require("data class ChannelGroupDefinition" in groups and "data class ChannelGroupBinding" in groups and "MAX_GROUPS = 32" in groups and "MAX_BINDINGS = 64" in groups and "fun renameBinding" in groups,"user group model/editing/bounds missing")
+    require('"channel_groups"' in components and "CHANNEL_GROUPS" in group_mixin and "collectImplicitComponents" in group_mixin and "applyComponentsFromItemStack" in group_item_mixin and "CHANNEL_GROUPS" in group_item_mixin and '"BlockEntityChannelGroupsMixin"' in mixins_json,"persistent group lifecycle missing")
+    require("DataComponentInput" not in group_mixin,"group persistence mixin must not name protected BlockEntity.DataComponentInput")
+    for method in("ls","stat","read","setWire","pulseWire","resetWire","override","overrideBatch","release","releaseAll"):require(f"fun {method}" in channel_api,f"channels API missing {method}")
+    require('arrayOf("channels")' in channel_api and 'arrayOf("__cc_aeroworks_channel_admin")' in channel_api and "ComputerChannelLuaApi" in access and "ComputerWireLuaApi" in access and "fun renameBinding" in channel_api,"logical/admin API must be additive and complete")
+    require('result["name"] = parts[2]' in channel_api,"channels.stat must preserve logical binding alias as public name")
+    require("target.sign * value" in registry and "Override batch addresses both directions" in registry,"directional override conversion/conflict guard missing")
+    require("USER GROUPS" in widget and "ChannelRow.UserGroup" in widget and "ChannelRow.Binding" in widget and "MISSING" in widget and "SelectionKind" in widget,"user groups/missing bindings/unambiguous edit selection absent from GUI")
+    require("MutateChannelGroupPayload" in screen and "ChannelGroupMutation.BIND" in screen and "ChannelGroupMutation.RENAME_BINDING" in screen and "owner.channelGroups()" in network and "ChannelRegistry.findById" in network and "ChannelGroupMutation.RENAME_BINDING" in network and "MutateChannelGroupPayload.TYPE" in payloads,"GUI group mutations must use validated server registry")
+    require("channels group add" in command and "channels bind" in command and "channels binding rename" in command and "channels unbind" in command,"CraftOS channel administration incomplete")
+    require("activeComputerDesk" in state,"channel UI must use validated desk session")
+    require("Channels tab" in docs and "same `WireChannelBank`" in docs and "channels.ls" in docs,"channel docs incomplete")
+    print("Validated logical 0..15 channels, persistent editable user groups, channels API, pre-click/active DBW multiblock lifecycle, display isolation and sink geometry.");return 0
+if __name__=="__main__":
+    try:raise SystemExit(main())
+    except(AssertionError,OSError,UnicodeDecodeError)as exc:print(f"ERROR: {exc}");raise SystemExit(1)

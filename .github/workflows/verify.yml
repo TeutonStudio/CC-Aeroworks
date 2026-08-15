@@ -47,6 +47,9 @@ jobs:
       - name: Verify exact Create Radars runtime bytecode
         run: python3 tools/verify-create-radars-bytecode.py
 
+      - name: Verify exact Aeroworks Drive By Wire bytecode
+        run: python3 tools/verify-aeroworks-dbw-bytecode.py
+
       - name: Validate repository contract
         run: python3 tools/verify-repository.py
 
@@ -61,6 +64,9 @@ jobs:
 
       - name: Validate display combined input
         run: python3 tools/verify-display-combined-input.py
+
+      - name: Validate ControlDesk settings scroll rows
+        run: python3 tools/verify-control-settings-scroll-rows.py
 
       - name: Validate ComputerControlDesk control overrides
         run: python3 tools/verify-control-overrides.py
@@ -79,6 +85,9 @@ jobs:
 
       - name: Validate ComputerControlDesk wire channels
         run: python3 tools/verify-wire-channels.py
+
+      - name: Validate GPS information source
+        run: python3 tools/verify-gps-information-source.py
 
       - name: Validate Create telemetry and docking relay
         run: python3 tools/verify-telemetry.py
