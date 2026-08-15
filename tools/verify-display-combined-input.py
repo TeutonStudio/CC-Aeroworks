@@ -19,6 +19,7 @@ control = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/CombinedLeverC
 controller = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/DisplayCombinedInputController.kt")
 context = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/CombinedInputContext.kt")
 coordinator = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/CombinedInputCoordinator.kt")
+lifecycle_hook = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/AeroworksControlSessionMixin.kt")
 sample = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/CombinedControlSamplePayload.kt")
 legacy = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/SetCombinedLeverValuePayload.kt")
 payloads = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/CCPayloads.kt")
@@ -77,6 +78,44 @@ require("baselineDX" in control and "baselineDY" in control and "baselinePending
 require("baselineDX" in controller and "baselineDY" in controller and "baselinePending" in controller,
         "display Combined control must subtract the activation-boundary mouse baseline")
 
+# Aeroworks itself is the single source of truth for ControlDesk session lifetime. The published
+# Aeroworks 1.3.0 ConsoleControlClient exposes isActive() and funnels every real session teardown
+# through exit(String). Combined therefore gates every hot path on isActive() and hooks exit directly.
+require("import com.mred231.aeroworks.content.controls.ConsoleControlClient" in control,
+        "normal Combined control must use Aeroworks ConsoleControlClient directly")
+require("import com.mred231.aeroworks.content.controls.ConsoleControlClient" in controller,
+        "display Combined control must use Aeroworks ConsoleControlClient directly")
+require(control.count("ConsoleControlClient.isActive()") >= 3,
+        "normal Combined acquisition, watchdog and turn path must follow Aeroworks' actual session state")
+require(controller.count("ConsoleControlClient.isActive()") >= 3,
+        "display Combined acquisition, watchdog and turn path must follow Aeroworks' actual session state")
+require('targets = ["com.mred231.aeroworks.content.controls.ConsoleControlClient"]' in lifecycle_hook,
+        "Combined lifecycle hook must target Aeroworks ConsoleControlClient")
+require('method = ["exit(Ljava/lang/String;)V"]' in lifecycle_hook,
+        "Combined lifecycle hook must intercept Aeroworks' real exit(String) boundary")
+require("@JvmStatic" in lifecycle_hook,
+        "Aeroworks exit injector must be static because ConsoleControlClient.exit(String) is static")
+require("CombinedLeverController.abortControlMode()" in lifecycle_hook,
+        "Aeroworks exit must abort normal Combined control")
+require("DisplayCombinedInputController.abortControlMode()" in lifecycle_hook,
+        "Aeroworks exit must abort display Combined control")
+require('"client.AeroworksControlSessionMixin"' in mixins,
+        "Aeroworks ControlDesk lifecycle hook must be registered")
+require("fun abortControlMode()" in control and "suppressedBinding = active.activationBinding" in control,
+        "normal Combined abort must suppress the held activation binding")
+require("fun abortControlMode()" in controller and "suppressedBindings += active.heldBindings" in controller,
+        "display Combined abort must suppress held pointer bindings")
+require("CombinedControlModeTracker" not in control and "CombinedControlModeTracker" not in controller,
+        "Combined controllers must not depend on a mirrored ControlDesk session flag")
+require("CombinedControlModeTracker" not in client,
+        "client registration must not retain the removed mirrored ControlDesk tracker")
+require(not (ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/input/CombinedControlModeTracker.kt").exists(),
+        "mirrored CombinedControlModeTracker must remain removed")
+require(not (ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/KeyboardHandlerCombinedInputMixin.kt").exists(),
+        "ESC-specific raw keyboard hook must remain removed")
+require("KeyboardHandlerCombinedInputMixin" not in mixins,
+        "mixin config must not retain the obsolete ESC-specific keyboard hook")
+
 # Control updates are one atomic sample, final release bypasses throttling, and latest packets win.
 require("CombinedControlSamplePayload" in control and "CombinedChannelValue" in control,
         "normal Combined control must send atomic multi-channel samples")
@@ -132,8 +171,7 @@ require("python3 tools/verify-display-combined-input.py" in workflow,
         "workflow must enforce display combined-input contract")
 
 print(
-    "Validated Combined control focus: edge-driven sessions, cached multiblock binding context, "
-    "exclusive mouse ownership, 5-tick watchdogs, mouse baselines, atomic latest-wins samples, "
-    "forced release flush, effective-value CC events under HARD overrides, display pointer integration "
-    "and DBW isolation."
+    "Validated Combined control focus: Aeroworks ConsoleControlClient is the authoritative session "
+    "lifetime, exit(String) aborts both Combined owners, acquisition stays edge-driven, cached multiblock "
+    "context and exclusive mouse ownership remain intact, and display pointer/DBW isolation is preserved."
 )
