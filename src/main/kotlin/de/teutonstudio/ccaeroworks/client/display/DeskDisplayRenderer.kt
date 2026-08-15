@@ -4,20 +4,15 @@ import com.mojang.blaze3d.vertex.PoseStack
 import com.mred231.aeroworks.content.controls.ConsoleBlock
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess
+import de.teutonstudio.ccaeroworks.config.CCServerConfig
 import de.teutonstudio.ccaeroworks.display.DeskDisplayType
 import net.createmod.catnip.render.CachedBuffers
 import net.createmod.catnip.render.SuperByteBuffer
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.client.renderer.RenderType
-import kotlin.math.min
 
 object DeskDisplayRenderer {
     private const val SPACING = 0.18
-    private const val BASE_PIXEL_X_SPACING = 0.045
-    private const val BASE_PIXEL_Z_SPACING = 0.05
-    private const val SMALL_MAX_PIXEL_X_SPAN = 0.30
-    private const val LARGE_MAX_PIXEL_X_SPAN = 0.48
-    private const val MAX_PIXEL_Z_SPAN = 0.30
 
     @JvmStatic
     fun render(desk: ConsoleBlockEntity, poseStack: PoseStack, buffers: MultiBufferSource, light: Int) {
@@ -38,7 +33,7 @@ object DeskDisplayRenderer {
                                 Triple(
                                     DeskDisplayModels.PIXEL,
                                     pixelOffsetX(display.type, display.pixels.width, x),
-                                    pixelOffsetZ(display.pixels.height, y)
+                                    pixelOffsetZ(display.type, display.pixels.height, y)
                                 )
                             )
                         }
@@ -55,14 +50,21 @@ object DeskDisplayRenderer {
             }
             elements.forEach { (model, x, z) ->
                 val rendered: SuperByteBuffer = CachedBuffers.partial(model, desk.blockState)
+                if (model == DeskDisplayModels.PIXEL) {
+                    val scale = display.type.pixelModelScale
+                    rendered.center()
+                        .scale(scale, 1.0f, scale)
+                        .uncenter()
+                }
+                rendered
                     .translate(0.5, 0.5, 0.5)
                     .rotate(rotation)
                     .translate(socket.offset().x - 0.5, socket.offset().y - 0.5, socket.offset().z - 0.5)
                     .rotate(socket.orientation())
                     .translate(-0.5, 0.0, -0.5)
                     .translate(x, 0.0, z)
-                rendered.light<SuperByteBuffer>(light)
-                rendered.renderInto(poseStack, consumer)
+                    .light<SuperByteBuffer>(light)
+                    .renderInto(poseStack, consumer)
             }
         }
     }
@@ -71,28 +73,27 @@ object DeskDisplayRenderer {
     fun digitOffset(width: Int, digit: Int): Double = -(width - 1) * SPACING / 2.0 + digit * SPACING
 
     @JvmStatic
-    fun pixelOffsetX(type: DeskDisplayType, width: Int, x: Int): Double {
-        val maxSpan = when (type) {
-            DeskDisplayType.TWO_DIGIT -> SMALL_MAX_PIXEL_X_SPAN
-            DeskDisplayType.THREE_DIGIT -> LARGE_MAX_PIXEL_X_SPAN
-        }
-        return centeredOffset(width, x, BASE_PIXEL_X_SPACING, maxSpan)
-    }
+    fun pixelOffsetX(type: DeskDisplayType, width: Int, x: Int): Double =
+        centeredOffset(width, x, type.pixelPitchBlocks)
 
+    /** Compatibility overload for callers that only know the grid width. */
     @JvmStatic
     fun pixelOffsetX(width: Int, x: Int): Double =
-        centeredOffset(width, x, BASE_PIXEL_X_SPACING, Double.POSITIVE_INFINITY)
+        centeredOffset(width, x, currentPixelPitch())
 
     @JvmStatic
-    fun pixelOffsetZ(height: Int, y: Int): Double {
-        if (height <= 1) return 0.0
-        val spacing = min(BASE_PIXEL_Z_SPACING, MAX_PIXEL_Z_SPAN / (height - 1))
-        return (height - 1) * spacing / 2.0 - y * spacing
-    }
+    fun pixelOffsetZ(type: DeskDisplayType, height: Int, y: Int): Double =
+        -centeredOffset(height, y, type.pixelPitchBlocks)
 
-    private fun centeredOffset(count: Int, index: Int, baseSpacing: Double, maxSpan: Double): Double {
+    /** Compatibility overload for callers that only know the grid height. */
+    @JvmStatic
+    fun pixelOffsetZ(height: Int, y: Int): Double =
+        -centeredOffset(height, y, currentPixelPitch())
+
+    private fun currentPixelPitch(): Double = 1.0 / CCServerConfig.displayPartsPerBlockValue().toDouble()
+
+    private fun centeredOffset(count: Int, index: Int, spacing: Double): Double {
         if (count <= 1) return 0.0
-        val spacing = min(baseSpacing, maxSpan / (count - 1))
         return -(count - 1) * spacing / 2.0 + index * spacing
     }
 }
