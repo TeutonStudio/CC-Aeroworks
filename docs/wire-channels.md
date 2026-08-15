@@ -27,6 +27,8 @@ Physical modules are discovered from the active Aeroworks ControlDesk multiblock
 
 Drive By Wire sink rows include sink coordinates and the connected block side. The GUI reads these from DBW's existing `WireNetworkSink` topology instead of maintaining a second connection database.
 
+The channel editor keeps the currently selected logical group and target as separate binding context, while Rename/Delete operate only on the row last selected for editing. This prevents a previously selected wire channel from being renamed or removed when the user subsequently selects a group.
+
 ## User-defined wire channels
 
 Wire definitions are hardware configuration owned by the ComputerControlDesk. They can be managed from the Channels tab or with the bundled `wires` shell command. The shell command and graphical channel manager are administrative front ends over the same `WireChannelBank`; neither creates a second channel state. The public `wires` API deliberately has no add/remove/rename functions.
@@ -54,7 +56,7 @@ flight
   gear       -> wire:<uuid>
 ```
 
-A target may appear in more than one group. Temporarily losing a physical module does not delete the binding. The GUI keeps it and shows `MISSING`; it becomes available again when the same stable target returns.
+A target may appear in more than one group. Temporarily losing a physical module does not delete the binding. The GUI keeps it and shows `MISSING`; it becomes available again when the same stable target returns. Group names and binding aliases can be renamed without changing their stable target reference.
 
 Groups and bindings can be configured in the Channels tab or with the bundled `channels` command:
 
@@ -64,7 +66,8 @@ channels ls /modules
 channels ls /groups
 channels group add flight
 channels bind flight gear wire:<uuid>
-channels unbind flight gear
+channels binding rename flight gear landing_gear
+channels unbind flight landing_gear
 channels group rename flight primary_flight
 channels group remove primary_flight
 ```
@@ -80,6 +83,8 @@ channels.ls("/groups/flight")
 local info = channels.stat("/groups/flight/gear")
 local value = channels.read("/groups/flight/gear")
 ```
+
+For a group binding, `stat()` preserves the logical alias as `name` while still returning the resolved physical target metadata. Missing targets remain discoverable through `ls()` and report `available=false`.
 
 Wire operations are explicit because setting redstone and taking control authority are intentionally different side effects:
 
@@ -104,9 +109,9 @@ channels.releaseAll()
 
 Drive By Wire 0.2.9 internally stores one physical selected source block. CC-Aeroworks keeps a separate logical selection session for an active ControlDesk multiblock. Clicking any real member selects the same logical desk network; scrolling traverses native channels from every member plus the ComputerControlDesk user-defined wire channels.
 
-The logical selection remains anchored to the whole ControlDesk while the current physical endpoint is mirrored into DBW for its unchanged connection protocol. Native controls retain their real desk position as source; user-defined channels use the ComputerControlDesk owner position, matching `WireChannelBank` signal publication. The selected-source outline is the shared outer ControlDesk bounds.
+The logical selection remains anchored to the whole ControlDesk while the current physical endpoint is mirrored into DBW for its unchanged connection protocol. Native controls retain their real desk position as source; user-defined channels use the ComputerControlDesk owner position, matching `WireChannelBank` signal publication. Starting a logical selection still invokes DBW's native network sync, and clearing it goes through DBW's own `clearSource()` so its mirrored network/cooldown state cannot outlive the selection. The selected-source outline is the shared outer ControlDesk bounds.
 
-Interactive CC-Aeroworks displays keep real Aeroworks `x/y` ControlChannels for Combined pseudo-finger configuration, but those channels are not vehicle DBW outputs. Display isolation is enforced in the Aeroworks channel catalogue and again at DBW's final `getCurrentSignal` lookup. The higher-priority lookup guard returns zero for display-pointer x/y while leaving the real Aeroworks module values intact for pseudo-finger movement.
+Interactive CC-Aeroworks displays keep real Aeroworks `x/y` ControlChannels for Combined pseudo-finger configuration, but those channels are not vehicle DBW outputs. Display isolation is enforced in the Aeroworks channel catalogue and again at DBW's final `getCurrentSignal` return. The low-priority RETURN guard executes after ordinary integrations and forces display-pointer x/y back to zero while leaving the real Aeroworks module values intact for pseudo-finger movement.
 
 ## Persistence and fail-safe behavior
 

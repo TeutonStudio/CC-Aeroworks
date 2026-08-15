@@ -20,7 +20,17 @@ class ComputerChannelLuaApi(
     }
 
     @LuaFunction(mainThread = true)
-    fun stat(pathOrId: String): Map<String, Any> = lua { ChannelRegistry.stat(owner(), pathOrId) }
+    fun stat(pathOrId: String): Map<String, Any> = lua {
+        val result = ChannelRegistry.stat(owner(), pathOrId).toMutableMap()
+        val parts = pathOrId.trim().trim('/').split('/').filter(String::isNotBlank)
+        if (parts.size == 3 && parts[0] == "groups") {
+            // A logical alias is the public name at this path. ChannelRegistry also describes the
+            // resolved target, but that target name must not replace the alias the program asked for.
+            result["name"] = parts[2]
+            result["path"] = "/groups/${parts[1]}/${parts[2]}"
+        }
+        result
+    }
 
     @LuaFunction(mainThread = true)
     fun read(pathOrId: String): Int = lua { ChannelRegistry.read(owner(), pathOrId) }
