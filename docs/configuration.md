@@ -19,25 +19,34 @@ Ein Linksklick auf das vorhandene Modussymbol schaltet bei Lever, Joystick und j
 
 Die Serverdatei heißt `cc_aeroworks-server.toml`. Sie liegt weltbezogen unter `<welt>/serverconfig/cc_aeroworks-server.toml` und wird an verbundene Clients synchronisiert.
 
-- `display.small.width`: exakte Pixelbreite des kleinen Pultdisplays und der kleinen Radaranzeige; Standard `7`, positive Ganzzahl.
-- `display.small.height`: exakte Pixelhöhe des kleinen Pultdisplays und der kleinen Radaranzeige; Standard `5`, positive Ganzzahl.
-- `display.large.width`: exakte Pixelbreite des großen Pultdisplays und der großen Radaranzeige; Standard `11`, positive Ganzzahl.
-- `display.large.height`: exakte Pixelhöhe des großen Pultdisplays und der großen Radaranzeige; Standard `5`, positive Ganzzahl.
+Die Displayauflösung wird nicht mehr über getrennte Breiten und Höhen konfiguriert. Stattdessen gibt es eine gemeinsame Dichte in **PPB (Parts per Block)**:
 
-Die früheren Obergrenzen von 64 Pixeln Breite und 32 Pixeln Höhe wurden entfernt. Konfigurationsseitig gilt nur noch der Bereich positiver vorzeichenbehafteter Ganzzahlen. Ein einzelnes Raster muss technisch weiterhin in einen Java-String beziehungsweise ein Java-Array passen; außerdem steigen Speicherbedarf, Lua-Datenmenge und Renderaufwand mit `Breite × Höhe`. Die Mod skaliert den Pixelabstand bei großen Rastern herunter, damit die Anzeige auf dem physischen Modul bleibt. Das schützt jedoch niemanden vor einer absurden Milliardenpixel-Konfiguration. Manche Naturgesetze werden vom Serverbetreiber verwaltet.
+- `display.ppb`: logische Teile beziehungsweise Pixelzellen pro voller Blockkante; Standard `256`, Minimum `16`.
+- `16 PPB` entspricht der üblichen Minecraft-Texturdichte von `16×16` Pixeln auf einer Blockseite.
 
-Die aktuell wirksame Auflösung ist in Lua über `getDisplaySize(socket)` sowie in Displaybeschreibungen über `pixelWidth`, `pixelHeight`, `PIXEL_WIDTH` und `PIXEL_HEIGHT` verfügbar. Kotlin-Code kann dieselben Werte über `DeskDisplayType.pixelWidth`, `DeskDisplayType.pixelHeight` und `DeskDisplayType.pixelResolution` abrufen.
+Breite und Höhe werden aus der realen, blockrelativen Modulfläche berechnet. Ein Rasterpixel besitzt auf beiden Achsen denselben Pitch von `1 / PPB` Block und bleibt dadurch quadratisch.
+
+- Kleines Display / kleines Radar: Fläche `7/16 × 7/16 Block`. Bei `16 PPB` ergibt das `7×7`, bei Standard `256 PPB` `112×112` Pixel.
+- Großes Display / großes Radar: Fläche `10/16 × 7/16 Block`. Bei `16 PPB` ergibt das `10×7`, bei Standard `256 PPB` `160×112` Pixel.
+
+Intern gilt je Achse `floor(Modulgröße_in_16tel × PPB / 16)`. Falls ein PPB-Wert kein Vielfaches von 16 ist, bleibt dadurch höchstens ein Bruchteil einer Pixelzelle als symmetrischer Rand übrig; das Raster wird nicht gestreckt. Die sichtbaren Pixelmodelle werden zusätzlich relativ zur Vanilla-Dichte mit `16 / PPB` skaliert, damit auch bei hoher Dichte keine fest großen Pixelmodelle übereinanderliegen. Das gilt sowohl für den klassischen Renderpfad als auch für Flywheel.
+
+Die früheren Schlüssel `display.small.width`, `display.small.height`, `display.large.width` und `display.large.height` werden nicht mehr verwendet. Bestehende Serverkonfigurationen erhalten beim Wechsel auf diese Version den neuen PPB-Standardwert, sofern `display.ppb` nicht ausdrücklich gesetzt wird.
+
+Die aktuell wirksame Auflösung ist in Lua über `getDisplaySize(socket)` sowie in Displaybeschreibungen über `pixelWidth`, `pixelHeight`, `PIXEL_WIDTH` und `PIXEL_HEIGHT` verfügbar. Kotlin-Code kann dieselben Werte über `DeskDisplayType.pixelWidth`, `DeskDisplayType.pixelHeight` und `DeskDisplayType.pixelResolution` abrufen; `DeskDisplayType.partsPerBlock` liefert zusätzlich die zugrunde liegende Dichte.
 
 Der Pixel-Editor im API-Handbuch übernimmt diese synchronisierten Werte beim Erzeugen seines Editorzustands. Nach einer geänderten Serverkonfiguration sollte das Handbuch deshalb neu geöffnet werden, damit ein bereits offener Editor nicht mit seinem alten Raster weiterarbeitet.
 
-Eine Auflösungsänderung verändert den Rastervertrag. Bereits gespeicherte Pixelraster mit abweichender Länge werden nicht gestreckt oder zugeschnitten und müssen anschließend neu geschrieben werden. Textzustände bleiben davon unberührt.
+Eine PPB-Änderung verändert den Rastervertrag. Bereits gespeicherte Pixelraster mit abweichender Länge werden nicht gestreckt oder zugeschnitten und müssen anschließend neu geschrieben werden. Textzustände bleiben davon unberührt.
+
+Der Speicherbedarf, die Lua-Datenmenge und der Renderaufwand steigen weiterhin mit `Breite × Höhe`. `256 PPB` bedeutet beim großen Display bereits `17.920` logische Pixel. Ein absurd hoher PPB-Wert bleibt also technisch möglich, aber die JVM wird diese philosophische Entscheidung nicht zwingend würdigen.
 
 ## Server und Create-Telemetrie
 
 Unter `telemetry` steuert die Serverkonfiguration den Runtime-Speicher und die Lifecycle-Prüfungen der Create-Display-Link-Telemetrie:
 
 - `telemetry.maxSourcesPerEndpoint`: maximale Zahl gespeicherter Display-Link-Quellen pro ComputerControlDesk oder Docking Connector; Standard `128`, Bereich `1..4096`.
-- `telemetry.maxListEntries`: maximale Zahl zurückgegebener Einträge einer Item-/Fluidliste; Standard `128`, Bereich `1..4096`. `entryCount` und Gesamtmengen bleiben vollständig und `truncated=true` markiert die Kürzung.
+- `telemetry.maxListEntries`: maximale Zahl zurückgegebener Einträge einer Item-/Fluidliste; Standard `128`, Bereich `1..4096`.
 - `telemetry.staleAfterTicks`: Alter ohne Refresh, ab dem eine Source `stale=true` meldet; Standard `220`, Bereich `1..72000`.
 - `telemetry.validationIntervalTicks`: Intervall für die Prüfung, ob bekannte Display Links noch existieren, dieselbe Source verwenden und auf denselben Endpoint zeigen; Standard `20`, Bereich `1..1200`.
 - `telemetry.dockScanIntervalTicks`: Intervall für den Sable-sublevelweiten Scan nach optionalen Simulated-Docking-Connectoren; Standard `40`, Bereich `1..1200`.
