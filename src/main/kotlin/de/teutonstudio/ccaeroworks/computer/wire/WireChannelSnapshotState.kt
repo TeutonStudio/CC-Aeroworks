@@ -4,13 +4,13 @@ import de.teutonstudio.ccaeroworks.compat.drivebywire.NativeDriveByWireChannel
 import de.teutonstudio.ccaeroworks.compat.drivebywire.NativeDriveByWireChannels
 import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
 import de.teutonstudio.ccaeroworks.computer.channel.ControlDirectionalSignals
+import de.teutonstudio.ccaeroworks.computer.channel.UserChannelGroupView
 import de.teutonstudio.ccaeroworks.computer.control.ControlOverrideManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 
 data class ControlChannelView(
     val id: String,
     val name: String,
-    /** Physical redstone-facing direction signal, always 0..15. */
     val value: Int,
     val overridden: Boolean,
     val connections: List<WireConnectionView>
@@ -29,7 +29,8 @@ data class ControlModuleGroupView(
 
 data class WireChannelManagerSnapshot(
     val wire: WireChannelBankView,
-    val controlGroups: List<ControlModuleGroupView>
+    val controlGroups: List<ControlModuleGroupView>,
+    val userGroups: List<UserChannelGroupView>
 )
 
 object WireChannelSnapshotState {
@@ -45,7 +46,8 @@ object WireChannelSnapshotState {
                 group.copy(channels = group.channels.map { channel ->
                     channel.copy(connections = channel.connections.toList())
                 })
-            }
+            },
+            userGroups = snapshot.userGroups.map { group -> group.copy(bindings = group.bindings.toList()) }
         )
     }
 
@@ -57,15 +59,11 @@ object WireChannelSnapshotState {
 
     private fun emptySnapshot(): WireChannelManagerSnapshot = WireChannelManagerSnapshot(
         wire = WireChannelBankView("none", false, emptyList()),
-        controlGroups = emptyList()
+        controlGroups = emptyList(),
+        userGroups = emptyList()
     )
 }
 
-/**
- * Projects ControlOverrideManager's signed continuous axes into Aeroworks' physical directional
- * DBW/redstone outputs. The actual DBW IDs come from ConsoleWireChannels, so sink lookup uses the
- * same `socket/channelId/sign` identity as Aeroworks itself.
- */
 object ControlChannelSnapshotBuilder {
     fun build(owner: ComputerControlDeskBlockEntity): List<ControlModuleGroupView> {
         val level = owner.level ?: return emptyList()
@@ -87,32 +85,22 @@ object ControlChannelSnapshotBuilder {
             val overridden = row["overridden"] as? Boolean ?: false
             val sourcePos = member.pos
             val groupId = "module:$deskId:$socket:$moduleId"
-            val nativeDbwChannels = dbwChannelsByDesk.getOrPut(deskId) {
-                NativeDriveByWireChannels.channels(member.desk)
-            }
+            val nativeDbwChannels = dbwChannelsByDesk.getOrPut(deskId) { NativeDriveByWireChannels.channels(member.desk) }
 
             val group = groups.getOrPut(groupId) {
                 MutableControlModuleGroup(
-                    id = groupId,
-                    label = moduleId.substringAfter(':', moduleId).replace('_', ' '),
-                    deskId = deskId,
-                    deskIndex = deskIndex,
-                    socket = socket,
-                    socketName = socketName,
-                    moduleId = moduleId
+                    groupId,
+                    moduleId.substringAfter(':', moduleId).replace('_', ' '),
+                    deskId,
+                    deskIndex,
+                    socket,
+                    socketName,
+                    moduleId
                 )
             }
 
-            ControlDirectionalSignals.split(
-                moduleId = moduleId,
-                socket = socket,
-                channel = channel,
-                nativeValue = nativeValue,
-                availableWireChannels = nativeDbwChannels
-            ).forEach { signal ->
-                val connections = signal.wireChannel
-                    ?.let { owner.wireBank.connectionTargets(sourcePos, it) }
-                    .orEmpty()
+            ControlDirectionalSignals.split(moduleId, socket, channel, nativeValue, nativeDbwChannels).forEach { signal ->
+                val connections = signal.wireChannel?.let { owner.wireBank.connectionTargets(sourcePos, it) }.orEmpty()
                 group.channels += ControlChannelView(
                     id = "control:$deskId:$socket:$moduleId:$channel:${signal.direction}",
                     name = signal.label,
@@ -125,14 +113,8 @@ object ControlChannelSnapshotBuilder {
 
         return groups.values.map { group ->
             ControlModuleGroupView(
-                id = group.id,
-                label = group.label,
-                deskId = group.deskId,
-                deskIndex = group.deskIndex,
-                socket = group.socket,
-                socketName = group.socketName,
-                moduleId = group.moduleId,
-                channels = group.channels.toList()
+                group.id, group.label, group.deskId, group.deskIndex, group.socket,
+                group.socketName, group.moduleId, group.channels.toList()
             )
         }
     }
