@@ -4,12 +4,14 @@ CC-Aeroworks ergänzt zwei Displaymodule für Aeroworks-Steuerungspulte. Beide k
 
 ## Displaytypen
 
-| Display | Passende Sockets | Zeichen | Standardraster |
+| Display | Passende Sockets | Zeichen | Standardraster bei 256 PPB |
 |---|---|---:|---:|
-| Zweistelliges Display | `left`, `right`, `big` | 2 | `7x5` |
-| Dreistelliges Display | nur `big` | 3 | `11x5` |
+| Zweistelliges Display | `left`, `right`, `big` | 2 | `112x112` |
+| Dreistelliges Display | nur `big` | 3 | `160x112` |
 
-Die Rastergröße ist serverseitig konfigurierbar. Programme müssen die wirksame Breite und Höhe mit `getDisplaySize` lesen und dürfen die Standardwerte nicht fest voraussetzen.
+Die Rastergröße wird serverseitig über `display.ppb` in **Parts per Block (PPB)** konfiguriert. `16 PPB` entsprechen der üblichen Minecraft-Texturdichte von 16 Pixeln pro Blockkante, Standard sind `256 PPB`. Die tatsächliche Rasterbreite und -höhe werden aus der physischen Modulfläche abgeleitet: das kleine Display belegt `7/16 x 7/16 Block`, das große `10/16 x 7/16 Block`. Dadurch verwenden beide Achsen denselben Pixel-Pitch und die Rasterpixel bleiben quadratisch.
+
+Programme müssen die wirksame Breite und Höhe mit `getDisplaySize` lesen und dürfen die Standardwerte nicht fest voraussetzen.
 
 ## Pult auswählen
 
@@ -173,7 +175,7 @@ Die Displayitems besitzen getrennte Storyboards für:
 
 ## Häufige Fehler
 
-- Rastermaße fest als `7x5` oder `11x5` annehmen,
+- Rastermaße fest annehmen, statt sie mit `getDisplaySize` zu lesen,
 - falsche Zeilenanzahl oder Zeilenbreite,
 - andere Rasterzeichen als `0` und `1`,
 - dreistelliges Display in `left` oder `right`,
