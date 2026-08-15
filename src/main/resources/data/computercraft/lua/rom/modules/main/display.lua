@@ -19,6 +19,15 @@ function display.resolve(event)
 
     local api = networkApi()
     if not api then return nil, socket end
+
+    -- Embedded events carry the exact source ControlDesk plot/world position. Resolve that directly
+    -- before falling back to the stable-id scan. This is cheaper and avoids making every touch
+    -- depend on getInfo() succeeding for every desk in the multiblock.
+    if type(event.deskX) == "number" and type(event.deskY) == "number" and type(event.deskZ) == "number" then
+        local ok, desk = pcall(api.wrap, event.deskX, event.deskY, event.deskZ, "ControlDesk")
+        if ok and desk then return desk, socket end
+    end
+
     local desks = api.find("ControlDesk")
     if type(desks) ~= "table" then return nil, socket end
     for _, desk in pairs(desks) do
