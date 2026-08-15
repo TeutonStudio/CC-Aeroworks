@@ -4,7 +4,7 @@ import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess
 import de.teutonstudio.ccaeroworks.compat.sable.SableClientRenderPose
 import net.minecraft.client.Minecraft
-import net.minecraft.client.renderer.LightTexture
+import net.minecraft.client.renderer.LevelRenderer
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent
 import java.util.Collections
 import java.util.WeakHashMap
@@ -67,7 +67,7 @@ object DeskPixelOverlayRenderer {
                     desk,
                     poseStack,
                     buffers,
-                    LightTexture.FULL_BRIGHT
+                    LevelRenderer.getLightColor(level, desk.blockPos)
                 )
                 renderedAny = true
             } finally {
