@@ -2,6 +2,7 @@ package de.teutonstudio.ccaeroworks.network
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
+import de.teutonstudio.ccaeroworks.compat.sable.SableInteractionGeometry
 import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
 import de.teutonstudio.ccaeroworks.display.DisplayScriptCatalog
@@ -46,12 +47,11 @@ data class SetDisplayTouchScriptPayload(
         fun handle(payload: SetDisplayTouchScriptPayload, context: IPayloadContext) {
             val player = context.player() as? ServerPlayer ?: return
             val level = player.serverLevel()
-            if (!level.hasChunkAt(payload.pos) || !level.mayInteract(player, payload.pos)) return
+            if (!level.hasChunkAt(payload.pos) || !SableInteractionGeometry.mayInteract(player, level, payload.pos)) return
 
             val desk = level.getBlockEntity(payload.pos) as? ConsoleBlockEntity ?: return
             if (desk.hasController() && !desk.checkUser(player.uuid)) return
-            val maximumDistance = player.blockInteractionRange() + 1.0
-            if (player.distanceToSqr(payload.pos.center) > maximumDistance * maximumDistance) return
+            if (!SableInteractionGeometry.withinReach(player, level, payload.pos)) return
             if (payload.socket !in 0 until desk.socketCount()) return
 
             val module = desk.module(payload.socket) ?: return
