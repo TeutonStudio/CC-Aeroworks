@@ -4,12 +4,12 @@
 
 | Eingebetteter Computer | Externer Computer |
 |---|---|
-| globale `peripherals`-, `controls`- und `telemetry`-APIs | lokales Peripheral `ControlDesk` |
-| sieht alle Pulte, Nachbargeräte, lokale Telemetrie und darf Steuerautorität übernehmen | sieht nur das direkt verbundene Pult |
+| globale `peripherals`-, `controls`-, `telemetry`- und `ui`-APIs | lokales Peripheral `ControlDesk` |
+| sieht alle Pulte, Nachbargeräte, lokale Telemetrie, Reactive UI und darf Steuerautorität übernehmen | sieht nur das direkt verbundene Pult |
 | kein Modem erforderlich | direkt oder über Wired Modem |
-| `cc_aeroworks_*`-Ereignisse | `cc_aeroworks_desk_input` |
+| `cc_aeroworks_*`-Ereignisse | `cc_aeroworks_desk_input` / Display-Events |
 
-Die alte globale `aeroworks`-API und die netzwerkweiten `getDesk...`-Methoden sind nicht Teil des neuen Vertrags.
+Die alte globale `aeroworks`-API und die netzwerkweiten `getDesk...`-Methoden sind nicht Teil des aktuellen Vertrags.
 
 ## Lokales `ControlDesk`
 
@@ -46,7 +46,27 @@ getDisplayPixel(socket, x, y)
 setDisplayPixel(socket, x, y, enabled)
 setDisplayPixels(socket, rows)
 clearDisplayPixels(socket)
+getRadarSources()
+getDisplayBinding(socket)
+setRadarSource(socket, sourceId)
+setDisplayTouchScript(socket, path) -- Legacy-Alias
+setDisplayController(socket, path)
+setDisplayBootProgram(socket, path)
+setDisplayApplication(socket, controllerPath, bootProgramPath)
+clearDisplayBinding(socket)
 ```
+
+### Zwei Skriptebenen des großen Displays
+
+```lua
+desk.setDisplayApplication(
+  "big",
+  "/ui/controller.lua",
+  "/ui/home.lua"
+)
+```
+
+`controllerPath` verarbeitet Pointer-/Touch-Eingaben. `bootProgramPath` ist die Reactive-UI-Anwendung, die der Supervisor beim Start lädt. `setDisplayTouchScript` bleibt kompatibel und ändert nur den Controller.
 
 ## Globale `peripherals`-API
 
@@ -62,6 +82,7 @@ findAll(type)
 wrap(x, y, z, type?)
 wrap(position, type?)
 getDesks()
+getTree()
 getTypes()
 getNetwork()
 refresh()
@@ -144,32 +165,7 @@ Metadaten:
 
 ## Peripheral-Handle
 
-Das Handle delegiert die echten Methoden des Ziel-Peripherals. Zusätzliche Metadaten stehen über `getPeripheralInfo()` bereit, sofern das Ziel nicht selbst eine Methode dieses Namens definiert:
-
-```lua
-{
-  address = "12,64,-7/north",
-  type = "advanced_peripherals:ender_modem",
-  types = { "advanced_peripherals:ender_modem", "modem" },
-  deskId = "stabile-uuid",
-  deskAddress = "12,64,-7",
-  deskPosition = { x = 12, y = 64, z = -7, dimension = "minecraft:overworld" },
-  position = { x = 12, y = 64, z = -8, dimension = "minecraft:overworld" },
-  side = "north",
-  loaded = true
-}
-```
-
-## Koordinatenzugriff
-
-```lua
-local desk = peripherals.wrap(12, 64, -7)
-local sameDesk = peripherals.wrap({ x = 12, y = 64, z = -7 })
-local device = peripherals.wrap(12, 64, -8)
-local radar = peripherals.wrap(12, 64, -8, "radar")
-```
-
-Es werden keine Chunks geladen. Gesucht wird nur in der Dimension des eingebetteten Computers.
+Das Handle delegiert die echten Methoden des Ziel-Peripherals. Zusätzliche Metadaten stehen über `getPeripheralInfo()` bereit, sofern das Ziel nicht selbst eine Methode dieses Namens definiert.
 
 ## Netzwerkstatus
 
@@ -183,12 +179,7 @@ Es werden keine Chunks geladen. Gesucht wird nur in der Dimension des eingebette
 }
 ```
 
-Globale Graphzugriffe werden abgelehnt bei:
-
-- mehreren eingebetteten Computern,
-- teilweise geladenen Pultreihen,
-- mehr als 64 Pulten,
-- einem Computer außerhalb des Besitzerverbunds.
+Globale Graphzugriffe werden abgelehnt bei mehreren eingebetteten Computern, teilweise geladenen Pultreihen, mehr als 64 Pulten oder einem Computer außerhalb des Besitzerverbunds.
 
 # Globale `controls`-API
 
@@ -221,28 +212,6 @@ aeroworks:throttle_quadrant -> red, amber, green, blue
 
 Display-Pointer-X/Y und binäre Buttons sind nicht Teil der Override-API. Werte sind ganzzahlig `-15..15`.
 
-Beispiel:
-
-```lua
-controls.overrideBatch({
-  { desk = yokeDeskId, socket = "big", channel = "turn", value = rollCommand },
-  { desk = yokeDeskId, socket = "big", channel = "pitch", value = pitchCommand },
-})
-```
-
-`hard`-Overrides blockieren normale Writes auf den übernommenen Kanal. Computerwrites laufen über Aeroworks' normalen Controller-Setter, sodass effektiver Steuerwert und sichtbare Modulstellung zusammenbleiben. Identische Sollwerte werden nicht erneut geschrieben.
-
-Overrides sind reine Laufzeit-Zustände. Computer-Aus, BlockEntity-Invalidierung, ein ungültiges Multiblock oder ein verschwundenes Ziel geben sie automatisch frei.
-
-Ereignisse:
-
-```text
-cc_aeroworks_control_override(action, deskId, deskIndex, socket, socketName, channel, value, mode)
-cc_aeroworks_control_release(deskId, socket, socketName, channel, reason)
-```
-
-Details: `docs/control-overrides.md`.
-
 # Globale `telemetry`-API
 
 Nur der eingebettete Computer besitzt diese API:
@@ -251,7 +220,7 @@ Nur der eingebettete Computer besitzt diese API:
 local telemetry = require("cc_aeroworks.telemetry")
 ```
 
-Lokale Methoden:
+Methoden:
 
 ```text
 list()
@@ -285,76 +254,124 @@ if fuel then
 end
 ```
 
-Source-Metadaten enthalten unter anderem:
+Für Reactive UI denselben Wert über den Wrapper lesen:
 
 ```lua
-{
-  id = "stabile-uuid",
-  alias = "fuel",
-  sourceType = "create:fill_level",
-  kind = "fill_level",
-  supported = true,
-  available = true,
-  stale = false,
-  lastSeenTick = 12345,
-  ageTicks = 4,
-  revision = 8,
-  value = { ... },
-  displayText = { "75%" }
-}
+local ui = require("cc_aeroworks.ui")
+local fuel = ui.telemetry.get("fuel")
 ```
 
-Unbekannte Create-Sources werden mit `supported=false` und `displayText` geliefert. Strukturierte Zahlen werden nicht aus dem formatierten Text geparst.
+Nur der UI-Wrapper registriert den Telemetrie-Read automatisch als Restart-Scope-Abhängigkeit.
 
-## Dock-Handle
+# Globale `ui`-API
 
-Mit optionalem Create: Simulated:
+Nur der eingebettete Computer besitzt die Compose-artige Displaybibliothek:
 
 ```lua
-local dock = telemetry.getDock("left_cargo")
+local ui = require("cc_aeroworks.ui")
 ```
 
-Methoden:
+Die Mod-Ressourcen werden read-only unter `/cc_aeroworks` gemountet. Alle konfigurierten Boot-Anwendungen starten über:
+
+```lua
+shell.run("/cc_aeroworks/display_runtime.lua")
+```
+
+## App und State
 
 ```text
-getInfo()
-listTelemetry()
-getTelemetry(nameOrId)
-renameTelemetry(nameOrId, alias)
-clearTelemetryName(nameOrId)
-getTransferBuffers()
+ui.app(root, options?)
+ui.component(name, content)
+ui.state(key, initial)
+ui.derived(key, calculation, equals?)
+ui.source(key, getter)
+ui.telemetry.get(nameOrId)
+ui.telemetry.list()
+ui.telemetry.find(type)
 ```
 
-Remote-Beispiel:
+## Layout und Draw
+
+```text
+ui.modifier()
+ui.Box(props, content)
+ui.Row(props, content)
+ui.Column(props, content)
+ui.Spacer(props)
+ui.Text(text | props)
+ui.ProgressBar(props)
+ui.Button(props)
+ui.Canvas(props)
+ui.LazyColumn(props, itemContent)
+ui.key(key, content)
+ui.WithConstraints(content)
+```
+
+## Navigation und Runtime
+
+```text
+ui.navigator(key, initialRoute)
+ui.Route(navigator, routes)
+ui.mount(display, app)
+ui.run(display, app)
+ui.listDisplays()
+ui.dependencies()
+ui.supervise()
+```
+
+### Minimale App
 
 ```lua
-if dock and dock.getInfo().locked then
-  local remoteFuel = dock.getTelemetry("fuel")
-  if remoteFuel then print(remoteFuel.value.percent) end
-end
+local ui = require("cc_aeroworks.ui")
+
+return ui.app(function()
+  ui.Column({ padding = 2, gap = 1 }, function()
+    ui.Text("FUEL")
+    ui.ProgressBar({ value = 0.75, width = 80, height = 5 })
+  end)
+end)
 ```
 
-`getTransferBuffers()` beschreibt ausschließlich die Connector-Puffer für Items, Fluids und Energie. Tatsächliche Tank-/Cargo-Inhalte kommen über Display-Link-Telemetrie.
+### Reaktiver Tankwert
 
-## Ereignisse
+```lua
+local percent = ui.derived("fuelPercent", function()
+  local fuel = ui.telemetry.get("fuel")
+  return math.floor(fuel.value.percent + 0.5)
+end)
+
+ui.ProgressBar({
+  width = 100,
+  height = 5,
+  value = function() return percent.get() / 100 end,
+})
+```
+
+State-Reads werden nach Composition, Layout und Draw getrennt verfolgt. Ein Draw-only-Wert kann deshalb nur seine Bounds neu rasterisieren. `derived` propagiert keine Invalidierung, solange sein Ergebnis gleich bleibt.
+
+Runtime-Frames werden transient als sparse `64x64`-Bit-Tiles gehalten. Ein Commit synchronisiert nur geänderte Tiles; visuell identische Tile-Writes erzeugen keinen Patch.
+
+# Ereignisse
 
 Peripheral-Netz:
 
-```lua
-local _, address, primaryType =
-  os.pullEvent("cc_aeroworks_peripheral_attached")
+```text
+cc_aeroworks_peripheral_attached(address, primaryType)
+cc_aeroworks_peripheral_detached(address, primaryType)
 ```
 
-```lua
-local _, address, primaryType =
-  os.pullEvent("cc_aeroworks_peripheral_detached")
+Lokales Pult und Display:
+
+```text
+cc_aeroworks_desk_input(peripheralName, socket, moduleId, value, channel, socketName)
+cc_aeroworks_desk_display_input(peripheralName, socket, socketName, moduleId, action, x, y, width, height, controllerPath)
 ```
 
-Lokales Pult:
+Embedded Display:
 
-```lua
-local _, peripheralName, socket, moduleId, value, channel, socketName =
-  os.pullEvent("cc_aeroworks_desk_input")
+```text
+cc_aeroworks_console_display_input(deskId, deskIndex, socket, socketName, moduleId, action, x, y, width, height, controllerPath)
+cc_aeroworks_ui_invalidated()
 ```
 
 Control-Authority:
@@ -374,17 +391,9 @@ cc_aeroworks_dock_changed(dockId, state, locked, remoteSubLevelId)
 cc_aeroworks_remote_telemetry_changed(dockId, sourceId, action, revision)
 ```
 
-`action` der Remote-Telemetrie ist `added`, `changed` oder `removed`.
+# Displayvertrag
 
-## Sockets
-
-| Socket | Index |
-|---|---:|
-| `left` | `0` |
-| `right` | `1` |
-| `big` | `2` |
-
-## Displayvertrag
+Raw API:
 
 - Text: zwei beziehungsweise drei Zeichen.
 - Zahlen: zweistellig `-9..99`, dreistellig `-99..999`.
@@ -392,8 +401,19 @@ cc_aeroworks_remote_telemetry_changed(dockId, sourceId, action, revision)
 - Rastergröße: über `getDisplaySize` lesen, nicht fest annehmen.
 - `setDisplayPixels`: exakt `height` Strings aus `0` und `1`, jeweils exakt `width` Zeichen.
 
-## Ponder
+Reactive UI:
 
-Die Computerpulte besitzen getrennte Szenen für Netzwerkaufbau, Peripheral-Suche und Diagnose. Displays besitzen getrennte Szenen für Herstellung, Montage und Programmierung. Radar besitzt Szenen für automatisches Routing und Data-Link-Kompatibilität.
+- nur für das große Desk Display,
+- Controller und Boot-Programm werden unabhängig gespeichert,
+- Runtime-Frame überlagert den persistenten Raw-Zustand,
+- Restart-Scopes für Composition, Layout und Draw,
+- sparse `64x64` Runtime-Tiles und kompakte Tile-Patches,
+- zentrale Verwaltung mehrerer Displays durch `ui.supervise()`.
 
-Telemetrie wird zusätzlich über [[Telemetrie]] und die Repository-Dokumente `docs/telemetry.md` sowie `docs/docking-telemetry.md` beschrieben.
+## Weiterführend
+
+- [[Programmierbare-Displays]]
+- [[Telemetrie]]
+- `docs/reactive-display-ui.md`
+- `docs/telemetry.md`
+- `docs/control-overrides.md`
