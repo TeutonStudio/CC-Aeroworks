@@ -6,6 +6,8 @@ data class DirectionalControlSignal(
     val direction: String,
     val label: String,
     val value: Int,
+    /** Native Aeroworks axis sign represented by this redstone-facing channel. */
+    val sign: Int,
     val wireChannel: String?
 )
 
@@ -29,6 +31,7 @@ object ControlDirectionalSignals {
                 direction = negative,
                 label = displayLabel(channel, negative),
                 value = (-value).coerceIn(0, 15),
+                sign = -1,
                 wireChannel = availableWireChannels.firstOrNull {
                     it.socket == socket && it.channelId == channel && it.sign < 0
                 }?.id
@@ -37,6 +40,7 @@ object ControlDirectionalSignals {
                 direction = positive,
                 label = displayLabel(channel, positive),
                 value = value.coerceIn(0, 15),
+                sign = 1,
                 wireChannel = availableWireChannels.firstOrNull {
                     it.socket == socket && it.channelId == channel && it.sign > 0
                 }?.id

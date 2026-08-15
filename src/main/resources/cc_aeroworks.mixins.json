@@ -3,12 +3,11 @@
   "minVersion": "0.8",
   "package": "de.teutonstudio.ccaeroworks.mixin",
   "compatibilityLevel": "JAVA_21",
-  "mixinextras": {
-    "minVersion": "0.5.0"
-  },
+  "mixinextras": { "minVersion": "0.5.0" },
   "mixins": [
     "BlockEntityComponentInvoker",
     "BlockEntityDeskIdMixin",
+    "ComputerControlDeskChannelGroupsMixin",
     "ComputerControlDeskWireChannelsMixin",
     "ConsoleBlockSkinMixin",
     "ConsoleDeskBlockConnectionMixin",
@@ -49,7 +48,5 @@
     "client.ModuleScreenSwitchMixin",
     "client.SubLevelPoseClientMixin"
   ],
-  "injectors": {
-    "defaultRequire": 1
-  }
+  "injectors": { "defaultRequire": 1 }
 }
