@@ -5,6 +5,7 @@ import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import com.mred231.aeroworks.content.controls.ConsoleVisual
 import de.teutonstudio.ccaeroworks.client.display.DeskDisplayModels
 import de.teutonstudio.ccaeroworks.client.display.DeskDisplayRenderer
+import de.teutonstudio.ccaeroworks.client.display.DeskPixelOverlayRenderer
 import de.teutonstudio.ccaeroworks.client.display.RadarOverlayRenderer
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess
 import dev.engine_room.flywheel.api.instance.Instance
@@ -75,15 +76,17 @@ abstract class ConsoleVisualMixin(
 
     @Unique
     private fun rebuildElements() {
-        // Radar surfaces are intentionally not converted into Flywheel instances.
-        // The shared overlay invokes Create: Radars' MonitorRenderer once per frame.
+        // Radar and programmable pixel surfaces are rendered in shared world passes. In
+        // particular, high-PPB rasters must not become thousands of persistent Flywheel instances.
         RadarOverlayRenderer.track(blockEntity)
+        DeskPixelOverlayRenderer.track(blockEntity)
 
         val displays = AeroworksDeskAccess.renderedDisplays(blockEntity)
         val nextKey = buildString {
             displays.forEach {
-                append(it.socket).append(':').append(it.text).append(':')
-                    .append(it.pixels?.encode().orEmpty()).append(';')
+                append(it.socket).append(':')
+                    .append(if (it.pixels == null) it.text else "<pixels>")
+                    .append(';')
             }
         }
         if (nextKey == displayKey) return
@@ -92,27 +95,16 @@ abstract class ConsoleVisualMixin(
         displayElements.clear()
 
         displays.forEach { display ->
-            if (display.pixels != null) {
-                for (y in 0 until display.pixels.height) for (x in 0 until display.pixels.width) {
-                    if (!display.pixels.get(x, y)) continue
+            if (display.pixels != null) return@forEach
+            val text = display.text.padEnd(display.type.width, ' ')
+            repeat(display.type.width) { index ->
+                DeskDisplayModels.segments(text[index]).forEach { segment ->
                     addElement(
                         socket = display.socket,
-                        model = DeskDisplayModels.PIXEL,
-                        x = DeskDisplayRenderer.pixelOffsetX(display.type, display.pixels.width, x),
-                        z = DeskDisplayRenderer.pixelOffsetZ(display.pixels.height, y)
+                        model = segment.model,
+                        x = DeskDisplayRenderer.digitOffset(display.type.width, index) + segment.x,
+                        z = segment.z
                     )
-                }
-            } else {
-                val text = display.text.padEnd(display.type.width, ' ')
-                repeat(display.type.width) { index ->
-                    DeskDisplayModels.segments(text[index]).forEach { segment ->
-                        addElement(
-                            socket = display.socket,
-                            model = segment.model,
-                            x = DeskDisplayRenderer.digitOffset(display.type.width, index) + segment.x,
-                            z = segment.z
-                        )
-                    }
                 }
             }
         }

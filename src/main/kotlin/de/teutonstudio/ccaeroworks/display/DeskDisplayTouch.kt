@@ -10,7 +10,9 @@ data class DeskDisplayTouch(
     val x: Int,
     val y: Int,
     val width: Int,
-    val height: Int
+    val height: Int,
+    val u: Double = if (width > 0) ((x - 0.5) / width.toDouble()).coerceIn(0.0, 1.0) else 0.5,
+    val v: Double = if (height > 0) ((y - 0.5) / height.toDouble()).coerceIn(0.0, 1.0) else 0.5
 )
 
 object DeskDisplayTouchResolver {

@@ -94,6 +94,16 @@ require("DisplayScriptCatalog.find" in script_payload,
         "script selection payload must revalidate selected files against the current catalog")
 require("DisplayBinding.LuaHandler(descriptor.path)" in script_payload,
         "script binding must persist the catalog's canonical path")
+require("SableInteractionGeometry.withinReach" in script_payload and
+        "SableInteractionGeometry.mayInteract" in script_payload,
+        "script selection must validate reach in rendered Sable space")
+require("SableInteractionGeometry.withinReach" in catalog_payload and
+        "SableInteractionGeometry.mayInteract" in catalog_payload,
+        "script catalog requests must validate reach in rendered Sable space")
+require("player.distanceToSqr(pos.center)" not in script_payload and
+        "player.distanceToSqr(pos.center)" not in catalog_payload and
+        "player.distanceToSqr(payload.pos.center)" not in script_payload,
+        "display script source packets must not compare the player to Sable plot coordinates")
 require("PacketDistributor.sendToPlayer" in catalog_payload,
         "script catalog metadata must be returned by a server response payload")
 require("RequestDisplayScriptCatalogPayload.TYPE" in payloads and "DisplayScriptCatalogPayload.TYPE" in payloads,
@@ -111,7 +121,9 @@ require('require("display")' in read("src/main/resources/data/computercraft/lua/
 require('"id" to (desk as DeskIdentityAccess).ccaeroworks_getDeskId().toString()' in peripheral,
         "ControlDesk getInfo must expose the stable desk id used by embedded display events")
 require("info.id == event.deskId" in display_module,
-        "display.resolve must match embedded events by the stable desk id")
+        "display.resolve must retain stable-id fallback for older embedded display events")
+require("pcall(api.wrap, event.deskX, event.deskY, event.deskZ, \"ControlDesk\")" in display_module,
+        "display.resolve must directly wrap the source desk when event coordinates are available")
 require("os.pullEventRaw = function(filter)" in handler_runtime and "nativePullEventRaw()" in handler_runtime,
         "display handler runtime must be a non-blocking CraftOS event hook")
 require('event[1] ~= "cc_aeroworks_console_display_input"' in handler_runtime,
@@ -134,6 +146,12 @@ require("lastSignature" in handler_runtime and "lastEpoch" in handler_runtime,
 require("handler.onTap or handler.onPointer" in handler_runtime and
         "handler.onDoubleTap or handler.onPointer" in handler_runtime,
         "automatic runtime must dispatch tap and double-tap callbacks")
+require("deskX = event[15]" in handler_runtime and
+        "deskY = event[16]" in handler_runtime and
+        "deskZ = event[17]" in handler_runtime,
+        "automatic handler events must expose appended source desk coordinates")
+require("member.pos.x" in dispatcher and "member.pos.y" in dispatcher and "member.pos.z" in dispatcher,
+        "embedded display events must append exact source desk coordinates")
 
 # A touch must not disappear if source discovery created an embedded computer which is still off.
 require("MAX_PENDING_COMPUTER_EVENTS" in computer_desk and "pendingComputerEvents" in computer_desk,
@@ -170,4 +188,4 @@ require((ROOT / "examples/cc/display-binding-router.lua").is_file(),
 require("python3 tools/verify-display-bindings.py" in workflow,
         "workflow must enforce the display binding architecture")
 
-print("Validated display bindings: row-based radar selection, bounded embedded-computer script discovery, start-safe automatic reloadable touch handlers with CraftOS module environments, stable desk identity, bundled display/touchdisplay modules and legacy touch compatibility.")
+print("Validated display bindings, Sable-aware script selection, direct source-desk resolution, automatic reloadable touch handlers, and legacy touch compatibility.")

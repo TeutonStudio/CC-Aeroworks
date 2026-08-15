@@ -92,41 +92,57 @@ class PixelEditorPanel {
         )
         cursorY += BUTTON_HEIGHT + 7
 
-        val cellSize = min(MAX_CELL_SIZE, ((width - ROW_LABEL_WIDTH) / state.width).coerceAtLeast(MIN_CELL_SIZE))
-        val gridX = x + ROW_LABEL_WIDTH
-        val gridY = cursorY + COLUMN_LABEL_HEIGHT
+        // High-PPB displays contain far more cells than the original 7x5/11x5 editor. Switch to
+        // a compact one-pixel-or-larger overview when labels would consume more room than the
+        // raster itself; clicks and drag painting still address the real configured pixel grid.
+        val labelledCellSize = (width - ROW_LABEL_WIDTH) / state.width
+        val showGridLabels = labelledCellSize >= LABEL_CELL_THRESHOLD
+        val rowLabelWidth = if (showGridLabels) ROW_LABEL_WIDTH else 0
+        val columnLabelHeight = if (showGridLabels) COLUMN_LABEL_HEIGHT else 0
+        val cellSize = min(MAX_CELL_SIZE, ((width - rowLabelWidth) / state.width).coerceAtLeast(MIN_CELL_SIZE))
+        val gridX = x + rowLabelWidth
+        val gridY = cursorY + columnLabelHeight
         grid = Grid(gridX, gridY, cellSize, state.width, state.height)
 
-        for (column in 0 until state.width) {
-            graphics.drawCenteredString(
-                font,
-                (column + 1).toString(),
-                gridX + column * cellSize + cellSize / 2,
-                cursorY + 1,
-                MUTED
-            )
+        if (showGridLabels) {
+            for (column in 0 until state.width) {
+                graphics.drawCenteredString(
+                    font,
+                    (column + 1).toString(),
+                    gridX + column * cellSize + cellSize / 2,
+                    cursorY + 1,
+                    MUTED
+                )
+            }
         }
         for (row in 0 until state.height) {
-            graphics.drawString(font, (row + 1).toString(), x + 4, gridY + row * cellSize + 3, MUTED, false)
+            if (showGridLabels) {
+                graphics.drawString(font, (row + 1).toString(), x + 4, gridY + row * cellSize + 3, MUTED, false)
+            }
             for (column in 0 until state.width) {
                 val left = gridX + column * cellSize
                 val top = gridY + row * cellSize
                 val hovered = mouseX in left until (left + cellSize) && mouseY in top until (top + cellSize)
                 val enabled = state.pixels.get(column, row)
-                graphics.fill(
-                    left + 1,
-                    top + 1,
-                    left + cellSize - 1,
-                    top + cellSize - 1,
-                    if (enabled) ACTIVE_PIXEL else INACTIVE_PIXEL
-                )
-                graphics.renderOutline(
-                    left,
-                    top,
-                    cellSize,
-                    cellSize,
-                    if (hovered) GOLD else GRID_BORDER
-                )
+                if (cellSize <= 2) {
+                    graphics.fill(left, top, left + cellSize, top + cellSize, if (enabled) ACTIVE_PIXEL else INACTIVE_PIXEL)
+                    if (hovered) graphics.fill(left, top, left + cellSize, top + cellSize, GOLD)
+                } else {
+                    graphics.fill(
+                        left + 1,
+                        top + 1,
+                        left + cellSize - 1,
+                        top + cellSize - 1,
+                        if (enabled) ACTIVE_PIXEL else INACTIVE_PIXEL
+                    )
+                    graphics.renderOutline(
+                        left,
+                        top,
+                        cellSize,
+                        cellSize,
+                        if (hovered) GOLD else GRID_BORDER
+                    )
+                }
             }
         }
         cursorY = gridY + state.height * cellSize + 7
@@ -167,7 +183,14 @@ class PixelEditorPanel {
         graphics.drawString(font, tr("guide.cc_aeroworks.pixel_editor.raster_code"), x, cursorY, GOLD, false)
         cursorY += 12
         val rasterCode = LuaPixelCodeGenerator.fullRaster(state.socketName, state.pixels)
-        cursorY += drawCodeBlock(graphics, font, rasterCode.lines(), x, cursorY, width)
+        val rasterLines = rasterCode.lines()
+        val previewLines = if (rasterLines.size <= MAX_RASTER_PREVIEW_LINES) {
+            rasterLines
+        } else {
+            rasterLines.take(MAX_RASTER_PREVIEW_LINES - 1) +
+                "... (${state.width}x${state.height}; use Copy raster for the complete code)"
+        }
+        cursorY += drawCodeBlock(graphics, font, previewLines, x, cursorY, width)
 
         copyRasterButton = Box(x, cursorY, width, BUTTON_HEIGHT)
         val copied = copiedTarget == CopyTarget.RASTER && System.currentTimeMillis() < copiedUntilMillis
@@ -354,8 +377,10 @@ class PixelEditorPanel {
         const val GAP: Int = 4
         const val ROW_LABEL_WIDTH: Int = 18
         const val COLUMN_LABEL_HEIGHT: Int = 12
-        const val MIN_CELL_SIZE: Int = 10
+        const val MIN_CELL_SIZE: Int = 1
         const val MAX_CELL_SIZE: Int = 16
+        const val LABEL_CELL_THRESHOLD: Int = 10
+        const val MAX_RASTER_PREVIEW_LINES: Int = 8
         const val CODE_LINE_HEIGHT: Int = 10
         const val COPY_FEEDBACK_MILLIS: Long = 1500L
 

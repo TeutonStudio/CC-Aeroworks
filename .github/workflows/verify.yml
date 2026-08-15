@@ -65,6 +65,9 @@ jobs:
       - name: Validate display combined input
         run: python3 tools/verify-display-combined-input.py
 
+      - name: Validate display PPB contract
+        run: python3 tools/verify-display-ppb.py
+
       - name: Validate ControlDesk settings scroll rows
         run: python3 tools/verify-control-settings-scroll-rows.py
 

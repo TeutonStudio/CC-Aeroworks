@@ -25,7 +25,12 @@ object AeroworksDeskAccess {
         val module = module(desk, socket) ?: return null
         val type = CCModuleTypes.displayType(module.type()) ?: return null
         val stored = module.customName()?.string.orEmpty()
-        val pixels = DeskDisplayPixels.decode(type, stored)
+        val decoded = DeskDisplayPixels.decode(type, stored)
+        val encodedRaster = DeskDisplayPixels.isEncoded(stored)
+        // A PPB change invalidates the old raster dimensions. Keep that state in pixel mode and
+        // start with a correctly sized blank raster instead of accidentally displaying the
+        // serialized payload as ordinary seven-segment text.
+        val pixels = decoded ?: if (encodedRaster) DeskDisplayPixels.blank(type) else null
         val text = if (pixels == null) DeskDisplayFormatter.normalizeText(stored, type.width) else ""
         return DeskDisplayState(socket, type, text, pixels)
     }

@@ -1,6 +1,7 @@
 package de.teutonstudio.ccaeroworks.input
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import de.teutonstudio.ccaeroworks.compat.sable.SableInteractionGeometry
 import de.teutonstudio.ccaeroworks.mixin.ConsoleBlockEntityInvoker
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockSnapshot
@@ -119,9 +120,8 @@ object CombinedInputContext {
         if (cached != null) {
             if (cached.dimension == level.dimension() && level.isLoaded(cached.anchor)) {
                 val snapshot = ConsoleMultiblockManager.resolve(level, cached.anchor)
-                val maximumDistance = player.blockInteractionRange() + 2.0
                 if (snapshot.members.any {
-                        player.distanceToSqr(it.pos.center) <= maximumDistance * maximumDistance
+                        SableInteractionGeometry.withinReach(player, level, it.pos, padding = 2.0)
                     }
                 ) {
                     return snapshot
