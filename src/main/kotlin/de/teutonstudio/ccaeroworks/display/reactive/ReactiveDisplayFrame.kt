@@ -148,19 +148,22 @@ class ReactiveDisplayFrameBuilder internal constructor(
     fun fillRect(x: Int, y: Int, rectWidth: Int, rectHeight: Int, enabled: Boolean) {
         require(rectWidth >= 0 && rectHeight >= 0) { "Rectangle dimensions must not be negative" }
         if (rectWidth == 0 || rectHeight == 0) return
-        require(x >= 0 && y >= 0 && x.toLong() + rectWidth <= width && y.toLong() + rectHeight <= height) {
+        val endX = x.toLong() + rectWidth.toLong()
+        val endY = y.toLong() + rectHeight.toLong()
+        require(x >= 0 && y >= 0 && endX <= width.toLong() && endY <= height.toLong()) {
             "Rectangle is outside the display bounds"
         }
-        for (row in y until y + rectHeight) {
+        val intEndX = endX.toInt()
+        val intEndY = endY.toInt()
+        for (row in y until intEndY) {
             var cursor = x
-            val end = x + rectWidth
-            while (cursor < end) {
+            while (cursor < intEndX) {
                 val tileX = cursor / REACTIVE_DISPLAY_TILE_SIZE
                 val key = ReactiveTileKey(tileX, row / REACTIVE_DISPLAY_TILE_SIZE)
                 val rows = writableTile(key)
                 val localY = row % REACTIVE_DISPLAY_TILE_SIZE
                 val localX = cursor % REACTIVE_DISPLAY_TILE_SIZE
-                val count = minOf(REACTIVE_DISPLAY_TILE_SIZE - localX, end - cursor)
+                val count = minOf(REACTIVE_DISPLAY_TILE_SIZE - localX, intEndX - cursor)
                 val mask = when (count) {
                     REACTIVE_DISPLAY_TILE_SIZE -> -1L
                     else -> ((1L shl count) - 1L) shl localX
