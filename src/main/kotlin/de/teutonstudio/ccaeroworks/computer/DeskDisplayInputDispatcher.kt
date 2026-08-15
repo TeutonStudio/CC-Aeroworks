@@ -24,35 +24,31 @@ object DeskDisplayInputDispatcher {
 
         owner.queueComputerEventWhenReady(
             CCAeroworks.CONSOLE_DISPLAY_INPUT_EVENT,
-            arrayOf(
-                member.id,
-                member.index,
-                touch.socket,
-                touch.socketName,
-                touch.moduleId,
-                action.eventName,
-                touch.x,
-                touch.y,
-                touch.width,
-                touch.height,
-                handlerPath
-            )
+            member.id,
+            member.index,
+            touch.socket,
+            touch.socketName,
+            touch.moduleId,
+            action.eventName,
+            touch.x,
+            touch.y,
+            touch.width,
+            touch.height,
+            handlerPath
         )
 
         if (action == DisplayPointerAction.TAP) {
             owner.queueComputerEventWhenReady(
                 CCAeroworks.CONSOLE_TOUCH_EVENT,
-                arrayOf(
-                    member.id,
-                    member.index,
-                    touch.socket,
-                    touch.socketName,
-                    touch.moduleId,
-                    touch.x,
-                    touch.y,
-                    touch.width,
-                    touch.height
-                )
+                member.id,
+                member.index,
+                touch.socket,
+                touch.socketName,
+                touch.moduleId,
+                touch.x,
+                touch.y,
+                touch.width,
+                touch.height
             )
         }
     }
