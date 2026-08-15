@@ -15,7 +15,7 @@ import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component
 import net.neoforged.neoforge.network.PacketDistributor
 
-/** Unified overview for controls, displays, Display Link information and wire outputs. */
+/** Unified overview for grouped controls, displays, information sources and wire outputs. */
 class DeskIoOverviewScreen(
     private val origin: BlockPos,
     private val snapshotJson: String,
@@ -57,8 +57,11 @@ class DeskIoOverviewScreen(
             val button = Button.builder(Component.literal(rowLabel(objectJson))) {
                 activateObject(objectJson)
             }.bounds(left, y, panelWidth, 20).build()
-            button.active = objectJson.string("category") == CATEGORY_CONTROL ||
-                objectJson.string("category") == CATEGORY_DISPLAY
+            button.active = when (objectJson.string("category")) {
+                CATEGORY_CONTROL -> objectJson.string("kind") != "channel_group"
+                CATEGORY_DISPLAY -> true
+                else -> false
+            }
             addRenderableWidget(button)
         }
 
@@ -113,7 +116,7 @@ class DeskIoOverviewScreen(
 
     private fun activateObject(objectJson: JsonObject) {
         when (objectJson.string("category")) {
-            CATEGORY_CONTROL -> openNativeControls(objectJson)
+            CATEGORY_CONTROL -> if (objectJson.string("kind") != "channel_group") openNativeControls(objectJson)
             CATEGORY_DISPLAY -> minecraft?.setScreen(
                 DeskIoDisplayConfigScreen(origin, snapshotJson, objectJson.toString())
             )
@@ -140,9 +143,15 @@ class DeskIoOverviewScreen(
     private fun rowLabel(value: JsonObject): String {
         val label = value.string("label").ifEmpty { value.string("kind") }
         val summary = when (value.string("category")) {
-            CATEGORY_CONTROL -> value.getAsJsonObject("values")?.entrySet()
-                ?.joinToString(", ") { "${it.key}=${it.value.asInt}" }
-                .orEmpty()
+            CATEGORY_CONTROL -> if (value.string("kind") == "channel_group") {
+                val available = value.int("availableCount")
+                val total = value.int("memberCount")
+                "group · $available/$total available"
+            } else {
+                value.getAsJsonObject("values")?.entrySet()
+                    ?.joinToString(", ") { "${it.key}=${it.value.asInt}" }
+                    .orEmpty()
+            }
             CATEGORY_DISPLAY -> displaySummary(value)
             CATEGORY_INFORMATION -> value.string("summary")
             CATEGORY_OUTPUT -> {
@@ -183,10 +192,10 @@ class DeskIoOverviewScreen(
             get(name)?.takeUnless { it.isJsonNull }?.runCatching { asLong }?.getOrNull() ?: 0L
 
         private fun categoryLabel(key: String): String = when (key) {
-            CATEGORY_CONTROL -> "Controls"
+            CATEGORY_CONTROL -> "Channels"
             CATEGORY_DISPLAY -> "Displays"
             CATEGORY_INFORMATION -> "Information"
-            CATEGORY_OUTPUT -> "Outputs"
+            CATEGORY_OUTPUT -> "Wire outputs"
             else -> key
         }
 

@@ -4,6 +4,9 @@ import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksModuleAccess
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskSockets
 import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
+import de.teutonstudio.ccaeroworks.computer.PeripheralNetworkBuilder
+import de.teutonstudio.ccaeroworks.computer.channel.ComputerChannelRegistry
+import de.teutonstudio.ccaeroworks.computer.channel.channelGroups
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
 import de.teutonstudio.ccaeroworks.display.RadarSourceRegistry
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMember
@@ -12,6 +15,7 @@ import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 import de.teutonstudio.ccaeroworks.telemetry.TelemetryRuntime
 import net.minecraft.core.BlockPos
+import java.util.Locale
 
 enum class DeskIoCategory(val serializedName: String) {
     CONTROL("control"),
@@ -25,7 +29,8 @@ enum class DeskIoCategory(val serializedName: String) {
  *
  * The inventory deliberately references the existing owners of each subsystem instead of copying
  * their state into another persistent model: Aeroworks owns modules, DisplayBindings owns routing,
- * TelemetryRuntime owns Display Link inputs and WireChannelBank owns virtual redstone outputs.
+ * TelemetryRuntime owns Display Link inputs, PeripheralNetwork owns storage connections and
+ * WireChannelBank owns virtual redstone outputs. User channel groups only store stable references.
  */
 object DeskIoInventory {
     fun list(owner: ComputerControlDeskBlockEntity): List<Map<String, Any>> {
@@ -38,7 +43,10 @@ object DeskIoInventory {
         }
 
         if (!level.isClientSide) {
+            objects += channelGroupObjects(owner)
             objects += telemetryObjects(owner)
+            objects += storageObjects(owner)
+            objects += radarInformationObjects(owner)
             objects += wireObjects(owner)
         }
 
@@ -64,14 +72,12 @@ object DeskIoInventory {
             "active" to (network.state == ConsoleNetworkState.ACTIVE && network.owner === owner),
             "revision" to network.revision,
             "objects" to objects,
-            "counts" to counts(objects)
+            "counts" to counts(objects),
+            "channelTree" to channelTree(owner)
         )
     }
 
-    /**
-     * Compact projection for the client GUI. Telemetry list payloads can be large, so the overview
-     * transports only the fields needed for selection, status and configuration.
-     */
+    /** Compact projection for the client GUI; large telemetry/inventory contents remain in their APIs. */
     fun overview(owner: ComputerControlDeskBlockEntity, origin: BlockPos): Map<String, Any> {
         val level = owner.level
         if (level == null) return snapshot(owner)
@@ -85,9 +91,32 @@ object DeskIoInventory {
             "originY" to origin.y,
             "originZ" to origin.z,
             "objects" to objects,
-            "counts" to counts(objects)
+            "counts" to counts(objects),
+            "channelTree" to channelTree(owner)
         )
     }
+
+    private fun channelTree(owner: ComputerControlDeskBlockEntity): Map<String, Any> = linkedMapOf(
+        "modules" to ComputerChannelRegistry.ls(owner, "/modules").map { module ->
+            val path = module["path"]?.toString().orEmpty()
+            linkedMapOf<String, Any>(
+                "name" to module["name"].toString(),
+                "label" to module["label"].toString(),
+                "path" to path,
+                "channels" to ComputerChannelRegistry.ls(owner, path)
+            )
+        },
+        "wires" to ComputerChannelRegistry.ls(owner, "/wires"),
+        "groups" to ComputerChannelRegistry.ls(owner, "/groups").map { group ->
+            val path = group["path"]?.toString().orEmpty()
+            linkedMapOf<String, Any>(
+                "id" to group["id"].toString(),
+                "name" to group["name"].toString(),
+                "path" to path,
+                "channels" to ComputerChannelRegistry.ls(owner, path)
+            )
+        }
+    )
 
     private fun counts(objects: List<Map<String, Any>>): Map<String, Int> =
         DeskIoCategory.entries.associateTo(linkedMapOf()) { category ->
@@ -162,10 +191,36 @@ object DeskIoInventory {
                 "socket" to socket,
                 "socketName" to socketName,
                 "moduleId" to moduleId,
-                "values" to values.toMap()
+                "values" to values.toMap(),
+                "channels" to values.map { (channel, value) ->
+                    linkedMapOf<String, Any>(
+                        "id" to "control:${member.id}:$socket:$moduleId:$channel",
+                        "name" to channel,
+                        "value" to value,
+                        "mutable" to false
+                    )
+                }
             ))
         }
     }
+
+    private fun channelGroupObjects(owner: ComputerControlDeskBlockEntity): List<Map<String, Any>> =
+        owner.channelGroups.definitions().map { group ->
+            val path = "/groups/${group.name}"
+            val members = ComputerChannelRegistry.ls(owner, path)
+            linkedMapOf(
+                "id" to "channel-group:${group.id}",
+                "category" to DeskIoCategory.CONTROL.serializedName,
+                "kind" to "channel_group",
+                "label" to group.name,
+                "groupId" to group.id.toString(),
+                "path" to path,
+                "mutable" to true,
+                "memberCount" to group.bindings.size,
+                "availableCount" to members.count { it["available"] != false },
+                "members" to members
+            )
+        }
 
     private fun telemetryObjects(owner: ComputerControlDeskBlockEntity): List<Map<String, Any>> =
         TelemetryRuntime.describeSources(owner).mapNotNull { (sourceId, raw) ->
@@ -184,6 +239,58 @@ object DeskIoInventory {
             ).apply {
                 source.forEach { (key, value) ->
                     if (key is String && value != null) put(key, value)
+                }
+            }
+        }
+
+    private fun storageObjects(owner: ComputerControlDeskBlockEntity): List<Map<String, Any>> {
+        val graph = runCatching { PeripheralNetworkBuilder.build(owner) }.getOrNull() ?: return emptyList()
+        return graph.peripherals.mapNotNull { node ->
+            val inventory = node.matches("inventory")
+            val fluids = node.matches("fluid_storage") || node.matches("fluidstorage")
+            if (!inventory && !fluids) return@mapNotNull null
+            val side = node.side.name.lowercase(Locale.ROOT)
+            linkedMapOf<String, Any>(
+                "id" to "storage:${node.desk.id}:$side",
+                "category" to DeskIoCategory.INFORMATION.serializedName,
+                "kind" to "storage_connection",
+                "label" to node.primaryType,
+                "sourceId" to "storage:${node.desk.id}:$side",
+                "informationKind" to "storage",
+                "memberId" to node.desk.id,
+                "memberIndex" to node.desk.member.index,
+                "side" to side,
+                "x" to node.pos.x,
+                "y" to node.pos.y,
+                "z" to node.pos.z,
+                "types" to node.types.toList(),
+                "inventory" to inventory,
+                "fluids" to fluids,
+                "available" to true
+            )
+        }
+    }
+
+    private fun radarInformationObjects(owner: ComputerControlDeskBlockEntity): List<Map<String, Any>> =
+        RadarSourceRegistry.sources(owner).map { source ->
+            linkedMapOf<String, Any>(
+                "id" to "radar:${source.id}",
+                "category" to DeskIoCategory.INFORMATION.serializedName,
+                "kind" to "radar_network",
+                "label" to "Radar network · Desk ${source.memberIndex}",
+                "sourceId" to source.id,
+                "informationKind" to "radar",
+                "memberId" to source.memberId,
+                "memberIndex" to source.memberIndex,
+                "dataLinkX" to source.ingressPos.x,
+                "dataLinkY" to source.ingressPos.y,
+                "dataLinkZ" to source.ingressPos.z,
+                "status" to source.status.name.lowercase()
+            ).apply {
+                source.radarPos?.let { radar ->
+                    put("radarX", radar.x)
+                    put("radarY", radar.y)
+                    put("radarZ", radar.z)
                 }
             }
         }
@@ -211,7 +318,8 @@ object DeskIoInventory {
             DeskIoCategory.CONTROL.serializedName -> pick(
                 source,
                 "id", "category", "kind", "label", "memberId", "memberIndex",
-                "memberX", "memberY", "memberZ", "socket", "socketName", "moduleId", "values"
+                "memberX", "memberY", "memberZ", "socket", "socketName", "moduleId", "values",
+                "channels", "groupId", "path", "mutable", "memberCount", "availableCount", "members"
             )
             DeskIoCategory.DISPLAY.serializedName -> pick(
                 source,
@@ -222,7 +330,9 @@ object DeskIoInventory {
             DeskIoCategory.INFORMATION.serializedName -> pick(
                 source,
                 "id", "category", "kind", "label", "sourceId", "informationKind",
-                "sourceType", "supported", "available", "stale", "ageTicks", "revision"
+                "sourceType", "supported", "available", "stale", "ageTicks", "revision",
+                "memberId", "memberIndex", "side", "x", "y", "z", "types", "inventory", "fluids",
+                "status", "dataLinkX", "dataLinkY", "dataLinkZ", "radarX", "radarY", "radarZ"
             ).toMutableMap().apply {
                 put("summary", informationSummary(source))
             }
@@ -241,6 +351,19 @@ object DeskIoInventory {
         }
 
     private fun informationSummary(source: Map<String, Any>): String {
+        when (source["kind"]?.toString()) {
+            "storage_connection" -> {
+                val inventory = source["inventory"] == true
+                val fluids = source["fluids"] == true
+                return when {
+                    inventory && fluids -> "items + fluids"
+                    inventory -> "inventory"
+                    fluids -> "fluids"
+                    else -> "storage"
+                }
+            }
+            "radar_network" -> return source["status"]?.toString().orEmpty()
+        }
         val displayText = source["displayText"] as? List<*>
         displayText?.firstOrNull()?.toString()?.takeIf(String::isNotBlank)?.let { return it }
         val value = source["value"] as? Map<*, *> ?: return source["informationKind"]?.toString().orEmpty()
