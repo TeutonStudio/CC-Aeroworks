@@ -4,7 +4,6 @@ import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.computercraft.ControlDeskPeripheralState
 import de.teutonstudio.ccaeroworks.display.DeskDisplayTouch
-import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
@@ -21,7 +20,7 @@ object DeskDisplayInputDispatcher {
         val owner = snapshot.owner ?: return
         val member = snapshot.members.firstOrNull { it.desk === desk } ?: return
         val computer = owner.getServerComputer() ?: return
-        val handlerPath = (DisplayBindings.get(desk, touch.socket) as? DisplayBinding.LuaHandler)?.path.orEmpty()
+        val handlerPath = DisplayBindings.controllerPath(DisplayBindings.get(desk, touch.socket))
 
         computer.queueEvent(
             CCAeroworks.CONSOLE_DISPLAY_INPUT_EVENT,
