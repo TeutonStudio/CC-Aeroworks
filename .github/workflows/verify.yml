@@ -47,6 +47,9 @@ jobs:
       - name: Verify exact Create Radars runtime bytecode
         run: python3 tools/verify-create-radars-bytecode.py
 
+      - name: Verify exact Aeroworks Drive By Wire bytecode
+        run: python3 tools/verify-aeroworks-dbw-bytecode.py
+
       - name: Validate repository contract
         run: python3 tools/verify-repository.py
 
