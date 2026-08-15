@@ -83,6 +83,7 @@ abstract class ConsoleVisualMixin(
         val nextKey = buildString {
             displays.forEach {
                 append(it.socket).append(':').append(it.text).append(':')
+                    .append(it.type.partsPerBlock).append(':')
                     .append(it.pixels?.encode().orEmpty()).append(';')
             }
         }
@@ -99,7 +100,8 @@ abstract class ConsoleVisualMixin(
                         socket = display.socket,
                         model = DeskDisplayModels.PIXEL,
                         x = DeskDisplayRenderer.pixelOffsetX(display.type, display.pixels.width, x),
-                        z = DeskDisplayRenderer.pixelOffsetZ(display.pixels.height, y)
+                        z = DeskDisplayRenderer.pixelOffsetZ(display.type, display.pixels.height, y),
+                        scale = display.type.pixelModelScale
                     )
                 }
             } else {
@@ -123,12 +125,13 @@ abstract class ConsoleVisualMixin(
         socket: Int,
         model: PartialModel,
         x: Double,
-        z: Double
+        z: Double,
+        scale: Float = 1.0f
     ) {
         val instance = instancerProvider()
             .instancer(InstanceTypes.TRANSFORMED, Models.partial(model))
             .createInstance()
-        displayElements += CCAeroworksDisplayElement(socket, x, z, instance)
+        displayElements += CCAeroworksDisplayElement(socket, x, z, scale, instance)
         relight(instance)
     }
 
@@ -140,6 +143,9 @@ abstract class ConsoleVisualMixin(
             val socket = sockets.getOrNull(element.socket) ?: return@forEach
             element.instance
                 .setIdentityTransform()
+                .center()
+                .scale(element.scale, 1.0f, element.scale)
+                .uncenter()
                 .translate(visualPosition)
                 .translate(0.5f, 0.5f, 0.5f)
                 .rotate(rotation)
@@ -156,6 +162,7 @@ abstract class ConsoleVisualMixin(
         val socket: Int,
         val x: Double,
         val z: Double,
+        val scale: Float,
         val instance: TransformedInstance
     )
 }
