@@ -100,7 +100,7 @@ object GpsSourceTracker {
     }
 
     @Synchronized
-    fun current(owner: ComputerControlDeskBlockEntity): GpsSourceStatus? {
+    internal fun current(owner: ComputerControlDeskBlockEntity): GpsSourceStatus? {
         val level = owner.level as? ServerLevel ?: return null
         val state = tracked[owner.deskId]?.takeIf { it.owner === owner } ?: return null
         settle(state, level.gameTime)
