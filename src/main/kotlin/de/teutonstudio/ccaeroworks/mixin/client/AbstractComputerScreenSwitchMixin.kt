@@ -141,8 +141,12 @@ abstract class AbstractComputerScreenSwitchMixin(menu: AbstractComputerMenu, inv
     @Unique private fun ccaeroworks_renameSelection() {
         val name = ccaeroworks_text(); if (name.isEmpty()) return
         val panel = ccaeroworks_channelPanel ?: return
+        panel.selectedBindingAlias()?.let { oldAlias ->
+            val group = panel.selectedGroupId() ?: return
+            PacketDistributor.sendToServer(MutateChannelGroupPayload(ChannelGroupMutation.RENAME_BINDING, group, name, oldAlias, "")); ccaeroworks_resetDelete(); return
+        }
         panel.selectedChannel()?.let { PacketDistributor.sendToServer(MutateWireChannelPayload(WireChannelMutation.RENAME, it.id, name)); ccaeroworks_resetDelete(); return }
-        panel.selectedGroupId()?.let { PacketDistributor.sendToServer(MutateChannelGroupPayload(ChannelGroupMutation.RENAME, it, name, "", "")); ccaeroworks_resetDelete() }
+        panel.selectedGroupForMutation()?.let { PacketDistributor.sendToServer(MutateChannelGroupPayload(ChannelGroupMutation.RENAME, it, name, "", "")); ccaeroworks_resetDelete() }
     }
     @Unique private fun ccaeroworks_bindSelection() {
         val alias = ccaeroworks_text(); if (alias.isEmpty()) return
@@ -156,7 +160,7 @@ abstract class AbstractComputerScreenSwitchMixin(menu: AbstractComputerMenu, inv
             if (selected.connections > 0 && ccaeroworks_deleteArmed != selected.id) { ccaeroworks_deleteArmed = selected.id; ccaeroworks_delete?.message = Component.literal("Confirm"); return }
             PacketDistributor.sendToServer(MutateWireChannelPayload(WireChannelMutation.REMOVE, selected.id, "")); ccaeroworks_resetDelete(); return
         }
-        panel.selectedGroupId()?.let { PacketDistributor.sendToServer(MutateChannelGroupPayload(ChannelGroupMutation.REMOVE, it, "", "", "")); ccaeroworks_resetDelete() }
+        panel.selectedGroupForMutation()?.let { PacketDistributor.sendToServer(MutateChannelGroupPayload(ChannelGroupMutation.REMOVE, it, "", "", "")); ccaeroworks_resetDelete() }
     }
     @Unique private fun ccaeroworks_resetDelete() { ccaeroworks_deleteArmed = null; ccaeroworks_delete?.message = Component.literal("Delete") }
 }

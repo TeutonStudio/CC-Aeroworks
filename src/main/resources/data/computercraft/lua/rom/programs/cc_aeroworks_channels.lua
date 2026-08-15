@@ -28,6 +28,7 @@ local function help()
     print("channels group remove <name>")
     print("channels group rename <old> <new>")
     print("channels bind <group> <alias> <channel-id>")
+    print("channels binding rename <group> <old-alias> <new-alias>")
     print("channels unbind <group> <alias>")
 end
 
@@ -42,6 +43,8 @@ elseif cmd == "group" and args[2] == "rename" and args[3] and args[4] and not ar
     local result, ok = call(admin.renameGroup, args[3], args[4]); if ok then print("Renamed group to " .. result.name) end
 elseif cmd == "bind" and args[2] and args[3] and args[4] and not args[5] then
     local result, ok = call(admin.bind, args[2], args[3], args[4]); if ok then print("Bound " .. args[2] .. "/" .. args[3]) end
+elseif cmd == "binding" and args[2] == "rename" and args[3] and args[4] and args[5] and not args[6] then
+    local result, ok = call(admin.renameBinding, args[3], args[4], args[5]); if ok then print("Renamed binding to " .. args[5]) end
 elseif cmd == "unbind" and args[2] and args[3] and not args[4] then
     local result, ok = call(admin.unbind, args[2], args[3]); if ok then print("Unbound " .. args[2] .. "/" .. args[3]) end
 else

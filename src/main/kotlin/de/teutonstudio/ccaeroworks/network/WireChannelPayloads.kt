@@ -71,7 +71,7 @@ data class MutateWireChannelPayload(val mutation: WireChannelMutation, val id: U
     }
 }
 
-enum class ChannelGroupMutation { ADD, RENAME, REMOVE, BIND, UNBIND }
+enum class ChannelGroupMutation { ADD, RENAME, REMOVE, BIND, RENAME_BINDING, UNBIND }
 
 data class MutateChannelGroupPayload(
     val mutation: ChannelGroupMutation,
@@ -109,6 +109,7 @@ data class MutateChannelGroupPayload(
                         require(ChannelRegistry.findById(owner, payload.targetId) != null) { "Unknown channel target '${payload.targetId}'" }
                         bank.bind(id, payload.alias, payload.targetId)
                     }
+                    ChannelGroupMutation.RENAME_BINDING -> bank.renameBinding(payload.groupId ?: return, payload.alias, payload.name)
                     ChannelGroupMutation.UNBIND -> bank.unbind(payload.groupId ?: return, payload.alias)
                 }
             }.onFailure { CCAeroworks.LOGGER.debug("Rejected channel-group UI mutation for {}: {}", player.scoreboardName, it.message) }
