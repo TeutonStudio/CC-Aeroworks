@@ -11,25 +11,26 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Final runtime guard for Aeroworks -> Drive By Wire signal publication.
+ * Final value-read guard for Drive By Wire.
  *
- * Display x/y must remain real Aeroworks values for Combined pseudo-finger input, but they are not
- * physical vehicle outputs. Custom ComputerControlDesk wire names do not parse as Aeroworks native
- * channel ids and therefore pass through unchanged.
+ * Aeroworks integrates modular ControlDesk values by teaching DBW's signal lookup about its native
+ * socket/channel/sign IDs. Interactive displays deliberately reuse real Aeroworks x/y channels for
+ * Combined pointer configuration, so this higher-priority guard returns zero before those local
+ * pointer values can be interpreted as vehicle DBW output. Custom ComputerControlDesk wire channels
+ * are stored values and do not parse as Aeroworks native IDs, so they pass through unchanged.
  */
 @Pseudo
-@Mixin(targets = "edn.stratodonut.drivebywire.wire.WireNetworkManager", remap = false, priority = 2000)
+@Mixin(targets = "edn.stratodonut.drivebywire.wire.WireNetworkManager", remap = false, priority = 2100)
 public abstract class DriveByWireSignalFilterMixin {
-    @Inject(method = "trySetSignalAt", at = @At("HEAD"), cancellable = true, require = 0)
-    private static void ccaeroworks$blockDisplayPointerSignal(
+    @Inject(method = "getCurrentSignal", at = @At("HEAD"), cancellable = true, require = 0)
+    private void ccaeroworks$zeroDisplayPointerSignal(
         final Level level,
         final BlockPos source,
         final String channel,
-        final int value,
-        final CallbackInfo ci
+        final CallbackInfoReturnable<Integer> cir
     ) {
         if (!(level.getBlockEntity(source) instanceof final ConsoleBlockEntity desk)) {
             return;
@@ -43,7 +44,7 @@ public abstract class DriveByWireSignalFilterMixin {
             return;
         }
         if (!ControlChannelSemantics.INSTANCE.isDriveByWireExposed(module, parsed.getChannelId())) {
-            ci.cancel();
+            cir.setReturnValue(0);
         }
     }
 }
