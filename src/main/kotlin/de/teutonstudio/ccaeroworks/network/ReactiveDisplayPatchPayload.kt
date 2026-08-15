@@ -33,6 +33,8 @@ data class ReactiveDisplayPatchPayload(
     )
 
     companion object {
+        const val MAX_TILES_PER_PACKET: Int = 256
+
         @JvmField
         val TYPE: CustomPacketPayload.Type<ReactiveDisplayPatchPayload> =
             CustomPacketPayload.Type(CCAeroworks.id("reactive_display_patch"))
@@ -47,11 +49,15 @@ data class ReactiveDisplayPatchPayload(
                     val height = buffer.readVarInt()
                     val revision = buffer.readVarLong()
                     val full = buffer.readBoolean()
-                    val count = buffer.readVarInt().coerceIn(0, MAX_TILES_PER_PATCH)
+                    val count = buffer.readVarInt()
+                    require(count in 0..MAX_TILES_PER_PACKET) {
+                        "Reactive display patch contains $count tiles; maximum is $MAX_TILES_PER_PACKET"
+                    }
                     val tiles = ArrayList<ReactiveTilePatch>(count)
                     repeat(count) {
                         val x = buffer.readVarInt()
                         val y = buffer.readVarInt()
+                        require(x >= 0 && y >= 0) { "Reactive display tile coordinates must not be negative" }
                         val rowCount = buffer.readVarInt()
                         val rows = when (rowCount) {
                             0 -> LongArray(0)
@@ -64,6 +70,9 @@ data class ReactiveDisplayPatchPayload(
                 }
 
                 override fun encode(buffer: RegistryFriendlyByteBuf, payload: ReactiveDisplayPatchPayload) {
+                    require(payload.tiles.size <= MAX_TILES_PER_PACKET) {
+                        "Reactive display payload must be split before encoding"
+                    }
                     buffer.writeBlockPos(payload.pos)
                     buffer.writeVarInt(payload.socket)
                     buffer.writeVarInt(payload.width)
@@ -87,7 +96,9 @@ data class ReactiveDisplayPatchPayload(
                 if (!level.hasChunkAt(payload.pos)) return@enqueueWork
                 val desk = level.getBlockEntity(payload.pos) as? ConsoleBlockEntity ?: return@enqueueWork
                 if (payload.socket !in 0 until desk.socketCount()) return@enqueueWork
-                if (payload.width <= 0 || payload.height <= 0 || payload.tiles.size > MAX_TILES_PER_PATCH) return@enqueueWork
+                if (payload.width <= 0 || payload.height <= 0 || payload.tiles.size > MAX_TILES_PER_PACKET) {
+                    return@enqueueWork
+                }
                 ReactiveDisplayFrames.applyClientPatch(desk, payload.socket, payload.toPatch())
             }
         }
@@ -102,7 +113,5 @@ data class ReactiveDisplayPatchPayload(
                 patch.full,
                 patch.tiles
             )
-
-        private const val MAX_TILES_PER_PATCH: Int = 4096
     }
 }
