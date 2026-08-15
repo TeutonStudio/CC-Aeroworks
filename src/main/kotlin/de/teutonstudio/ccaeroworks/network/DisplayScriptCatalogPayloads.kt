@@ -2,6 +2,7 @@ package de.teutonstudio.ccaeroworks.network
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
+import de.teutonstudio.ccaeroworks.compat.sable.SableInteractionGeometry
 import de.teutonstudio.ccaeroworks.display.DeskDisplayType
 import de.teutonstudio.ccaeroworks.display.DisplayScriptCatalog
 import de.teutonstudio.ccaeroworks.display.DisplayScriptCatalogState
@@ -111,11 +112,10 @@ data class DisplayScriptCatalogPayload(
 
 private fun validateDesk(player: ServerPlayer, pos: BlockPos, socket: Int): ConsoleBlockEntity? {
     val level = player.serverLevel()
-    if (!level.hasChunkAt(pos) || !level.mayInteract(player, pos)) return null
+    if (!level.hasChunkAt(pos) || !SableInteractionGeometry.mayInteract(player, level, pos)) return null
     val desk = level.getBlockEntity(pos) as? ConsoleBlockEntity ?: return null
     if (desk.hasController() && !desk.checkUser(player.uuid)) return null
-    val maximumDistance = player.blockInteractionRange() + 1.0
-    if (player.distanceToSqr(pos.center) > maximumDistance * maximumDistance) return null
+    if (!SableInteractionGeometry.withinReach(player, level, pos)) return null
     if (socket !in 0 until desk.socketCount()) return null
     return desk
 }
