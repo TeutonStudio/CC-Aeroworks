@@ -53,6 +53,9 @@ jobs:
       - name: Validate guide and Ponder resources
         run: python3 tools/verify-guide.py
 
+      - name: Validate handbook API registry
+        run: python3 tools/verify-api-documentation.py
+
       - name: Validate native ControlDesk interactions
         run: python3 tools/verify-control-desk-interactions.py
 
