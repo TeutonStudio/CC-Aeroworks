@@ -148,6 +148,10 @@ dependencies {
         ]
     )
     compileOnly("net.createmod.ponder:ponder-neoforge:${ponder_version}+mc${minecraft_version}")
+    // JEI is optional at runtime, but its API is needed to describe the dynamic
+    // ComputerControlDesk crafting recipe to the vanilla crafting category.
+    compileOnly("mezz.jei:jei-${minecraft_version}-common-api:${jei_version}")
+    compileOnly("mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}")
     localRuntime("curse.maven:create-radars-1152836:${create_radars_curse_file_id}")
     localRuntime("curse.maven:create-diesel-generators-869316:${create_diesel_generators_curse_file_id}")
     localRuntime("curse.maven:create-big-cannons-646668:${create_big_cannons_curse_file_id}")
