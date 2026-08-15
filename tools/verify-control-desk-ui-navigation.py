@@ -102,6 +102,10 @@ require('@Accessor("terminal")' in computer_accessor,
         "computer screen mixin must access the native terminal widget instead of guessing geometry")
 require("options.keyInventory.matches(keyCode, scanCode)" in computer,
         "focused channel-name input must consume the configured inventory key instead of hard-coding E")
+require("private val ccaeroworks_snapshotIntervalTicks: Long = 20L" in computer,
+        "Computer screen snapshot cadence must be an instance-private @Unique field safe for Sponge Mixin")
+require("SNAPSHOT_INTERVAL_TICKS" not in computer and "companion object" not in computer,
+        "Computer screen mixin must not emit a non-private static snapshot constant")
 require("collapsedKinds" in source_widget and "InformationSourceKind.entries" in source_widget,
         "Information Sources sections must be collapsible and grouped by source kind")
 
