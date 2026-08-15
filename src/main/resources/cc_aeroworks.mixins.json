@@ -46,7 +46,8 @@
     "client.ModuleScreenCombinedInputMixin",
     "client.ModuleScreenDisplayBindingMixin",
     "client.ModuleScreenSwitchMixin",
-    "client.OrientedBoxOutlineSableMixin"
+    "client.OrientedBoxOutlineSableMixin",
+    "client.SubLevelPoseClientMixin"
   ],
   "injectors": {
     "defaultRequire": 1
