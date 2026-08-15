@@ -40,6 +40,11 @@ object CCPayloads {
             SetDisplayTouchScriptPayload.STREAM_CODEC,
             SetDisplayTouchScriptPayload::handle
         )
+        registrar.playToServer(
+            SetDisplayApplicationPayload.TYPE,
+            SetDisplayApplicationPayload.STREAM_CODEC,
+            SetDisplayApplicationPayload::handle
+        )
         registrar.playToClient(
             ReactiveDisplayPatchPayload.TYPE,
             ReactiveDisplayPatchPayload.STREAM_CODEC,
