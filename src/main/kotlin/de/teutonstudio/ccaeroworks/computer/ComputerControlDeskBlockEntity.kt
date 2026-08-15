@@ -107,17 +107,18 @@ class ComputerControlDeskBlockEntity(
      * is starting. CC:Tweaked intentionally drops queueEvent calls while a computer is off, while
      * turnOn() only schedules an asynchronous start. Display interactions need to survive that gap.
      */
-    internal fun queueComputerEventWhenReady(name: String, arguments: Array<Any?>) {
+    internal fun queueComputerEventWhenReady(name: String, vararg arguments: Any?) {
+        val copiedArguments = arrayOf(*arguments)
         val computer = getServerComputer() ?: createServerComputer()
         if (computer.isOn) {
-            computer.queueEvent(name, arguments)
+            computer.queueEvent(name, copiedArguments)
             return
         }
 
         while (pendingComputerEvents.size >= MAX_PENDING_COMPUTER_EVENTS) {
             pendingComputerEvents.removeFirst()
         }
-        pendingComputerEvents.addLast(PendingComputerEvent(name, arguments.copyOf()))
+        pendingComputerEvents.addLast(PendingComputerEvent(name, copiedArguments))
         computer.turnOn()
     }
 
