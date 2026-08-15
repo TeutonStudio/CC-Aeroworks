@@ -34,7 +34,9 @@ object DeskDisplayInputDispatcher {
             touch.y,
             touch.width,
             touch.height,
-            handlerPath
+            handlerPath,
+            touch.u,
+            touch.v
         )
 
         if (action == DisplayPointerAction.TAP) {
@@ -48,7 +50,9 @@ object DeskDisplayInputDispatcher {
                 touch.x,
                 touch.y,
                 touch.width,
-                touch.height
+                touch.height,
+                touch.u,
+                touch.v
             )
         }
     }
