@@ -19,37 +19,53 @@ object DeskDisplayRenderer {
         // RadarDisplay is rendered later in one shared world pass so classic and
         // Flywheel desks both use the exact same native Create: Radars renderer.
         RadarOverlayRenderer.track(desk)
+        renderPixels(desk, poseStack, buffers, light)
+        renderText(desk, poseStack, buffers, light)
+    }
 
+    /**
+     * Pixel-only pass. Flywheel consoles call this from [DeskPixelOverlayRenderer] instead of
+     * allocating one persistent TransformedInstance for every enabled pixel.
+     */
+    @JvmStatic
+    fun renderPixels(desk: ConsoleBlockEntity, poseStack: PoseStack, buffers: MultiBufferSource, light: Int) {
         val sockets = desk.sockets()
         val rotation = ConsoleBlock.rotationFor(desk.blockState)
         val consumer = buffers.getBuffer(RenderType.cutout())
         AeroworksDeskAccess.renderedDisplays(desk).forEach { display ->
+            val pixels = display.pixels ?: return@forEach
             val socket = sockets.getOrNull(display.socket) ?: return@forEach
-            val pixels = display.pixels
-            if (pixels != null) {
-                val scale = display.type.pixelModelScale
-                for (y in 0 until pixels.height) for (x in 0 until pixels.width) {
-                    if (!pixels.get(x, y)) continue
-                    val rendered: SuperByteBuffer = CachedBuffers.partial(DeskDisplayModels.PIXEL, desk.blockState)
-                        .center()
-                        .scale(scale, 1.0f, scale)
-                        .uncenter()
-                        .translate(0.5, 0.5, 0.5)
-                        .rotate(rotation)
-                        .translate(socket.offset().x - 0.5, socket.offset().y - 0.5, socket.offset().z - 0.5)
-                        .rotate(socket.orientation())
-                        .translate(-0.5, 0.0, -0.5)
-                        .translate(
-                            pixelOffsetX(display.type, pixels.width, x),
-                            0.0,
-                            pixelOffsetZ(display.type, pixels.height, y)
-                        )
-                    rendered.light<SuperByteBuffer>(light)
-                    rendered.renderInto(poseStack, consumer)
-                }
-                return@forEach
+            val scale = display.type.pixelModelScale
+            for (y in 0 until pixels.height) for (x in 0 until pixels.width) {
+                if (!pixels.get(x, y)) continue
+                val rendered: SuperByteBuffer = CachedBuffers.partial(DeskDisplayModels.PIXEL, desk.blockState)
+                    .center()
+                    .scale(scale, 1.0f, scale)
+                    .uncenter()
+                    .translate(0.5, 0.5, 0.5)
+                    .rotate(rotation)
+                    .translate(socket.offset().x - 0.5, socket.offset().y - 0.5, socket.offset().z - 0.5)
+                    .rotate(socket.orientation())
+                    .translate(-0.5, 0.0, -0.5)
+                    .translate(
+                        pixelOffsetX(display.type, pixels.width, x),
+                        0.0,
+                        pixelOffsetZ(display.type, pixels.height, y)
+                    )
+                rendered.light<SuperByteBuffer>(light)
+                rendered.renderInto(poseStack, consumer)
             }
+        }
+    }
 
+    @JvmStatic
+    fun renderText(desk: ConsoleBlockEntity, poseStack: PoseStack, buffers: MultiBufferSource, light: Int) {
+        val sockets = desk.sockets()
+        val rotation = ConsoleBlock.rotationFor(desk.blockState)
+        val consumer = buffers.getBuffer(RenderType.cutout())
+        AeroworksDeskAccess.renderedDisplays(desk).forEach { display ->
+            if (display.pixels != null) return@forEach
+            val socket = sockets.getOrNull(display.socket) ?: return@forEach
             display.text.padEnd(display.type.width, ' ').forEachIndexed { digit, character ->
                 DeskDisplayModels.segments(character).forEach { segment ->
                     val rendered: SuperByteBuffer = CachedBuffers.partial(segment.model, desk.blockState)
