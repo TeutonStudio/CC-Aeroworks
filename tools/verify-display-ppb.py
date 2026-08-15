@@ -41,11 +41,22 @@ require("fun isEncoded" in pixels, "migration must distinguish encoded rasters f
 
 require("type.pixelPitchBlocks" in renderer, "both pixel axes must use the PPB pitch")
 require("type.pixelModelScale" in renderer, "pixel model must scale with PPB")
+pixel_position = renderer.find("pixelOffsetX(display.type, pixels.width, x)")
+pixel_scale = renderer.find(".scale(scale, 1.0f, scale)")
+require(pixel_position >= 0 and pixel_scale >= 0 and pixel_position < pixel_scale,
+        "pixel model scaling must happen after raster placement so PPB scale cannot collapse offsets")
+require(".translate(0.5, 0.0, 0.5)\n                    .scale(scale, 1.0f, scale)\n                    .translate(-0.5, 0.0, -0.5)" in renderer,
+        "pixel model must scale locally around its X/Z centre")
+
 require("DeskPixelOverlayRenderer.track(blockEntity)" in visual,
         "Flywheel visuals must delegate programmable pixel rasters to the shared pass")
 require("DeskDisplayModels.PIXEL" not in visual,
         "Flywheel visual must not allocate one persistent instance per programmable pixel")
 require("DeskDisplayRenderer.renderPixels" in overlay, "shared pixel overlay must render the raster batch")
+require("LevelRenderer.getLightColor(level, desk.blockPos)" in overlay,
+        "shared pixel overlay must use world lighting")
+require("LightTexture.FULL_BRIGHT" not in overlay,
+        "programmable display pixels must not be forced to hologram-like full brightness")
 
 require("function touchdisplay.normalizedPosition(event)" in touch,
         "touchdisplay must expose resolution-independent pointer coordinates")
@@ -56,9 +67,18 @@ require("u = event[13]" in handler and "v = event[14]" in handler,
 def pixels_for(parts: int, ppb: int) -> int:
     return parts * ppb // 16
 
+
+def raster_footprint(pixel_count: int, ppb: int) -> float:
+    # display_pixel.json is 0.56 vanilla model units wide. After the vanilla-16-PPB
+    # partial is scaled by 16/ppb, the final pixel geometry is 0.56/ppb blocks wide.
+    return (pixel_count - 1 + 0.56) / ppb
+
+
 require((pixels_for(7, 16), pixels_for(7, 16)) == (7, 7), "16 PPB small resolution changed")
 require((pixels_for(10, 16), pixels_for(7, 16)) == (10, 7), "16 PPB large resolution changed")
 require((pixels_for(7, 256), pixels_for(7, 256)) == (112, 112), "256 PPB small resolution changed")
 require((pixels_for(10, 256), pixels_for(7, 256)) == (160, 112), "256 PPB large resolution changed")
+require(raster_footprint(160, 256) <= 10 / 16, "large 256-PPB raster must remain inside display width")
+require(raster_footprint(112, 256) <= 7 / 16, "large 256-PPB raster must remain inside display height")
 
-print("display PPB contract OK: 16 -> 7x7/10x7, 256 -> 112x112/160x112")
+print("display PPB contract OK: transform order, lighting and 16/256 PPB geometry verified")
