@@ -9,7 +9,7 @@ import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
 import de.teutonstudio.ccaeroworks.display.RadarSourceDescriptor
 import de.teutonstudio.ccaeroworks.display.RadarSourceRegistry
-import de.teutonstudio.ccaeroworks.network.SetDisplayTouchScriptPayload
+import de.teutonstudio.ccaeroworks.network.SetDisplayApplicationPayload
 import de.teutonstudio.ccaeroworks.network.SetRadarDisplaySourcePayload
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 import net.minecraft.client.gui.components.Button
@@ -44,7 +44,10 @@ abstract class ModuleScreenDisplayBindingMixin(
     private var ccaeroworks_radarSourceButton: Button? = null
 
     @Unique
-    private var ccaeroworks_touchScriptField: EditBox? = null
+    private var ccaeroworks_controllerScriptField: EditBox? = null
+
+    @Unique
+    private var ccaeroworks_bootProgramField: EditBox? = null
 
     @Inject(method = ["init()V"], at = [At("TAIL")])
     private fun ccaeroworks_addDisplayBinding(callback: CallbackInfo) {
@@ -64,7 +67,7 @@ abstract class ModuleScreenDisplayBindingMixin(
         if (radarDisplay) {
             ccaeroworks_addRadarSourceButton(desk, socket)
         } else {
-            ccaeroworks_addTouchScriptField(desk, socket)
+            ccaeroworks_addDisplayApplicationFields(desk, socket)
         }
     }
 
@@ -86,34 +89,54 @@ abstract class ModuleScreenDisplayBindingMixin(
     }
 
     @Unique
-    private fun ccaeroworks_addTouchScriptField(desk: ConsoleBlockEntity, socket: Int) {
+    private fun ccaeroworks_addDisplayApplicationFields(desk: ConsoleBlockEntity, socket: Int) {
         val rowWidth = (imageWidth - 16).coerceAtMost(156)
         val buttonWidth = 42
         val fieldWidth = rowWidth - buttonWidth - 4
         val rowX = leftPos + (imageWidth - rowWidth) / 2
-        val rowY = topPos + imageHeight - 50
-        val currentPath = (DisplayBindings.get(desk, socket) as? DisplayBinding.LuaHandler)?.path.orEmpty()
+        val binding = DisplayBindings.get(desk, socket)
+        val controller = DisplayBindings.controllerPath(binding)
+        val boot = DisplayBindings.bootProgramPath(binding)
 
-        ccaeroworks_touchScriptField = EditBox(
+        ccaeroworks_controllerScriptField = EditBox(
             font,
             rowX,
-            rowY,
-            fieldWidth,
-            20,
-            Component.literal("Touch script")
+            topPos + imageHeight - 69,
+            rowWidth,
+            18,
+            Component.literal("Controller script")
         ).also { field ->
             field.setMaxLength(DisplayBindings.MAX_HANDLER_PATH_LENGTH)
-            field.setValue(currentPath)
+            field.setValue(controller)
+            field.setHint(Component.literal("controller.lua"))
+            addRenderableWidget(field)
+        }
+
+        ccaeroworks_bootProgramField = EditBox(
+            font,
+            rowX,
+            topPos + imageHeight - 47,
+            fieldWidth,
+            18,
+            Component.literal("Boot program")
+        ).also { field ->
+            field.setMaxLength(DisplayBindings.MAX_HANDLER_PATH_LENGTH)
+            field.setValue(boot)
+            field.setHint(Component.literal("screen.lua"))
             addRenderableWidget(field)
         }
 
         addRenderableWidget(
             Button.builder(Component.literal("Set")) {
-                val path = ccaeroworks_touchScriptField?.value.orEmpty()
                 PacketDistributor.sendToServer(
-                    SetDisplayTouchScriptPayload(desk.blockPos, socket, path)
+                    SetDisplayApplicationPayload(
+                        desk.blockPos,
+                        socket,
+                        ccaeroworks_controllerScriptField?.value.orEmpty(),
+                        ccaeroworks_bootProgramField?.value.orEmpty()
+                    )
                 )
-            }.bounds(rowX + fieldWidth + 4, rowY, buttonWidth, 20).build()
+            }.bounds(rowX + fieldWidth + 4, topPos + imageHeight - 47, buttonWidth, 18).build()
         )
     }
 
@@ -122,7 +145,6 @@ abstract class ModuleScreenDisplayBindingMixin(
         val desk = ccaeroworks_bindingDesk ?: return
         val socket = ccaeroworks_bindingSocket
         if (socket < 0) return
-
         val remote = RadarSourceRegistry.sources(desk)
             .filter { it.ingressPos != desk.blockPos }
         val positions = remote.map(RadarSourceDescriptor::ingressPos)
