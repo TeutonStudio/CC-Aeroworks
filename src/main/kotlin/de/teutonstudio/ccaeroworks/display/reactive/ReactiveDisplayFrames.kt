@@ -39,13 +39,7 @@ object ReactiveDisplayFrames {
 
         frames.getOrPut(desk) { linkedMapOf() }[socket] = snapshot
         val level = desk.level as? ServerLevel
-        if (level != null) {
-            PacketDistributor.sendToPlayersTrackingChunk(
-                level,
-                ChunkPos(desk.blockPos),
-                ReactiveDisplayPatchPayload.from(desk.blockPos, socket, patch)
-            )
-        }
+        if (level != null) sendPatch(level, desk, socket, patch)
         return snapshot
     }
 
@@ -56,18 +50,11 @@ object ReactiveDisplayFrames {
         frames[desk]?.remove(socket)
         if (frames[desk].isNullOrEmpty()) frames.remove(desk)
         val level = desk.level as? ServerLevel ?: return
-        PacketDistributor.sendToPlayersTrackingChunk(
+        sendPatch(
             level,
-            ChunkPos(desk.blockPos),
-            ReactiveDisplayPatchPayload(
-                desk.blockPos.immutable(),
-                socket,
-                blank.width,
-                blank.height,
-                blank.revision,
-                true,
-                emptyList()
-            )
+            desk,
+            socket,
+            ReactiveDisplayPatch(blank.width, blank.height, blank.revision, true, emptyList())
         )
     }
 
@@ -78,7 +65,9 @@ object ReactiveDisplayFrames {
         patch: ReactiveDisplayPatch
     ) {
         val previous = frames[desk]?.get(socket)
-        if (previous != null && patch.revision <= previous.revision) return
+        // A single logical revision may be split over several ordered network packets. Accept
+        // equal-revision continuation packets while still rejecting genuinely stale data.
+        if (previous != null && patch.revision < previous.revision) return
 
         val nextTiles = linkedMapOf<ReactiveTileKey, LongArray>()
         if (!patch.full && previous != null && previous.width == patch.width && previous.height == patch.height) {
@@ -133,5 +122,33 @@ object ReactiveDisplayFrames {
             decoded[socket] = frame
         }
         if (decoded.isNotEmpty()) frames[desk] = decoded
+    }
+
+    private fun sendPatch(
+        level: ServerLevel,
+        desk: ConsoleBlockEntity,
+        socket: Int,
+        patch: ReactiveDisplayPatch
+    ) {
+        val chunks = if (patch.tiles.isEmpty()) {
+            listOf(emptyList())
+        } else {
+            patch.tiles.chunked(ReactiveDisplayPatchPayload.MAX_TILES_PER_PACKET)
+        }
+        chunks.forEachIndexed { index, tiles ->
+            PacketDistributor.sendToPlayersTrackingChunk(
+                level,
+                ChunkPos(desk.blockPos),
+                ReactiveDisplayPatchPayload(
+                    desk.blockPos.immutable(),
+                    socket,
+                    patch.width,
+                    patch.height,
+                    patch.revision,
+                    patch.full && index == 0,
+                    tiles
+                )
+            )
+        }
     }
 }
