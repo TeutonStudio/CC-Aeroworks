@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Inspect and verify the exact Aeroworks 1.3.0 Drive By Wire integration contract."""
+"""Verify the exact Aeroworks 1.3.0 Drive By Wire integration contract."""
 
 from __future__ import annotations
 
@@ -26,26 +26,18 @@ def require(condition: bool, message: str) -> None:
 
 
 def download(path: Path) -> None:
-    request = urllib.request.Request(
-        DOWNLOAD_URL,
-        headers={"User-Agent": "CC-Aeroworks-bytecode-verifier/1.0"},
-    )
+    request = urllib.request.Request(DOWNLOAD_URL, headers={"User-Agent": "CC-Aeroworks-bytecode-verifier/1.0"})
     with urllib.request.urlopen(request, timeout=60) as response:
         require(response.status == 200, f"Aeroworks download returned HTTP {response.status}")
         path.write_bytes(response.read())
-    require(
-        EXPECTED_MIN_BYTES <= path.stat().st_size <= EXPECTED_MAX_BYTES,
-        f"Unexpected {FILE_NAME} size {path.stat().st_size}",
-    )
+    require(EXPECTED_MIN_BYTES <= path.stat().st_size <= EXPECTED_MAX_BYTES,
+            f"Unexpected {FILE_NAME} size {path.stat().st_size}")
 
 
 def javap(jar: Path, class_name: str) -> str:
     completed = subprocess.run(
         ["javap", "-classpath", str(jar), "-p", "-s", "-c", class_name],
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
+        text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
     )
     require(completed.returncode == 0, f"javap failed for {class_name}: {completed.stderr.strip()}")
     return completed.stdout
@@ -56,27 +48,11 @@ def class_names(config: dict[str, object]) -> list[str]:
     names: list[str] = []
     for key in ("mixins", "client", "server"):
         values = config.get(key, [])
-        if not isinstance(values, list):
-            continue
-        for value in values:
-            name = str(value)
-            names.append(f"{package}.{name}" if package else name)
+        if isinstance(values, list):
+            for value in values:
+                name = str(value)
+                names.append(f"{package}.{name}" if package else name)
     return names
-
-
-def interesting(output: str) -> list[str]:
-    needles = (
-        "ClientWireNetworkHandler",
-        "selectedSource",
-        "currentChannel",
-        "changeChannel",
-        "handleWireUse",
-        "ConsoleBlockEntity",
-        "MountedModule",
-        "channel",
-        "wire$",
-    )
-    return [line for line in output.splitlines() if any(needle in line for needle in needles)]
 
 
 def main() -> int:
@@ -88,44 +64,43 @@ def main() -> int:
             config = json.loads(archive.read(MIXIN_CONFIG).decode("utf-8"))
             names = class_names(config)
             require(names, "Aeroworks DBW mixin config contains no mixins")
-            require(
-                CONSOLE_WIRE_CHANNELS.replace('.', '/') + ".class" in archive.namelist(),
-                "Aeroworks release lacks ConsoleWireChannels",
-            )
-            print("Aeroworks DBW mixin config: " + json.dumps(config, sort_keys=True))
+            require(CONSOLE_WIRE_CHANNELS.replace('.', '/') + ".class" in archive.namelist(),
+                    "Aeroworks release lacks ConsoleWireChannels")
 
-        outputs: dict[str, str] = {}
-        for name in names:
-            output = javap(jar, name)
-            outputs[name] = output
-            lines = interesting(output)
-            print(f"--- {name} ---")
-            print("\n".join(lines[:240]))
-
-        console_wire_channels = javap(jar, CONSOLE_WIRE_CHANNELS)
-        print(f"--- {CONSOLE_WIRE_CHANNELS} ---")
-        print(console_wire_channels)
-        for token in (
-            "nextChannel(com.mred231.aeroworks.content.controls.ConsoleBlockEntity, java.lang.String, boolean)",
-            "channelFor(int, java.lang.String, int)",
-            "resolve(com.mred231.aeroworks.content.controls.ConsoleBlockEntity, java.lang.String)",
-        ):
-            require(token in console_wire_channels, f"ConsoleWireChannels contract missing {token}")
-
+        outputs = {name: javap(jar, name) for name in names}
         client_mixins = {
-            name: output
-            for name, output in outputs.items()
+            name: output for name, output in outputs.items()
             if DBW_CLIENT in output or "ClientWireNetworkHandler" in output
         }
         require(client_mixins, "Aeroworks DBW integration no longer targets ClientWireNetworkHandler")
         combined = "\n".join(client_mixins.values())
-        require("selectedSource" in combined, "Aeroworks DBW client integration no longer reads selectedSource")
-        require("currentChannel" in combined, "Aeroworks DBW client integration no longer handles currentChannel")
+        require("selectedSource" in combined and "currentChannel" in combined,
+                "Aeroworks DBW client integration no longer owns selected source/channel state")
         require("ConsoleWireChannels.nextChannel" in combined,
-                "Aeroworks DBW client integration no longer delegates desk channel cycling to ConsoleWireChannels")
+                "Aeroworks DBW client integration no longer delegates modular cycling to ConsoleWireChannels")
+
+        channels = javap(jar, CONSOLE_WIRE_CHANNELS)
+        for signature in (
+            "channelFor(int, java.lang.String, int)",
+            "channelsFor(com.mred231.aeroworks.content.controls.ConsoleBlockEntity)",
+            "nextChannel(com.mred231.aeroworks.content.controls.ConsoleBlockEntity, java.lang.String, boolean)",
+            "parse(java.lang.String)",
+        ):
+            require(signature in channels, f"ConsoleWireChannels contract missing {signature}")
+        for token in (
+            "ControlChannel.kind",
+            "ControlChannel.id",
+            "iconst_1",
+            "iconst_m1",
+            "ConsoleWireChannels$WireChannel.socket",
+            "ConsoleWireChannels$WireChannel.channelId",
+            "ConsoleWireChannels$WireChannel.sign",
+        ):
+            require(token in channels, f"ConsoleWireChannels bytecode missing {token}")
 
     print(
-        f"Validated exact Aeroworks {VERSION} release: ConsoleWireChannels remains the authoritative modular ControlDesk DBW channel resolver."
+        f"Validated exact Aeroworks {VERSION}: ConsoleWireChannels.channelsFor/parse preserve socket + channelId + sign, "
+        "and bidirectional controls remain separate + / - DBW channels."
     )
     return 0
 

@@ -1,5 +1,7 @@
 package de.teutonstudio.ccaeroworks.computer.channel
 
+import de.teutonstudio.ccaeroworks.compat.drivebywire.NativeDriveByWireChannel
+
 data class DirectionalControlSignal(
     val direction: String,
     val label: String,
@@ -8,16 +10,17 @@ data class DirectionalControlSignal(
 )
 
 /**
- * Aeroworks continuous controls are signed internally (-15..15), but their physical redstone/DBW
- * outputs are two independent 0..15 directions which share zero. The unified channel view mirrors
- * that physical model instead of inventing a fake midpoint value.
+ * Aeroworks continuous controls are signed internally (-15..15), while their physical redstone/DBW
+ * outputs are separate directional channels. Neutral therefore means 0 on both outputs, not a fake
+ * midpoint of 8 on one channel.
  */
 object ControlDirectionalSignals {
     fun split(
         moduleId: String,
+        socket: Int,
         channel: String,
         nativeValue: Int,
-        availableWireChannels: List<String>
+        availableWireChannels: List<NativeDriveByWireChannel>
     ): List<DirectionalControlSignal> {
         val (negative, positive) = directions(moduleId, channel)
         val value = nativeValue.coerceIn(-15, 15)
@@ -26,13 +29,17 @@ object ControlDirectionalSignals {
                 direction = negative,
                 label = displayLabel(channel, negative),
                 value = (-value).coerceIn(0, 15),
-                wireChannel = matchWireChannel(availableWireChannels, channel, negative)
+                wireChannel = availableWireChannels.firstOrNull {
+                    it.socket == socket && it.channelId == channel && it.sign < 0
+                }?.id
             ),
             DirectionalControlSignal(
                 direction = positive,
                 label = displayLabel(channel, positive),
                 value = value.coerceIn(0, 15),
-                wireChannel = matchWireChannel(availableWireChannels, channel, positive)
+                wireChannel = availableWireChannels.firstOrNull {
+                    it.socket == socket && it.channelId == channel && it.sign > 0
+                }?.id
             )
         )
     }
@@ -55,44 +62,4 @@ object ControlDirectionalSignals {
         "x", "y", "wheel", "turn", "pitch", "lever" -> direction
         else -> "$channel $direction"
     }
-
-    /**
-     * Aeroworks owns the exact DBW channel IDs. Prefer its actual names and only use semantic
-     * matching to associate those IDs with the signed axis direction shown in our UI.
-     */
-    private fun matchWireChannel(
-        available: List<String>,
-        channel: String,
-        direction: String
-    ): String? {
-        if (available.isEmpty()) return null
-        val normalizedDirection = normalize(direction)
-        val normalizedChannel = normalize(channel)
-
-        available.firstOrNull { normalize(it) == normalizedDirection }?.let { return it }
-
-        val directional = available.filter { candidate ->
-            tokens(candidate).contains(normalizedDirection)
-        }
-        if (directional.size == 1) return directional.single()
-
-        directional.firstOrNull { candidate ->
-            tokens(candidate).contains(normalizedChannel)
-        }?.let { return it }
-
-        return available.firstOrNull { candidate ->
-            val normalized = normalize(candidate)
-            normalized.contains(normalizedChannel) && normalized.contains(normalizedDirection)
-        }
-    }
-
-    private fun normalize(value: String): String = value
-        .lowercase()
-        .replace(Regex("[^a-z0-9]+"), "_")
-        .trim('_')
-
-    private fun tokens(value: String): Set<String> = normalize(value)
-        .split('_')
-        .filter(String::isNotBlank)
-        .toSet()
 }

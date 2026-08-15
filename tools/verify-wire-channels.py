@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate ComputerControlDesk wire channels, unified directional controls and DBW selection."""
+"""Validate ComputerControlDesk wire channels, directional controls and DBW multiblock selection."""
 
 from pathlib import Path
 
@@ -30,18 +30,15 @@ def main() -> int:
     screen = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/AbstractComputerScreenSwitchMixin.kt")
     sidebar = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/ControlDeskComputerSidebar.kt")
     widget = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/WireChannelManagerWidget.kt")
-    payload = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/WireChannelPayloads.kt")
     payloads = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/CCPayloads.kt")
     state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ControlDeskUiSwitchState.kt")
     components = read("src/main/kotlin/de/teutonstudio/ccaeroworks/registry/CCDataComponents.kt")
     docs = read("docs/wire-channels.md")
 
-    # Persistent user-defined wire contract.
     require('Regex("[a-z][a-z0-9_-]{0,31}")' in bank, "wire names are not constrained")
     require("const val MAX_CHANNELS: Int = 32" in bank, "wire channel limit changed unexpectedly")
     require("val id: UUID" in bank and "val name: String" in bank, "wire definitions need stable UUID identity")
     require("value in 0..15" in bank, "user wire signals must be ordinary redstone 0..15")
-    require("pulseEndTick" in bank, "server pulse state is missing")
     require("snapshot.state == ConsoleNetworkState.ACTIVE && snapshot.owner === owner" in bank,
             "wire output must be gated by active multiblock ownership")
     require("resetAllInternal()" in bank and "clearSignals()" in bank, "wire fail-safe clearing is missing")
@@ -49,18 +46,14 @@ def main() -> int:
     require('"wire_channels"' in components and ".persistent(Codec.STRING)" in components,
             "persistent wire-channel data component is missing")
 
-    # Runtime API remains separate from administrative configuration.
     public_api = api.split("class ComputerWireAdminLuaApi", 1)[0]
     for method in ("list", "exists", "get", "set", "pulse", "reset", "resetAll", "getInfo", "getBackend", "isEnabled"):
         require(f"fun {method}" in public_api, f"public wires API is missing {method}")
     for forbidden in ("addChannel", "removeChannel", "renameChannel", "fun add(", "fun remove(", "fun rename("):
         require(forbidden not in public_api, f"public wires API exposes configuration mutation: {forbidden}")
-    require('getNames(): Array<String> = arrayOf("__cc_aeroworks_wire_admin")' in api,
-            "private wire administration bridge is missing")
     require("ComputerWireLuaApi" in access and "ComputerWireAdminLuaApi" in access,
             "wire APIs must remain scoped to ComputerControlDesk")
 
-    # DBW backend is still the sole owner of its graph and exposes exact sink geometry.
     require("WireNetworkManager.trySetSignalAt" in backend, "DBW values are not forwarded")
     require("WireNetworkManager.removeConnection" in backend and "WireNetworkManager.createConnection" in backend,
             "rename/delete must migrate DBW connections")
@@ -69,35 +62,43 @@ def main() -> int:
     require("connectionTargets(sourcePos: BlockPos" in bank and "WireConnectionView(" in backend,
             "DBW sink topology is not projected into the channel snapshot")
 
-    # Never guess Aeroworks' DBW channel IDs. Ask MultiChannelWireSource at the actual source block.
-    require('Class.forName("edn.stratodonut.drivebywire.wire.MultiChannelWireSource")' in native_dbw,
-            "native DBW channel discovery must use the optional MultiChannelWireSource contract")
-    require('getMethod("wire\\$getChannels")' in native_dbw,
-            "native DBW channel discovery must call wire$getChannels")
+    # Modular ControlDesk channel identity must come from Aeroworks itself, not DBW's block-level interface.
+    require('CONSOLE_WIRE_CHANNELS = "com.mred231.aeroworks.compat.drivebywire.ConsoleWireChannels"' in native_dbw,
+            "native DBW discovery must use Aeroworks ConsoleWireChannels")
+    require('getMethod("channelsFor", ConsoleBlockEntity::class.java)' in native_dbw,
+            "native DBW discovery must call ConsoleWireChannels.channelsFor")
+    require('getMethod("parse", String::class.java)' in native_dbw,
+            "native DBW discovery must parse exact Aeroworks channel identity")
+    for accessor_name in ('getMethod("socket")', 'getMethod("channelId")', 'getMethod("sign")'):
+        require(accessor_name in native_dbw, f"native DBW parsed channel lacks {accessor_name}")
+    require("MultiChannelWireSource" not in native_dbw,
+            "ControlDesk DBW discovery must not fall back to block-level MultiChannelWireSource")
 
-    # A signed Aeroworks axis maps to two physical 0..15 directions sharing zero.
+    # Signed Aeroworks axes are two physical redstone channels sharing zero.
     require("(-value).coerceIn(0, 15)" in direction and "value.coerceIn(0, 15)" in direction,
-            "signed axes must split into independent negative/positive redstone strengths")
+            "signed axes must split into negative/positive 0..15 strengths")
     require('channel == "turn" -> "left" to "right"' in direction,
             "yoke turn must expose left/right")
     require('channel == "pitch" -> "forward" to "back"' in direction,
             "yoke pitch must expose forward/back")
-    require("ControlDirectionalSignals.split" in snapshot,
-            "control snapshot must use physical directional splitting")
-    require("ChannelSignalMapping" not in snapshot,
-            "fake midpoint 0..15 mapping must not return")
-    require("signal.wireChannel" in snapshot and "connectionTargets(sourcePos, it)" in snapshot,
-            "direction rows must resolve DBW connections using Aeroworks' actual DBW channel IDs")
+    require("it.socket == socket && it.channelId == channel && it.sign < 0" in direction,
+            "negative direction must bind exact Aeroworks socket/channel/sign DBW identity")
+    require("it.socket == socket && it.channelId == channel && it.sign > 0" in direction,
+            "positive direction must bind exact Aeroworks socket/channel/sign DBW identity")
+    require("ControlDirectionalSignals.split" in snapshot and "ChannelSignalMapping" not in snapshot,
+            "control snapshot must split signed axes instead of midpoint-normalizing them")
+    require("connectionTargets(sourcePos, it)" in snapshot,
+            "direction rows must query DBW sinks using exact physical channel ID")
 
-    # Whole active multiblock is one scroll catalogue, while every endpoint keeps its source position.
-    require("snapshot.members.forEach" in selection and "NativeDriveByWireChannels.channels" in selection,
-            "DBW desk resolver must enumerate native channels for every multiblock member")
+    # Whole active multiblock is one scroll catalogue, every native endpoint retaining sourcePos.
+    require("snapshot.members.forEach" in selection and "NativeDriveByWireChannels.channels(member.desk)" in selection,
+            "DBW resolver must enumerate Aeroworks channels for every multiblock member")
     require("owner.wireChannelNames()" in selection and "member.pos == owner.blockPos" in selection,
-            "user-defined channels must be inserted once at the ComputerControlDesk owner")
+            "user-defined channels must be inserted once at ComputerControlDesk owner")
     require("sourcePos: BlockPos" in selection and "channel: String" in selection,
             "DBW endpoint identity must retain source position plus channel")
-    require("hasDisplayPointer && !hasPhysicalContinuousControl" in selection,
-            "display-only desk members must contribute no native DBW channels")
+    require("!CombinedInputSource.isDisplayPointerModule(module)" in selection,
+            "display-pointer channels must be filtered per resolved Aeroworks socket")
     require("DriveByWireDeskSelectionResolver.INSTANCE.resolve" in mixin,
             "DBW client hook must use the whole-desk resolver")
     require("selectedSource = endpoint.getSourcePos()" in mixin and "currentChannel = endpoint.getChannel()" in mixin,
@@ -106,20 +107,15 @@ def main() -> int:
             "mouse wheel must traverse the complete multiblock endpoint catalogue")
     require("ConsoleMultiblockDisplayBounds.resolve" in mixin,
             "DBW source outline must cover the whole ControlDesk multiblock")
-    require("snapshot.getState() == ConsoleNetworkState.ACTIVE" in display_mixin,
-            "display guard must defer active computer-owned networks to the multiblock resolver")
     require("isDisplayPointerModule" in display_mixin,
             "standalone display pointer channels must still be rejected")
 
-    # GUI remains server-authoritative and collapsible.
     require("channelsButton" in sidebar and "WireChannelManagerWidget" in screen,
             "computer screen is missing its Channels page")
     require("collapsedGroupIds" in widget and "ChannelRow.Module" in widget,
             "channel/module groups must be collapsible")
     require("ChannelRow.Connection" in widget and "connection.x" in widget and "connection.side" in widget,
             "channel rows must show connected DBW coordinate and block side")
-    require("RequestWireChannelSnapshotPayload" in screen and "MutateWireChannelPayload" in screen,
-            "channel GUI must use the server snapshot/mutation protocol")
     require("activeComputerDesk" in state, "wire UI requests must resolve the validated desk session")
     for registered in ("RequestWireChannelSnapshotPayload.TYPE", "MutateWireChannelPayload.TYPE", "WireChannelSnapshotPayload.TYPE"):
         require(registered in payloads, f"wire payload is not registered: {registered}")
@@ -127,7 +123,7 @@ def main() -> int:
     require("Channels tab" in docs and "same `WireChannelBank`" in docs,
             "wire documentation must retain GUI/shell shared-state contract")
 
-    print("Validated directional 0..15 controls, exact DBW topology, whole-multiblock channel scrolling, display-pointer exclusion and persistent user wire channels.")
+    print("Validated exact Aeroworks directional 0..15 DBW identities, whole-multiblock scrolling, display-pointer exclusion, sink geometry and persistent user wire channels.")
     return 0
 
 

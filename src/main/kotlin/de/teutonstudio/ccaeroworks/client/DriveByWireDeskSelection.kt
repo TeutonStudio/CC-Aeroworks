@@ -1,6 +1,7 @@
 package de.teutonstudio.ccaeroworks.client
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import de.teutonstudio.ccaeroworks.compat.drivebywire.NativeDriveByWireChannel
 import de.teutonstudio.ccaeroworks.compat.drivebywire.NativeDriveByWireChannels
 import de.teutonstudio.ccaeroworks.input.CombinedInputSource
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
@@ -38,9 +39,12 @@ data class DriveByWireDeskSelection(
 }
 
 /**
- * Treats a ComputerControlDesk multiblock as one scrollable DBW source catalogue while preserving
- * each native channel's actual physical source position. User-defined channels live only on the
- * ComputerControlDesk owner position, matching WireChannelBank's server output source.
+ * One scrollable DBW catalogue for the complete active ControlDesk multiblock.
+ *
+ * Native entries come straight from Aeroworks ConsoleWireChannels and retain their physical member
+ * position. Display-pointer x/y channels are removed individually by resolving their socket back to
+ * the mounted module. User-defined ComputerControlDesk channels are appended exactly once at the
+ * owner position, matching WireChannelBank's server-side signal source.
  */
 object DriveByWireDeskSelectionResolver {
     fun resolve(level: Level, anyMember: BlockPos): DriveByWireDeskSelection? {
@@ -51,10 +55,10 @@ object DriveByWireDeskSelectionResolver {
         val seen = linkedSetOf<String>()
 
         snapshot.members.forEach { member ->
-            nativeChannels(member.desk, NativeDriveByWireChannels.channels(level, member.pos)).forEach { channel ->
-                val key = "${member.pos.asLong()}|$channel"
+            physicalChannels(member.desk, NativeDriveByWireChannels.channels(member.desk)).forEach { channel ->
+                val key = "${member.pos.asLong()}|${channel.id}"
                 if (seen.add(key)) {
-                    endpoints += DriveByWireDeskEndpoint(member.pos.immutable(), channel, false)
+                    endpoints += DriveByWireDeskEndpoint(member.pos.immutable(), channel.id, false)
                 }
             }
 
@@ -76,24 +80,14 @@ object DriveByWireDeskSelectionResolver {
         )
     }
 
-    private fun nativeChannels(desk: ConsoleBlockEntity, raw: List<String>): List<String> {
-        if (raw.isEmpty()) return emptyList()
-        var hasDisplayPointer = false
-        var hasPhysicalContinuousControl = false
-        for (socket in 0 until desk.socketCount()) {
-            val module = desk.module(socket) ?: continue
-            if (CombinedInputSource.isDisplayPointerModule(module)) {
-                hasDisplayPointer = true
-                continue
-            }
-            if (CombinedInputSource.channels(module).isNotEmpty()) {
-                hasPhysicalContinuousControl = true
-            }
-        }
-
-        // Large CC-Aeroworks displays are pointer-only modules. Their x/y motion is a local input
-        // mechanism and must never appear as a DBW/redstone source channel.
-        if (hasDisplayPointer && !hasPhysicalContinuousControl) return emptyList()
-        return raw
+    private fun physicalChannels(
+        desk: ConsoleBlockEntity,
+        channels: List<NativeDriveByWireChannel>
+    ): List<NativeDriveByWireChannel> = channels.filter { channel ->
+        val module = channel.socket
+            .takeIf { it in 0 until desk.socketCount() }
+            ?.let(desk::module)
+            ?: return@filter false
+        !CombinedInputSource.isDisplayPointerModule(module)
     }
 }
