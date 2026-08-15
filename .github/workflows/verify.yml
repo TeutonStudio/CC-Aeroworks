@@ -86,6 +86,9 @@ jobs:
       - name: Validate ComputerControlDesk wire channels
         run: python3 tools/verify-wire-channels.py
 
+      - name: Validate GPS information source
+        run: python3 tools/verify-gps-information-source.py
+
       - name: Validate Create telemetry and docking relay
         run: python3 tools/verify-telemetry.py
 

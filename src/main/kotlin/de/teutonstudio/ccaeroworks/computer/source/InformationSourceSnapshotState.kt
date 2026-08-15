@@ -4,7 +4,8 @@ enum class InformationSourceKind(val title: String) {
     DISPLAY_LINK("DISPLAY LINKS"),
     STORAGE("STORAGE"),
     RADAR_DATA_LINK("RADAR DATA LINKS"),
-    RADAR_NETWORK_CONTROLLER("NETWORK CONTROLLERS")
+    RADAR_NETWORK_CONTROLLER("NETWORK CONTROLLERS"),
+    GPS("GPS")
 }
 
 data class InformationSourceView(

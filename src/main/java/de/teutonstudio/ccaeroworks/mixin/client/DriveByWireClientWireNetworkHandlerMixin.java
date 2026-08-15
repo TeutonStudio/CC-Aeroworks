@@ -2,6 +2,8 @@ package de.teutonstudio.ccaeroworks.mixin.client;
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity;
 import de.teutonstudio.ccaeroworks.client.DriveByWireDeskEndpoint;
+import de.teutonstudio.ccaeroworks.client.DriveByWireDeskSelection;
+import de.teutonstudio.ccaeroworks.client.DriveByWireDeskSelectionResolver;
 import de.teutonstudio.ccaeroworks.client.DriveByWireDeskSelectionSession;
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockDisplayBounds;
 import net.createmod.catnip.data.Pair;
@@ -26,6 +28,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /**
  * Treats one active ControlDesk multiblock as a logical DBW source while retaining the exact
  * physical endpoint expected by Drive By Wire's server protocol.
+ *
+ * The pre-click cable preview uses the same multiblock resolver and bounds as the active
+ * selection, but remains purely visual: only handleWireUse starts the logical selection session.
  */
 @Pseudo
 @Mixin(targets = "edn.stratodonut.drivebywire.client.ClientWireNetworkHandler", remap = false, priority = 2000)
@@ -136,25 +141,48 @@ public abstract class DriveByWireClientWireNetworkHandlerMixin {
         final CallbackInfo ci
     ) {
         if (!DriveByWireDeskSelectionSession.INSTANCE.isActive()) {
+            final DriveByWireDeskSelection preview = DriveByWireDeskSelectionResolver.INSTANCE.resolve(level, pos);
+            if (preview == null || preview.startAt(pos) == null) {
+                return;
+            }
+            if (ccaeroworks$drawDeskBounds(level, preview.getAnchor(), color, "ccaeroworksWireDeskPreview")) {
+                ci.cancel();
+            }
             return;
         }
+
         final DriveByWireDeskEndpoint endpoint = DriveByWireDeskSelectionSession.INSTANCE.current(level);
         if (endpoint == null || !endpoint.getSourcePos().equals(pos)) {
             return;
         }
         final BlockPos anchor = DriveByWireDeskSelectionSession.INSTANCE.anchor(level);
-        if (anchor == null || !(level.getBlockEntity(anchor) instanceof ConsoleBlockEntity)) {
+        if (anchor == null) {
             return;
+        }
+        if (ccaeroworks$drawDeskBounds(level, anchor, color, "ccaeroworksWireDeskSelected")) {
+            ci.cancel();
+        }
+    }
+
+    @Unique
+    private static boolean ccaeroworks$drawDeskBounds(
+        final Level level,
+        final BlockPos anchor,
+        final int color,
+        final String key
+    ) {
+        if (!(level.getBlockEntity(anchor) instanceof ConsoleBlockEntity)) {
+            return false;
         }
         final AABB bounds = ConsoleMultiblockDisplayBounds.resolve(level, anchor);
         if (bounds == null) {
-            return;
+            return false;
         }
         Outliner.getInstance()
-            .showAABB(Pair.of("ccaeroworksWireDesk", anchor), bounds)
+            .showAABB(Pair.of(key, anchor), bounds)
             .colored(color)
             .lineWidth(0.0625F);
-        ci.cancel();
+        return true;
     }
 
     @Unique

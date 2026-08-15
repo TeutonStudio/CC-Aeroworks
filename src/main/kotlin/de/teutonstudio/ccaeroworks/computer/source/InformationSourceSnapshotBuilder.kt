@@ -7,6 +7,8 @@ import de.teutonstudio.ccaeroworks.display.RadarSourceRegistry
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.telemetry.TelemetryRuntime
 import net.minecraft.core.BlockPos
+import java.util.Locale
+import kotlin.math.roundToInt
 
 /** Server-only projection of existing authoritative I/O owners into compact GUI metadata. */
 object InformationSourceSnapshotBuilder {
@@ -16,6 +18,7 @@ object InformationSourceSnapshotBuilder {
         addStorage(owner, sources)
         addRadarIngress(owner, sources)
         addRadarControllers(owner, sources)
+        addGps(owner, sources)
         return InformationSourceSnapshot(
             sources.sortedWith(compareBy<InformationSourceView>({ it.kind.ordinal }, { it.label }, { it.id }))
         )
@@ -107,6 +110,32 @@ object InformationSourceSnapshotBuilder {
                 details = "via desk ${member.index}"
             )
         }
+    }
+
+    private fun addGps(owner: ComputerControlDeskBlockEntity, result: MutableList<InformationSourceView>) {
+        GpsSourceTracker.request(owner)
+        val source = GpsSourceTracker.current(owner) ?: return
+        val fix = source.fix
+        val ageSeconds = source.ageTicks / 20L
+        result += InformationSourceView(
+            id = "gps:${owner.deskId}",
+            kind = InformationSourceKind.GPS,
+            label = "GPS fix",
+            status = source.status,
+            x = fix.x.roundToInt(),
+            y = fix.y.roundToInt(),
+            z = fix.z.roundToInt(),
+            side = "",
+            details = String.format(
+                Locale.ROOT,
+                "%.2f, %.2f, %.2f · %d hosts · age %ds",
+                fix.x,
+                fix.y,
+                fix.z,
+                fix.hostCount,
+                ageSeconds
+            )
+        )
     }
 
     private fun position(value: Any?): BlockPos? {

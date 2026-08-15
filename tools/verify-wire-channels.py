@@ -20,6 +20,10 @@ def main()->int:
     require("DriveByWireDeskSelectionSession.INSTANCE.begin" in mixin and "DriveByWireDeskSelectionSession.INSTANCE.cycle" in mixin and "selectedSource = endpoint.getSourcePos()" in mixin and "currentChannel = endpoint.getChannel()" in mixin,"DBW transport state must mirror logical session endpoint")
     require("syncManager()" in mixin and "clearSource()" in mixin,"logical DBW selection must preserve native sync/clear lifecycle")
     require("containsMember" in mixin and "ConsoleMultiblockDisplayBounds.resolve" in mixin,"whole desk click/outline semantics missing")
+    require("DriveByWireDeskSelectionResolver.INSTANCE.resolve(level, pos)" in mixin and "ccaeroworksWireDeskPreview" in mixin,"pre-click DBW hover must resolve the whole ControlDesk multiblock")
+    require("ccaeroworks$drawDeskBounds" in mixin and "ccaeroworksWireDeskSelected" in mixin,"preview and selected DBW outlines must share the same multiblock bounds renderer")
+    preview=mixin.split("if (!DriveByWireDeskSelectionSession.INSTANCE.isActive())",1)[1].split("final DriveByWireDeskEndpoint endpoint",1)[0]
+    require("DriveByWireDeskSelectionSession.INSTANCE.begin" not in preview and "selectedSource =" not in preview,"DBW hover preview must remain visual and must not start/mutate selection state")
     require('id = "control:$deskId:$socket:$moduleId:$nativeChannel:${signal.direction}"' in registry and 'id = "wire:${channel.id}"' in registry,"canonical channel ids missing")
     require("data class ChannelGroupDefinition" in groups and "data class ChannelGroupBinding" in groups and "MAX_GROUPS = 32" in groups and "MAX_BINDINGS = 64" in groups and "fun renameBinding" in groups,"user group model/editing/bounds missing")
     require('"channel_groups"' in components and "CHANNEL_GROUPS" in group_mixin and "collectImplicitComponents" in group_mixin and "applyComponentsFromItemStack" in group_item_mixin and "CHANNEL_GROUPS" in group_item_mixin and '"BlockEntityChannelGroupsMixin"' in mixins_json,"persistent group lifecycle missing")
@@ -33,7 +37,7 @@ def main()->int:
     require("channels group add" in command and "channels bind" in command and "channels binding rename" in command and "channels unbind" in command,"CraftOS channel administration incomplete")
     require("activeComputerDesk" in state,"channel UI must use validated desk session")
     require("Channels tab" in docs and "same `WireChannelBank`" in docs and "channels.ls" in docs,"channel docs incomplete")
-    print("Validated logical 0..15 channels, persistent editable user groups, channels API, DBW multiblock lifecycle, display isolation and sink geometry.");return 0
+    print("Validated logical 0..15 channels, persistent editable user groups, channels API, pre-click/active DBW multiblock lifecycle, display isolation and sink geometry.");return 0
 if __name__=="__main__":
     try:raise SystemExit(main())
     except(AssertionError,OSError,UnicodeDecodeError)as exc:print(f"ERROR: {exc}");raise SystemExit(1)
