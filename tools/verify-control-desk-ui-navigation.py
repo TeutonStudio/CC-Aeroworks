@@ -13,6 +13,7 @@ overview = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/Consol
 overview_accessor = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ConsoleScreenAccessor.kt")
 computer = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/AbstractComputerScreenSwitchMixin.kt")
 computer_accessor = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/AbstractComputerScreenAccessor.kt")
+computer_page = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/ComputerDeskPage.kt")
 state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ControlDeskUiSwitchState.kt")
 client_nav = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/ControlDeskUiClientNavigation.kt")
 aero_buttons = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/ControlDeskNavigationButtons.kt")
@@ -87,6 +88,17 @@ require('@Accessor("terminal")' in computer_accessor,
 require("WIRE CHANNELS" in channel_widget,
         "channel work area must be a dedicated CC-style management list")
 
+# Sponge Mixin reserves the configured mixin package tree. Ordinary runtime helpers must not be
+# emitted there: loading such a helper from an applied screen mixin can trigger IllegalClassLoadError.
+require("package de.teutonstudio.ccaeroworks.client" in computer_page and "enum class ComputerDeskPage" in computer_page,
+        "ComputerDeskPage must live outside the reserved mixin package tree")
+require("import de.teutonstudio.ccaeroworks.client.ComputerDeskPage" in computer,
+        "computer screen mixin must import the normal client-side page state")
+require("enum class ComputerDeskPage" not in computer,
+        "computer screen mixin file must not emit a top-level helper class into the mixin package")
+require(not (ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ComputerDeskPage.kt").exists(),
+        "ComputerDeskPage must never move back under the configured mixin package")
+
 for path in (
     "src/main/resources/assets/cc_aeroworks/textures/gui/sprites/buttons/control_desk_controls.png",
     "src/main/resources/assets/cc_aeroworks/textures/gui/sprites/buttons/control_desk_controls_hover.png",
@@ -103,4 +115,4 @@ require("Inspect Aeroworks navigation layouts" not in workflow and "Inspect Aero
 require("python3 tools/verify-control-desk-ui-navigation.py" in workflow,
         "workflow must enforce UI navigation contract")
 
-print("Validated symmetric ControlDesk navigation plus stacked CC-style Controls/Channels work-area tabs without disturbing Aeroworks' native action geometry.")
+print("Validated symmetric ControlDesk navigation plus stacked CC-style Controls/Channels work-area tabs without disturbing Aeroworks' native action geometry or leaking runtime helpers into the Mixin package.")
