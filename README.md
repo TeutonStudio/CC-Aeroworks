@@ -144,9 +144,11 @@ Details:
 
 ## Programmierbare Displays
 
-Die Displays unterstützen Text, Zahlen und frei beschreibbare Pixelraster. Standardmäßig besitzt das kleine Pultdisplay `7x5` und das große Pultdisplay `11x5` Pixel. Breite und Höhe beider Größen können in `cc_aeroworks-server.toml` auf jede positive Ganzzahl eingestellt werden.
+Die Displays unterstützen Text, Zahlen und frei beschreibbare Pixelraster. Die Rasterdichte wird in `cc_aeroworks-server.toml` über `display.ppb` in **Parts per Block (PPB)** festgelegt. `16 PPB` entsprechen der üblichen Minecraft-Texturdichte von 16 Pixeln pro Blockkante; Standard sind `256 PPB`.
 
-Vor Pixelzugriffen muss deshalb die wirksame Auflösung gelesen werden:
+Breite und Höhe werden aus der tatsächlichen Modulfläche berechnet. Das kleine Display belegt `7/16 × 7/16 Block`, das große `10/16 × 7/16 Block`. Damit ergeben sich bei Standard `256 PPB` Raster von `112x112` beziehungsweise `160x112` Pixeln. Beide Achsen verwenden denselben Pitch von `1 / PPB` Block, sodass Rasterpixel quadratisch bleiben.
+
+Vor Pixelzugriffen muss die wirksame Auflösung weiterhin gelesen werden:
 
 ```lua
 local size = desk.getDisplaySize("big")
@@ -155,7 +157,7 @@ print(size.width, size.height)
 
 Das kleine Pultdisplay passt in kleine und große Sockets, das große Pultdisplay ausschließlich in den großen Socket. Ein normaler CC:Tweaked-Monitor wird unter einer mechanischen Presse zum kleinen Pultdisplay, ein erweiterter Monitor zum großen Pultdisplay.
 
-Große Raster werden beim Rendern auf die Modulfläche skaliert. Speicherbedarf und Verarbeitungsaufwand wachsen dennoch mit der Pixelzahl, weil auch ein Konfigurationswert irgendwann auf Physik trifft.
+Die sichtbaren Pixelmodelle werden passend zur PPB-Dichte mitskaliert. Speicherbedarf und Verarbeitungsaufwand wachsen dennoch mit der Pixelzahl, weil auch eine elegante Einheit nicht mit der GPU verhandeln kann.
 
 ## Optionale Create:-Radars-Anzeigen
 
