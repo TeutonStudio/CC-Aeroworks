@@ -65,6 +65,9 @@ jobs:
       - name: Validate display combined input
         run: python3 tools/verify-display-combined-input.py
 
+      - name: Validate display PPB contract
+        run: python3 tools/verify-display-ppb.py
+
       - name: Validate ControlDesk settings scroll rows
         run: python3 tools/verify-control-settings-scroll-rows.py
 
@@ -160,7 +163,6 @@ jobs:
           printf '%s  %s\n' "${MOD_DEPENDENCY_SHA256}" "${archive}" | sha256sum --check --strict -
 
           mkdir -p "${extracted}" "${mods}"
-          unzip -q "${archive}" -d "${extracted}"
           find "${extracted}" -type f -name '*.jar' -exec cp '{}' "${mods}/" ';'
 
           jar_count=$(find "${mods}" -maxdepth 1 -type f -name '*.jar' | wc -l)
