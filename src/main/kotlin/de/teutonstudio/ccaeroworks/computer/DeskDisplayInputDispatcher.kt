@@ -20,10 +20,9 @@ object DeskDisplayInputDispatcher {
         if (snapshot.state != ConsoleNetworkState.ACTIVE) return
         val owner = snapshot.owner ?: return
         val member = snapshot.members.firstOrNull { it.desk === desk } ?: return
-        val computer = owner.getServerComputer() ?: return
         val handlerPath = (DisplayBindings.get(desk, touch.socket) as? DisplayBinding.LuaHandler)?.path.orEmpty()
 
-        computer.queueEvent(
+        owner.queueComputerEventWhenReady(
             CCAeroworks.CONSOLE_DISPLAY_INPUT_EVENT,
             arrayOf(
                 member.id,
@@ -41,7 +40,7 @@ object DeskDisplayInputDispatcher {
         )
 
         if (action == DisplayPointerAction.TAP) {
-            computer.queueEvent(
+            owner.queueComputerEventWhenReady(
                 CCAeroworks.CONSOLE_TOUCH_EVENT,
                 arrayOf(
                     member.id,
