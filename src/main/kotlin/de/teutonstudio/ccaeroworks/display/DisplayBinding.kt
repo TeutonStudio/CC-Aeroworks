@@ -1,6 +1,9 @@
 package de.teutonstudio.ccaeroworks.display
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import de.teutonstudio.ccaeroworks.CCAeroworks
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
@@ -103,7 +106,10 @@ object DisplayBindings {
     fun set(desk: ConsoleBlockEntity, socket: Int, binding: DisplayBinding): Boolean {
         if (socket !in 0 until desk.socketCount() || !supports(desk, socket, binding)) return false
         val state = desk as? DisplayBindingStateAccess ?: return false
+        val previous = get(desk, socket)
+        if (previous == binding) return true
         state.ccaeroworks_setDisplayBinding(socket, binding)
+        publishApplicationChanged(desk, socket, binding)
         return true
     }
 
@@ -164,4 +170,31 @@ object DisplayBindings {
     fun validPath(path: String): Boolean = path.isNotBlank() && path.length <= MAX_HANDLER_PATH_LENGTH
 
     fun validOptionalPath(path: String): Boolean = path.length <= MAX_HANDLER_PATH_LENGTH
+
+    private fun publishApplicationChanged(
+        desk: ConsoleBlockEntity,
+        socket: Int,
+        binding: DisplayBinding
+    ) {
+        val module = desk.module(socket) ?: return
+        if (CCModuleTypes.displayType(module.type()) != DeskDisplayType.THREE_DIGIT) return
+        val level = desk.level ?: return
+        if (level.isClientSide) return
+        val snapshot = ConsoleMultiblockManager.resolve(level, desk.blockPos)
+        if (snapshot.state != ConsoleNetworkState.ACTIVE) return
+        val owner = snapshot.owner ?: return
+        val member = snapshot.members.firstOrNull { it.desk === desk } ?: return
+        val computer = owner.getServerComputer() ?: return
+        computer.queueEvent(
+            CCAeroworks.DISPLAY_APPLICATION_CHANGED_EVENT,
+            arrayOf(
+                member.id,
+                member.index,
+                socket,
+                DeskSockets.name(socket),
+                controllerPath(binding),
+                bootProgramPath(binding)
+            )
+        )
+    }
 }
