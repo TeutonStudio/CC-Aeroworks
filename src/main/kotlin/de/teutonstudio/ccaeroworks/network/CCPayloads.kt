@@ -40,5 +40,30 @@ object CCPayloads {
             SetDisplayTouchScriptPayload.STREAM_CODEC,
             SetDisplayTouchScriptPayload::handle
         )
+        registrar.playToServer(
+            RequestDisplayScriptCatalogPayload.TYPE,
+            RequestDisplayScriptCatalogPayload.STREAM_CODEC,
+            RequestDisplayScriptCatalogPayload::handle
+        )
+        registrar.playToClient(
+            DisplayScriptCatalogPayload.TYPE,
+            DisplayScriptCatalogPayload.STREAM_CODEC,
+            DisplayScriptCatalogPayload::handle
+        )
+        registrar.playToServer(
+            RequestWireChannelSnapshotPayload.TYPE,
+            RequestWireChannelSnapshotPayload.STREAM_CODEC,
+            RequestWireChannelSnapshotPayload::handle
+        )
+        registrar.playToServer(
+            MutateWireChannelPayload.TYPE,
+            MutateWireChannelPayload.STREAM_CODEC,
+            MutateWireChannelPayload::handle
+        )
+        registrar.playToClient(
+            WireChannelSnapshotPayload.TYPE,
+            WireChannelSnapshotPayload.STREAM_CODEC,
+            WireChannelSnapshotPayload::handle
+        )
     }
 }

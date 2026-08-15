@@ -15,11 +15,6 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * Keeps the server-authoritative desk session used for switching into the embedded
  * computer and a client-side return context for Aeroworks' configuration screens.
- *
- * Aeroworks has two native entry shapes:
- * - OVERVIEW: ConsoleScreen, only when ConsoleScreenOpener.hasOverview() is true.
- * - DETAIL: ModuleScreen for one exact ConsoleSocket. With exactly one control Aeroworks
- *   skips the overview completely, so DETAIL must work without an OVERVIEW ever existing.
  */
 object ControlDeskUiSwitchState {
     private data class Session(
@@ -64,11 +59,6 @@ object ControlDeskUiSwitchState {
         )
     }
 
-    /**
-     * Capture Aeroworks' exact native detail context while ModuleScreen still owns it.
-     * ModuleMenu.contentHolder is a ConsoleSocket for desk-mounted controls and carries
-     * the physical desk, socket index and recursive subPath.
-     */
     @JvmStatic
     fun rememberClientControls(holder: Any?) {
         val socket = holder as? ConsoleSocket
@@ -76,21 +66,15 @@ object ControlDeskUiSwitchState {
             clearClientControlsContext()
             return
         }
-
         setClientContext(ClientReturnMode.DETAIL, socket.be(), socket)
     }
 
-    /**
-     * Capture ConsoleScreen as an overview return target. This method is never called in
-     * Aeroworks' one-control path because ConsoleScreenOpener skips ConsoleScreen there.
-     */
     @JvmStatic
     fun rememberClientOverview(console: ConsoleBlockEntity) {
         if (console.isRemoved) {
             clearClientControlsContext()
             return
         }
-
         setClientContext(ClientReturnMode.OVERVIEW, console, null)
     }
 
@@ -132,12 +116,6 @@ object ControlDeskUiSwitchState {
         return clientControlsConsole?.isRemoved == false
     }
 
-    /**
-     * Reopen an exact ModuleScreen when possible. OVERVIEW, or a detail which became invalid
-     * while the computer was open, is intentionally left to the client navigation helper so
-     * Aeroworks' ConsoleScreenOpener can re-evaluate whether the current group has 0, 1 or many
-     * controls.
-     */
     @JvmStatic
     fun reopenExactClientControls(): Boolean {
         if (clientReturnMode != ClientReturnMode.DETAIL) return false
@@ -150,6 +128,17 @@ object ControlDeskUiSwitchState {
     @JvmStatic
     fun clientReturnConsole(): ConsoleBlockEntity? =
         clientControlsConsole?.takeUnless { it.isRemoved }
+
+    /** Resolve the ComputerControlDesk represented by the player's current saved desk session. */
+    @JvmStatic
+    fun activeComputerDesk(player: ServerPlayer): ComputerControlDeskBlockEntity? {
+        val session = validSession(player) ?: return null
+        val level = player.serverLevel()
+        (level.getBlockEntity(session.pos) as? ComputerControlDeskBlockEntity)?.let { return it }
+        val snapshot = ConsoleMultiblockManager.resolve(level, session.pos)
+        if (snapshot.state != ConsoleNetworkState.ACTIVE) return null
+        return snapshot.owner
+    }
 
     @JvmStatic
     fun switchToComputer(player: ServerPlayer): Boolean {

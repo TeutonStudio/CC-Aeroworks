@@ -14,6 +14,20 @@ data class WireChannelDefinition(
     val name: String
 )
 
+data class WireChannelView(
+    val id: UUID,
+    val name: String,
+    val value: Int,
+    val connections: Int,
+    val connected: Boolean
+)
+
+data class WireChannelBankView(
+    val backend: String,
+    val enabled: Boolean,
+    val channels: List<WireChannelView>
+)
+
 private data class WireChannelState(
     var value: Int = 0,
     var pulseEndTick: Long? = null
@@ -119,8 +133,11 @@ class WireChannelBank(
         return definition
     }
 
-    fun removeChannel(rawName: String): WireChannelDefinition {
-        val definition = definition(rawName)
+    fun removeChannel(rawName: String): WireChannelDefinition =
+        removeChannel(definition(rawName).id)
+
+    fun removeChannel(id: UUID): WireChannelDefinition {
+        val definition = definition(id)
         val state = states[definition.id] ?: WireChannelState()
         state.pulseEndTick = null
         if (state.value != 0) {
@@ -134,8 +151,11 @@ class WireChannelBank(
         return definition
     }
 
-    fun renameChannel(rawOldName: String, rawNewName: String): WireChannelDefinition {
-        val oldDefinition = definition(rawOldName)
+    fun renameChannel(rawOldName: String, rawNewName: String): WireChannelDefinition =
+        renameChannel(definition(rawOldName).id, rawNewName)
+
+    fun renameChannel(id: UUID, rawNewName: String): WireChannelDefinition {
+        val oldDefinition = definition(id)
         val newName = checkedName(rawNewName)
         if (definitions.any { it.name == newName && it.id != oldDefinition.id }) {
             throw IllegalArgumentException("Wire channel '$newName' already exists")
@@ -200,6 +220,25 @@ class WireChannelBank(
         resetAllInternal()
     }
 
+    fun snapshot(): WireChannelBankView {
+        val activeBackend = backend()
+        return WireChannelBankView(
+            backend = activeBackend.name,
+            enabled = outputEnabled,
+            channels = definitions.map { definition ->
+                val state = states[definition.id] ?: WireChannelState()
+                val connections = activeBackend.connectionCount(definition.name)
+                WireChannelView(
+                    id = definition.id,
+                    name = definition.name,
+                    value = state.value,
+                    connections = connections,
+                    connected = connections > 0
+                )
+            }
+        )
+    }
+
     fun describeChannels(): Map<String, Any> = linkedMapOf<String, Any>().apply {
         definitions.forEach { definition ->
             put(definition.name, describeChannel(definition.name))
@@ -210,13 +249,14 @@ class WireChannelBank(
         val definition = definition(rawName)
         val state = states[definition.id] ?: WireChannelState()
         val activeBackend = backend()
+        val connections = activeBackend.connectionCount(definition.name)
         return linkedMapOf(
             "id" to definition.id.toString(),
             "name" to definition.name,
             "value" to state.value,
             "backend" to activeBackend.name,
-            "connected" to (activeBackend.connectionCount(definition.name) > 0),
-            "connections" to activeBackend.connectionCount(definition.name),
+            "connected" to (connections > 0),
+            "connections" to connections,
             "enabled" to outputEnabled
         )
     }
@@ -281,6 +321,10 @@ class WireChannelBank(
         return definitions.firstOrNull { it.name == name }
             ?: throw NoSuchElementException("Unknown wire channel '$name'")
     }
+
+    private fun definition(id: UUID): WireChannelDefinition =
+        definitions.firstOrNull { it.id == id }
+            ?: throw NoSuchElementException("Unknown wire channel '$id'")
 
     private fun checkedName(rawName: String): String {
         val name = rawName.trim()

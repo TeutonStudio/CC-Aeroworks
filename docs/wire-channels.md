@@ -4,7 +4,7 @@ The embedded ComputerControlDesk can expose user-defined redstone channels to Dr
 
 ## Configuration belongs to the desk, not to programs
 
-Channel definitions are created only through the bundled ComputerControlDesk shell command:
+Channel definitions are hardware configuration owned by the ComputerControlDesk. They can be managed either from the ComputerControlDesk channel tab or with the bundled shell command:
 
 ```text
 wires
@@ -16,9 +16,11 @@ wires info gear
 wires remove gear
 ```
 
+The computer UI adds a Channels tab beneath the existing Controls tab. It displays the server-authoritative channel list, current signal value, Drive By Wire backend state and connection count. Add, rename and remove operations are sent to the server and are applied to channels by their persistent UUID. Removing a channel with active Drive By Wire connections requires an explicit confirmation in the UI.
+
 The `wires` alias is installed only when the embedded ComputerControlDesk APIs exist. A normal CC:Tweaked computer keeps its normal ROM environment and does not receive the alias.
 
-The supported public Lua API deliberately has no `add`, `remove`, `create` or `rename` methods. Programs consume the configured hardware contract instead of recreating it during every boot.
+The supported public Lua API deliberately has no `add`, `remove`, `create` or `rename` methods. Programs consume the configured hardware contract instead of recreating it during every boot. The shell command and graphical channel manager are administrative front ends over the same `WireChannelBank`; neither creates a second channel state.
 
 Channel names must match `[a-z][a-z0-9_-]{0,31}` and a ComputerControlDesk may define at most 32 channels.
 
@@ -37,11 +39,7 @@ end
 
 wires.set("landing_gear", 15)
 wires.set("landing_gear", 0)
-
--- 15 for 10 server ticks, then automatically 0.
 wires.pulse("engine_start", 10)
-
--- Optional pulse value, still limited to 1..15.
 wires.pulse("warning", 20, 8)
 
 print(wires.get("landing_gear"))
@@ -86,11 +84,11 @@ A program must therefore establish its desired output state after boot. This pre
 
 Drive By Wire is optional. When it is present, CC-Aeroworks forwards each channel value to `WireNetworkManager` using the ComputerControlDesk position as the DBW source and the configured channel name as the DBW channel key.
 
-Drive By Wire 0.2.9 normally asks the selected source *block type* for multi-channel names. ComputerControlDesk definitions are per block entity, so CC-Aeroworks intercepts the DBW client channel-selection step only for ComputerControlDesk sources and reads the synchronized definitions from that specific desk. Other Drive By Wire sources keep their original selection behavior.
+Drive By Wire 0.2.9 normally asks the selected source block type for multi-channel names. ComputerControlDesk definitions are per block entity, so CC-Aeroworks intercepts the DBW client channel-selection step only for ComputerControlDesk sources and reads the synchronized definitions from that specific desk. Other Drive By Wire sources keep their original selection behavior.
 
 Wire creation remains the normal Drive By Wire interaction:
 
-1. configure one or more channels with `wires add <name>`;
+1. configure one or more channels in the Channels tab or with `wires add <name>`;
 2. hold a Drive By Wire wire and select the ComputerControlDesk as source;
 3. scroll through that desk's configured channel names;
 4. connect the desired sink face;

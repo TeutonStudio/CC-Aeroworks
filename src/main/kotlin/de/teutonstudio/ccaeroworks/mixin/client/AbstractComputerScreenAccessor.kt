@@ -1,6 +1,7 @@
 package de.teutonstudio.ccaeroworks.mixin.client
 
 import dan200.computercraft.client.gui.AbstractComputerScreen
+import dan200.computercraft.client.gui.widgets.TerminalWidget
 import dan200.computercraft.shared.computer.core.ComputerFamily
 import org.spongepowered.asm.mixin.Mixin
 import org.spongepowered.asm.mixin.gen.Accessor
@@ -12,4 +13,7 @@ interface AbstractComputerScreenAccessor {
 
     @Accessor("sidebarYOffset")
     fun ccaeroworks_getSidebarYOffset(): Int
+
+    @Accessor("terminal")
+    fun ccaeroworks_getTerminal(): TerminalWidget?
 }
