@@ -144,18 +144,22 @@ Details:
 
 ## Programmierbare Displays
 
-Die Displays unterstützen Text, Zahlen und frei beschreibbare Pixelraster. Standardmäßig besitzt das kleine Pultdisplay `7x5` und das große Pultdisplay `11x5` Pixel. Breite und Höhe beider Größen können in `cc_aeroworks-server.toml` auf jede positive Ganzzahl eingestellt werden.
+Die Displays unterstützen Text, Zahlen und frei beschreibbare Pixelraster. Die Rasterauflösung wird nicht mehr als getrennte Breite und Höhe konfiguriert, sondern über eine gemeinsame Pixeldichte `display.ppb` in **Parts per Block**. `16 PPB` entspricht der üblichen Minecraft-Texturdichte; Standard sind `256 PPB`.
 
-Vor Pixelzugriffen muss deshalb die wirksame Auflösung gelesen werden:
+Die nutzbare Oberfläche des kleinen Displays misst `7/16 × 7/16` Block, die des großen Displays `10/16 × 7/16` Block. Aus derselben PPB-Dichte für beide Achsen entstehen dadurch physisch quadratische Pixel. Bei der Standarddichte ergeben sich `112x112` Pixel für das kleine und `160x112` Pixel für das große Display.
+
+Vor Pixelzugriffen muss die wirksame Auflösung gelesen werden:
 
 ```lua
 local size = desk.getDisplaySize("big")
-print(size.width, size.height)
+print(size.width, size.height, size.ppb)
 ```
+
+Programme, die Bedienelemente auf Touchdisplays unabhängig von der Rasterdichte positionieren wollen, können mit `require("touchdisplay")` die normierten Koordinaten `touchdisplay.normalizedPosition(event)` im Bereich `0..1` verwenden. Die bisherigen Felder `x`, `y`, `width` und `height` bleiben erhalten.
 
 Das kleine Pultdisplay passt in kleine und große Sockets, das große Pultdisplay ausschließlich in den großen Socket. Ein normaler CC:Tweaked-Monitor wird unter einer mechanischen Presse zum kleinen Pultdisplay, ein erweiterter Monitor zum großen Pultdisplay.
 
-Große Raster werden beim Rendern auf die Modulfläche skaliert. Speicherbedarf und Verarbeitungsaufwand wachsen dennoch mit der Pixelzahl, weil auch ein Konfigurationswert irgendwann auf Physik trifft.
+Pixelzustände werden bitgepackt und mit ihrer Rastergröße gespeichert. Wird `display.ppb` geändert, wird ein nicht mehr passender alter Rasterzustand als leeres Pixelraster behandelt und muss vom Skript neu gezeichnet werden; er wird nicht als Displaytext fehlinterpretiert. Für Flywheel-Pulte werden programmierbare Pixel nicht mehr als eine dauerhaft verwaltete Instanz pro aktivem Pixel gehalten, sondern in einem gemeinsamen Pixelpass gerendert.
 
 ## Optionale Create:-Radars-Anzeigen
 
@@ -212,6 +216,7 @@ Der eingecheckte Bootstrap benötigt Java 21. Repositorydateien ohne Fremd-JARs 
 ```bash
 python3 tools/verify-repository.py
 python3 tools/verify-guide.py
+python3 tools/verify-display-ppb.py
 python3 tools/verify-peripheral-network.py
 python3 tools/verify-peripheral-tree.py
 python3 tools/verify-telemetry.py
@@ -249,6 +254,6 @@ Ein alternatives Verzeichnis wird mit `-Pmod_dependency_dir=/pfad/zu/mods` angeg
 - [Computerpult-, Display- und Ponder-Testplan](docs/computer-desk-guide-test-plan.md)
 - [Lua-Beispiele](examples/cc/)
 
-`.github/workflows/verify.yml` prüft bei Push und Pull Request Repositoryvertrag, Sprachen, Buch, Ponder, Peripheral-Graph, hierarchische Peripheral-Ansicht, Telemetrie/Docking, Radar, Data Link, Rezepte und Itemmodelle. Der geschützte Vollbuild benötigt rechtmäßig bereitgestellte Mod-JARs über die Repository-Secrets `MOD_DEPENDENCY_URL` und `MOD_DEPENDENCY_SHA256`.
+`.github/workflows/verify.yml` prüft bei Push und Pull Request Repositoryvertrag, Sprachen, Buch, Ponder, PPB-Displayvertrag, Peripheral-Graph, hierarchische Peripheral-Ansicht, Telemetrie/Docking, Radar, Data Link, Rezepte und Itemmodelle. Der geschützte Vollbuild benötigt rechtmäßig bereitgestellte Mod-JARs über die Repository-Secrets `MOD_DEPENDENCY_URL` und `MOD_DEPENDENCY_SHA256`.
 
 Repository: `TeutonStudio/CC-Aeroworks`
