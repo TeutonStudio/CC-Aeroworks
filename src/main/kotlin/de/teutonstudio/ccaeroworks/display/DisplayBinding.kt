@@ -33,7 +33,17 @@ sealed interface DisplayBinding {
 
     data class RadarSource(val source: RadarSourceKey) : DisplayBinding
 
+    /** Legacy one-path input handler. Kept for old worlds and API compatibility. */
     data class LuaHandler(val path: String) : DisplayBinding
+
+    /**
+     * Two-level large-display application configuration.
+     * controllerPath owns input/navigation, while bootProgramPath is the initial reactive screen/app.
+     */
+    data class LuaApplication(
+        val controllerPath: String,
+        val bootProgramPath: String
+    ) : DisplayBinding
 
     fun toTag(): CompoundTag = CompoundTag().apply {
         when (this@DisplayBinding) {
@@ -46,6 +56,11 @@ sealed interface DisplayBinding {
                 putString("type", "lua_handler")
                 putString("path", path)
             }
+            is LuaApplication -> {
+                putString("type", "lua_application")
+                putString("controller", controllerPath)
+                putString("bootProgram", bootProgramPath)
+            }
         }
     }
 
@@ -54,8 +69,15 @@ sealed interface DisplayBinding {
             "default" -> Default
             "radar_source" -> RadarSourceKey.fromTag(tag.getCompound("source"))?.let(::RadarSource)
             "lua_handler" -> tag.getString("path")
-                .takeIf { it.isNotBlank() && it.length <= DisplayBindings.MAX_HANDLER_PATH_LENGTH }
+                .takeIf(DisplayBindings::validPath)
                 ?.let(::LuaHandler)
+            "lua_application" -> {
+                val controller = tag.getString("controller").trim()
+                val boot = tag.getString("bootProgram").trim()
+                if (DisplayBindings.validOptionalPath(controller) && DisplayBindings.validOptionalPath(boot) &&
+                    (controller.isNotEmpty() || boot.isNotEmpty())
+                ) LuaApplication(controller, boot) else null
+            }
             else -> null
         }
     }
@@ -96,10 +118,24 @@ object DisplayBindings {
             DisplayBinding.Default -> true
             is DisplayBinding.RadarSource -> CCModuleTypes.radarDisplayType(module.type()) != null
             is DisplayBinding.LuaHandler ->
+                CCModuleTypes.displayType(module.type()) == DeskDisplayType.THREE_DIGIT && validPath(binding.path)
+            is DisplayBinding.LuaApplication ->
                 CCModuleTypes.displayType(module.type()) == DeskDisplayType.THREE_DIGIT &&
-                    binding.path.isNotBlank() &&
-                    binding.path.length <= MAX_HANDLER_PATH_LENGTH
+                    validOptionalPath(binding.controllerPath) &&
+                    validOptionalPath(binding.bootProgramPath) &&
+                    (binding.controllerPath.isNotEmpty() || binding.bootProgramPath.isNotEmpty())
         }
+    }
+
+    fun controllerPath(binding: DisplayBinding): String = when (binding) {
+        is DisplayBinding.LuaHandler -> binding.path
+        is DisplayBinding.LuaApplication -> binding.controllerPath
+        else -> ""
+    }
+
+    fun bootProgramPath(binding: DisplayBinding): String = when (binding) {
+        is DisplayBinding.LuaApplication -> binding.bootProgramPath
+        else -> ""
     }
 
     fun describe(binding: DisplayBinding): Map<String, Any> = when (binding) {
@@ -114,7 +150,18 @@ object DisplayBindings {
         )
         is DisplayBinding.LuaHandler -> linkedMapOf(
             "type" to "lua_handler",
-            "path" to binding.path
+            "path" to binding.path,
+            "controller" to binding.path,
+            "bootProgram" to ""
+        )
+        is DisplayBinding.LuaApplication -> linkedMapOf(
+            "type" to "lua_application",
+            "controller" to binding.controllerPath,
+            "bootProgram" to binding.bootProgramPath
         )
     }
+
+    fun validPath(path: String): Boolean = path.isNotBlank() && path.length <= MAX_HANDLER_PATH_LENGTH
+
+    fun validOptionalPath(path: String): Boolean = path.length <= MAX_HANDLER_PATH_LENGTH
 }
