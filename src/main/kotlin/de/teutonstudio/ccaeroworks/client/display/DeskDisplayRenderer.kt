@@ -5,6 +5,7 @@ import com.mred231.aeroworks.content.controls.ConsoleBlock
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess
 import de.teutonstudio.ccaeroworks.display.DeskDisplayType
+import de.teutonstudio.ccaeroworks.display.reactive.ReactiveDisplayFrames
 import net.createmod.catnip.render.CachedBuffers
 import net.createmod.catnip.render.SuperByteBuffer
 import net.minecraft.client.renderer.MultiBufferSource
@@ -30,8 +31,21 @@ object DeskDisplayRenderer {
         val consumer = buffers.getBuffer(RenderType.cutout())
         AeroworksDeskAccess.renderedDisplays(desk).forEach { display ->
             val socket = sockets.getOrNull(display.socket) ?: return@forEach
-            val elements = if (display.pixels != null) {
-                buildList {
+            val runtimeFrame = ReactiveDisplayFrames.snapshot(desk, display.socket)
+            val elements = when {
+                runtimeFrame != null -> buildList {
+                    ReactiveDisplayRenderCache.pixels(desk, display.socket, runtimeFrame).forEach { pixel ->
+                        add(
+                            Triple(
+                                DeskDisplayModels.PIXEL,
+                                pixelOffsetX(display.type, runtimeFrame.width, pixel.x),
+                                pixelOffsetZ(runtimeFrame.height, pixel.y)
+                            )
+                        )
+                    }
+                }
+
+                display.pixels != null -> buildList {
                     for (y in 0 until display.pixels.height) for (x in 0 until display.pixels.width) {
                         if (display.pixels.get(x, y)) {
                             add(
@@ -44,8 +58,8 @@ object DeskDisplayRenderer {
                         }
                     }
                 }
-            } else {
-                buildList {
+
+                else -> buildList {
                     display.text.padEnd(display.type.width, ' ').forEachIndexed { digit, character ->
                         DeskDisplayModels.segments(character).forEach { segment ->
                             add(Triple(segment.model, digitOffset(display.type.width, digit) + segment.x, segment.z))
