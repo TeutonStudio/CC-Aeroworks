@@ -47,6 +47,10 @@ jobs:
       - name: Verify exact Create Radars runtime bytecode
         run: python3 tools/verify-create-radars-bytecode.py
 
+      - name: Inspect Aeroworks outline bytecode
+        if: ${{ github.ref == 'refs/heads/agent/rebuild-sable-control-outline-rendering' }}
+        run: python3 tools/inspect-aeroworks-outline.py
+
       - name: Validate repository contract
         run: python3 tools/verify-repository.py
 
