@@ -68,6 +68,7 @@ class CCAeroworks(modEventBus: IEventBus, modContainer: ModContainer) {
         const val CONSOLE_TOUCH_EVENT: String = "cc_aeroworks_console_touch"
         const val CONSOLE_DISPLAY_INPUT_EVENT: String = "cc_aeroworks_console_display_input"
         const val CONSOLE_CHANGED_EVENT: String = "cc_aeroworks_console_changed"
+        const val DISPLAY_APPLICATION_CHANGED_EVENT: String = "cc_aeroworks_display_application_changed"
         const val CONTROL_OVERRIDE_EVENT: String = "cc_aeroworks_control_override"
         const val CONTROL_RELEASE_EVENT: String = "cc_aeroworks_control_release"
         const val PERIPHERAL_ATTACHED_EVENT: String = "cc_aeroworks_peripheral_attached"
