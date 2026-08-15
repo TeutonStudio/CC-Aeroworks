@@ -1,12 +1,12 @@
 local ui = require("cc_aeroworks.ui")
 
-local fuelPercent = ui.derived("fuelPercent", function()
-    local fuel = ui.telemetry.get("fuel")
-    if not fuel or not fuel.available or not fuel.value then return nil end
-    return math.floor((fuel.value.percent or 0) + 0.5)
-end)
-
 return ui.app(function()
+    local fuelPercent = ui.derived("fuelPercent", function()
+        local fuel = ui.telemetry.get("fuel")
+        if not fuel or not fuel.available or not fuel.value then return nil end
+        return math.floor((fuel.value.percent or 0) + 0.5)
+    end)
+
     ui.Column({ padding = 2, gap = 1 }, function()
         ui.Text({ text = "FUEL", width = 16 })
 
