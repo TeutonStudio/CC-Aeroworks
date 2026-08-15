@@ -39,9 +39,6 @@ object DeskDisplayRenderer {
             for (y in 0 until pixels.height) for (x in 0 until pixels.width) {
                 if (!pixels.get(x, y)) continue
                 val rendered: SuperByteBuffer = CachedBuffers.partial(DeskDisplayModels.PIXEL, desk.blockState)
-                    .center()
-                    .scale(scale, 1.0f, scale)
-                    .uncenter()
                     .translate(0.5, 0.5, 0.5)
                     .rotate(rotation)
                     .translate(socket.offset().x - 0.5, socket.offset().y - 0.5, socket.offset().z - 0.5)
@@ -52,6 +49,11 @@ object DeskDisplayRenderer {
                         0.0,
                         pixelOffsetZ(display.type, pixels.height, y)
                     )
+                    // Scale only the pixel partial itself. Doing this before desk/socket placement
+                    // also scales all later translations and collapses a high-PPB raster into a line.
+                    .translate(0.5, 0.0, 0.5)
+                    .scale(scale, 1.0f, scale)
+                    .translate(-0.5, 0.0, -0.5)
                 rendered.light<SuperByteBuffer>(light)
                 rendered.renderInto(poseStack, consumer)
             }
