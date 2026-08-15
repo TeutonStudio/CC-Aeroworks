@@ -169,9 +169,11 @@ object ApiDocumentationRegistry {
             methods = listOf(
                 ApiMethodDocumentation("app", "ui.app(root, options?)", "app"),
                 ApiMethodDocumentation("component", "ui.component(name, content)", "component"),
+                ApiMethodDocumentation("remember", "ui.remember(key, factory)", "value"),
                 ApiMethodDocumentation("state", "ui.state(key, initial)", "state", reactive = true),
                 ApiMethodDocumentation("derived", "ui.derived(key, calculation, equals?)", "derived state", reactive = true),
                 ApiMethodDocumentation("source", "ui.source(key, getter)", "state", reactive = true),
+                ApiMethodDocumentation("invalidate", "ui.invalidate(key)", "", reactive = true),
                 ApiMethodDocumentation("telemetry.get", "ui.telemetry.get(nameOrId)", "table | nil", reactive = true),
                 ApiMethodDocumentation("telemetry.list", "ui.telemetry.list()", "table", reactive = true),
                 ApiMethodDocumentation("telemetry.find", "ui.telemetry.find(type)", "table", reactive = true),
