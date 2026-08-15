@@ -98,7 +98,10 @@ object AeroworksDeskService {
         val display = requiredDisplay(desk, parseSocket(desk, rawSocket))
         return linkedMapOf(
             "width" to display.type.pixelWidth,
-            "height" to display.type.pixelHeight
+            "height" to display.type.pixelHeight,
+            "ppb" to display.type.partsPerBlock,
+            "surfaceWidthParts" to display.type.surfaceWidthParts,
+            "surfaceHeightParts" to display.type.surfaceHeightParts
         )
     }
 
@@ -229,6 +232,9 @@ object AeroworksDeskService {
         "pixelHeight" to display.type.pixelHeight,
         "PIXEL_WIDTH" to display.type.pixelWidth,
         "PIXEL_HEIGHT" to display.type.pixelHeight,
+        "ppb" to display.type.partsPerBlock,
+        "surfaceWidthParts" to display.type.surfaceWidthParts,
+        "surfaceHeightParts" to display.type.surfaceHeightParts,
         "pixels" to (display.pixels ?: DeskDisplayPixels.blank(display.type)).rows()
     )
 }
