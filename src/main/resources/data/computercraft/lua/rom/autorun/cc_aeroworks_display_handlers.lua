@@ -9,6 +9,17 @@ if rawget(_G, "__cc_aeroworks_display_handlers_installed") then return end
 rawset(_G, "__cc_aeroworks_display_handlers_installed", true)
 
 local nativePullEventRaw = os.pullEventRaw
+
+-- CraftOS runs /rom/autorun files through shell.run(). The shell gives each program a private
+-- environment containing require/package, while BIOS globals deliberately do not expose require.
+-- Keep that shell environment alive for handlers loaded later from the event hook. Without this,
+-- loadfile(path) uses the BIOS global environment and every discovered handler containing
+-- require("display") or require("touchdisplay") fails before its callback can run.
+local handlerBaseEnvironment = _ENV
+local handlerGlobalEnvironment = _G
+local handlerRequire = require
+local handlerPackage = package
+
 local lastSignature = nil
 local lastEpoch = -1
 
@@ -20,10 +31,19 @@ local function report(message)
     end
 end
 
+local function createHandlerEnvironment()
+    local environment = {
+        _G = handlerGlobalEnvironment,
+        require = handlerRequire,
+        package = handlerPackage,
+    }
+    return setmetatable(environment, { __index = handlerBaseEnvironment })
+end
+
 local function loadHandler(path)
     if type(path) ~= "string" or path == "" then return nil end
 
-    local chunk, loadError = loadfile(path)
+    local chunk, loadError = loadfile(path, nil, createHandlerEnvironment())
     if chunk == nil then
         report("display handler " .. path .. ": " .. tostring(loadError))
         return nil

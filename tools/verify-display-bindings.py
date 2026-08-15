@@ -30,6 +30,7 @@ dispatcher = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/DeskDisp
 peripheral_state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ControlDeskPeripheralState.kt")
 display_module = read("src/main/resources/data/computercraft/lua/rom/modules/main/display.lua")
 handler_runtime = read("src/main/resources/data/computercraft/lua/rom/autorun/cc_aeroworks_display_handlers.lua")
+router_example = read("examples/cc/display-binding-router.lua")
 mixins = read("src/main/resources/cc_aeroworks.mixins.json")
 workflow = read(".github/workflows/verify.yml")
 
@@ -116,8 +117,15 @@ require('event[1] ~= "cc_aeroworks_console_display_input"' in handler_runtime,
         "automatic handler runtime must consume embedded console display events")
 require("cc_aeroworks_desk_display_input" not in handler_runtime,
         "automatic handler runtime must not execute owner-local script paths on external computers")
-require("loadfile(path)" in handler_runtime and "local cache" not in handler_runtime,
-        "selected display handlers must reload from disk instead of using a stale permanent cache")
+require("handlerBaseEnvironment = _ENV" in handler_runtime and
+        "handlerRequire = require" in handler_runtime and
+        "handlerPackage = package" in handler_runtime,
+        "automatic handler runtime must preserve the CraftOS shell module environment")
+require("_G = handlerGlobalEnvironment" in handler_runtime and
+        "loadfile(path, nil, createHandlerEnvironment())" in handler_runtime,
+        "selected handlers must load with shell require/package while retaining computer globals")
+require("loadfile(path)" not in handler_runtime and "local cache" not in handler_runtime,
+        "selected display handlers must not fall back to the BIOS environment or a stale cache")
 require('event[1] == filter or event[1] == "terminate"' in handler_runtime,
         "event hook must preserve filtered pullEvent and termination semantics")
 require("lastSignature" in handler_runtime and "lastEpoch" in handler_runtime,
@@ -125,6 +133,13 @@ require("lastSignature" in handler_runtime and "lastEpoch" in handler_runtime,
 require("handler.onTap or handler.onPointer" in handler_runtime and
         "handler.onDoubleTap or handler.onPointer" in handler_runtime,
         "automatic runtime must dispatch tap and double-tap callbacks")
+
+# The explicit compatibility router must execute the same display/touchdisplay modules correctly.
+require("handlerRequire = require" in router_example and
+        "loadfile(path, nil, createHandlerEnvironment())" in router_example,
+        "display binding router example must load handlers with the shell module environment")
+require("local cache" not in router_example,
+        "display binding router example must not retain stale handler chunks")
 
 # Existing programmatic configuration and compatibility events remain available.
 for method in ("getRadarSources", "getDisplayBinding", "setRadarSource", "setDisplayTouchScript", "clearDisplayBinding"):
@@ -139,4 +154,4 @@ require((ROOT / "examples/cc/display-binding-router.lua").is_file(),
 require("python3 tools/verify-display-bindings.py" in workflow,
         "workflow must enforce the display binding architecture")
 
-print("Validated display bindings: row-based radar selection, bounded embedded-computer script discovery, automatic reloadable touch handlers, stable desk identity, bundled display/touchdisplay modules and legacy touch compatibility.")
+print("Validated display bindings: row-based radar selection, bounded embedded-computer script discovery, automatic reloadable touch handlers with CraftOS module environments, stable desk identity, bundled display/touchdisplay modules and legacy touch compatibility.")
