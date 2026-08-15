@@ -4,19 +4,15 @@ import com.mojang.blaze3d.vertex.PoseStack
 import dev.ryanhcode.sable.Sable
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.phys.Vec3
-import org.joml.Matrix4d
-import org.joml.Matrix4f
+import org.joml.Quaternionf
 
 /**
- * Mirrors Aeroworks 1.3.0's native SubLevelPoseClient transform for CC-Aeroworks
- * overlays without globally replacing that helper.
+ * Applies the Sable render-anchor semantics used by the previously working radar/display overlays.
  *
- * The native helper is package-private, so callers outside Aeroworks cannot invoke it
- * directly. Its matrix composition is intentionally reproduced in the same order and
- * precision: a non-Sable anchor is translated camera-relative in one operation; a Sable
- * anchor translates by -camera, multiplies the render pose baked through Matrix4d and
- * converted to Matrix4f, then translates by the plot-local anchor. This preserves the
- * native rotation-point semantics instead of rebuilding the affine transform piecemeal.
+ * A plot-local anchor is transformed into the interpolated world render pose in double precision,
+ * camera subtraction is performed in world space, and only the SubLevel orientation is left on the
+ * PoseStack for geometry that follows. Keeping this shared path stable is important: radar surfaces,
+ * display pointers and Aeroworks placement rendering all depend on the same anchor convention.
  */
 object SableClientRenderPose {
     data class Result(
@@ -59,22 +55,20 @@ object SableClientRenderPose {
             return Result(localPosition, false)
         }
 
-        poseStack.translate(-camera.x, -camera.y, -camera.z)
-
         val renderPose = subLevel.renderPose(partialTicks)
-        val transform = Matrix4f(renderPose.bakeIntoMatrix(Matrix4d()))
-        poseStack.mulPose(transform)
-        poseStack.translate(localPosition.x, localPosition.y, localPosition.z)
-
-        return Result(
-            renderPose.transformPosition(localPosition),
-            true
+        val worldPosition = renderPose.transformPosition(localPosition)
+        poseStack.translate(
+            worldPosition.x - camera.x,
+            worldPosition.y - camera.y,
+            worldPosition.z - camera.z
         )
+        poseStack.mulPose(Quaternionf(renderPose.orientation()))
+        return Result(worldPosition, true)
     }
 
     /**
-     * Semantic alias for placement-outline callers. It deliberately has exactly the
-     * same matrix composition as Aeroworks' native helper.
+     * Placement outlines use the same Sable anchor convention as every other CC-Aeroworks overlay.
+     * Outline-specific corrections must happen before this method, never by changing the shared pose.
      */
     @JvmStatic
     fun applyOutline(
