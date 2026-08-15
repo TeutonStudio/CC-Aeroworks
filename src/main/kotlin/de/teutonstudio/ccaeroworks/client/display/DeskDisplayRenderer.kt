@@ -37,6 +37,15 @@ object DeskDisplayRenderer {
         val consumer = buffers.getBuffer(RenderType.cutout())
         AeroworksDeskAccess.renderedDisplays(desk).forEach { display ->
             val socket = sockets.getOrNull(display.socket) ?: return@forEach
+            val socketTransform: (SuperByteBuffer) -> SuperByteBuffer = { rendered ->
+                rendered
+                    .translate(0.5, 0.5, 0.5)
+                    .rotate(rotation)
+                    .translate(socket.offset().x - 0.5, socket.offset().y - 0.5, socket.offset().z - 0.5)
+                    .rotate(socket.orientation())
+                    .translate(-0.5, 0.0, -0.5)
+            }
+
             val runtimeFrame = ReactiveDisplayFrames.snapshot(desk, display.socket)
             if (runtimeFrame != null) {
                 renderRuntimeFrame(
@@ -44,8 +53,7 @@ object DeskDisplayRenderer {
                     display.socket,
                     display.type,
                     runtimeFrame,
-                    socket,
-                    rotation,
+                    socketTransform,
                     poseStack,
                     consumer,
                     light
@@ -77,12 +85,7 @@ object DeskDisplayRenderer {
                 }
             }
             elements.forEach { (model, x, z) ->
-                val rendered: SuperByteBuffer = CachedBuffers.partial(model, desk.blockState)
-                    .translate(0.5, 0.5, 0.5)
-                    .rotate(rotation)
-                    .translate(socket.offset().x - 0.5, socket.offset().y - 0.5, socket.offset().z - 0.5)
-                    .rotate(socket.orientation())
-                    .translate(-0.5, 0.0, -0.5)
+                val rendered = socketTransform(CachedBuffers.partial(model, desk.blockState))
                     .translate(x, 0.0, z)
                 rendered.light<SuperByteBuffer>(light)
                 rendered.renderInto(poseStack, consumer)
@@ -95,8 +98,7 @@ object DeskDisplayRenderer {
         socketIndex: Int,
         type: DeskDisplayType,
         frame: ReactiveDisplaySnapshot,
-        socket: com.mred231.aeroworks.content.controls.ConsoleSocket,
-        rotation: org.joml.Quaternionf,
+        socketTransform: (SuperByteBuffer) -> SuperByteBuffer,
         poseStack: PoseStack,
         consumer: com.mojang.blaze3d.vertex.VertexConsumer,
         light: Int
@@ -126,12 +128,7 @@ object DeskDisplayRenderer {
             // A dense run is geometrically the same union as overlapping neighbouring pixel
             // cuboids, so render it as one centered, scaled pixel model. At low resolutions the
             // spacing remains larger than the model and every pixel keeps its visible gap.
-            val rendered: SuperByteBuffer = CachedBuffers.partial(DeskDisplayModels.PIXEL, desk.blockState)
-                .translate(0.5, 0.5, 0.5)
-                .rotate(rotation)
-                .translate(socket.offset().x - 0.5, socket.offset().y - 0.5, socket.offset().z - 0.5)
-                .rotate(socket.orientation())
-                .translate(-0.5, 0.0, -0.5)
+            val rendered = socketTransform(CachedBuffers.partial(DeskDisplayModels.PIXEL, desk.blockState))
                 .translate(centerX + 0.5, 0.0, centerZ + 0.5)
                 .scale(scaleX.toFloat(), 1.0f, scaleZ.toFloat())
                 .translate(-0.5, 0.0, -0.5)
