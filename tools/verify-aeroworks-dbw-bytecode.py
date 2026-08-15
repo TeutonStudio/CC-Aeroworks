@@ -17,6 +17,7 @@ EXPECTED_MIN_BYTES = 650_000
 EXPECTED_MAX_BYTES = 700_000
 MIXIN_CONFIG = "aeroworks-drivebywire.mixins.json"
 DBW_CLIENT = "edn/stratodonut/drivebywire/client/ClientWireNetworkHandler"
+CONSOLE_WIRE_CHANNELS = "com.mred231.aeroworks.compat.drivebywire.ConsoleWireChannels"
 
 
 def require(condition: bool, message: str) -> None:
@@ -87,6 +88,10 @@ def main() -> int:
             config = json.loads(archive.read(MIXIN_CONFIG).decode("utf-8"))
             names = class_names(config)
             require(names, "Aeroworks DBW mixin config contains no mixins")
+            require(
+                CONSOLE_WIRE_CHANNELS.replace('.', '/') + ".class" in archive.namelist(),
+                "Aeroworks release lacks ConsoleWireChannels",
+            )
             print("Aeroworks DBW mixin config: " + json.dumps(config, sort_keys=True))
 
         outputs: dict[str, str] = {}
@@ -97,6 +102,16 @@ def main() -> int:
             print(f"--- {name} ---")
             print("\n".join(lines[:240]))
 
+        console_wire_channels = javap(jar, CONSOLE_WIRE_CHANNELS)
+        print(f"--- {CONSOLE_WIRE_CHANNELS} ---")
+        print(console_wire_channels)
+        for token in (
+            "nextChannel(com.mred231.aeroworks.content.controls.ConsoleBlockEntity, java.lang.String, boolean)",
+            "channelFor(int, java.lang.String, int)",
+            "resolve(com.mred231.aeroworks.content.controls.ConsoleBlockEntity, java.lang.String)",
+        ):
+            require(token in console_wire_channels, f"ConsoleWireChannels contract missing {token}")
+
         client_mixins = {
             name: output
             for name, output in outputs.items()
@@ -106,13 +121,11 @@ def main() -> int:
         combined = "\n".join(client_mixins.values())
         require("selectedSource" in combined, "Aeroworks DBW client integration no longer reads selectedSource")
         require("currentChannel" in combined, "Aeroworks DBW client integration no longer handles currentChannel")
-        require(
-            "ConsoleBlockEntity" in combined or "MountedModule" in combined,
-            "Aeroworks DBW channel selection no longer appears to inspect modular desk state",
-        )
+        require("ConsoleWireChannels.nextChannel" in combined,
+                "Aeroworks DBW client integration no longer delegates desk channel cycling to ConsoleWireChannels")
 
     print(
-        f"Validated exact Aeroworks {VERSION} release: optional DBW mixins still integrate modular ControlDesk state with ClientWireNetworkHandler."
+        f"Validated exact Aeroworks {VERSION} release: ConsoleWireChannels remains the authoritative modular ControlDesk DBW channel resolver."
     )
     return 0
 
