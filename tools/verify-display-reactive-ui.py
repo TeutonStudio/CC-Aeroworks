@@ -73,8 +73,15 @@ require('native.changed(self.id .. ":input:pointer")' in ui,
         "pointer updates must invalidate dependent scopes")
 require("self:updatePointer(event)" in ui and "hitNode(self.root,event.x,event.y)" in ui,
         "pointer state must update before normal component hit testing")
-require("handler.onTap" in ui and "handler.onDoubleTap" in ui and "p.onTap" in ui and "p.onDoubleTap" in ui,
-        "one-shot controller and component gestures must remain available")
+require(
+    "self.controller.onTap" in ui and
+    "self.controller.onDoubleTap" in ui and
+    "self.controller.onPointer" in ui and
+    "p.onTap" in ui and
+    "p.onDoubleTap" in ui and
+    "p.onPointer" in ui,
+    "one-shot controller and component gestures must remain available",
+)
 
 # The raw event is normalized once and retains resolution-independent/source coordinates.
 require("local function pointerEventFromRaw(event)" in ui, "raw pointer conversion must be centralized")
