@@ -90,7 +90,8 @@ local function signatureFor(event)
         tostring(event[14]),
         tostring(event[15]),
         tostring(event[16]),
-        tostring(event[17])
+        tostring(event[17]),
+        tostring(event[18])
     }, "\0")
 end
 
@@ -101,6 +102,12 @@ local function shouldDispatch(event)
     lastSignature = signature
     lastEpoch = now
     return true
+end
+
+local function normalizeReactiveTarget(event)
+    if event[2] ~= nil then event[2] = tostring(event[2]) end
+    local socket = tonumber(event[4])
+    if socket ~= nil then event[4] = socket end
 end
 
 local function asPointerEvent(event)
@@ -120,7 +127,8 @@ local function asPointerEvent(event)
         v = event[14],
         deskX = event[15],
         deskY = event[16],
-        deskZ = event[17]
+        deskZ = event[17],
+        bootProgram = event[18]
     }
 end
 
@@ -151,6 +159,31 @@ local function startSupervisor()
     return true
 end
 
+-- A configured application is authoritative. If CraftOS missed the binding-change event while
+-- starting, the next pointer event carries the boot path and reconstructs only that missing runtime.
+-- This is especially important for application-only displays, where there is deliberately no
+-- legacy controller available as a fallback.
+local function ensureReactiveRuntime(event)
+    normalizeReactiveTarget(event)
+    if supervisor == nil and not startSupervisor() then return false end
+    if supervisor == nil or type(supervisor.hasRuntime) ~= "function" then return supervisor ~= nil end
+    if supervisor:hasRuntime(event[2], event[4]) then return true end
+
+    local bootProgram = event[18]
+    if type(bootProgram) ~= "string" or bootProgram == "" then return false end
+
+    supervisor:handle(
+        "cc_aeroworks_display_application_changed",
+        event[2],
+        event[3],
+        event[4],
+        event[5],
+        type(event[12]) == "string" and event[12] or "",
+        bootProgram
+    )
+    return supervisor:hasRuntime(event[2], event[4])
+end
+
 local function supervisorEvent(name)
     return name == "cc_aeroworks_console_display_input"
         or name == "cc_aeroworks_display_application_changed"
@@ -174,7 +207,12 @@ os.pullEventRaw = function(filter)
         local handled = false
 
         if relevant and unique then
-            if supervisor == nil then startSupervisor() end
+            if event[1] == "cc_aeroworks_console_display_input" then
+                ensureReactiveRuntime(event)
+            elseif supervisor == nil then
+                startSupervisor()
+            end
+
             if supervisor ~= nil then
                 handled = supervisor:handle(table.unpack(event, 1, event.n)) == true
             end
