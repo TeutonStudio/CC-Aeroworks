@@ -74,6 +74,9 @@ jobs:
       - name: Validate display PPB contract
         run: python3 tools/verify-display-ppb.py
 
+      - name: Validate reactive display UI
+        run: python3 tools/verify-display-reactive-ui.py
+
       - name: Validate ControlDesk settings scroll rows
         run: python3 tools/verify-control-settings-scroll-rows.py
 
