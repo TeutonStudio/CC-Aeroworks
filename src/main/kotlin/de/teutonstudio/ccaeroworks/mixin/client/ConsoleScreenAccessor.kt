@@ -12,4 +12,7 @@ interface ConsoleScreenAccessor {
 
     @Accessor("windowLeft")
     fun ccaeroworks_getWindowLeft(): Int
+
+    @Accessor("windowTop")
+    fun ccaeroworks_getWindowTop(): Int
 }

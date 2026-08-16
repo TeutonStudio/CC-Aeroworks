@@ -50,6 +50,9 @@ jobs:
       - name: Verify exact Aeroworks Drive By Wire bytecode
         run: python3 tools/verify-aeroworks-dbw-bytecode.py
 
+      - name: Verify exact Aeroworks ConsoleScreen preview bytecode
+        run: python3 tools/verify-aeroworks-console-preview-bytecode.py
+
       - name: Validate repository contract
         run: python3 tools/verify-repository.py
 
@@ -61,6 +64,9 @@ jobs:
 
       - name: Validate ControlDesk UI navigation
         run: python3 tools/verify-control-desk-ui-navigation.py
+
+      - name: Validate ControlDesk multiblock preview
+        run: python3 tools/verify-console-multiblock-preview.py
 
       - name: Validate display combined input
         run: python3 tools/verify-display-combined-input.py
