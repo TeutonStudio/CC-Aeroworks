@@ -3,6 +3,7 @@ package de.teutonstudio.ccaeroworks.input
 import com.mojang.blaze3d.platform.InputConstants
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import com.mred231.aeroworks.content.controls.ConsoleControlClient
+import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.sable.SableInteractionGeometry
 import de.teutonstudio.ccaeroworks.config.CCClientConfig
 import de.teutonstudio.ccaeroworks.display.DeskDisplayGeometry
@@ -67,6 +68,17 @@ object DisplayCombinedInputController {
             event.button == GLFW.GLFW_MOUSE_BUTTON_RIGHT
         val activeBeforeActivation = target
 
+        if (pointerButton && event.action == GLFW.GLFW_PRESS && activeBeforeActivation != null) {
+            CCAeroworks.LOGGER.info(
+                "[CC-AW TOUCH 1/8 CLIENT_MOUSE] button=${event.button} canceledBefore=${event.isCanceled} " +
+                    "target=${activeBeforeActivation.pos} socket=${activeBeforeActivation.socket} " +
+                    "uv=${activeBeforeActivation.u},${activeBeforeActivation.v} " +
+                    "ownsDisplay=${CombinedInputCoordinator.ownsDisplay()} " +
+                    "controlActive=${ConsoleControlClient.isActive()} " +
+                    "shift=${CombinedInputCoordinator.isShiftCameraOnly(minecraft)}"
+            )
+        }
+
         // Once a display owns Combined focus, left/right are semantic display gestures first.
         // Do this before generic binding acquisition: a mouse button may itself be configured as a
         // Combined activation key, and another control handler may already have cancelled the event.
@@ -75,8 +87,17 @@ object DisplayCombinedInputController {
         ) {
             event.isCanceled = true
             when (event.action) {
-                GLFW.GLFW_PRESS -> if (basicSessionValid(minecraft)) {
-                    sendPointerAction(activeBeforeActivation, event.button)
+                GLFW.GLFW_PRESS -> {
+                    if (basicSessionValid(minecraft)) {
+                        sendPointerAction(activeBeforeActivation, event.button)
+                    } else {
+                        CCAeroworks.LOGGER.warn(
+                            "[CC-AW TOUCH 2/8 CLIENT_BLOCKED] session invalid for target=${activeBeforeActivation.pos} " +
+                                "socket=${activeBeforeActivation.socket} ownsDisplay=${CombinedInputCoordinator.ownsDisplay()} " +
+                                "controlActive=${ConsoleControlClient.isActive()} screen=${minecraft.screen != null} " +
+                                "windowActive=${minecraft.isWindowActive}"
+                        )
+                    }
                 }
                 GLFW.GLFW_RELEASE -> onBindingReleased(binding)
             }
@@ -100,6 +121,10 @@ object DisplayCombinedInputController {
         } else {
             DisplayPointerAction.DOUBLE_TAP
         }
+        CCAeroworks.LOGGER.info(
+            "[CC-AW TOUCH 2/8 CLIENT_SEND] action=${action.eventName} target=${active.pos} " +
+                "socket=${active.socket} uv=${active.u},${active.v}"
+        )
         PacketDistributor.sendToServer(
             DisplayPointerActionPayload(active.pos, active.socket, active.u, active.v, action)
         )
