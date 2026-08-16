@@ -4,12 +4,13 @@ import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import com.mred231.aeroworks.content.controls.ConsoleSocket
 import com.mred231.aeroworks.content.controls.ModuleMenu
 import com.mred231.aeroworks.content.controls.ModuleScreen
-import com.mred231.aeroworks.foundation.gui.AeroworksGuiTextures
 import de.teutonstudio.ccaeroworks.client.ModuleScreenRowGeometry
 import de.teutonstudio.ccaeroworks.client.RadarSourceChoice
-import de.teutonstudio.ccaeroworks.client.RadarSourceRowButton
-import de.teutonstudio.ccaeroworks.client.ScriptSourceDropdownWidget
 import de.teutonstudio.ccaeroworks.client.ScriptSourceRole
+import de.teutonstudio.ccaeroworks.client.SourceSelectorWidget
+import de.teutonstudio.ccaeroworks.client.radarSourceKey
+import de.teutonstudio.ccaeroworks.client.radarSourceOption
+import de.teutonstudio.ccaeroworks.client.scriptSourceOptions
 import de.teutonstudio.ccaeroworks.display.DeskDisplayType
 import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
@@ -21,7 +22,6 @@ import de.teutonstudio.ccaeroworks.network.SetRadarDisplaySourcePayload
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
-import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component
 import net.minecraft.world.entity.player.Inventory
 import net.neoforged.neoforge.network.PacketDistributor
@@ -34,11 +34,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo
 private const val BINDING_ROW_WIDTH: Int = 235
 
 /**
- * Owns every CC-Aeroworks extension row appended to Aeroworks' ModuleScreen.
+ * Owns the CC-Aeroworks source-selector rows appended to Aeroworks' ModuleScreen.
  *
- * Native contentHeight is captured once and extended exactly once, avoiding competing mixins which
- * independently believe they own the same scrollbar. Radar choices and display application choices
- * are normal rows in the native 251x108 viewport and derive Y from renderedScroll on every frame.
+ * Radar consumes one shared selector row. Script displays consume two rows so the reactive
+ * application and optional legacy touch controller remain independent without restoring the old
+ * free-form path field. Every selector follows Aeroworks' native animated scroll geometry.
  */
 @Mixin(value = [ModuleScreen::class], remap = false)
 abstract class ModuleScreenDisplayBindingMixin(
@@ -47,25 +47,16 @@ abstract class ModuleScreenDisplayBindingMixin(
     title: Component
 ) : AbstractContainerScreen<ModuleMenu>(menu, inventory, title) {
     @Unique
-    private var ccaeroworks_bindingDesk: ConsoleBlockEntity? = null
-
-    @Unique
-    private var ccaeroworks_bindingSocket: Int = -1
-
-    @Unique
     private var ccaeroworks_nativeContentHeight: Int = 0
 
     @Unique
     private var ccaeroworks_extensionRows: Int = 0
 
     @Unique
-    private var ccaeroworks_selectedRadarIngress: BlockPos? = null
+    private var ccaeroworks_radarDropdown: SourceSelectorWidget<RadarSourceChoice>? = null
 
     @Unique
-    private val ccaeroworks_radarRows = mutableListOf<RadarSourceRowButton>()
-
-    @Unique
-    private val ccaeroworks_scriptDropdowns = mutableListOf<ScriptSourceDropdownWidget>()
+    private val ccaeroworks_scriptDropdowns = mutableListOf<SourceSelectorWidget<String>>()
 
     @Unique
     private var ccaeroworks_selectedControllerPath: String = ""
@@ -85,14 +76,12 @@ abstract class ModuleScreenDisplayBindingMixin(
         if (!holder.valid()) return
         val desk = holder.be()
         val socket = (0 until desk.socketCount()).firstOrNull { desk.module(it) === module } ?: return
-        ccaeroworks_bindingDesk = desk
-        ccaeroworks_bindingSocket = socket
 
         val screen = this as ModuleScreenAccessor
         ccaeroworks_nativeContentHeight = screen.ccaeroworks_getContentHeight()
 
         if (radarDisplay) {
-            ccaeroworks_addRadarRows(desk, socket)
+            ccaeroworks_addRadarRow(desk, socket)
         } else if (scriptDisplay) {
             ccaeroworks_addScriptRows(desk, socket)
         }
@@ -111,7 +100,7 @@ abstract class ModuleScreenDisplayBindingMixin(
         method = ["renderBg(Lnet/minecraft/client/gui/GuiGraphics;FII)V"],
         at = [At("TAIL")]
     )
-    private fun ccaeroworks_renderBindingRows(
+    private fun ccaeroworks_positionBindingRows(
         graphics: GuiGraphics,
         partialTick: Float,
         mouseX: Int,
@@ -120,35 +109,14 @@ abstract class ModuleScreenDisplayBindingMixin(
     ) {
         if (ccaeroworks_extensionRows <= 0) return
         val invoker = this as ModuleScreenInvoker
-        val listLeft = invoker.ccaeroworks_listLeft()
         val listTop = invoker.ccaeroworks_listTop()
         val rowLeft = invoker.ccaeroworks_rowLeft()
         val renderedScroll = (this as ModuleScreenAccessor).ccaeroworks_getRenderedScroll()
 
-        graphics.enableScissor(
-            listLeft,
-            listTop,
-            listLeft + ModuleScreenRowGeometry.LIST_WIDTH,
-            listTop + ModuleScreenRowGeometry.LIST_HEIGHT
-        )
-        try {
-            repeat(ccaeroworks_extensionRows) { index ->
-                val rowTop = ModuleScreenRowGeometry.extensionScreenTop(
-                    ccaeroworks_nativeContentHeight,
-                    index,
-                    listTop,
-                    renderedScroll
-                )
-                AeroworksGuiTextures.MODULE_ROW.render(graphics, rowLeft, rowTop)
-            }
-        } finally {
-            graphics.disableScissor()
-        }
-
-        ccaeroworks_radarRows.forEachIndexed { index, row ->
+        ccaeroworks_radarDropdown?.let { dropdown ->
             val rowTop = ModuleScreenRowGeometry.extensionScreenTop(
                 ccaeroworks_nativeContentHeight,
-                index,
+                0,
                 listTop,
                 renderedScroll
             )
@@ -157,11 +125,7 @@ abstract class ModuleScreenDisplayBindingMixin(
                 ModuleScreenRowGeometry.EXTENSION_ROW_HEIGHT,
                 listTop
             )
-            row.setX(rowLeft)
-            row.setY(rowTop)
-            row.visible = visible
-            row.active = visible
-            row.selected = row.choice.ingressPos == ccaeroworks_selectedRadarIngress
+            dropdown.setRowPosition(rowLeft, rowTop, visible)
         }
 
         ccaeroworks_scriptDropdowns.forEachIndexed { index, dropdown ->
@@ -181,8 +145,8 @@ abstract class ModuleScreenDisplayBindingMixin(
     }
 
     @Unique
-    private fun ccaeroworks_addRadarRows(desk: ConsoleBlockEntity, socket: Int) {
-        ccaeroworks_selectedRadarIngress =
+    private fun ccaeroworks_addRadarRow(desk: ConsoleBlockEntity, socket: Int) {
+        val selectedIngress =
             (DisplayBindings.get(desk, socket) as? DisplayBinding.RadarSource)?.source?.ingressPos
 
         val descriptors = RadarSourceRegistry.sources(desk)
@@ -193,38 +157,33 @@ abstract class ModuleScreenDisplayBindingMixin(
             .filter { it.ingressPos != desk.blockPos }
             .distinctBy { it.ingressPos }
             .forEach { choices += RadarSourceChoice(it.ingressPos, it) }
-
-        val selected = ccaeroworks_selectedRadarIngress
-        if (selected != null && choices.none { it.ingressPos == selected }) {
-            choices += RadarSourceChoice(selected, null)
+        if (selectedIngress != null && choices.none { it.ingressPos == selectedIngress }) {
+            choices += RadarSourceChoice(selectedIngress, null)
         }
 
         val invoker = this as ModuleScreenInvoker
-        val rowLeft = invoker.ccaeroworks_rowLeft()
-        val listTop = invoker.ccaeroworks_listTop()
-        choices.forEachIndexed { index, choice ->
-            val rowTop = ModuleScreenRowGeometry.extensionScreenTop(
+        val dropdown = SourceSelectorWidget(
+            invoker.ccaeroworks_rowLeft(),
+            ModuleScreenRowGeometry.extensionScreenTop(
                 ccaeroworks_nativeContentHeight,
-                index,
-                listTop,
+                0,
+                invoker.ccaeroworks_listTop(),
                 (this as ModuleScreenAccessor).ccaeroworks_getRenderedScroll()
-            )
-            val row = RadarSourceRowButton(
-                rowLeft,
-                rowTop,
-                BINDING_ROW_WIDTH,
-                ModuleScreenRowGeometry.EXTENSION_ROW_HEIGHT,
-                font,
-                choice
-            ) { selectedChoice ->
-                ccaeroworks_selectedRadarIngress = selectedChoice.ingressPos
+            ),
+            BINDING_ROW_WIDTH,
+            ModuleScreenRowGeometry.EXTENSION_ROW_HEIGHT,
+            font,
+            radarSourceKey(selectedIngress),
+            { _ -> choices.map(::radarSourceOption) },
+            { selectedChoice ->
                 PacketDistributor.sendToServer(
                     SetRadarDisplaySourcePayload(desk.blockPos, socket, selectedChoice.ingressPos)
                 )
-            }
-            ccaeroworks_radarRows += addRenderableWidget(row)
-        }
-        ccaeroworks_extensionRows = choices.size
+            },
+            Component.literal("Radarquelle")
+        )
+        ccaeroworks_radarDropdown = addRenderableWidget(dropdown)
+        ccaeroworks_extensionRows = 1
     }
 
     @Unique
@@ -237,8 +196,8 @@ abstract class ModuleScreenDisplayBindingMixin(
         ccaeroworks_selectedApplicationPath = DisplayBindings.bootProgramPath(binding)
 
         val invoker = this as ModuleScreenInvoker
-        fun addDropdown(index: Int, role: ScriptSourceRole, selectedPath: String, callback: (String) -> Unit) {
-            val dropdown = ScriptSourceDropdownWidget(
+        fun addSelector(index: Int, role: ScriptSourceRole, selectedPath: String, callback: (String) -> Unit) {
+            val dropdown = SourceSelectorWidget(
                 invoker.ccaeroworks_rowLeft(),
                 ModuleScreenRowGeometry.extensionScreenTop(
                     ccaeroworks_nativeContentHeight,
@@ -249,20 +208,19 @@ abstract class ModuleScreenDisplayBindingMixin(
                 BINDING_ROW_WIDTH,
                 ModuleScreenRowGeometry.EXTENSION_ROW_HEIGHT,
                 font,
-                desk.blockPos,
-                socket,
-                role,
                 selectedPath,
-                callback
+                { selectedKey -> scriptSourceOptions(desk.blockPos, socket, role, selectedKey) },
+                callback,
+                Component.literal(role.label)
             )
             ccaeroworks_scriptDropdowns += addRenderableWidget(dropdown)
         }
 
-        addDropdown(0, ScriptSourceRole.REACTIVE_APP, ccaeroworks_selectedApplicationPath) { path ->
+        addSelector(0, ScriptSourceRole.REACTIVE_APP, ccaeroworks_selectedApplicationPath) { path ->
             ccaeroworks_selectedApplicationPath = path
             ccaeroworks_sendApplicationBinding(desk, socket)
         }
-        addDropdown(1, ScriptSourceRole.LEGACY_TOUCH, ccaeroworks_selectedControllerPath) { path ->
+        addSelector(1, ScriptSourceRole.LEGACY_TOUCH, ccaeroworks_selectedControllerPath) { path ->
             ccaeroworks_selectedControllerPath = path
             ccaeroworks_sendApplicationBinding(desk, socket)
         }

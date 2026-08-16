@@ -18,6 +18,7 @@ registry = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/RadarSource
 catalog = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DisplayScriptCatalog.kt")
 catalog_state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DisplayScriptCatalogState.kt")
 widgets = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/DisplayBindingRowWidgets.kt")
+selector = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/SourceSelectorWidget.kt")
 access = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/aeroworks/AeroworksDeskAccess.kt")
 state_mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/ConsoleBlockEntityDisplayBindingMixin.kt")
 ui_mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ModuleScreenDisplayBindingMixin.kt")
@@ -58,13 +59,15 @@ require("dismount(I)Lnet/minecraft/world/item/ItemStack;" in state_mixin,
 require('"ConsoleBlockEntityDisplayBindingMixin"' in mixins,
         "display binding state mixin must be registered")
 
-# Radar sources are visible row choices, not a cycle button, and selection remains server-authoritative.
-require("RadarSourceRowButton" in widgets and "renderCheck" in widgets,
-        "radar source rows must render the requested icon/text/check selection treatment")
-require("graphics.renderItem" in widgets and "0x777777" in widgets,
-        "radar source rows must render an icon and secondary gray network label")
-require("RadarSourceChoice" in ui_mixin and "SetRadarDisplaySourcePayload" in ui_mixin,
-        "Radar Display module UI must use row choices and the binding payload")
+# Radar sources use the shared one-row selector and the Network Filterer item as their source icon.
+require("radarSourceOption" in widgets and "SourceSelectorIcon.Item" in widgets,
+        "radar source presentation must provide item icon/title/network text to the shared selector")
+require('ResourceLocation.fromNamespaceAndPath("create_radar", "network_filterer")' in widgets,
+        "radar source presentation must use the Create: Radars Network Filterer registry item")
+require("descriptor.radarPos" not in widgets,
+        "radar source icon must never regress to the radar bearing/radar block")
+require("SourceSelectorWidget<RadarSourceChoice>" in ui_mixin and "SetRadarDisplaySourcePayload" in ui_mixin,
+        "Radar Display module UI must use the shared selector and the binding payload")
 require("RadarSourceRegistry.sources(desk)" in radar_payload,
         "server must validate requested radar sources against the current multiblock")
 require("CCModuleTypes.radarDisplayType(module.type())" in radar_payload,
@@ -82,10 +85,10 @@ require("skipTrivia" in catalog and "skipQuoted" in catalog,
         "script capability discovery must ignore comments and quoted text")
 require("DisplayScriptCatalogState" in catalog_state and "BlockPos" in catalog_state,
         "client catalog metadata must be keyed to desk/socket context")
-require("ScriptSourceDropdownWidget" in widgets and "MAX_VISIBLE_OPTIONS" in widgets,
-        "script source UI must be a bounded dropdown")
-require("mouseScrolled" in widgets and "expanded" in widgets,
-        "script dropdown must own wheel input while open")
+require("scriptSourceOptions" in widgets and "SourceSelectorWidget<String>" in ui_mixin,
+        "script source UI must use the same bounded selector as radar sources")
+require("mouseScrolled" in selector and "expanded" in selector and "MAX_VISIBLE_OPTIONS" in selector,
+        "shared source selector must own wheel input while open")
 require("EditBox" not in ui_mixin and "Touch script" not in ui_mixin,
         "ModuleScreen must not restore the arbitrary touch-script EditBox")
 require("RequestDisplayScriptCatalogPayload" in ui_mixin,
@@ -188,4 +191,4 @@ require((ROOT / "examples/cc/display-binding-router.lua").is_file(),
 require("python3 tools/verify-display-bindings.py" in workflow,
         "workflow must enforce the display binding architecture")
 
-print("Validated display bindings, Sable-aware script selection, direct source-desk resolution, automatic reloadable touch handlers, and legacy touch compatibility.")
+print("Validated display bindings, shared radar/script source selector UI, Sable-aware script selection, direct source-desk resolution, automatic reloadable touch handlers, and legacy touch compatibility.")
