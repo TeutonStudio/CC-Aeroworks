@@ -14,6 +14,12 @@ local watchers = {}
 local timerId = nil
 local POLL_SECONDS = 0.25
 
+-- These caches exist only while one observer timer is being evaluated. They make several reactive
+-- keys over one physical source cheap: ten cargo.count(item) dependencies share one findAll() and
+-- one inventory.list() call, then compare their own derived values independently.
+local pollPeripheralCache = nil
+local pollCallCache = nil
+
 local function copy(value, seen)
     if type(value) ~= "table" then return value end
     seen = seen or {}
@@ -78,29 +84,36 @@ local function dependencyMap()
 end
 
 local function poll()
-    local dependencies = dependencyMap()
-    for key, watcher in pairs(watchers) do
-        if dependencies[key] == nil then
-            watchers[key] = nil
-        else
-            local ok, value = evaluate(watcher)
-            local changed = false
-            if ok ~= watcher.ok then
-                changed = true
-            elseif ok then
-                changed = not equal(watcher.value, value)
+    pollPeripheralCache = {}
+    pollCallCache = {}
+    local ok, err = pcall(function()
+        local dependencies = dependencyMap()
+        for key, watcher in pairs(watchers) do
+            if dependencies[key] == nil then
+                watchers[key] = nil
             else
-                changed = watcher.error ~= value
-            end
-            if changed then
-                watcher.ok = ok
-                watcher.value = ok and copy(value) or nil
-                watcher.error = ok and nil or value
-                native.changed(key)
+                local readOk, value = evaluate(watcher)
+                local changed = false
+                if readOk ~= watcher.ok then
+                    changed = true
+                elseif readOk then
+                    changed = not equal(watcher.value, value)
+                else
+                    changed = watcher.error ~= value
+                end
+                if changed then
+                    watcher.ok = readOk
+                    watcher.value = readOk and copy(value) or nil
+                    watcher.error = readOk and nil or value
+                    native.changed(key)
+                end
             end
         end
-    end
+    end)
+    pollPeripheralCache = nil
+    pollCallCache = nil
     schedule()
+    if not ok then error(err, 0) end
 end
 
 function M.handleEvent(event)
@@ -141,8 +154,13 @@ local function normalizedAddress(address)
 end
 
 local function findAll(typeName)
+    if pollPeripheralCache ~= nil and pollPeripheralCache[typeName] ~= nil then
+        return pollPeripheralCache[typeName]
+    end
     local value = rawPeripherals.findAll(typeName)
-    return type(value) == "table" and value or {}
+    local result = type(value) == "table" and value or {}
+    if pollPeripheralCache ~= nil then pollPeripheralCache[typeName] = result end
+    return result
 end
 
 local function selectAddress(typeName, requested)
@@ -172,6 +190,26 @@ local function keyPart(value)
     return kind .. ":" .. tostring(value)
 end
 
+local function callKey(typeName, address, methodName, args)
+    local parts = {}
+    for index = 1, args.n do parts[#parts + 1] = keyPart(args[index]) end
+    return table.concat({ typeName, address, methodName, table.concat(parts, ",") }, "\0")
+end
+
+local function callPeripheral(typeName, address, methodName, args)
+    local cacheKey = callKey(typeName, address, methodName, args)
+    local cached = pollCallCache ~= nil and pollCallCache[cacheKey] or nil
+    if cached ~= nil then return table.unpack(cached, 1, cached.n) end
+
+    local handle = resolve(typeName, address)
+    if handle == nil then return nil end
+    local method = handle[methodName]
+    if type(method) ~= "function" then return nil end
+    local values = table.pack(method(table.unpack(args, 1, args.n)))
+    if pollCallCache ~= nil then pollCallCache[cacheKey] = values end
+    return table.unpack(values, 1, values.n)
+end
+
 local function reactivePeripheral(typeName, requestedAddress, readMethods)
     local address = selectAddress(typeName, requestedAddress)
     local proxy = { address = address, type = typeName }
@@ -182,11 +220,7 @@ local function reactivePeripheral(typeName, requestedAddress, readMethods)
             for index = 1, args.n do suffix[#suffix + 1] = keyPart(args[index]) end
             local dependency = table.concat({ "peripheral", typeName, address, methodName, table.concat(suffix, ",") }, ":")
             return readObserved(dependency, function()
-                local handle = resolve(typeName, address)
-                if handle == nil then return nil end
-                local method = handle[methodName]
-                if type(method) ~= "function" then return nil end
-                return method(table.unpack(args, 1, args.n))
+                return callPeripheral(typeName, address, methodName, args)
             end)
         end
     end
@@ -214,9 +248,7 @@ setmetatable(inventoryApi, {
             assert(type(itemName) == "string" and itemName ~= "", "item name must be a non-empty string")
             local dependency = "inventory:" .. inventory.address .. ":item:" .. itemName
             return readObserved(dependency, function()
-                local handle = resolve("inventory", inventory.address)
-                if handle == nil or type(handle.list) ~= "function" then return 0 end
-                local contents = handle.list() or {}
+                local contents = callPeripheral("inventory", inventory.address, "list", table.pack()) or {}
                 local total = 0
                 for _, stack in pairs(contents) do
                     if type(stack) == "table" and stack.name == itemName then
