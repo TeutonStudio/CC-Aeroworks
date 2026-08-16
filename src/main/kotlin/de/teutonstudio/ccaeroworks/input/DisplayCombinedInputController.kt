@@ -87,17 +87,15 @@ object DisplayCombinedInputController {
         ) {
             event.isCanceled = true
             when (event.action) {
-                GLFW.GLFW_PRESS -> {
-                    if (basicSessionValid(minecraft)) {
-                        sendPointerAction(activeBeforeActivation, event.button)
-                    } else {
-                        CCAeroworks.LOGGER.warn(
-                            "[CC-AW TOUCH 2/8 CLIENT_BLOCKED] session invalid for target=${activeBeforeActivation.pos} " +
-                                "socket=${activeBeforeActivation.socket} ownsDisplay=${CombinedInputCoordinator.ownsDisplay()} " +
-                                "controlActive=${ConsoleControlClient.isActive()} screen=${minecraft.screen != null} " +
-                                "windowActive=${minecraft.isWindowActive}"
-                        )
-                    }
+                GLFW.GLFW_PRESS -> if (basicSessionValid(minecraft)) {
+                    sendPointerAction(activeBeforeActivation, event.button)
+                } else {
+                    CCAeroworks.LOGGER.warn(
+                        "[CC-AW TOUCH 2/8 CLIENT_BLOCKED] session invalid for target=${activeBeforeActivation.pos} " +
+                            "socket=${activeBeforeActivation.socket} ownsDisplay=${CombinedInputCoordinator.ownsDisplay()} " +
+                            "controlActive=${ConsoleControlClient.isActive()} screen=${minecraft.screen != null} " +
+                            "windowActive=${minecraft.isWindowActive}"
+                    )
                 }
                 GLFW.GLFW_RELEASE -> onBindingReleased(binding)
             }
