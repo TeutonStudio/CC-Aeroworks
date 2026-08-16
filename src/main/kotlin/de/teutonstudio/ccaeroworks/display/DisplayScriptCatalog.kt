@@ -122,7 +122,13 @@ object DisplayScriptCatalog {
     }.getOrNull()
 }
 
-/** Tiny Lua lexer for real require("display")/require("touchdisplay") calls, ignoring comments/strings. */
+/**
+ * Tiny Lua lexer for real display API require calls, ignoring comments/strings.
+ *
+ * Reactive applications opt in through require("cc_aeroworks.ui"). They use the same display
+ * catalog transport as the legacy display API, while the large-display binding decides how the
+ * selected script is executed.
+ */
 private object LuaRequireScanner {
     data class Capabilities(val display: Boolean, val touchDisplay: Boolean)
 
@@ -143,7 +149,7 @@ private object LuaRequireScanner {
                     val parsed = requireArgument(source, index)
                     if (parsed != null) {
                         when (parsed.first) {
-                            "display" -> display = true
+                            "display", "cc_aeroworks.ui" -> display = true
                             "touchdisplay" -> touch = true
                         }
                         index = parsed.second
