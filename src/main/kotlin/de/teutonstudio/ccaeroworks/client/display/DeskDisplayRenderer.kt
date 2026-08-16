@@ -6,13 +6,18 @@ import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess
 import de.teutonstudio.ccaeroworks.config.CCServerConfig
 import de.teutonstudio.ccaeroworks.display.DeskDisplayType
+import de.teutonstudio.ccaeroworks.display.reactive.ReactiveDisplayFrames
+import de.teutonstudio.ccaeroworks.display.reactive.ReactiveDisplaySnapshot
 import net.createmod.catnip.render.CachedBuffers
 import net.createmod.catnip.render.SuperByteBuffer
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.client.renderer.RenderType
+import kotlin.math.abs
 
 object DeskDisplayRenderer {
     private const val SPACING = 0.18
+    private const val MODEL_PIXEL_SPAN_BLOCKS = 0.56 / 16.0
+    private const val MERGE_EPSILON = 1.0e-6
 
     @JvmStatic
     fun render(desk: ConsoleBlockEntity, poseStack: PoseStack, buffers: MultiBufferSource, light: Int) {
@@ -33,8 +38,22 @@ object DeskDisplayRenderer {
         val rotation = ConsoleBlock.rotationFor(desk.blockState)
         val consumer = buffers.getBuffer(RenderType.cutout())
         AeroworksDeskAccess.renderedDisplays(desk).forEach { display ->
-            val pixels = display.pixels ?: return@forEach
             val socket = sockets.getOrNull(display.socket) ?: return@forEach
+            val runtimeFrame = ReactiveDisplayFrames.snapshot(desk, display.socket)
+            if (runtimeFrame != null) {
+                renderRuntimeFrame(
+                    desk,
+                    display.socket,
+                    display.type,
+                    runtimeFrame,
+                    poseStack,
+                    buffers,
+                    light
+                )
+                return@forEach
+            }
+
+            val pixels = display.pixels ?: return@forEach
             val scale = display.type.pixelModelScale
             for (y in 0 until pixels.height) for (x in 0 until pixels.width) {
                 if (!pixels.get(x, y)) continue
@@ -66,6 +85,7 @@ object DeskDisplayRenderer {
         val rotation = ConsoleBlock.rotationFor(desk.blockState)
         val consumer = buffers.getBuffer(RenderType.cutout())
         AeroworksDeskAccess.renderedDisplays(desk).forEach { display ->
+            if (ReactiveDisplayFrames.snapshot(desk, display.socket) != null) return@forEach
             if (display.pixels != null) return@forEach
             val socket = sockets.getOrNull(display.socket) ?: return@forEach
             display.text.padEnd(display.type.width, ' ').forEachIndexed { digit, character ->
@@ -81,6 +101,54 @@ object DeskDisplayRenderer {
                     rendered.renderInto(poseStack, consumer)
                 }
             }
+        }
+    }
+
+    private fun renderRuntimeFrame(
+        desk: ConsoleBlockEntity,
+        socketIndex: Int,
+        type: DeskDisplayType,
+        frame: ReactiveDisplaySnapshot,
+        poseStack: PoseStack,
+        buffers: MultiBufferSource,
+        light: Int
+    ) {
+        val socket = desk.sockets().getOrNull(socketIndex) ?: return
+        val rotation = ConsoleBlock.rotationFor(desk.blockState)
+        val consumer = buffers.getBuffer(RenderType.cutout())
+        val singleSpan = MODEL_PIXEL_SPAN_BLOCKS * type.pixelModelScale.toDouble()
+        val pitch = type.pixelPitchBlocks
+        val canMerge = pitch <= singleSpan + MERGE_EPSILON
+        val rectangles = ReactiveDisplayRenderCache.rectangles(
+            desk,
+            socketIndex,
+            frame,
+            canMerge,
+            canMerge
+        )
+
+        rectangles.forEach { rectangle ->
+            val firstX = pixelOffsetX(type, frame.width, rectangle.x)
+            val lastX = pixelOffsetX(type, frame.width, rectangle.x + rectangle.width - 1)
+            val firstZ = pixelOffsetZ(type, frame.height, rectangle.y)
+            val lastZ = pixelOffsetZ(type, frame.height, rectangle.y + rectangle.height - 1)
+            val centerX = (firstX + lastX) * 0.5
+            val centerZ = (firstZ + lastZ) * 0.5
+            val scaleX = (singleSpan + abs(lastX - firstX)) / MODEL_PIXEL_SPAN_BLOCKS
+            val scaleZ = (singleSpan + abs(lastZ - firstZ)) / MODEL_PIXEL_SPAN_BLOCKS
+
+            val rendered = CachedBuffers.partial(DeskDisplayModels.PIXEL, desk.blockState)
+                .translate(0.5, 0.5, 0.5)
+                .rotate(rotation)
+                .translate(socket.offset().x - 0.5, socket.offset().y - 0.5, socket.offset().z - 0.5)
+                .rotate(socket.orientation())
+                .translate(-0.5, 0.0, -0.5)
+                .translate(centerX, 0.0, centerZ)
+                .translate(0.5, 0.0, 0.5)
+                .scale(scaleX.toFloat(), 1.0f, scaleZ.toFloat())
+                .translate(-0.5, 0.0, -0.5)
+            rendered.light<SuperByteBuffer>(light)
+            rendered.renderInto(poseStack, consumer)
         }
     }
 

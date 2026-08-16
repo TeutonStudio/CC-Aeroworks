@@ -43,23 +43,62 @@ object DisplayBindingService {
         return DisplayBindings.describe(binding)
     }
 
+    /** Legacy API name. It now updates only the controller path and preserves the boot program. */
     @Throws(LuaException::class)
     fun setTouchScript(
         desk: ConsoleBlockEntity,
         rawSocket: Any?,
         path: String
+    ): Map<String, Any> = setController(desk, rawSocket, path)
+
+    @Throws(LuaException::class)
+    fun setController(
+        desk: ConsoleBlockEntity,
+        rawSocket: Any?,
+        path: String
     ): Map<String, Any> {
         val socket = AeroworksDeskService.parseSocket(desk, rawSocket)
-        val normalized = path.trim()
-        if (normalized.isEmpty()) throw LuaException("Touch handler path must not be empty")
-        if (normalized.length > DisplayBindings.MAX_HANDLER_PATH_LENGTH) {
-            throw LuaException("Touch handler path is too long")
-        }
-        val binding = DisplayBinding.LuaHandler(normalized)
-        if (!DisplayBindings.set(desk, socket, binding)) {
-            throw LuaException("Touch scripts are supported only by the large Desk Display")
-        }
-        return DisplayBindings.describe(binding)
+        val normalized = normalizeOptionalPath(path, "Controller")
+        val current = DisplayBindings.get(desk, socket)
+        return setApplicationBinding(
+            desk,
+            socket,
+            normalized,
+            DisplayBindings.bootProgramPath(current)
+        )
+    }
+
+    @Throws(LuaException::class)
+    fun setBootProgram(
+        desk: ConsoleBlockEntity,
+        rawSocket: Any?,
+        path: String
+    ): Map<String, Any> {
+        val socket = AeroworksDeskService.parseSocket(desk, rawSocket)
+        val normalized = normalizeOptionalPath(path, "Boot program")
+        val current = DisplayBindings.get(desk, socket)
+        return setApplicationBinding(
+            desk,
+            socket,
+            DisplayBindings.controllerPath(current),
+            normalized
+        )
+    }
+
+    @Throws(LuaException::class)
+    fun setApplication(
+        desk: ConsoleBlockEntity,
+        rawSocket: Any?,
+        controllerPath: String,
+        bootProgramPath: String
+    ): Map<String, Any> {
+        val socket = AeroworksDeskService.parseSocket(desk, rawSocket)
+        return setApplicationBinding(
+            desk,
+            socket,
+            normalizeOptionalPath(controllerPath, "Controller"),
+            normalizeOptionalPath(bootProgramPath, "Boot program")
+        )
     }
 
     @Throws(LuaException::class)
@@ -69,5 +108,30 @@ object DisplayBindingService {
             throw LuaException("Socket $socket is invalid")
         }
         return DisplayBindings.describe(DisplayBinding.Default)
+    }
+
+    private fun setApplicationBinding(
+        desk: ConsoleBlockEntity,
+        socket: Int,
+        controllerPath: String,
+        bootProgramPath: String
+    ): Map<String, Any> {
+        val binding = if (controllerPath.isEmpty() && bootProgramPath.isEmpty()) {
+            DisplayBinding.Default
+        } else {
+            DisplayBinding.LuaApplication(controllerPath, bootProgramPath)
+        }
+        if (!DisplayBindings.set(desk, socket, binding)) {
+            throw LuaException("Display applications are supported only by the large Desk Display")
+        }
+        return DisplayBindings.describe(binding)
+    }
+
+    private fun normalizeOptionalPath(path: String, label: String): String {
+        val normalized = path.trim()
+        if (normalized.length > DisplayBindings.MAX_HANDLER_PATH_LENGTH) {
+            throw LuaException("$label path is too long")
+        }
+        return normalized
     }
 }
