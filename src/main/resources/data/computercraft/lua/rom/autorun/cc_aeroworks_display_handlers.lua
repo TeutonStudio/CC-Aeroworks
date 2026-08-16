@@ -31,6 +31,12 @@ local function report(message)
     end
 end
 
+local function trace(message)
+    print("[CC-AW TOUCH] " .. tostring(message))
+end
+
+trace("[BOOT] display autorun installed")
+
 local function createHandlerEnvironment()
     local environment = {
         _G = handlerGlobalEnvironment,
@@ -147,15 +153,19 @@ end
 
 local function startSupervisor()
     if supervisor ~= nil then return true end
+    trace("[BOOT] requesting cc_aeroworks.ui supervisor")
     local ok, ui = pcall(handlerRequire, "cc_aeroworks.ui")
     if not ok or type(ui) ~= "table" or type(ui.createSupervisor) ~= "function" then
+        report("[CC-AW TOUCH BOOT] supervisor module unavailable: " .. tostring(ui))
         rawset(handlerGlobalEnvironment, "__cc_aeroworks_display_supervisor_active", false)
         return false
     end
 
     supervisor = ui.createSupervisor()
+    trace("[BOOT] supervisor created; starting bound applications")
     supervisor:start()
     rawset(handlerGlobalEnvironment, "__cc_aeroworks_display_supervisor_active", true)
+    trace("[BOOT] supervisor started")
     return true
 end
 
@@ -165,13 +175,34 @@ end
 -- legacy controller available as a fallback.
 local function ensureReactiveRuntime(event)
     normalizeReactiveTarget(event)
-    if supervisor == nil and not startSupervisor() then return false end
-    if supervisor == nil or type(supervisor.hasRuntime) ~= "function" then return supervisor ~= nil end
-    if supervisor:hasRuntime(event[2], event[4]) then return true end
+    if supervisor == nil and not startSupervisor() then
+        trace("[7/8 RUNTIME_MISSING] supervisor could not start")
+        return false
+    end
+    if supervisor == nil then
+        trace("[7/8 RUNTIME_MISSING] supervisor is nil")
+        return false
+    end
+    if type(supervisor.hasRuntime) ~= "function" then
+        trace("[7/8 RUNTIME_UNKNOWN] supervisor has no hasRuntime method")
+        return true
+    end
+    if supervisor:hasRuntime(event[2], event[4]) then
+        trace("[7/8 RUNTIME_READY] desk=" .. tostring(event[2]) .. " socket=" .. tostring(event[4]))
+        return true
+    end
 
     local bootProgram = event[18]
-    if type(bootProgram) ~= "string" or bootProgram == "" then return false end
+    if type(bootProgram) ~= "string" or bootProgram == "" then
+        trace("[7/8 RUNTIME_MISSING] no application path in pointer event")
+        return false
+    end
 
+    trace(
+        "[7/8 RUNTIME_RECOVER] desk=" .. tostring(event[2]) ..
+        " socket=" .. tostring(event[4]) ..
+        " application=" .. tostring(bootProgram)
+    )
     supervisor:handle(
         "cc_aeroworks_display_application_changed",
         event[2],
@@ -181,7 +212,9 @@ local function ensureReactiveRuntime(event)
         type(event[12]) == "string" and event[12] or "",
         bootProgram
     )
-    return supervisor:hasRuntime(event[2], event[4])
+    local recovered = supervisor:hasRuntime(event[2], event[4])
+    trace("[7/8 RUNTIME_RECOVER_RESULT] ready=" .. tostring(recovered))
+    return recovered
 end
 
 local function supervisorEvent(name)
@@ -206,9 +239,22 @@ os.pullEventRaw = function(filter)
         local unique = event[1] ~= "cc_aeroworks_console_display_input" or shouldDispatch(event)
         local handled = false
 
+        if event[1] == "cc_aeroworks_console_display_input" then
+            trace(
+                "[7/8 CRAFTOS_RECEIVE] action=" .. tostring(event[7]) ..
+                " desk=" .. tostring(event[2]) ..
+                " socket=" .. tostring(event[4]) ..
+                " xy=" .. tostring(event[8]) .. "," .. tostring(event[9]) ..
+                " handler=" .. tostring(event[12]) ..
+                " application=" .. tostring(event[18]) ..
+                " unique=" .. tostring(unique)
+            )
+        end
+
         if relevant and unique then
             if event[1] == "cc_aeroworks_console_display_input" then
-                ensureReactiveRuntime(event)
+                local runtimeReady = ensureReactiveRuntime(event)
+                trace("[7/8 CRAFTOS_RUNTIME] ready=" .. tostring(runtimeReady))
             elseif supervisor == nil then
                 startSupervisor()
             end
@@ -216,10 +262,16 @@ os.pullEventRaw = function(filter)
             if supervisor ~= nil then
                 handled = supervisor:handle(table.unpack(event, 1, event.n)) == true
             end
+            if event[1] == "cc_aeroworks_console_display_input" then
+                trace("[8/8 REACTIVE_HANDLE] handled=" .. tostring(handled))
+            end
             if not handled and event[1] == "cc_aeroworks_console_display_input" then
+                trace("[8/8 LEGACY_FALLBACK] handler=" .. tostring(event[12]))
                 local ok, err = pcall(dispatchLegacyConsoleEvent, event)
                 if not ok then report("display handler dispatcher: " .. tostring(err)) end
             end
+        elseif event[1] == "cc_aeroworks_console_display_input" and not unique then
+            trace("[7/8 CRAFTOS_DROP] duplicate event suppressed")
         end
 
         if filter == nil or event[1] == filter or event[1] == "terminate" then
