@@ -41,12 +41,22 @@ require("fun isEncoded" in pixels, "migration must distinguish encoded rasters f
 
 require("type.pixelPitchBlocks" in renderer, "both pixel axes must use the PPB pitch")
 require("type.pixelModelScale" in renderer, "pixel model must scale with PPB")
-pixel_position = renderer.find("pixelOffsetX(display.type, pixels.width, x)")
+# The renderer now shares one renderPixel helper between persisted rasters and reactive frames.
+# Accept either the original direct-raster call or the generalized width/height helper, but keep
+# enforcing the important invariant: raster placement is applied before local model scaling.
+pixel_position_candidates = [
+    renderer.find("pixelOffsetX(display.type, pixels.width, x)"),
+    renderer.find("pixelOffsetX(display.type, width, x)"),
+]
+pixel_positions = [position for position in pixel_position_candidates if position >= 0]
+pixel_position = min(pixel_positions) if pixel_positions else -1
 pixel_scale = renderer.find(".scale(scale, 1.0f, scale)")
 require(pixel_position >= 0 and pixel_scale >= 0 and pixel_position < pixel_scale,
         "pixel model scaling must happen after raster placement so PPB scale cannot collapse offsets")
 require(".translate(0.5, 0.0, 0.5)\n                    .scale(scale, 1.0f, scale)\n                    .translate(-0.5, 0.0, -0.5)" in renderer,
         "pixel model must scale locally around its X/Z centre")
+require("ReactiveDisplayFrames.snapshot" in renderer,
+        "reactive display frames must render through the same PPB-aware pixel pass")
 
 require("DeskPixelOverlayRenderer.track(blockEntity)" in visual,
         "Flywheel visuals must delegate programmable pixel rasters to the shared pass")
@@ -81,4 +91,4 @@ require((pixels_for(10, 256), pixels_for(7, 256)) == (160, 112), "256 PPB large 
 require(raster_footprint(160, 256) <= 10 / 16, "large 256-PPB raster must remain inside display width")
 require(raster_footprint(112, 256) <= 7 / 16, "large 256-PPB raster must remain inside display height")
 
-print("display PPB contract OK: transform order, lighting and 16/256 PPB geometry verified")
+print("display PPB contract OK: persisted/reactive transform order, lighting and 16/256 PPB geometry verified")
