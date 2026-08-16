@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import struct
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -13,6 +14,12 @@ def require(condition: bool, message: str) -> None:
         raise SystemExit(f"FAIL: {message}")
 
 
+def png_size(path: str) -> tuple[int, int]:
+    data = (ROOT / path).read_bytes()
+    require(data.startswith(b"\x89PNG\r\n\x1a\n"), f"{path} must be a PNG")
+    return struct.unpack(">II", data[16:24])
+
+
 geometry_path = "src/main/kotlin/de/teutonstudio/ccaeroworks/client/ModuleScreenRowGeometry.kt"
 old_geometry_path = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ModuleScreenRowGeometry.kt"
 geometry = read(geometry_path)
@@ -20,7 +27,8 @@ accessor = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/Module
 invoker = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ModuleScreenInvoker.kt")
 combined = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ModuleScreenCombinedInputMixin.kt")
 bindings = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ModuleScreenDisplayBindingMixin.kt")
-widgets = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/DisplayBindingRowWidgets.kt")
+presentations = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/DisplayBindingRowWidgets.kt")
+selector = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/SourceSelectorWidget.kt")
 workflow = read(".github/workflows/verify.yml")
 
 # Ordinary helper classes must stay outside the configured Mixin package tree.
@@ -60,7 +68,7 @@ require("ccaeroworks_getRenderedScroll" in combined,
 require("graphics.enableScissor" in combined and "ModuleScreenRowGeometry.LIST_HEIGHT" in combined,
         "Combined decoration must be clipped to the native list viewport")
 
-# One owner computes all extension rows and contentHeight exactly once after row discovery.
+# One owner computes the single source-selector extension row and contentHeight exactly once.
 require("ccaeroworks_extensionRows" in bindings,
         "display binding mixin must own a single extension-row count")
 require(bindings.count("ccaeroworks_setContentHeight(") == 1,
@@ -68,25 +76,53 @@ require(bindings.count("ccaeroworks_setContentHeight(") == 1,
 require("contentHeightWithExtensions" in bindings and "ccaeroworks_extensionRows" in bindings,
         "extension owner must derive native content height from final row count")
 require("extensionScreenTop" in bindings and "ccaeroworks_getRenderedScroll" in bindings,
-        "every extension row must follow native animated scroll")
+        "source selector must follow native animated scroll")
 require('method = ["renderBg(Lnet/minecraft/client/gui/GuiGraphics;FII)V"]' in bindings,
-        "extension widget positions must synchronize after native renderBg scroll interpolation")
-require("graphics.enableScissor" in bindings and "fullyVisible" in bindings,
-        "extension rows/widgets must stay inside the native list viewport")
-require("AeroworksGuiTextures.MODULE_ROW.render" in bindings,
-        "extension rows must reuse Aeroworks' native MODULE_ROW styling")
+        "source selector position must synchronize after native renderBg scroll interpolation")
+require("fullyVisible" in bindings,
+        "source selector must deactivate when its row leaves the native list viewport")
+require("AeroworksGuiTextures.MODULE_ROW" not in bindings,
+        "source selector must not reuse the native control row with Redstone/radio slots")
+require(bindings.count("ccaeroworks_extensionRows = 1") == 2,
+        "radar and script sources must each consume exactly one extension row")
 require("topPos + imageHeight" not in bindings and "leftPos + (imageWidth" not in bindings,
         "configuration rows must not return to inventory-overlapping absolute placement")
 
-# Radar rows and script dropdown both participate in the same extension layout.
-require("RadarSourceRowButton" in bindings and "RadarSourceChoice" in bindings,
-        "radar choices must be normal extension rows")
-require("ScriptSourceDropdownWidget" in bindings,
-        "script source must be an extension-row dropdown")
-require("mouseScrolled" in widgets and "MAX_VISIBLE_OPTIONS" in widgets,
-        "script dropdown must have bounded independent scrolling")
+# Radar and script are presentations over one selector implementation.
+require("SourceSelectorWidget<RadarSourceChoice>" in bindings and "SourceSelectorWidget<String>" in bindings,
+        "radar and script bindings must share SourceSelectorWidget")
+require("{ _ -> choices.map(::radarSourceOption) }" in bindings,
+        "radar choices must feed the shared dropdown instead of creating one row per radar")
+require("mouseScrolled" in selector and "MAX_VISIBLE_OPTIONS = 5" in selector,
+        "shared dropdown must have bounded independent scrolling")
+require("POPUP_ROW_HEIGHT = 30" in selector,
+        "popup rows must preserve the same 30px icon/text geometry as the closed selector")
+require("CHEVRON_DOWN_SPRITE" in selector and "CHEVRON_UP_SPRITE" in selector,
+        "dropdown state must use GUI sprites rather than font glyphs")
+require('if (expanded) "^" else "v"' not in selector,
+        "dropdown arrow must never regress to text glyphs")
+require("SourceSelectorIcon.Item" in selector and "SourceSelectorIcon.Sprite" in selector,
+        "shared selector must support both Minecraft item icons and custom GUI sprites")
 require("EditBox" not in bindings,
         "script source must not restore the old free-form EditBox")
+
+# Radar source icon is the Create: Radars Network Filterer / network controller, never radarPos.
+require('ResourceLocation.fromNamespaceAndPath("create_radar", "network_filterer")' in presentations,
+        "radar source icon must resolve the Create: Radars network_filterer registry block")
+require("BuiltInRegistries.BLOCK.getOptional(NETWORK_CONTROLLER_ID)" in presentations,
+        "radar source icon must use registry lookup rather than a world/chunk lookup")
+require("descriptor.radarPos" not in presentations,
+        "radar source presentation must not derive its icon or title from the radar bearing/radar block")
+require('CCAeroworks.id("source_selector/script")' in presentations,
+        "script source must use the dedicated Minecraft-style script sprite")
+
+# Custom selector art must be slot-free and dimensionally compatible with the row geometry.
+asset_root = "src/main/resources/assets/cc_aeroworks/textures/gui/sprites/source_selector"
+require(png_size(f"{asset_root}/row.png") == (235, 30), "source row sprite must be 235x30")
+require(png_size(f"{asset_root}/row_hover.png") == (235, 30), "source hover sprite must be 235x30")
+require(png_size(f"{asset_root}/dropdown_down.png") == (7, 4), "down chevron must be 7x4")
+require(png_size(f"{asset_root}/dropdown_up.png") == (7, 4), "up chevron must be 7x4")
+require(png_size(f"{asset_root}/script.png") == (16, 16), "script icon must be a Minecraft-sized 16x16 sprite")
 
 # Kotlin companion objects generate a static Companion field on the mixin class.
 require("\n    companion object" not in bindings,
@@ -95,9 +131,9 @@ require("private const val BINDING_ROW_WIDTH" in bindings,
         "display binding layout constants must remain private file-level constants")
 
 require("python3 tools/verify-control-settings-scroll-rows.py" in workflow,
-        "repository workflow must enforce the scroll-row architecture")
+        "repository workflow must enforce the source-selector architecture")
 
 print(
-    "Validated ControlDesk settings rows: native Aeroworks geometry, one extension owner, renderedScroll anchoring, "
-    "scissored Combined decoration, row-based radar choices and independently scrolling script dropdown."
+    "Validated ControlDesk settings rows: native Aeroworks geometry, one slot-free source selector row, "
+    "sprite chevrons, a 16x16 script icon, registry-backed radar Network Filterer icon, and independent popup scrolling."
 )
