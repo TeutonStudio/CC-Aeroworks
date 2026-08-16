@@ -1,27 +1,27 @@
--- CC-Aeroworks automatic display-handler runtime.
+-- CC-Aeroworks automatic programmable-display runtime.
 --
--- Display bindings belong to the embedded ComputerControlDesk computer. The server queues
--- cc_aeroworks_console_display_input with the selected handler path; this hook consumes that
--- metadata before returning the raw event to normal CraftOS programs. Raw events therefore remain
--- observable while a selected handler is also executed automatically.
+-- One non-blocking CraftOS hook owns automatic display input. Reactive applications and their
+-- controller layer are supervised in a private coroutine, while ordinary CraftOS programs still
+-- receive the original raw events. If the reactive API is unavailable, legacy one-file handlers
+-- keep working through the reload-on-touch compatibility path below.
 
 if rawget(_G, "__cc_aeroworks_display_handlers_installed") then return end
 rawset(_G, "__cc_aeroworks_display_handlers_installed", true)
 
 local nativePullEventRaw = os.pullEventRaw
 
--- CraftOS runs /rom/autorun files through shell.run(). The shell gives each program a private
--- environment containing require/package, while BIOS globals deliberately do not expose require.
--- Keep that shell environment alive for handlers loaded later from the event hook. Without this,
--- loadfile(path) uses the BIOS global environment and every discovered handler containing
--- require("display") or require("touchdisplay") fails before its callback can run.
+-- /rom/autorun programs run with the shell module environment. Preserve it for legacy handlers and
+-- also expose require/package to chunks loaded by cc_aeroworks.ui with plain loadfile().
 local handlerBaseEnvironment = _ENV
 local handlerGlobalEnvironment = _G
 local handlerRequire = require
 local handlerPackage = package
+rawset(handlerGlobalEnvironment, "require", handlerRequire)
+rawset(handlerGlobalEnvironment, "package", handlerPackage)
 
 local lastSignature = nil
 local lastEpoch = -1
+local supervisor = nil
 
 local function report(message)
     if type(printError) == "function" then
@@ -62,7 +62,7 @@ local function loadHandler(path)
     return handler
 end
 
-local function dispatch(handler, event)
+local function dispatchLegacy(handler, event)
     local callback
     if event.action == "tap" then
         callback = handler.onTap or handler.onPointer
@@ -103,22 +103,8 @@ local function shouldDispatch(event)
     return true
 end
 
-local function dispatchConsoleEvent(event)
-    if event[1] ~= "cc_aeroworks_console_display_input" then return end
-    local handlerPath = event[12]
-    if type(handlerPath) ~= "string" or handlerPath == "" then return end
-
-    -- Preserve the old explicit router example if somebody deliberately runs it. Without this,
-    -- both the automatic hook and that compatibility program would invoke the same callback.
-    local running = type(shell) == "table" and type(shell.getRunningProgram) == "function"
-        and shell.getRunningProgram() or ""
-    if type(running) == "string" and running:match("display%-binding%-router%.lua$") then return end
-
-    if not shouldDispatch(event) then return end
-    local handler = loadHandler(handlerPath)
-    if not handler then return end
-
-    dispatch(handler, {
+local function asPointerEvent(event)
+    return {
         deskId = event[2],
         deskIndex = event[3],
         socket = event[4],
@@ -129,23 +115,103 @@ local function dispatchConsoleEvent(event)
         y = event[9],
         width = event[10],
         height = event[11],
-        handler = handlerPath,
+        handler = event[12],
         u = event[13],
         v = event[14],
         deskX = event[15],
         deskY = event[16],
         deskZ = event[17]
-    })
+    }
 end
 
--- Pull without a native filter and re-apply the filter here. This ensures a display action is still
--- observed while the foreground program waits for an unrelated filtered event such as "timer".
--- "terminate" is always returned so os.pullEvent keeps its normal termination semantics.
+local function dispatchLegacyConsoleEvent(event)
+    if event[1] ~= "cc_aeroworks_console_display_input" then return end
+    local handlerPath = event[12]
+    if type(handlerPath) ~= "string" or handlerPath == "" then return end
+
+    local running = type(shell) == "table" and type(shell.getRunningProgram) == "function"
+        and shell.getRunningProgram() or ""
+    if type(running) == "string" and running:match("display%-binding%-router%.lua$") then return end
+
+    local handler = loadHandler(handlerPath)
+    if handler then dispatchLegacy(handler, asPointerEvent(event)) end
+end
+
+-- ui.supervise() is intentionally written like a normal CraftOS event loop. Run it as a private
+-- coroutine and temporarily replace pullEventRaw while resuming it, turning each normal raw event
+-- into one supervisor step instead of starting a second blocking shell program.
+local function supervisorPullEventRaw(filter)
+    while true do
+        local event = table.pack(coroutine.yield(filter))
+        if filter == nil or event[1] == filter or event[1] == "terminate" then
+            return table.unpack(event, 1, event.n)
+        end
+    end
+end
+
+local function resumeSupervisor(...)
+    if supervisor == nil then return false end
+    local previousPullEventRaw = os.pullEventRaw
+    os.pullEventRaw = supervisorPullEventRaw
+    local resumed = table.pack(coroutine.resume(supervisor, ...))
+    os.pullEventRaw = previousPullEventRaw
+
+    if not resumed[1] then
+        report("display supervisor: " .. tostring(resumed[2]))
+        supervisor = nil
+        rawset(handlerGlobalEnvironment, "__cc_aeroworks_display_supervisor_active", false)
+        return false
+    end
+    if coroutine.status(supervisor) == "dead" then
+        supervisor = nil
+        rawset(handlerGlobalEnvironment, "__cc_aeroworks_display_supervisor_active", false)
+        return false
+    end
+    rawset(handlerGlobalEnvironment, "__cc_aeroworks_display_supervisor_active", true)
+    return true
+end
+
+local function startSupervisor()
+    if supervisor ~= nil then return true end
+    local ok, ui = pcall(handlerRequire, "cc_aeroworks.ui")
+    if not ok or type(ui) ~= "table" or type(ui.supervise) ~= "function" then return false end
+
+    supervisor = coroutine.create(function() ui.supervise() end)
+    return resumeSupervisor()
+end
+
+local function supervisorEvent(name)
+    return name == "cc_aeroworks_console_display_input"
+        or name == "cc_aeroworks_display_application_changed"
+        or name == "cc_aeroworks_ui_invalidated"
+        or name == "cc_aeroworks_telemetry_added"
+        or name == "cc_aeroworks_telemetry_changed"
+        or name == "cc_aeroworks_telemetry_removed"
+end
+
+-- Prime the supervisor during CraftOS autorun. If API startup order prevents this, relevant display
+-- events retry lazily instead of making the selected controller permanently inert.
+startSupervisor()
+
+-- Pull without a native filter and re-apply the caller's filter afterwards. This lets the automatic
+-- display runtime observe a touch while the foreground program waits for an unrelated event.
 os.pullEventRaw = function(filter)
     while true do
         local event = table.pack(nativePullEventRaw())
-        local ok, err = pcall(dispatchConsoleEvent, event)
-        if not ok then report("display handler dispatcher: " .. tostring(err)) end
+        local relevant = supervisorEvent(event[1])
+        local unique = event[1] ~= "cc_aeroworks_console_display_input" or shouldDispatch(event)
+        local handled = false
+
+        if relevant and unique then
+            if supervisor == nil then startSupervisor() end
+            if supervisor ~= nil then
+                handled = resumeSupervisor(table.unpack(event, 1, event.n))
+            end
+            if not handled and event[1] == "cc_aeroworks_console_display_input" then
+                local ok, err = pcall(dispatchLegacyConsoleEvent, event)
+                if not ok then report("display handler dispatcher: " .. tostring(err)) end
+            end
+        end
 
         if filter == nil or event[1] == filter or event[1] == "terminate" then
             return table.unpack(event, 1, event.n)

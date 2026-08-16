@@ -13,6 +13,8 @@ object CCPayloads {
         registrar.playToServer(SwitchControlDeskUiPayload.TYPE, SwitchControlDeskUiPayload.STREAM_CODEC, SwitchControlDeskUiPayload::handle)
         registrar.playToServer(SetRadarDisplaySourcePayload.TYPE, SetRadarDisplaySourcePayload.STREAM_CODEC, SetRadarDisplaySourcePayload::handle)
         registrar.playToServer(SetDisplayTouchScriptPayload.TYPE, SetDisplayTouchScriptPayload.STREAM_CODEC, SetDisplayTouchScriptPayload::handle)
+        registrar.playToServer(SetDisplayApplicationPayload.TYPE, SetDisplayApplicationPayload.STREAM_CODEC, SetDisplayApplicationPayload::handle)
+        registrar.playToClient(ReactiveDisplayPatchPayload.TYPE, ReactiveDisplayPatchPayload.STREAM_CODEC, ReactiveDisplayPatchPayload::handle)
         registrar.playToServer(RequestDisplayScriptCatalogPayload.TYPE, RequestDisplayScriptCatalogPayload.STREAM_CODEC, RequestDisplayScriptCatalogPayload::handle)
         registrar.playToClient(DisplayScriptCatalogPayload.TYPE, DisplayScriptCatalogPayload.STREAM_CODEC, DisplayScriptCatalogPayload::handle)
         registrar.playToServer(RequestWireChannelSnapshotPayload.TYPE, RequestWireChannelSnapshotPayload.STREAM_CODEC, RequestWireChannelSnapshotPayload::handle)

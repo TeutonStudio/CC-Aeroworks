@@ -3,6 +3,7 @@ package de.teutonstudio.ccaeroworks.mixin
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindingStateAccess
+import de.teutonstudio.ccaeroworks.display.reactive.ReactiveDisplayFrames
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.ListTag
@@ -49,19 +50,23 @@ abstract class ConsoleBlockEntityDisplayBindingMixin : DisplayBindingStateAccess
     ) {
         if (ccaeroworks_displayBindings.isEmpty()) {
             tag.remove(DISPLAY_BINDINGS_NBT_KEY)
-            return
+        } else {
+            val entries = ListTag()
+            ccaeroworks_displayBindings.forEach { (socket, binding) ->
+                if (binding == DisplayBinding.Default) return@forEach
+                entries.add(CompoundTag().apply {
+                    putInt("socket", socket)
+                    put("binding", binding.toTag())
+                })
+            }
+            if (entries.isEmpty()) tag.remove(DISPLAY_BINDINGS_NBT_KEY)
+            else tag.put(DISPLAY_BINDINGS_NBT_KEY, entries)
         }
 
-        val entries = ListTag()
-        ccaeroworks_displayBindings.forEach { (socket, binding) ->
-            if (binding == DisplayBinding.Default) return@forEach
-            entries.add(CompoundTag().apply {
-                putInt("socket", socket)
-                put("binding", binding.toTag())
-            })
-        }
-        if (entries.isEmpty()) tag.remove(DISPLAY_BINDINGS_NBT_KEY)
-        else tag.put(DISPLAY_BINDINGS_NBT_KEY, entries)
+        // Runtime frames are deliberately not persisted to disk. They are included only in
+        // client update/chunk packets so a newly tracking client receives the current frame,
+        // while subsequent changes travel as compact tile patches.
+        if (clientPacket) ReactiveDisplayFrames.writeClientTag(this as ConsoleBlockEntity, tag)
     }
 
     @Inject(method = ["read"], at = [At("TAIL")])
@@ -72,17 +77,19 @@ abstract class ConsoleBlockEntityDisplayBindingMixin : DisplayBindingStateAccess
         callback: CallbackInfo
     ) {
         ccaeroworks_displayBindings.clear()
-        if (!tag.contains(DISPLAY_BINDINGS_NBT_KEY, Tag.TAG_LIST.toInt())) return
-
-        val desk = this as ConsoleBlockEntity
-        val entries = tag.getList(DISPLAY_BINDINGS_NBT_KEY, Tag.TAG_COMPOUND.toInt())
-        for (index in 0 until entries.size) {
-            val entry = entries.getCompound(index)
-            val socket = entry.getInt("socket")
-            if (socket !in 0 until desk.socketCount()) continue
-            val binding = DisplayBinding.fromTag(entry.getCompound("binding")) ?: continue
-            if (binding != DisplayBinding.Default) ccaeroworks_displayBindings[socket] = binding
+        if (tag.contains(DISPLAY_BINDINGS_NBT_KEY, Tag.TAG_LIST.toInt())) {
+            val desk = this as ConsoleBlockEntity
+            val entries = tag.getList(DISPLAY_BINDINGS_NBT_KEY, Tag.TAG_COMPOUND.toInt())
+            for (index in 0 until entries.size) {
+                val entry = entries.getCompound(index)
+                val socket = entry.getInt("socket")
+                if (socket !in 0 until desk.socketCount()) continue
+                val binding = DisplayBinding.fromTag(entry.getCompound("binding")) ?: continue
+                if (binding != DisplayBinding.Default) ccaeroworks_displayBindings[socket] = binding
+            }
         }
+
+        if (clientPacket) ReactiveDisplayFrames.readClientTag(this as ConsoleBlockEntity, tag)
     }
 
     @Inject(
@@ -94,5 +101,6 @@ abstract class ConsoleBlockEntityDisplayBindingMixin : DisplayBindingStateAccess
         callback: CallbackInfoReturnable<ItemStack>
     ) {
         ccaeroworks_displayBindings.remove(socket)
+        ReactiveDisplayFrames.clear(this as ConsoleBlockEntity, socket)
     }
 }

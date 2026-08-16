@@ -6,6 +6,7 @@ import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess
 import de.teutonstudio.ccaeroworks.config.CCServerConfig
 import de.teutonstudio.ccaeroworks.display.DeskDisplayType
+import de.teutonstudio.ccaeroworks.display.reactive.ReactiveDisplayFrames
 import net.createmod.catnip.render.CachedBuffers
 import net.createmod.catnip.render.SuperByteBuffer
 import net.minecraft.client.renderer.MultiBufferSource
@@ -26,6 +27,9 @@ object DeskDisplayRenderer {
     /**
      * Pixel-only pass. Flywheel consoles call this from [DeskPixelOverlayRenderer] instead of
      * allocating one persistent TransformedInstance for every enabled pixel.
+     *
+     * Reactive UI frames deliberately use the same PPB geometry as ordinary programmable pixels.
+     * This keeps every pixel physically square at arbitrary configured parts-per-block values.
      */
     @JvmStatic
     fun renderPixels(desk: ConsoleBlockEntity, poseStack: PoseStack, buffers: MultiBufferSource, light: Int) {
@@ -33,11 +37,11 @@ object DeskDisplayRenderer {
         val rotation = ConsoleBlock.rotationFor(desk.blockState)
         val consumer = buffers.getBuffer(RenderType.cutout())
         AeroworksDeskAccess.renderedDisplays(desk).forEach { display ->
-            val pixels = display.pixels ?: return@forEach
             val socket = sockets.getOrNull(display.socket) ?: return@forEach
             val scale = display.type.pixelModelScale
-            for (y in 0 until pixels.height) for (x in 0 until pixels.width) {
-                if (!pixels.get(x, y)) continue
+            val runtimeFrame = ReactiveDisplayFrames.snapshot(desk, display.socket)
+
+            fun renderPixel(x: Int, y: Int, width: Int, height: Int) {
                 val rendered: SuperByteBuffer = CachedBuffers.partial(DeskDisplayModels.PIXEL, desk.blockState)
                     .translate(0.5, 0.5, 0.5)
                     .rotate(rotation)
@@ -45,17 +49,27 @@ object DeskDisplayRenderer {
                     .rotate(socket.orientation())
                     .translate(-0.5, 0.0, -0.5)
                     .translate(
-                        pixelOffsetX(display.type, pixels.width, x),
+                        pixelOffsetX(display.type, width, x),
                         0.0,
-                        pixelOffsetZ(display.type, pixels.height, y)
+                        pixelOffsetZ(display.type, height, y)
                     )
-                    // Scale only the pixel partial itself. Doing this before desk/socket placement
-                    // also scales all later translations and collapses a high-PPB raster into a line.
                     .translate(0.5, 0.0, 0.5)
                     .scale(scale, 1.0f, scale)
                     .translate(-0.5, 0.0, -0.5)
                 rendered.light<SuperByteBuffer>(light)
                 rendered.renderInto(poseStack, consumer)
+            }
+
+            if (runtimeFrame != null) {
+                runtimeFrame.forEachSetPixel { x, y ->
+                    renderPixel(x, y, runtimeFrame.width, runtimeFrame.height)
+                }
+                return@forEach
+            }
+
+            val pixels = display.pixels ?: return@forEach
+            for (y in 0 until pixels.height) for (x in 0 until pixels.width) {
+                if (pixels.get(x, y)) renderPixel(x, y, pixels.width, pixels.height)
             }
         }
     }
@@ -66,6 +80,7 @@ object DeskDisplayRenderer {
         val rotation = ConsoleBlock.rotationFor(desk.blockState)
         val consumer = buffers.getBuffer(RenderType.cutout())
         AeroworksDeskAccess.renderedDisplays(desk).forEach { display ->
+            if (ReactiveDisplayFrames.snapshot(desk, display.socket) != null) return@forEach
             if (display.pixels != null) return@forEach
             val socket = sockets.getOrNull(display.socket) ?: return@forEach
             display.text.padEnd(display.type.width, ' ').forEachIndexed { digit, character ->

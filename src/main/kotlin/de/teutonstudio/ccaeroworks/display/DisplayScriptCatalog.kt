@@ -8,7 +8,7 @@ import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.util.WeakHashMap
 
-/** Metadata for a Lua file which explicitly opts into one of the display APIs. */
+/** Metadata for a Lua file which explicitly opts into one of the display APIs or controller callbacks. */
 data class DisplayScriptDescriptor(
     val path: String,
     val name: String,
@@ -122,7 +122,7 @@ object DisplayScriptCatalog {
     }.getOrNull()
 }
 
-/** Tiny Lua lexer for real require("display")/require("touchdisplay") calls, ignoring comments/strings. */
+/** Tiny Lua lexer for real display requires/controller callbacks, ignoring comments and strings. */
 private object LuaRequireScanner {
     data class Capabilities(val display: Boolean, val touchDisplay: Boolean)
 
@@ -139,14 +139,19 @@ private object LuaRequireScanner {
                 c == '_' || c.isLetter() -> {
                     val start = index++
                     while (index < source.length && (source[index] == '_' || source[index].isLetterOrDigit())) index++
-                    if (source.substring(start, index) != "require") continue
-                    val parsed = requireArgument(source, index)
-                    if (parsed != null) {
-                        when (parsed.first) {
-                            "display" -> display = true
-                            "touchdisplay" -> touch = true
+                    when (val identifier = source.substring(start, index)) {
+                        "onTap", "onDoubleTap", "onPointer" -> touch = true
+                        "require" -> {
+                            val parsed = requireArgument(source, index)
+                            if (parsed != null) {
+                                when (parsed.first) {
+                                    "display" -> display = true
+                                    "touchdisplay" -> touch = true
+                                }
+                                index = parsed.second
+                            }
                         }
-                        index = parsed.second
+                        else -> Unit
                     }
                 }
                 else -> index++

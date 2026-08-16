@@ -145,9 +145,27 @@ class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral {
     fun setRadarSource(arguments: IArguments): Map<String, Any> =
         DisplayBindingService.setRadarSource(desk(), arguments.get(0), arguments.getString(1))
 
+    /** Legacy name for setDisplayController. */
     @LuaFunction(mainThread = true)
     fun setDisplayTouchScript(arguments: IArguments): Map<String, Any> =
         DisplayBindingService.setTouchScript(desk(), arguments.get(0), arguments.getString(1))
+
+    @LuaFunction(mainThread = true)
+    fun setDisplayController(arguments: IArguments): Map<String, Any> =
+        DisplayBindingService.setController(desk(), arguments.get(0), arguments.getString(1))
+
+    @LuaFunction(mainThread = true)
+    fun setDisplayBootProgram(arguments: IArguments): Map<String, Any> =
+        DisplayBindingService.setBootProgram(desk(), arguments.get(0), arguments.getString(1))
+
+    @LuaFunction(mainThread = true)
+    fun setDisplayApplication(arguments: IArguments): Map<String, Any> =
+        DisplayBindingService.setApplication(
+            desk(),
+            arguments.get(0),
+            arguments.getString(1),
+            arguments.getString(2)
+        )
 
     @LuaFunction(mainThread = true)
     fun clearDisplayBinding(arguments: IArguments): Map<String, Any> =
