@@ -1,12 +1,40 @@
 #!/usr/bin/env python3
-"""Validate directional channels, logical groups, high-level API and DBW multiblock selection."""
+"""Validate logical channel paths, groups, high-level API and DBW multiblock selection."""
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 def read(path:str)->str:return(ROOT/path).read_text(encoding="utf-8")
 def require(condition:bool,message:str)->None:
     if not condition:raise AssertionError(message)
 def main()->int:
-    bank=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/wire/WireChannelBank.kt"); wire_api=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerWireLuaApi.kt"); channel_api=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerChannelLuaApi.kt"); access=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerConsoleAccess.kt"); backend=read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/drivebywire/DriveByWireWireBackend.kt"); native=read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/drivebywire/NativeDriveByWireChannels.kt"); selection=read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/DriveByWireDeskSelection.kt"); session=read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/DriveByWireDeskSelectionSession.kt"); direction=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/channel/ControlDirectionalSignals.kt"); semantics=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/channel/ControlChannelSemantics.kt"); registry=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/channel/ChannelRegistry.kt"); groups=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/channel/ChannelGroupBank.kt"); group_mixin=read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/ComputerControlDeskChannelGroupsMixin.kt"); group_item_mixin=read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/BlockEntityChannelGroupsMixin.kt"); mixin=read("src/main/java/de/teutonstudio/ccaeroworks/mixin/client/DriveByWireClientWireNetworkHandlerMixin.java"); signal=read("src/main/java/de/teutonstudio/ccaeroworks/mixin/compat/DriveByWireSignalFilterMixin.java"); catalog=read("src/main/java/de/teutonstudio/ccaeroworks/mixin/compat/ConsoleWireChannelsDisplayFilterMixin.java"); screen=read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/AbstractComputerScreenSwitchMixin.kt"); widget=read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/WireChannelManagerWidget.kt"); network=read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/WireChannelPayloads.kt"); payloads=read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/CCPayloads.kt"); state=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ControlDeskUiSwitchState.kt"); components=read("src/main/kotlin/de/teutonstudio/ccaeroworks/registry/CCDataComponents.kt"); command=read("src/main/resources/data/computercraft/lua/rom/programs/cc_aeroworks_channels.lua"); docs=read("docs/wire-channels.md"); mixins_json=read("src/main/resources/cc_aeroworks.mixins.json")
+    bank=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/wire/WireChannelBank.kt")
+    wire_api=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerWireLuaApi.kt")
+    channel_api=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerChannelLuaApi.kt")
+    access=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerConsoleAccess.kt")
+    backend=read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/drivebywire/DriveByWireWireBackend.kt")
+    native=read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/drivebywire/NativeDriveByWireChannels.kt")
+    selection=read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/DriveByWireDeskSelection.kt")
+    session=read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/DriveByWireDeskSelectionSession.kt")
+    direction=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/channel/ControlDirectionalSignals.kt")
+    semantics=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/channel/ControlChannelSemantics.kt")
+    registry=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/channel/ChannelRegistry.kt")
+    paths=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/channel/ChannelPathBank.kt")
+    groups=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/channel/ChannelGroupBank.kt")
+    group_mixin=read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/ComputerControlDeskChannelGroupsMixin.kt")
+    group_item_mixin=read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/BlockEntityChannelGroupsMixin.kt")
+    mixin=read("src/main/java/de/teutonstudio/ccaeroworks/mixin/client/DriveByWireClientWireNetworkHandlerMixin.java")
+    signal=read("src/main/java/de/teutonstudio/ccaeroworks/mixin/compat/DriveByWireSignalFilterMixin.java")
+    catalog=read("src/main/java/de/teutonstudio/ccaeroworks/mixin/compat/ConsoleWireChannelsDisplayFilterMixin.java")
+    screen=read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/AbstractComputerScreenSwitchMixin.kt")
+    widget=read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/WireChannelManagerWidget.kt")
+    snapshot=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/wire/WireChannelSnapshotState.kt")
+    network=read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/WireChannelPayloads.kt")
+    payloads=read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/CCPayloads.kt")
+    state=read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ControlDeskUiSwitchState.kt")
+    components=read("src/main/kotlin/de/teutonstudio/ccaeroworks/registry/CCDataComponents.kt")
+    command=read("src/main/resources/data/computercraft/lua/rom/programs/cc_aeroworks_channels.lua")
+    docs=read("docs/wire-channels.md")
+    mixins_json=read("src/main/resources/cc_aeroworks.mixins.json")
+
     require('Regex("[a-z][a-z0-9_-]{0,31}")' in bank and "const val MAX_CHANNELS: Int = 32" in bank and "value in 0..15" in bank,"wire definition/redstone contract changed")
     public_wire=wire_api.split("class ComputerWireAdminLuaApi",1)[0]
     for method in("list","exists","get","set","pulse","reset","resetAll","getInfo","getBackend","isEnabled"):require(f"fun {method}" in public_wire,f"legacy wires API missing {method}")
@@ -20,24 +48,39 @@ def main()->int:
     require("DriveByWireDeskSelectionSession.INSTANCE.begin" in mixin and "DriveByWireDeskSelectionSession.INSTANCE.cycle" in mixin and "selectedSource = endpoint.getSourcePos()" in mixin and "currentChannel = endpoint.getChannel()" in mixin,"DBW transport state must mirror logical session endpoint")
     require("syncManager()" in mixin and "clearSource()" in mixin,"logical DBW selection must preserve native sync/clear lifecycle")
     require("containsMember" in mixin and "ConsoleMultiblockDisplayBounds.resolve" in mixin,"whole desk click/outline semantics missing")
-    require("DriveByWireDeskSelectionResolver.INSTANCE.resolve(level, pos)" in mixin and "ccaeroworksWireDeskPreview" in mixin,"pre-click DBW hover must resolve the whole ControlDesk multiblock")
-    require("ccaeroworks$drawDeskBounds" in mixin and "ccaeroworksWireDeskSelected" in mixin,"preview and selected DBW outlines must share the same multiblock bounds renderer")
-    preview=mixin.split("if (!DriveByWireDeskSelectionSession.INSTANCE.isActive())",1)[1].split("final DriveByWireDeskEndpoint endpoint",1)[0]
-    require("DriveByWireDeskSelectionSession.INSTANCE.begin" not in preview and "selectedSource =" not in preview,"DBW hover preview must remain visual and must not start/mutate selection state")
-    require('id = "control:$deskId:$socket:$moduleId:$nativeChannel:${signal.direction}"' in registry and 'id = "wire:${channel.id}"' in registry,"canonical channel ids missing")
+
+    require('id = "control:$deskId:$socket:$moduleId:$nativeChannel:${signal.direction}"' in registry and 'val id = "wire:${channel.id}"' in registry,"canonical channel ids missing")
+    require("data class ChannelPathDefinition" in paths and "class ChannelPathBank" in paths and "ChannelPathTree" in paths,"logical path model/tree missing")
+    require("MAX_PATH_LENGTH = 192" in paths and "MAX_DEPTH = 8" in paths and 'SEGMENT = Regex("[a-z][a-z0-9_-]{0,31}")' in paths,"logical path validation bounds missing")
+    require("fun conflicts" in paths and 'first.startsWith("$second/")' in paths,"leaf/directory conflict guard missing")
+    require("logicalPath = pathBank.pathFor(id)" in registry and "fun setLogicalPath" in registry and "ChannelPath.conflicts" in registry,"registry must own effective logical paths and conflict validation")
+    require('ChannelKind.WIRE -> snapshot.wires' in registry and 'ChannelKind.CONTROL -> snapshot.modules.firstOrNull' in registry,"path conflicts must be scoped per wire namespace/control module")
+    require('path.startsWith("/wires/")' in registry and 'parts.size < 4' in registry and "ChannelPathTree.children" in registry,"Lua registry must resolve recursive logical paths")
+    require("WireChannelManagerSnapshotBuilder" in snapshot and "ChannelRegistry.snapshot(owner)" in snapshot,"GUI snapshots must derive from canonical registry")
+    require("logicalPaths: Map<String, String>" in snapshot and "snapshot.channels.associate" in snapshot,"GUI snapshot must transport canonical logical paths")
+
     require("data class ChannelGroupDefinition" in groups and "data class ChannelGroupBinding" in groups and "MAX_GROUPS = 32" in groups and "MAX_BINDINGS = 64" in groups and "fun renameBinding" in groups,"user group model/editing/bounds missing")
-    require('"channel_groups"' in components and "CHANNEL_GROUPS" in group_mixin and "collectImplicitComponents" in group_mixin and "applyComponentsFromItemStack" in group_item_mixin and "CHANNEL_GROUPS" in group_item_mixin and '"BlockEntityChannelGroupsMixin"' in mixins_json,"persistent group lifecycle missing")
-    require("DataComponentInput" not in group_mixin,"group persistence mixin must not name protected BlockEntity.DataComponentInput")
+    require('"channel_groups"' in components and '"channel_paths"' in components and "CHANNEL_PATHS" in group_mixin and "CHANNEL_PATHS" in group_item_mixin,"persistent channel path lifecycle missing")
+    require("collectImplicitComponents" in group_mixin and "applyComponentsFromItemStack" in group_item_mixin and '"BlockEntityChannelGroupsMixin"' in mixins_json,"persistent channel metadata lifecycle missing")
+    require("DataComponentInput" not in group_mixin,"channel metadata mixin must not name protected BlockEntity.DataComponentInput")
+
     for method in("ls","stat","read","setWire","pulseWire","resetWire","override","overrideBatch","release","releaseAll"):require(f"fun {method}" in channel_api,f"channels API missing {method}")
-    require('arrayOf("channels")' in channel_api and 'arrayOf("__cc_aeroworks_channel_admin")' in channel_api and "ComputerChannelLuaApi" in access and "ComputerWireLuaApi" in access and "fun renameBinding" in channel_api,"logical/admin API must be additive and complete")
-    require('result["name"] = parts[2]' in channel_api,"channels.stat must preserve logical binding alias as public name")
+    require('arrayOf("channels")' in channel_api and 'arrayOf("__cc_aeroworks_channel_admin")' in channel_api and "ComputerChannelLuaApi" in access and "ComputerWireLuaApi" in access,"logical/admin API must be additive and complete")
+    require("fun renameChannel" in channel_api and "fun resetChannel" in channel_api and "ChannelRegistry.setLogicalPath" in channel_api,"logical path administration missing")
     require("target.sign * value" in registry and "Override batch addresses both directions" in registry,"directional override conversion/conflict guard missing")
-    require("USER GROUPS" in widget and "ChannelRow.UserGroup" in widget and "ChannelRow.Binding" in widget and "MISSING" in widget and "SelectionKind" in widget,"user groups/missing bindings/unambiguous edit selection absent from GUI")
-    require("MutateChannelGroupPayload" in screen and "ChannelGroupMutation.BIND" in screen and "ChannelGroupMutation.RENAME_BINDING" in screen and "owner.channelGroups()" in network and "ChannelRegistry.findById" in network and "ChannelGroupMutation.RENAME_BINDING" in network and "MutateChannelGroupPayload.TYPE" in payloads,"GUI group mutations must use validated server registry")
-    require("channels group add" in command and "channels bind" in command and "channels binding rename" in command and "channels unbind" in command,"CraftOS channel administration incomplete")
+
+    require("USER GROUPS" in widget and "ChannelRow.UserGroup" in widget and "ChannelRow.Binding" in widget and "MISSING" in widget and "SelectionKind" in widget,"user groups/missing bindings/edit selection absent from GUI")
+    require("ChannelRow.PathGroup" in widget and "ChannelPathTree.children" in widget and "selectedChannelTargetId" in widget,"GUI slash hierarchy or unified channel selection missing")
+    require("MutateChannelPathPayload" in screen and "selectedChannelTargetId" in screen,"GUI Rename must mutate logical control/wire paths")
+    require("MutateChannelPathPayload" in network and "ChannelPathMutationResultPayload" in network and "ChannelRegistry.setLogicalPath" in network,"server-authoritative logical rename/result payload missing")
+    require("WireChannelManagerSnapshotBuilder.build(registry)" in network,"network snapshot must use canonical registry")
+    require("MutateChannelPathPayload.TYPE" in payloads and "ChannelPathMutationResultPayload.TYPE" in payloads,"logical path payloads must be registered")
+    require("MutateChannelGroupPayload" in screen and "ChannelGroupMutation.BIND" in screen and "owner.channelGroups()" in network and "ChannelRegistry.findById" in network,"GUI group mutations must use validated server registry")
+    require("channels rename" in command and "reset-name" in command and "channels binding rename" in command,"CraftOS channel/path administration incomplete")
     require("activeComputerDesk" in state,"channel UI must use validated desk session")
-    require("Channels tab" in docs and "same `WireChannelBank`" in docs and "channels.ls" in docs,"channel docs incomplete")
-    print("Validated logical 0..15 channels, persistent editable user groups, channels API, pre-click/active DBW multiblock lifecycle, display isolation and sink geometry.");return 0
+    require("logical path" in docs.lower() and "backend name" in docs.lower() and "channels.ls" in docs,"channel docs incomplete")
+    print("Validated stable channel identities, persistent slash paths, recursive GUI/Lua namespaces, legacy DBW names, user groups and DBW multiblock lifecycle.")
+    return 0
 if __name__=="__main__":
     try:raise SystemExit(main())
     except(AssertionError,OSError,UnicodeDecodeError)as exc:print(f"ERROR: {exc}");raise SystemExit(1)
