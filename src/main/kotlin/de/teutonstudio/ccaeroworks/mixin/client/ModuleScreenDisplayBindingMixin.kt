@@ -150,13 +150,13 @@ abstract class ModuleScreenDisplayBindingMixin(
             ModuleScreenRowGeometry.EXTENSION_ROW_HEIGHT,
             font,
             radarSourceKey(selectedIngress),
-            { choices.map(::radarSourceOption) },
+            { _ -> choices.map(::radarSourceOption) },
             { selectedChoice ->
                 PacketDistributor.sendToServer(
                     SetRadarDisplaySourcePayload(desk.blockPos, socket, selectedChoice.ingressPos)
                 )
             },
-            Component.literal("Radar source")
+            Component.literal("Radarquelle")
         )
         ccaeroworks_radarDropdown = addRenderableWidget(dropdown)
         ccaeroworks_extensionRows = 1
@@ -184,7 +184,7 @@ abstract class ModuleScreenDisplayBindingMixin(
             { path ->
                 PacketDistributor.sendToServer(SetDisplayTouchScriptPayload(desk.blockPos, socket, path))
             },
-            Component.literal("Script source")
+            Component.literal("Skriptquelle")
         )
         ccaeroworks_scriptDropdown = addRenderableWidget(dropdown)
         ccaeroworks_extensionRows = 1

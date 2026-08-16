@@ -3,9 +3,10 @@ package de.teutonstudio.ccaeroworks.client
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.display.DisplayScriptCatalogState
 import de.teutonstudio.ccaeroworks.display.RadarSourceDescriptor
-import net.minecraft.client.Minecraft
 import net.minecraft.core.BlockPos
+import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.network.chat.Component
+import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 
@@ -19,10 +20,11 @@ internal fun radarSourceKey(ingressPos: BlockPos?): String =
 
 internal fun radarSourceOption(choice: RadarSourceChoice): SourceSelectorOption<RadarSourceChoice> {
     val descriptor = choice.descriptor
-    val stack = radarStack(descriptor)
+    val stack = networkControllerStack()
     val title = when {
-        descriptor != null -> radarName(descriptor, stack)
-        choice.ingressPos == null -> Component.literal("Lokales Radar")
+        descriptor != null && stack.item != Items.COMPASS -> stack.hoverName
+        descriptor != null -> Component.literal("Network Controller")
+        choice.ingressPos == null -> Component.literal("Lokales Netzwerk")
         else -> Component.literal("Nicht verfügbare Radarquelle")
     }
     val subtitle = when {
@@ -48,14 +50,15 @@ internal fun scriptSourceOptions(
     selectedPath: String
 ): List<SourceSelectorOption<String>> {
     val entries = DisplayScriptCatalogState.get(deskPos, socket)
-    val noneTitle = if (entries.isEmpty()) "Keine gültigen Skripte" else "Keine Skriptquelle"
     val result = ArrayList<SourceSelectorOption<String>>(entries.size + 2)
     result += SourceSelectorOption(
         key = "",
         value = "",
         presentation = SourceSelectorPresentation(
-            title = Component.literal(noneTitle),
-            subtitle = Component.literal(if (entries.isEmpty()) "Kein kompatibles Lua-Skript gefunden" else "Standard / deaktiviert"),
+            title = Component.literal(if (entries.isEmpty()) "Keine gültigen Skripte" else "Keine Skriptquelle"),
+            subtitle = Component.literal(
+                if (entries.isEmpty()) "Kein kompatibles Lua-Skript gefunden" else "Standard / deaktiviert"
+            ),
             icon = SourceSelectorIcon.Sprite(SCRIPT_ICON)
         )
     )
@@ -85,20 +88,15 @@ internal fun scriptSourceOptions(
     return result
 }
 
-private fun radarStack(descriptor: RadarSourceDescriptor?): ItemStack {
-    val level = Minecraft.getInstance().level
-    val radarPos = descriptor?.radarPos
-    if (level != null && radarPos != null && level.isLoaded(radarPos)) {
-        return ItemStack(level.getBlockState(radarPos).block)
+private fun networkControllerStack(): ItemStack {
+    val block = BuiltInRegistries.BLOCK.getOptional(NETWORK_CONTROLLER_ID).orElse(null)
+    if (block != null) {
+        val stack = ItemStack(block)
+        if (!stack.isEmpty) return stack
     }
     return ItemStack(Items.COMPASS)
 }
 
-private fun radarName(descriptor: RadarSourceDescriptor, stack: ItemStack): Component {
-    val level = Minecraft.getInstance().level
-    val radarPos = descriptor.radarPos
-    if (level != null && radarPos != null && level.isLoaded(radarPos)) return stack.hoverName
-    return Component.literal("Radar ${descriptor.memberIndex + 1}")
-}
-
-private val SCRIPT_ICON = CCAeroworks.id("source_selector/script")
+private val NETWORK_CONTROLLER_ID: ResourceLocation =
+    ResourceLocation.fromNamespaceAndPath("create_radar", "network_filterer")
+private val SCRIPT_ICON: ResourceLocation = CCAeroworks.id("source_selector/script")
