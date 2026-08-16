@@ -32,6 +32,15 @@ data class WireChannelManagerSnapshot(
     val logicalPaths: Map<String, String> = emptyMap()
 )
 
+data class ChannelPathMutationFeedback(val success: Boolean, val message: String)
+
+object ChannelPathMutationState {
+    @Volatile private var current: ChannelPathMutationFeedback? = null
+    fun accept(success: Boolean, message: String) { current = ChannelPathMutationFeedback(success, message) }
+    fun get(): ChannelPathMutationFeedback? = current
+    fun clear() { current = null }
+}
+
 object WireChannelSnapshotState {
     @Volatile
     private var current: WireChannelManagerSnapshot = emptySnapshot()
@@ -51,6 +60,7 @@ object WireChannelSnapshotState {
 
     fun clear() {
         current = emptySnapshot()
+        ChannelPathMutationState.clear()
     }
 
     private fun emptySnapshot(): WireChannelManagerSnapshot = WireChannelManagerSnapshot(
@@ -61,7 +71,7 @@ object WireChannelSnapshotState {
     )
 }
 
-/** GUI control rows are now adapted from the canonical registry instead of rediscovering hardware. */
+/** GUI control rows are adapted from the canonical registry instead of rediscovering hardware. */
 object ControlChannelSnapshotBuilder {
     fun build(owner: ComputerControlDeskBlockEntity): List<ControlModuleGroupView> =
         runCatching { build(ChannelRegistry.snapshot(owner)) }.getOrElse { emptyList() }
@@ -76,13 +86,7 @@ object ControlChannelSnapshotBuilder {
             socketName = module.socketName,
             moduleId = module.moduleId,
             channels = module.channels.map { channel ->
-                ControlChannelView(
-                    id = channel.id,
-                    name = channel.name,
-                    value = channel.value,
-                    overridden = channel.overridden,
-                    connections = channel.connections
-                )
+                ControlChannelView(channel.id, channel.name, channel.value, channel.overridden, channel.connections)
             }
         )
     }

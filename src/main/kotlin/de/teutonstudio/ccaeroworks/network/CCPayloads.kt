@@ -17,6 +17,8 @@ object CCPayloads {
         registrar.playToClient(DisplayScriptCatalogPayload.TYPE, DisplayScriptCatalogPayload.STREAM_CODEC, DisplayScriptCatalogPayload::handle)
         registrar.playToServer(RequestWireChannelSnapshotPayload.TYPE, RequestWireChannelSnapshotPayload.STREAM_CODEC, RequestWireChannelSnapshotPayload::handle)
         registrar.playToServer(MutateWireChannelPayload.TYPE, MutateWireChannelPayload.STREAM_CODEC, MutateWireChannelPayload::handle)
+        registrar.playToServer(MutateChannelPathPayload.TYPE, MutateChannelPathPayload.STREAM_CODEC, MutateChannelPathPayload::handle)
+        registrar.playToClient(ChannelPathMutationResultPayload.TYPE, ChannelPathMutationResultPayload.STREAM_CODEC, ChannelPathMutationResultPayload::handle)
         registrar.playToServer(MutateChannelGroupPayload.TYPE, MutateChannelGroupPayload.STREAM_CODEC, MutateChannelGroupPayload::handle)
         registrar.playToClient(WireChannelSnapshotPayload.TYPE, WireChannelSnapshotPayload.STREAM_CODEC, WireChannelSnapshotPayload::handle)
         registrar.playToServer(RequestInformationSourceSnapshotPayload.TYPE, RequestInformationSourceSnapshotPayload.STREAM_CODEC, RequestInformationSourceSnapshotPayload::handle)

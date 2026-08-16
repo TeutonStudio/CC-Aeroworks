@@ -24,6 +24,8 @@ end
 
 local function help()
     print("channels ls [path]")
+    print("channels rename <channel-id-or-path> <new-path>")
+    print("channels reset-name <channel-id-or-path>")
     print("channels group add <name>")
     print("channels group remove <name>")
     print("channels group rename <old> <new>")
@@ -35,6 +37,10 @@ end
 local cmd = args[1]
 if cmd == nil or cmd == "ls" then
     printLs(args[2] or "/")
+elseif cmd == "rename" and args[2] and args[3] and not args[4] then
+    local result, ok = call(admin.renameChannel, args[2], args[3]); if ok then print("Channel path: " .. result.path) end
+elseif cmd == "reset-name" and args[2] and not args[3] then
+    local result, ok = call(admin.resetChannel, args[2]); if ok then print("Channel path reset to " .. result.path) end
 elseif cmd == "group" and args[2] == "add" and args[3] and not args[4] then
     local result, ok = call(admin.addGroup, args[3]); if ok then print("Added group " .. result.name) end
 elseif cmd == "group" and args[2] == "remove" and args[3] and not args[4] then
