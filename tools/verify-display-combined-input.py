@@ -66,6 +66,39 @@ require(
     "Combined sessions must follow Aeroworks lifecycle",
 )
 
+# A live display pointer owns left/right gesture input even when another control listener already
+# cancelled the NeoForge mouse event. Gesture dispatch must happen before generic activation-key
+# handling so mouse bindings cannot consume the display tap/double-tap edge.
+mouse_handler = controller.find("fun onMouseButton(event: InputEvent.MouseButton.Pre)")
+require(mouse_handler >= 0, "display Combined mouse handler missing")
+mouse_annotation = controller[max(0, mouse_handler - 120):mouse_handler]
+require(
+    "@SubscribeEvent(priority = EventPriority.HIGHEST, receiveCanceled = true)" in mouse_annotation,
+    "display pointer must receive cancelled mouse events before competing Combined handlers",
+)
+mouse_body_end = controller.find("private fun sendPointerAction", mouse_handler)
+require(mouse_body_end > mouse_handler, "display pointer action helper missing")
+mouse_body = controller[mouse_handler:mouse_body_end]
+semantic_position = mouse_body.find("activeBeforeActivation != null && pointerButton")
+activation_position = mouse_body.find("val activationEdge")
+require(
+    semantic_position >= 0 and activation_position > semantic_position,
+    "active display gestures must be handled before generic Combined activation edges",
+)
+require(
+    "GLFW.GLFW_PRESS -> if (basicSessionValid(minecraft))" in mouse_body and
+    "sendPointerAction(activeBeforeActivation, event.button)" in mouse_body and
+    "GLFW.GLFW_RELEASE -> onBindingReleased(binding)" in mouse_body,
+    "display gestures must send on press and still retire mouse activation bindings on release",
+)
+require(
+    "button == GLFW.GLFW_MOUSE_BUTTON_RIGHT" in controller and
+    "DisplayPointerAction.TAP" in controller and
+    "DisplayPointerAction.DOUBLE_TAP" in controller and
+    "DisplayPointerActionPayload(active.pos, active.socket, active.u, active.v, action)" in controller,
+    "right click must remain tap and left click must remain double-tap",
+)
+
 # Display-pointer reach is special on Sable: plot coordinates are not rendered world coordinates.
 require(
     "Sable.HELPER.distanceSquaredWithSubLevels" in sable_geometry and
@@ -128,4 +161,4 @@ require(
     "Combined icon missing",
 )
 require("python3 tools/verify-display-combined-input.py" in workflow, "workflow must enforce display Combined contract")
-print("Validated Combined display input, Sable-aware pointer reach, and DBW isolation.")
+print("Validated Combined display input, pointer click ownership, Sable-aware pointer reach, and DBW isolation.")
