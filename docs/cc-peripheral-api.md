@@ -346,3 +346,16 @@ print(size.width, size.height)
 ```
 
 Koordinaten beginnen bei `(1,1)` links oben. `setDisplayPixels` erwartet exakt `height` Strings aus `0` und `1`, jeweils exakt `width` Zeichen breit. Text- und Zahlmethoden wechseln in den Textmodus, Pixelmethoden in den Rastermodus.
+
+### Imperativer und reaktiver Besitz
+
+Ein Display besitzt immer genau eine aktive Darstellungsquelle:
+
+- Ohne Reactive Application verwenden `setDisplayText`, `setDisplayNumber`, `setDisplayPixel`, `setDisplayPixels` und die entsprechenden `display`/`touchdisplay`-Hilfen den normalen persistenten Displayzustand.
+- Eine Reactive Application mit `require("cc_aeroworks.ui")` besitzt stattdessen einen `ReactiveDisplayFrame` und rendert über Composition, Layout und Draw.
+
+Solange ein Reactive Frame aktiv ist, werfen imperative Schreibmethoden auf diesem Display einen Lua-Fehler. Dadurch kann ein erfolgreicher imperativer Write nicht mehr unsichtbar hinter einem Reactive Frame liegen. Lesezugriffe wie `getDisplaySize` bleiben verfügbar.
+
+Wird die Reactive Application entfernt oder durch ein reines Legacy-Handler-Binding ersetzt, wird der Reactive Frame gelöscht. Ein reiner Touch-Controller erzeugt keinen Reactive Frame.
+
+Die Reactive-UI-, State- und Pointer-API ist in `docs/reactive-display-ui.md` beschrieben.
