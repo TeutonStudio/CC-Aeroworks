@@ -1,12 +1,9 @@
 package de.teutonstudio.ccaeroworks.computer.wire
 
-import de.teutonstudio.ccaeroworks.compat.drivebywire.NativeDriveByWireChannel
-import de.teutonstudio.ccaeroworks.compat.drivebywire.NativeDriveByWireChannels
 import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
-import de.teutonstudio.ccaeroworks.computer.channel.ControlDirectionalSignals
+import de.teutonstudio.ccaeroworks.computer.channel.ChannelRegistry
+import de.teutonstudio.ccaeroworks.computer.channel.ChannelRegistrySnapshot
 import de.teutonstudio.ccaeroworks.computer.channel.UserChannelGroupView
-import de.teutonstudio.ccaeroworks.computer.control.ControlOverrideManager
-import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 
 data class ControlChannelView(
     val id: String,
@@ -30,7 +27,9 @@ data class ControlModuleGroupView(
 data class WireChannelManagerSnapshot(
     val wire: WireChannelBankView,
     val controlGroups: List<ControlModuleGroupView>,
-    val userGroups: List<UserChannelGroupView>
+    val userGroups: List<UserChannelGroupView>,
+    /** Canonical channel id -> effective logical path. Synthetic path groups are never serialized. */
+    val logicalPaths: Map<String, String> = emptyMap()
 )
 
 object WireChannelSnapshotState {
@@ -39,15 +38,12 @@ object WireChannelSnapshotState {
 
     fun accept(snapshot: WireChannelManagerSnapshot) {
         current = snapshot.copy(
-            wire = snapshot.wire.copy(channels = snapshot.wire.channels.map { channel ->
-                channel.copy(targets = channel.targets.toList())
-            }),
+            wire = snapshot.wire.copy(channels = snapshot.wire.channels.map { channel -> channel.copy(targets = channel.targets.toList()) }),
             controlGroups = snapshot.controlGroups.map { group ->
-                group.copy(channels = group.channels.map { channel ->
-                    channel.copy(connections = channel.connections.toList())
-                })
+                group.copy(channels = group.channels.map { channel -> channel.copy(connections = channel.connections.toList()) })
             },
-            userGroups = snapshot.userGroups.map { group -> group.copy(bindings = group.bindings.toList()) }
+            userGroups = snapshot.userGroups.map { group -> group.copy(bindings = group.bindings.toList()) },
+            logicalPaths = snapshot.logicalPaths.toMap()
         )
     }
 
@@ -60,73 +56,57 @@ object WireChannelSnapshotState {
     private fun emptySnapshot(): WireChannelManagerSnapshot = WireChannelManagerSnapshot(
         wire = WireChannelBankView("none", false, emptyList()),
         controlGroups = emptyList(),
-        userGroups = emptyList()
+        userGroups = emptyList(),
+        logicalPaths = emptyMap()
     )
 }
 
+/** GUI control rows are now adapted from the canonical registry instead of rediscovering hardware. */
 object ControlChannelSnapshotBuilder {
-    fun build(owner: ComputerControlDeskBlockEntity): List<ControlModuleGroupView> {
-        val level = owner.level ?: return emptyList()
-        val network = ConsoleMultiblockManager.resolve(level, owner.blockPos)
-        val members = network.members.associateBy { it.id }
-        val dbwChannelsByDesk = hashMapOf<String, List<NativeDriveByWireChannel>>()
-        val discovered = runCatching { ControlOverrideManager.listChannels(owner) }.getOrElse { return emptyList() }
-        val groups = linkedMapOf<String, MutableControlModuleGroup>()
+    fun build(owner: ComputerControlDeskBlockEntity): List<ControlModuleGroupView> =
+        runCatching { build(ChannelRegistry.snapshot(owner)) }.getOrElse { emptyList() }
 
-        discovered.forEach { row ->
-            val deskId = row["desk"] as? String ?: return@forEach
-            val member = members[deskId] ?: return@forEach
-            val deskIndex = (row["deskIndex"] as? Number)?.toInt() ?: -1
-            val socket = (row["socket"] as? Number)?.toInt() ?: return@forEach
-            val socketName = row["socketName"] as? String ?: socket.toString()
-            val moduleId = row["module"] as? String ?: return@forEach
-            val channel = row["channel"] as? String ?: return@forEach
-            val nativeValue = (row["value"] as? Number)?.toInt() ?: 0
-            val overridden = row["overridden"] as? Boolean ?: false
-            val sourcePos = member.pos
-            val groupId = "module:$deskId:$socket:$moduleId"
-            val nativeDbwChannels = dbwChannelsByDesk.getOrPut(deskId) { NativeDriveByWireChannels.channels(member.desk) }
-
-            val group = groups.getOrPut(groupId) {
-                MutableControlModuleGroup(
-                    groupId,
-                    moduleId.substringAfter(':', moduleId).replace('_', ' '),
-                    deskId,
-                    deskIndex,
-                    socket,
-                    socketName,
-                    moduleId
+    fun build(snapshot: ChannelRegistrySnapshot): List<ControlModuleGroupView> = snapshot.modules.map { module ->
+        ControlModuleGroupView(
+            id = module.id,
+            label = module.label,
+            deskId = module.deskId,
+            deskIndex = module.deskIndex,
+            socket = module.socket,
+            socketName = module.socketName,
+            moduleId = module.moduleId,
+            channels = module.channels.map { channel ->
+                ControlChannelView(
+                    id = channel.id,
+                    name = channel.name,
+                    value = channel.value,
+                    overridden = channel.overridden,
+                    connections = channel.connections
                 )
             }
-
-            ControlDirectionalSignals.split(moduleId, socket, channel, nativeValue, nativeDbwChannels).forEach { signal ->
-                val connections = signal.wireChannel?.let { owner.wireBank.connectionTargets(sourcePos, it) }.orEmpty()
-                group.channels += ControlChannelView(
-                    id = "control:$deskId:$socket:$moduleId:$channel:${signal.direction}",
-                    name = signal.label,
-                    value = signal.value,
-                    overridden = overridden,
-                    connections = connections
-                )
-            }
-        }
-
-        return groups.values.map { group ->
-            ControlModuleGroupView(
-                group.id, group.label, group.deskId, group.deskIndex, group.socket,
-                group.socketName, group.moduleId, group.channels.toList()
-            )
-        }
+        )
     }
+}
 
-    private data class MutableControlModuleGroup(
-        val id: String,
-        val label: String,
-        val deskId: String,
-        val deskIndex: Int,
-        val socket: Int,
-        val socketName: String,
-        val moduleId: String,
-        val channels: MutableList<ControlChannelView> = arrayListOf()
+object WireChannelManagerSnapshotBuilder {
+    fun build(snapshot: ChannelRegistrySnapshot): WireChannelManagerSnapshot = WireChannelManagerSnapshot(
+        wire = WireChannelBankView(
+            backend = snapshot.wireBackend,
+            enabled = snapshot.wireEnabled,
+            channels = snapshot.wires.mapNotNull { channel ->
+                val wireId = channel.wireId ?: return@mapNotNull null
+                WireChannelView(
+                    id = wireId,
+                    name = channel.wireName ?: channel.name,
+                    value = channel.value,
+                    connections = channel.connections.size,
+                    connected = channel.connections.isNotEmpty(),
+                    targets = channel.connections
+                )
+            }
+        ),
+        controlGroups = ControlChannelSnapshotBuilder.build(snapshot),
+        userGroups = snapshot.groups,
+        logicalPaths = snapshot.channels.associate { it.id to it.logicalPath }
     )
 }

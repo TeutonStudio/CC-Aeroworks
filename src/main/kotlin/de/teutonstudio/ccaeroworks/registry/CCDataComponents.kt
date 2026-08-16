@@ -11,48 +11,44 @@ import net.neoforged.neoforge.registries.DeferredRegister
 import java.util.function.Supplier
 
 object CCDataComponents {
-    private val COMPONENTS: DeferredRegister<DataComponentType<*>> =
-        DeferredRegister.create(Registries.DATA_COMPONENT_TYPE, CCAeroworks.MOD_ID)
+    private val COMPONENTS: DeferredRegister<DataComponentType<*>> = DeferredRegister.create(Registries.DATA_COMPONENT_TYPE, CCAeroworks.MOD_ID)
 
     @JvmField
     val DESK_ID: DeferredHolder<DataComponentType<*>, DataComponentType<String>> = COMPONENTS.register(
         "desk_id",
-        Supplier<DataComponentType<String>> {
-            DataComponentType.builder<String>().persistent(Codec.STRING).networkSynchronized(ByteBufCodecs.STRING_UTF8).build()
-        }
+        Supplier<DataComponentType<String>> { DataComponentType.builder<String>().persistent(Codec.STRING).networkSynchronized(ByteBufCodecs.STRING_UTF8).build() }
     )
 
     @JvmField
     val COMPUTER_POWERED: DeferredHolder<DataComponentType<*>, DataComponentType<Boolean>> = COMPONENTS.register(
         "computer_powered",
-        Supplier<DataComponentType<Boolean>> {
-            DataComponentType.builder<Boolean>().persistent(Codec.BOOL).networkSynchronized(ByteBufCodecs.BOOL).build()
-        }
+        Supplier<DataComponentType<Boolean>> { DataComponentType.builder<Boolean>().persistent(Codec.BOOL).networkSynchronized(ByteBufCodecs.BOOL).build() }
     )
 
     @JvmField
     val RADAR_DESTINATION_DESK_ID: DeferredHolder<DataComponentType<*>, DataComponentType<String>> = COMPONENTS.register(
         "radar_destination_desk_id",
-        Supplier<DataComponentType<String>> {
-            DataComponentType.builder<String>().persistent(Codec.STRING).networkSynchronized(ByteBufCodecs.STRING_UTF8).build()
-        }
+        Supplier<DataComponentType<String>> { DataComponentType.builder<String>().persistent(Codec.STRING).networkSynchronized(ByteBufCodecs.STRING_UTF8).build() }
     )
 
     @JvmField
     val WIRE_CHANNELS: DeferredHolder<DataComponentType<*>, DataComponentType<String>> = COMPONENTS.register(
         "wire_channels",
-        Supplier<DataComponentType<String>> {
-            DataComponentType.builder<String>().persistent(Codec.STRING).networkSynchronized(ByteBufCodecs.STRING_UTF8).build()
-        }
+        Supplier<DataComponentType<String>> { DataComponentType.builder<String>().persistent(Codec.STRING).networkSynchronized(ByteBufCodecs.STRING_UTF8).build() }
     )
 
     /** Encoded user-defined logical channel groups and stable control/wire bindings. */
     @JvmField
     val CHANNEL_GROUPS: DeferredHolder<DataComponentType<*>, DataComponentType<String>> = COMPONENTS.register(
         "channel_groups",
-        Supplier<DataComponentType<String>> {
-            DataComponentType.builder<String>().persistent(Codec.STRING).networkSynchronized(ByteBufCodecs.STRING_UTF8).build()
-        }
+        Supplier<DataComponentType<String>> { DataComponentType.builder<String>().persistent(Codec.STRING).networkSynchronized(ByteBufCodecs.STRING_UTF8).build() }
+    )
+
+    /** Encoded stable channel id -> logical path overrides used by the Channels namespace. */
+    @JvmField
+    val CHANNEL_PATHS: DeferredHolder<DataComponentType<*>, DataComponentType<String>> = COMPONENTS.register(
+        "channel_paths",
+        Supplier<DataComponentType<String>> { DataComponentType.builder<String>().persistent(Codec.STRING).networkSynchronized(ByteBufCodecs.STRING_UTF8).build() }
     )
 
     fun register(bus: IEventBus) = COMPONENTS.register(bus)

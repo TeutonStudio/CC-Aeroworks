@@ -20,7 +20,10 @@ data class ControlChannelTarget(
 
 data class ChannelDescriptor(
     val id: String,
+    /** Native Aeroworks label for controls, physical backend name for wires. */
     val name: String,
+    /** User-facing path relative to the wire namespace or owning control module. */
+    val logicalPath: String = name,
     val kind: ChannelKind,
     val value: Int,
     val available: Boolean,
@@ -29,7 +32,9 @@ data class ChannelDescriptor(
     val wireId: UUID? = null,
     val wireName: String? = null,
     val overridden: Boolean = false
-)
+) {
+    val displayName: String get() = ChannelPath.leaf(logicalPath)
+}
 
 data class ChannelModuleDescriptor(
     val id: String,
@@ -75,6 +80,7 @@ object ChannelRegistry {
         val members = network.members.associateBy { it.id }
         val dbwByDesk = hashMapOf<String, List<de.teutonstudio.ccaeroworks.compat.drivebywire.NativeDriveByWireChannel>>()
         val moduleMap = linkedMapOf<String, MutableModule>()
+        val pathBank = owner.channelPaths()
 
         ControlOverrideManager.listChannels(owner).forEach { row ->
             val deskId = row["desk"] as? String ?: return@forEach
@@ -103,6 +109,7 @@ object ChannelRegistry {
                 module.channels += ChannelDescriptor(
                     id = id,
                     name = signal.label,
+                    logicalPath = pathBank.pathFor(id) ?: signal.label,
                     kind = ChannelKind.CONTROL,
                     value = signal.value,
                     available = true,
@@ -115,9 +122,11 @@ object ChannelRegistry {
 
         val wireSnapshot = owner.wireBank.snapshot()
         val wires = wireSnapshot.channels.map { channel ->
+            val id = "wire:${channel.id}"
             ChannelDescriptor(
-                id = "wire:${channel.id}",
+                id = id,
                 name = channel.name,
+                logicalPath = pathBank.pathFor(id) ?: channel.name,
                 kind = ChannelKind.WIRE,
                 value = channel.value,
                 available = true,
@@ -137,7 +146,7 @@ object ChannelRegistry {
                     UserChannelBindingView(
                         binding.alias,
                         binding.targetId,
-                        target?.name ?: binding.targetId,
+                        target?.logicalPath ?: binding.targetId,
                         target != null,
                         target?.value,
                         target?.kind
@@ -157,21 +166,45 @@ object ChannelRegistry {
             ?: throw LuaException("Unknown or unavailable channel '$raw'")
     }
 
+    /** Rename only the logical namespace entry. Native Aeroworks and Drive By Wire identities never change here. */
+    fun setLogicalPath(owner: ComputerControlDeskBlockEntity, targetId: String, rawPath: String): ChannelDescriptor {
+        val snapshot = snapshot(owner)
+        val target = snapshot.channels.firstOrNull { it.id == targetId }
+            ?: throw IllegalArgumentException("Unknown channel target '$targetId'")
+        val path = ChannelPath.normalize(rawPath)
+        val siblings = when (target.kind) {
+            ChannelKind.WIRE -> snapshot.wires
+            ChannelKind.CONTROL -> snapshot.modules.firstOrNull { module -> module.channels.any { it.id == target.id } }?.channels.orEmpty()
+        }
+        val conflict = siblings.firstOrNull { it.id != target.id && ChannelPath.conflicts(path, it.logicalPath) }
+        require(conflict == null) { "Channel path '$path' conflicts with '${conflict?.logicalPath}'" }
+        if (path == target.name) owner.channelPaths().clearPath(target.id)
+        else owner.channelPaths().setPath(target.id, path)
+        return snapshot(owner).channels.first { it.id == target.id }
+    }
+
+    fun resetLogicalPath(owner: ComputerControlDeskBlockEntity, targetId: String): ChannelDescriptor {
+        val target = snapshot(owner).channels.firstOrNull { it.id == targetId }
+            ?: throw IllegalArgumentException("Unknown channel target '$targetId'")
+        return setLogicalPath(owner, targetId, target.name)
+    }
+
     fun read(owner: ComputerControlDeskBlockEntity, raw: String): Int = resolve(owner, raw).value
 
     fun stat(owner: ComputerControlDeskBlockEntity, raw: String): Map<String, Any> {
         val snapshot = snapshot(owner)
         groupBinding(snapshot, owner, raw)?.let { (group, binding) ->
             val target = snapshot.channels.firstOrNull { it.id == binding.targetId }
-            return linkedMapOf<String, Any>(
-                "name" to binding.alias,
-                "path" to "/groups/${group.name}/${binding.alias}",
-                "nodeType" to "channel",
-                "id" to binding.targetId,
-                "available" to (target != null)
-            ).also { info -> target?.let { info.putAll(describe(it)) } }
+            val info = target?.let { describe(it).toMutableMap() } ?: linkedMapOf()
+            info["name"] = binding.alias
+            info["path"] = "/groups/${group.name}/${binding.alias}"
+            info["nodeType"] = "channel"
+            info["id"] = binding.targetId
+            info["available"] = target != null
+            return info
         }
-        return describe(resolve(snapshot, owner, raw) ?: throw LuaException("Unknown channel '$raw'"))
+        val channel = resolve(snapshot, owner, raw) ?: throw LuaException("Unknown channel '$raw'")
+        return describe(channel).toMutableMap().also { it["path"] = canonicalPath(snapshot, channel) }
     }
 
     fun ls(owner: ComputerControlDeskBlockEntity, rawPath: String): List<Map<String, Any>> {
@@ -197,15 +230,11 @@ object ChannelRegistry {
                     "module" to module.moduleId
                 )
             }
-            path.startsWith("/modules/") -> {
-                val parts = path.split('/').filter(String::isNotBlank)
-                if (parts.size != 3) throw LuaException("Module path must be /modules/<desk>/<socket>")
-                val socket = parts[2].toIntOrNull() ?: throw LuaException("Invalid module socket '${parts[2]}'")
-                val module = snapshot.modules.firstOrNull { it.deskId == parts[1] && it.socket == socket }
-                    ?: throw LuaException("Unknown module path '$path'")
-                module.channels.map { channelEntry(it, "$path/${it.name}") }
+            path.startsWith("/modules/") -> listModulePath(snapshot, path)
+            path == "/wires" || path.startsWith("/wires/") -> {
+                val prefix = path.removePrefix("/wires").trim('/')
+                listLogical(snapshot.wires, prefix, "/wires")
             }
-            path == "/wires" -> snapshot.wires.map { channelEntry(it, "/wires/${it.name}") }
             path == "/groups" -> snapshot.groups.map { group ->
                 linkedMapOf(
                     "name" to group.name,
@@ -276,14 +305,10 @@ object ChannelRegistry {
         }
         val duplicate = resolved.groupBy { (_, target, _) -> Triple(target.deskId, target.socket, target.nativeChannel) }
             .entries.firstOrNull { it.value.size > 1 }
-        if (duplicate != null) {
-            throw LuaException("Override batch addresses both directions of native channel ${duplicate.key}")
-        }
+        if (duplicate != null) throw LuaException("Override batch addresses both directions of native channel ${duplicate.key}")
         return ControlOverrideManager.overrideBatch(
             owner,
-            resolved.map { (_, target, value) ->
-                ControlOverrideCommand(target.deskId, target.socket, target.nativeChannel, target.sign * value)
-            }
+            resolved.map { (_, target, value) -> ControlOverrideCommand(target.deskId, target.socket, target.nativeChannel, target.sign * value) }
         )
     }
 
@@ -298,8 +323,8 @@ object ChannelRegistry {
         snapshot.channels.firstOrNull { it.id == value }?.let { return it }
         val path = normalizePath(value)
         if (path.startsWith("/wires/")) {
-            val name = path.removePrefix("/wires/")
-            return snapshot.wires.firstOrNull { it.name == name }
+            val logicalPath = path.removePrefix("/wires/")
+            return snapshot.wires.firstOrNull { it.logicalPath == logicalPath }
         }
         if (path.startsWith("/groups/")) {
             val binding = groupBinding(snapshot, owner, path)?.second ?: return null
@@ -307,12 +332,35 @@ object ChannelRegistry {
         }
         if (path.startsWith("/modules/")) {
             val parts = path.split('/').filter(String::isNotBlank)
-            if (parts.size != 4) return null
+            if (parts.size < 4) return null
             val socket = parts[2].toIntOrNull() ?: return null
+            val logicalPath = parts.drop(3).joinToString("/")
             return snapshot.modules.firstOrNull { it.deskId == parts[1] && it.socket == socket }
-                ?.channels?.firstOrNull { it.name == parts[3] }
+                ?.channels?.firstOrNull { it.logicalPath == logicalPath }
         }
         return null
+    }
+
+    private fun listModulePath(snapshot: ChannelRegistrySnapshot, path: String): List<Map<String, Any>> {
+        val parts = path.split('/').filter(String::isNotBlank)
+        if (parts.size < 3) throw LuaException("Module path must be /modules/<desk>/<socket>[/<path>]")
+        val socket = parts[2].toIntOrNull() ?: throw LuaException("Invalid module socket '${parts[2]}'")
+        val module = snapshot.modules.firstOrNull { it.deskId == parts[1] && it.socket == socket }
+            ?: throw LuaException("Unknown module path '$path'")
+        val base = "/modules/${module.deskId}/${module.socket}"
+        return listLogical(module.channels, parts.drop(3).joinToString("/"), base)
+    }
+
+    private fun listLogical(channels: List<ChannelDescriptor>, prefix: String, base: String): List<Map<String, Any>> {
+        val children = ChannelPathTree.children(channels.map { it.logicalPath to it }, prefix)
+        if (children.isEmpty() && prefix.isNotEmpty() && channels.none { it.logicalPath == prefix }) {
+            throw LuaException("Unknown channel path '$base/$prefix'")
+        }
+        return children.map { child ->
+            val fullPath = "$base/${child.path}"
+            if (child.group) groupEntry(child.name, fullPath, "path", true)
+            else channelEntry(requireNotNull(child.value), fullPath)
+        }
     }
 
     private fun groupBinding(
@@ -328,9 +376,18 @@ object ChannelRegistry {
         return group to binding
     }
 
+    private fun canonicalPath(snapshot: ChannelRegistrySnapshot, channel: ChannelDescriptor): String = when (channel.kind) {
+        ChannelKind.WIRE -> "/wires/${channel.logicalPath}"
+        ChannelKind.CONTROL -> snapshot.modules.firstOrNull { module -> module.channels.any { it.id == channel.id } }
+            ?.let { "/modules/${it.deskId}/${it.socket}/${channel.logicalPath}" }
+            ?: channel.logicalPath
+    }
+
     private fun describe(channel: ChannelDescriptor): Map<String, Any> = linkedMapOf<String, Any>(
         "id" to channel.id,
-        "name" to channel.name,
+        "name" to channel.displayName,
+        "nativeName" to channel.name,
+        "logicalPath" to channel.logicalPath,
         "kind" to channel.kind.name.lowercase(),
         "value" to channel.value,
         "available" to channel.available,
@@ -347,20 +404,21 @@ object ChannelRegistry {
             info["sign"] = target.sign
         }
         channel.wireId?.let { info["wireId"] = it.toString() }
+        channel.wireName?.let { info["backendName"] = it }
     }
 
-    private fun channelEntry(channel: ChannelDescriptor, path: String): Map<String, Any> =
-        linkedMapOf<String, Any>(
-            "name" to channel.name,
-            "path" to path,
-            "nodeType" to "channel",
-            "id" to channel.id,
-            "kind" to channel.kind.name.lowercase(),
-            "value" to channel.value,
-            "available" to channel.available,
-            "writable" to true,
-            "overridden" to channel.overridden
-        )
+    private fun channelEntry(channel: ChannelDescriptor, path: String): Map<String, Any> = linkedMapOf(
+        "name" to channel.displayName,
+        "path" to path,
+        "logicalPath" to channel.logicalPath,
+        "nodeType" to "channel",
+        "id" to channel.id,
+        "kind" to channel.kind.name.lowercase(),
+        "value" to channel.value,
+        "available" to channel.available,
+        "writable" to true,
+        "overridden" to channel.overridden
+    )
 
     private fun groupEntry(name: String, path: String, type: String, mutable: Boolean): Map<String, Any> = linkedMapOf(
         "name" to name,
