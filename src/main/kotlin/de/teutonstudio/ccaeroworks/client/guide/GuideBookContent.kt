@@ -9,7 +9,19 @@ sealed interface GuideEntry {
     data object PixelEditor : GuideEntry
 }
 
+enum class GuideSectionId {
+    START,
+    COMPUTERS,
+    NETWORK_API,
+    MODULES,
+    DISPLAYS,
+    PIXEL_EDITOR,
+    CONTROLS,
+    ERRORS
+}
+
 data class GuideSection(
+    val id: GuideSectionId,
     val labelKey: String,
     val titleKey: String,
     val entries: List<GuideEntry>
@@ -18,6 +30,7 @@ data class GuideSection(
 object GuideBookContent {
     val sections: List<GuideSection> = listOf(
         GuideSection(
+            GuideSectionId.START,
             "guide.cc_aeroworks.tab.start",
             "guide.cc_aeroworks.start.title",
             listOf(
@@ -27,6 +40,7 @@ object GuideBookContent {
             )
         ),
         GuideSection(
+            GuideSectionId.COMPUTERS,
             "guide.cc_aeroworks.tab.computers",
             "guide.cc_aeroworks.computers.title",
             listOf(
@@ -37,6 +51,7 @@ object GuideBookContent {
             )
         ),
         GuideSection(
+            GuideSectionId.NETWORK_API,
             "guide.cc_aeroworks.tab.network",
             "guide.cc_aeroworks.network.title",
             listOf(
@@ -63,6 +78,7 @@ object GuideBookContent {
             )
         ),
         GuideSection(
+            GuideSectionId.MODULES,
             "guide.cc_aeroworks.tab.modules",
             "guide.cc_aeroworks.modules.title",
             listOf(
@@ -79,6 +95,7 @@ object GuideBookContent {
             )
         ),
         GuideSection(
+            GuideSectionId.DISPLAYS,
             "guide.cc_aeroworks.tab.displays",
             "guide.cc_aeroworks.displays.title",
             listOf(
@@ -100,6 +117,7 @@ object GuideBookContent {
             )
         ),
         GuideSection(
+            GuideSectionId.PIXEL_EDITOR,
             "guide.cc_aeroworks.tab.pixel_editor",
             "guide.cc_aeroworks.pixel_editor.title",
             listOf(
@@ -109,6 +127,7 @@ object GuideBookContent {
             )
         ),
         GuideSection(
+            GuideSectionId.CONTROLS,
             "guide.cc_aeroworks.tab.controls",
             "guide.cc_aeroworks.controls.title",
             listOf(
@@ -125,6 +144,7 @@ object GuideBookContent {
             )
         ),
         GuideSection(
+            GuideSectionId.ERRORS,
             "guide.cc_aeroworks.tab.errors",
             "guide.cc_aeroworks.errors.title",
             listOf(
@@ -142,4 +162,6 @@ object GuideBookContent {
             )
         )
     )
+
+    fun indexOf(id: GuideSectionId): Int = sections.indexOfFirst { it.id == id }.coerceAtLeast(0)
 }

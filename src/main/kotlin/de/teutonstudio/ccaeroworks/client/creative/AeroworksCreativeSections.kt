@@ -29,12 +29,14 @@ object AeroworksCreativeSections {
         if (tab !== Aeroworks.MAIN_TAB.get()) return
         val createRadarLoaded = ModList.get().isLoaded(CreateRadarCompat.MOD_ID)
         val accessor = tab as CreativeModeTabAccessor
+        accessor.ccaeroworks_getSearchTabDisplayItems().removeIf(::isGuideBook)
         if (!createRadarLoaded) {
             accessor.ccaeroworks_getSearchTabDisplayItems().removeIf(::isRadarDisplay)
         }
 
         val items = tab.displayItems
             .filterNot(ItemStack::isEmpty)
+            .filterNot(::isGuideBook)
             .filterNot { !createRadarLoaded && isRadarDisplay(it) }
         val (registeredBridgeItems, registeredAeroworksItems) = items.partition {
             BuiltInRegistries.ITEM.getKey(it.item).namespace == CCAeroworks.MOD_ID && !isRadarDisplay(it)
@@ -43,7 +45,6 @@ object AeroworksCreativeSections {
         val bridgeItems = registeredBridgeItems.toMutableList()
         appendMissing(bridgeItems, CCItems.COMPUTER_CONTROL_DESK.get().defaultInstance)
         appendMissing(bridgeItems, CCItems.ADVANCED_COMPUTER_CONTROL_DESK.get().defaultInstance)
-        appendMissing(bridgeItems, CCItems.GUIDE_BOOK.get().defaultInstance)
         if (createRadarLoaded) {
             appendMissing(aeroworksItems, CCItems.SMALL_RADAR_DISPLAY.get().defaultInstance)
             appendMissing(aeroworksItems, CCItems.LARGE_RADAR_DISPLAY.get().defaultInstance)
@@ -85,6 +86,8 @@ object AeroworksCreativeSections {
             )
         }
     }
+
+    private fun isGuideBook(stack: ItemStack): Boolean = stack.item === CCItems.GUIDE_BOOK.get()
 
     private fun isRadarDisplay(stack: ItemStack): Boolean =
         stack.item === CCItems.SMALL_RADAR_DISPLAY.get() || stack.item === CCItems.LARGE_RADAR_DISPLAY.get()

@@ -22,20 +22,25 @@ abstract class ModuleScreenSwitchMixin(
     title: Component
 ) : AbstractContainerScreen<ModuleMenu>(menu, inventory, title) {
     @Inject(method = ["init()V"], at = [At("TAIL")])
-    private fun ccaeroworks_addComputerButton(callback: CallbackInfo) {
+    private fun ccaeroworks_addNavigationButtons(callback: CallbackInfo) {
         // A desk-mounted ModuleScreen has an exact ConsoleSocket, including recursive subPath.
         // This is the authoritative DETAIL return target. Held modules deliberately clear it.
         ControlDeskUiSwitchState.rememberClientControls(menu.contentHolder)
-        if (!ControlDeskUiSwitchState.clientCanSwitchToComputer()) return
-        val socket = menu.contentHolder as? ConsoleSocket ?: return
 
-        val computerButton = ControlDeskNavigationButtons.computerButton(this, leftPos, Runnable {
-            // Refresh the socket at the actual transition in case Aeroworks rebuilt the holder.
-            ControlDeskUiSwitchState.rememberClientControls(menu.contentHolder)
-            val current = menu.contentHolder as? ConsoleSocket ?: return@Runnable
-            PacketDistributor.sendToServer(SwitchControlDeskUiPayload(current.be().blockPos))
-        }) ?: return
+        val computerAction = if (
+            ControlDeskUiSwitchState.clientCanSwitchToComputer() && menu.contentHolder is ConsoleSocket
+        ) {
+            Runnable {
+                // Refresh the socket at the actual transition in case Aeroworks rebuilt the holder.
+                ControlDeskUiSwitchState.rememberClientControls(menu.contentHolder)
+                val current = menu.contentHolder as? ConsoleSocket ?: return@Runnable
+                PacketDistributor.sendToServer(SwitchControlDeskUiPayload(current.be().blockPos))
+            }
+        } else {
+            null
+        }
 
-        addRenderableWidget(computerButton)
+        ControlDeskNavigationButtons.navigationButtons(this, leftPos, computerAction)
+            .forEach { addRenderableWidget(it) }
     }
 }
