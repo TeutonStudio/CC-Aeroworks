@@ -58,17 +58,19 @@ data class SetDisplayTouchScriptPayload(
             val displayType = CCModuleTypes.displayType(module.type()) ?: return
             val normalized = payload.path.trim()
             if (normalized.length > DisplayBindings.MAX_HANDLER_PATH_LENGTH) return
-            if (normalized.isNotEmpty()) {
-                val owner = DisplayScriptCatalog.ownerFor(desk) ?: return
-                if (DisplayScriptCatalog.find(owner, normalized, displayType) == null) return
-            }
 
             val previous = DisplayBindings.get(desk, payload.socket)
             val boot = DisplayBindings.bootProgramPath(previous)
-            val binding = when {
-                normalized.isEmpty() && boot.isEmpty() -> DisplayBinding.Default
-                boot.isEmpty() -> DisplayBinding.LuaHandler(normalized)
-                else -> DisplayBinding.LuaApplication(normalized, boot)
+            val binding = if (normalized.isEmpty()) {
+                if (boot.isEmpty()) DisplayBinding.Default else DisplayBinding.LuaApplication("", boot)
+            } else {
+                val owner = DisplayScriptCatalog.ownerFor(desk) ?: return
+                val descriptor = DisplayScriptCatalog.find(owner, normalized, displayType) ?: return
+                if (boot.isEmpty()) {
+                    DisplayBinding.LuaHandler(descriptor.path)
+                } else {
+                    DisplayBinding.LuaApplication(descriptor.path, boot)
+                }
             }
             DisplayBindings.set(desk, payload.socket, binding)
         }
