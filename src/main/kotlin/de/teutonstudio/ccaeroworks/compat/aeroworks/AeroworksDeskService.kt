@@ -9,6 +9,7 @@ import de.teutonstudio.ccaeroworks.compat.computercraft.LuaModuleSnapshot
 import de.teutonstudio.ccaeroworks.display.DeskDisplayFormatter
 import de.teutonstudio.ccaeroworks.display.DeskDisplayPixels
 import de.teutonstudio.ccaeroworks.display.DeskDisplayState
+import de.teutonstudio.ccaeroworks.display.reactive.ReactiveDisplayFrames
 
 data class DeskInputSnapshot(
     val moduleId: String,
@@ -60,6 +61,7 @@ object AeroworksDeskService {
     @Throws(LuaException::class)
     fun setDisplayText(desk: ConsoleBlockEntity, rawSocket: Any?, text: String): String {
         val socket = parseSocket(desk, rawSocket)
+        requireImperativeWritable(desk, socket)
         return AeroworksDeskAccess.setDisplayText(desk, socket, text)?.text
             ?: throw LuaException("Module at socket $socket is not a CC-Aeroworks display")
     }
@@ -73,6 +75,7 @@ object AeroworksDeskService {
     ): String {
         if (!value.isFinite()) throw LuaException("value must be a finite number")
         val socket = parseSocket(desk, rawSocket)
+        requireImperativeWritable(desk, socket)
         val display = requiredDisplay(desk, socket)
         val text = DeskDisplayFormatter.formatNumber(value, display.type.width, zeroPad)
         return AeroworksDeskAccess.setDisplayText(desk, socket, text)?.text
@@ -82,13 +85,16 @@ object AeroworksDeskService {
     @Throws(LuaException::class)
     fun clearDisplay(desk: ConsoleBlockEntity, rawSocket: Any?) {
         val socket = parseSocket(desk, rawSocket)
+        requireImperativeWritable(desk, socket)
         if (AeroworksDeskAccess.setDisplayText(desk, socket, "") == null) {
             throw LuaException("Module at socket $socket is not a CC-Aeroworks display")
         }
     }
 
+    @Throws(LuaException::class)
     fun clearDisplays(desk: ConsoleBlockEntity): Int {
         val displays = AeroworksDeskAccess.displays(desk)
+        displays.forEach { requireImperativeWritable(desk, it.socket) }
         displays.forEach { AeroworksDeskAccess.setDisplayText(desk, it.socket, "") }
         return displays.size
     }
@@ -122,6 +128,7 @@ object AeroworksDeskService {
         enabled: Boolean
     ): Boolean {
         val socket = parseSocket(desk, rawSocket)
+        requireImperativeWritable(desk, socket)
         val display = requiredDisplay(desk, socket)
         val pixels = display.pixels ?: DeskDisplayPixels.blank(display.type)
         validatePixel(pixels, x, y)
@@ -136,6 +143,7 @@ object AeroworksDeskService {
         rows: List<String>
     ): List<String> {
         val socket = parseSocket(desk, rawSocket)
+        requireImperativeWritable(desk, socket)
         val display = requiredDisplay(desk, socket)
         val pixels = try {
             DeskDisplayPixels.fromRows(display.type, rows)
@@ -149,6 +157,7 @@ object AeroworksDeskService {
     @Throws(LuaException::class)
     fun clearDisplayPixels(desk: ConsoleBlockEntity, rawSocket: Any?) {
         val socket = parseSocket(desk, rawSocket)
+        requireImperativeWritable(desk, socket)
         val display = requiredDisplay(desk, socket)
         AeroworksDeskAccess.setDisplayPixels(desk, socket, DeskDisplayPixels.blank(display.type))
     }
@@ -191,6 +200,14 @@ object AeroworksDeskService {
     private fun requiredDisplay(desk: ConsoleBlockEntity, socket: Int): DeskDisplayState =
         AeroworksDeskAccess.display(desk, socket)
             ?: throw LuaException("Module at socket $socket is not a CC-Aeroworks display")
+
+    private fun requireImperativeWritable(desk: ConsoleBlockEntity, socket: Int) {
+        if (ReactiveDisplayFrames.snapshot(desk, socket) != null) {
+            throw LuaException(
+                "Display at socket $socket is owned by a reactive application; update its UI state instead"
+            )
+        }
+    }
 
     private fun validatePixel(pixels: DeskDisplayPixels, x: Int, y: Int) {
         if (x !in 1..pixels.width || y !in 1..pixels.height) {

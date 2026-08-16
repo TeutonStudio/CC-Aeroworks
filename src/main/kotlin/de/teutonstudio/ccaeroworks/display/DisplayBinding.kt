@@ -41,7 +41,7 @@ sealed interface DisplayBinding {
     /** Legacy one-path input handler. Kept for API and world compatibility. */
     data class LuaHandler(val path: String) : DisplayBinding
 
-    /** Controller and initial reactive application for the large programmable display. */
+    /** Optional controller plus the initial reactive application for a large programmable display. */
     data class LuaApplication(
         val controllerPath: String,
         val bootProgramPath: String
@@ -81,7 +81,8 @@ sealed interface DisplayBinding {
                     DisplayBindings.validOptionalPath(boot) &&
                     (controller.isNotEmpty() || boot.isNotEmpty())
                 ) {
-                    LuaApplication(controller, boot)
+                    if (boot.isEmpty() && controller.isNotEmpty()) LuaHandler(controller)
+                    else LuaApplication(controller, boot)
                 } else {
                     null
                 }
@@ -99,7 +100,6 @@ interface DisplayBindingStateAccess {
 
 object DisplayBindings {
     const val MAX_HANDLER_PATH_LENGTH: Int = 256
-    const val EMPTY_REACTIVE_APP_PATH: String = "/cc_aeroworks/empty_display_app.lua"
 
     fun get(desk: ConsoleBlockEntity, socket: Int): DisplayBinding {
         val binding = (desk as? DisplayBindingStateAccess)
@@ -112,14 +112,15 @@ object DisplayBindings {
     fun set(desk: ConsoleBlockEntity, socket: Int, binding: DisplayBinding): Boolean {
         if (socket !in 0 until desk.socketCount() || !supports(desk, socket, binding)) return false
         val state = desk as? DisplayBindingStateAccess ?: return false
+        val normalized = normalize(binding)
         val previous = get(desk, socket)
-        if (previous == binding) return true
+        if (previous == normalized) return true
 
-        state.ccaeroworks_setDisplayBinding(socket, binding)
-        if (controllerPath(binding).isEmpty() && bootProgramPath(binding).isEmpty()) {
+        state.ccaeroworks_setDisplayBinding(socket, normalized)
+        if (!hasReactiveApplication(normalized)) {
             ReactiveDisplayFrames.clear(desk, socket)
         }
-        publishApplicationChanged(desk, socket, binding)
+        publishApplicationChanged(desk, socket, normalized)
         return true
     }
 
@@ -154,16 +155,8 @@ object DisplayBindings {
         else -> ""
     }
 
-    /**
-     * ui.supervise() needs a mounted runtime in order to invoke a controller. A controller-only
-     * binding therefore boots a bundled empty app instead of silently dropping pointer events.
-     * The synthetic path is runtime-only and is never persisted as user configuration.
-     */
-    fun runtimeBootProgramPath(binding: DisplayBinding): String {
-        val configured = bootProgramPath(binding)
-        if (configured.isNotEmpty()) return configured
-        return if (controllerPath(binding).isNotEmpty()) EMPTY_REACTIVE_APP_PATH else ""
-    }
+    fun hasReactiveApplication(binding: DisplayBinding): Boolean =
+        bootProgramPath(binding).isNotEmpty()
 
     fun describe(binding: DisplayBinding): Map<String, Any> = when (binding) {
         DisplayBinding.Default -> linkedMapOf("type" to "default")
@@ -194,6 +187,15 @@ object DisplayBindings {
     fun validOptionalPath(path: String): Boolean =
         path.length <= MAX_HANDLER_PATH_LENGTH
 
+    private fun normalize(binding: DisplayBinding): DisplayBinding = when (binding) {
+        is DisplayBinding.LuaApplication -> when {
+            binding.bootProgramPath.isEmpty() && binding.controllerPath.isEmpty() -> DisplayBinding.Default
+            binding.bootProgramPath.isEmpty() -> DisplayBinding.LuaHandler(binding.controllerPath)
+            else -> binding
+        }
+        else -> binding
+    }
+
     private fun publishApplicationChanged(
         desk: ConsoleBlockEntity,
         socket: Int,
@@ -215,7 +217,7 @@ object DisplayBindings {
             socket,
             DeskSockets.name(socket),
             controllerPath(binding),
-            runtimeBootProgramPath(binding)
+            bootProgramPath(binding)
         )
     }
 }

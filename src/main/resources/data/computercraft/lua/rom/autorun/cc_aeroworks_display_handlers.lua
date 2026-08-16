@@ -1,9 +1,9 @@
 -- CC-Aeroworks automatic programmable-display runtime.
 --
--- One non-blocking CraftOS hook owns automatic display input. Reactive applications and their
--- controller layer are supervised in a private coroutine, while ordinary CraftOS programs still
--- receive the original raw events. If the reactive API is unavailable, legacy one-file handlers
--- keep working through the reload-on-touch compatibility path below.
+-- Automatic reactive applications run synchronously on the real CraftOS coroutine which is
+-- currently pulling events. This deliberately avoids a private child coroutine: main-thread Lua
+-- calls may yield through CC:Tweaked and must therefore remain owned by its scheduler.
+-- Controller-only bindings stay on the reload-on-touch compatibility path below.
 
 if rawget(_G, "__cc_aeroworks_display_handlers_installed") then return end
 rawset(_G, "__cc_aeroworks_display_handlers_installed", true)
@@ -137,47 +137,18 @@ local function dispatchLegacyConsoleEvent(event)
     if handler then dispatchLegacy(handler, asPointerEvent(event)) end
 end
 
--- ui.supervise() is intentionally written like a normal CraftOS event loop. Run it as a private
--- coroutine and temporarily replace pullEventRaw while resuming it, turning each normal raw event
--- into one supervisor step instead of starting a second blocking shell program.
-local function supervisorPullEventRaw(filter)
-    while true do
-        local event = table.pack(coroutine.yield(filter))
-        if filter == nil or event[1] == filter or event[1] == "terminate" then
-            return table.unpack(event, 1, event.n)
-        end
-    end
-end
-
-local function resumeSupervisor(...)
-    if supervisor == nil then return false end
-    local previousPullEventRaw = os.pullEventRaw
-    os.pullEventRaw = supervisorPullEventRaw
-    local resumed = table.pack(coroutine.resume(supervisor, ...))
-    os.pullEventRaw = previousPullEventRaw
-
-    if not resumed[1] then
-        report("display supervisor: " .. tostring(resumed[2]))
-        supervisor = nil
-        rawset(handlerGlobalEnvironment, "__cc_aeroworks_display_supervisor_active", false)
-        return false
-    end
-    if coroutine.status(supervisor) == "dead" then
-        supervisor = nil
-        rawset(handlerGlobalEnvironment, "__cc_aeroworks_display_supervisor_active", false)
-        return false
-    end
-    rawset(handlerGlobalEnvironment, "__cc_aeroworks_display_supervisor_active", true)
-    return true
-end
-
 local function startSupervisor()
     if supervisor ~= nil then return true end
     local ok, ui = pcall(handlerRequire, "cc_aeroworks.ui")
-    if not ok or type(ui) ~= "table" or type(ui.supervise) ~= "function" then return false end
+    if not ok or type(ui) ~= "table" or type(ui.createSupervisor) ~= "function" then
+        rawset(handlerGlobalEnvironment, "__cc_aeroworks_display_supervisor_active", false)
+        return false
+    end
 
-    supervisor = coroutine.create(function() ui.supervise() end)
-    return resumeSupervisor()
+    supervisor = ui.createSupervisor()
+    supervisor:start()
+    rawset(handlerGlobalEnvironment, "__cc_aeroworks_display_supervisor_active", true)
+    return true
 end
 
 local function supervisorEvent(name)
@@ -189,12 +160,12 @@ local function supervisorEvent(name)
         or name == "cc_aeroworks_telemetry_removed"
 end
 
--- Prime the supervisor during CraftOS autorun. If API startup order prevents this, relevant display
--- events retry lazily instead of making the selected controller permanently inert.
+-- Start once during CraftOS autorun. listDisplays/beginFrame/commit may yield here, but they remain
+-- on the real CraftOS coroutine, so CC:Tweaked owns the task_completed lifecycle end to end.
 startSupervisor()
 
--- Pull without a native filter and re-apply the caller's filter afterwards. This lets the automatic
--- display runtime observe a touch while the foreground program waits for an unrelated event.
+-- Pull without a native filter and re-apply the caller's filter afterwards. This lets automatic
+-- display applications observe input while the foreground program waits for an unrelated event.
 os.pullEventRaw = function(filter)
     while true do
         local event = table.pack(nativePullEventRaw())
@@ -205,7 +176,7 @@ os.pullEventRaw = function(filter)
         if relevant and unique then
             if supervisor == nil then startSupervisor() end
             if supervisor ~= nil then
-                handled = resumeSupervisor(table.unpack(event, 1, event.n))
+                handled = supervisor:handle(table.unpack(event, 1, event.n)) == true
             end
             if not handled and event[1] == "cc_aeroworks_console_display_input" then
                 local ok, err = pcall(dispatchLegacyConsoleEvent, event)

@@ -101,7 +101,7 @@ class DisplayUiLuaApi(
                     "height" to display.type.pixelHeight,
                     "runtime" to (ReactiveDisplayFrames.snapshot(member.desk, display.socket) != null),
                     "controller" to DisplayBindings.controllerPath(binding),
-                    "bootProgram" to DisplayBindings.runtimeBootProgramPath(binding)
+                    "bootProgram" to DisplayBindings.bootProgramPath(binding)
                 )
             }
         }

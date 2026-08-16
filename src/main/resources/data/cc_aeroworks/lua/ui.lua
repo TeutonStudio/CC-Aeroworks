@@ -157,6 +157,21 @@ function ui.invalidate(key)
     native.changed(tostring(key))
 end
 
+ui.input = {}
+
+function ui.input.pointer()
+    assert(activeRuntime, "ui.input.pointer must be created while composing a UI component")
+    local runtime = activeRuntime
+    local dependency = runtime.id .. ":input:pointer"
+    return {
+        get = function()
+            native.read(dependency)
+            if not runtime.pointer then return nil end
+            return copyTable(runtime.pointer)
+        end
+    }
+end
+
 local modifierMethods = {}
 modifierMethods.__index = modifierMethods
 
@@ -707,6 +722,7 @@ function Runtime:dispose()
     self.root = nil
     self.nodes = {}
     self.components = {}
+    self.pointer = nil
     native.clearFrame(self.deskId, self.socket)
 end
 
@@ -775,30 +791,56 @@ local function hitNode(node, x, y)
     return nil
 end
 
+function Runtime:updatePointer(event)
+    self.pointerRevision = (self.pointerRevision or 0) + 1
+    local snapshot = copyTable(event)
+    snapshot.revision = self.pointerRevision
+    self.pointer = snapshot
+    native.changed(self.id .. ":input:pointer")
+end
+
 function Runtime:handlePointer(event)
     if event.deskId ~= self.deskId or event.socket ~= self.socket then return false end
+    self:updatePointer(event)
+
     if self.controller and self.controller ~= false then
         local callback = event.action == "tap" and self.controller.onTap
             or event.action == "double_tap" and self.controller.onDoubleTap
             or self.controller.onPointer
         if type(callback) == "function" then
             local ok, result = pcall(callback,event,self)
-            if not ok then printError(tostring(result))
-            elseif type(result) == "string" and result ~= "" then self:switchApp(result); return true end
+            if not ok then
+                printError(tostring(result))
+            elseif type(result) == "string" and result ~= "" then
+                self:switchApp(result)
+                return true
+            end
         end
     end
+
     local node = hitNode(self.root,event.x,event.y)
-    if not node then return false end
-    local p = node.props or {}
-    local callback = event.action == "tap" and p.onTap
-        or event.action == "double_tap" and p.onDoubleTap
-        or p.onPointer
-    if type(callback) == "function" then callback(event) end
+    if node then
+        local p = node.props or {}
+        local callback = event.action == "tap" and p.onTap
+            or event.action == "double_tap" and p.onDoubleTap
+            or p.onPointer
+        if type(callback) == "function" then
+            local ok, err = pcall(callback,event)
+            if not ok then printError(tostring(err)) end
+        end
+    end
     return true
 end
 
 function Runtime:getInfo()
-    return { deskId=self.deskId,socket=self.socket,width=self.width,height=self.height,app=self.appPath }
+    return {
+        deskId=self.deskId,
+        socket=self.socket,
+        width=self.width,
+        height=self.height,
+        app=self.appPath,
+        pointerRevision=self.pointerRevision
+    }
 end
 
 local function loadController(path)
@@ -815,7 +857,8 @@ end
 local function newRuntime(display, spec)
     local runtime = setmetatable({
         deskId=display.deskId, socket=display.socket, width=display.width, height=display.height,
-        id="display:"..display.deskId..":"..tostring(display.socket), nodes={}, components={}, controller=nil
+        id="display:"..display.deskId..":"..tostring(display.socket), nodes={}, components={}, controller=nil,
+        pointer=nil, pointerRevision=0
     },Runtime)
     runtime.controller = loadController(display.controller)
     runtime:switchApp(spec)
@@ -842,6 +885,27 @@ local function consumeReactiveInvalidations()
     return output
 end
 
+local function pointerEventFromRaw(event)
+    return {
+        deskId=event[2],
+        deskIndex=event[3],
+        socket=event[4],
+        socketName=event[5],
+        moduleId=event[6],
+        action=event[7],
+        x=event[8],
+        y=event[9],
+        width=event[10],
+        height=event[11],
+        handler=event[12],
+        u=event[13],
+        v=event[14],
+        deskX=event[15],
+        deskY=event[16],
+        deskZ=event[17]
+    }
+end
+
 function ui.mount(display, app)
     assert(type(display) == "table" and display.deskId and display.socket ~= nil, "display descriptor required")
     return newRuntime(display,asApp(app))
@@ -858,19 +922,24 @@ function ui.run(display, app)
             native.changed("telemetry:"..tostring(event[2])); native.changed("telemetry:*")
             runtime:applyInvalidations(consumeReactiveInvalidations())
         elseif name == "cc_aeroworks_console_display_input" then
-            runtime:handlePointer({ deskId=event[2],deskIndex=event[3],socket=event[4],socketName=event[5],moduleId=event[6],
-                action=event[7],x=event[8],y=event[9],width=event[10],height=event[11],handler=event[12] })
+            runtime:handlePointer(pointerEventFromRaw(event))
             runtime:applyInvalidations(consumeReactiveInvalidations())
         elseif runtime.spec.options and type(runtime.spec.options.onEvent) == "function" then
-            runtime.spec.options.onEvent(table.unpack(event,1,event.n))
+            local ok, err = pcall(runtime.spec.options.onEvent, table.unpack(event,1,event.n))
+            if not ok then printError(tostring(err)) end
             runtime:applyInvalidations(consumeReactiveInvalidations())
         end
     end
 end
 
-function ui.supervise()
+local function displayRuntimeKey(deskId, socket)
+    return tostring(deskId) .. ":" .. tostring(socket)
+end
+
+function ui.createSupervisor()
     local runtimes = {}
-    local function key(deskId,socket) return tostring(deskId)..":"..tostring(socket) end
+    local started = false
+    local supervisor = {}
 
     local function descriptor(deskId,socket,controller,bootProgram)
         for _, display in ipairs(native.listDisplays()) do
@@ -883,16 +952,11 @@ function ui.supervise()
         return nil
     end
 
-    local function start(display)
+    local function startDisplay(display)
         if not display or not display.bootProgram or display.bootProgram == "" then return nil end
         local ok, value = pcall(loadModule,display.bootProgram)
         if not ok then printError(tostring(value)); return nil end
         return newRuntime(display,asApp(value))
-    end
-
-    for _, display in ipairs(native.listDisplays()) do
-        local runtime = start(display)
-        if runtime then runtimes[key(display.deskId,display.socket)] = runtime end
     end
 
     local function distribute(invalidations)
@@ -900,9 +964,22 @@ function ui.supervise()
         for _, runtime in pairs(runtimes) do runtime:applyInvalidations(invalidations) end
     end
 
-    while true do
-        local event = table.pack(os.pullEvent())
+    function supervisor:start()
+        if started then return self end
+        started = true
+        for _, display in ipairs(native.listDisplays()) do
+            local runtime = startDisplay(display)
+            if runtime then runtimes[displayRuntimeKey(display.deskId,display.socket)] = runtime end
+        end
+        return self
+    end
+
+    function supervisor:handle(...)
+        if not started then self:start() end
+        local event = table.pack(...)
         local name = event[1]
+        local handled = false
+
         if name == "cc_aeroworks_ui_invalidated" then
             distribute(consumeReactiveInvalidations())
         elseif name == "cc_aeroworks_telemetry_added" or name == "cc_aeroworks_telemetry_changed" or name == "cc_aeroworks_telemetry_removed" then
@@ -910,27 +987,52 @@ function ui.supervise()
             distribute(consumeReactiveInvalidations())
         elseif name == "cc_aeroworks_display_application_changed" then
             local deskId, socket = event[2], event[4]
-            local runtimeKeyValue = key(deskId,socket)
-            local old = runtimes[runtimeKeyValue]
-            if old then old:dispose(); runtimes[runtimeKeyValue] = nil end
+            local key = displayRuntimeKey(deskId,socket)
+            local old = runtimes[key]
+            if old then old:dispose(); runtimes[key] = nil end
             local display = descriptor(deskId,socket,event[6],event[7])
-            local replacement = start(display)
-            if replacement then runtimes[runtimeKeyValue] = replacement end
+            local replacement = startDisplay(display)
+            if replacement then runtimes[key] = replacement end
         elseif name == "cc_aeroworks_console_display_input" then
-            local runtime = runtimes[key(event[2],event[4])]
+            local runtime = runtimes[displayRuntimeKey(event[2],event[4])]
             if runtime then
-                runtime:handlePointer({ deskId=event[2],deskIndex=event[3],socket=event[4],socketName=event[5],moduleId=event[6],
-                    action=event[7],x=event[8],y=event[9],width=event[10],height=event[11],handler=event[12] })
+                runtime:handlePointer(pointerEventFromRaw(event))
+                handled = true
             end
             distribute(consumeReactiveInvalidations())
         else
             for _, runtime in pairs(runtimes) do
                 if runtime.spec.options and type(runtime.spec.options.onEvent) == "function" then
-                    runtime.spec.options.onEvent(table.unpack(event,1,event.n))
+                    local ok, err = pcall(runtime.spec.options.onEvent, table.unpack(event,1,event.n))
+                    if not ok then printError(tostring(err)) end
                 end
             end
             distribute(consumeReactiveInvalidations())
         end
+        return handled
+    end
+
+    function supervisor:hasRuntime(deskId, socket)
+        return runtimes[displayRuntimeKey(deskId,socket)] ~= nil
+    end
+
+    function supervisor:dispose()
+        for key, runtime in pairs(runtimes) do
+            runtime:dispose()
+            runtimes[key] = nil
+        end
+        started = false
+    end
+
+    return supervisor
+end
+
+function ui.supervise()
+    local supervisor = ui.createSupervisor()
+    supervisor:start()
+    while true do
+        local event = table.pack(os.pullEvent())
+        supervisor:handle(table.unpack(event,1,event.n))
     end
 end
 
