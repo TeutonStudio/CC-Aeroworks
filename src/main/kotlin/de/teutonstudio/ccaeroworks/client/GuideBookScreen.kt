@@ -2,19 +2,27 @@ package de.teutonstudio.ccaeroworks.client
 
 import de.teutonstudio.ccaeroworks.client.guide.GuideBookContent
 import de.teutonstudio.ccaeroworks.client.guide.GuideEntry
+import de.teutonstudio.ccaeroworks.client.guide.GuideSectionId
 import de.teutonstudio.ccaeroworks.client.guide.PixelEditorPanel
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import net.minecraft.util.Mth
 
-class GuideBookScreen : Screen(Component.translatable("guide.cc_aeroworks.title")) {
-    private var sectionIndex: Int = 0
+class GuideBookScreen(
+    private val parent: Screen? = null,
+    initialSection: GuideSectionId = GuideSectionId.START
+) : Screen(Component.translatable("guide.cc_aeroworks.title")) {
+    private var sectionIndex: Int = GuideBookContent.indexOf(initialSection)
     private var scroll: Int = 0
     private var measuredContentHeight: Int = 0
     private val pixelEditorPanel = PixelEditorPanel()
 
     override fun isPauseScreen(): Boolean = false
+
+    override fun onClose() {
+        minecraft?.setScreen(parent)
+    }
 
     override fun render(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
         // Do not call Screen.renderBackground here: in-world screens enable Minecraft's blur
