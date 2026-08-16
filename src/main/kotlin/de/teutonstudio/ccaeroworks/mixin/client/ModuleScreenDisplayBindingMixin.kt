@@ -9,13 +9,14 @@ import de.teutonstudio.ccaeroworks.client.ModuleScreenRowGeometry
 import de.teutonstudio.ccaeroworks.client.RadarSourceChoice
 import de.teutonstudio.ccaeroworks.client.RadarSourceRowButton
 import de.teutonstudio.ccaeroworks.client.ScriptSourceDropdownWidget
+import de.teutonstudio.ccaeroworks.client.ScriptSourceRole
 import de.teutonstudio.ccaeroworks.display.DeskDisplayType
 import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
 import de.teutonstudio.ccaeroworks.display.DisplayScriptCatalogState
 import de.teutonstudio.ccaeroworks.display.RadarSourceRegistry
 import de.teutonstudio.ccaeroworks.network.RequestDisplayScriptCatalogPayload
-import de.teutonstudio.ccaeroworks.network.SetDisplayTouchScriptPayload
+import de.teutonstudio.ccaeroworks.network.SetDisplayApplicationPayload
 import de.teutonstudio.ccaeroworks.network.SetRadarDisplaySourcePayload
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 import net.minecraft.client.gui.GuiGraphics
@@ -36,8 +37,8 @@ private const val BINDING_ROW_WIDTH: Int = 235
  * Owns every CC-Aeroworks extension row appended to Aeroworks' ModuleScreen.
  *
  * Native contentHeight is captured once and extended exactly once, avoiding competing mixins which
- * independently believe they own the same scrollbar. Radar choices and script selection are normal
- * rows in the native 251x108 viewport and derive Y from renderedScroll on every frame.
+ * independently believe they own the same scrollbar. Radar choices and display application choices
+ * are normal rows in the native 251x108 viewport and derive Y from renderedScroll on every frame.
  */
 @Mixin(value = [ModuleScreen::class], remap = false)
 abstract class ModuleScreenDisplayBindingMixin(
@@ -64,7 +65,13 @@ abstract class ModuleScreenDisplayBindingMixin(
     private val ccaeroworks_radarRows = mutableListOf<RadarSourceRowButton>()
 
     @Unique
-    private var ccaeroworks_scriptDropdown: ScriptSourceDropdownWidget? = null
+    private val ccaeroworks_scriptDropdowns = mutableListOf<ScriptSourceDropdownWidget>()
+
+    @Unique
+    private var ccaeroworks_selectedControllerPath: String = ""
+
+    @Unique
+    private var ccaeroworks_selectedApplicationPath: String = ""
 
     @Inject(method = ["init()V"], at = [At("TAIL")])
     private fun ccaeroworks_addDisplayBindingRows(callback: CallbackInfo) {
@@ -87,7 +94,7 @@ abstract class ModuleScreenDisplayBindingMixin(
         if (radarDisplay) {
             ccaeroworks_addRadarRows(desk, socket)
         } else if (scriptDisplay) {
-            ccaeroworks_addScriptRow(desk, socket)
+            ccaeroworks_addScriptRows(desk, socket)
         }
 
         if (ccaeroworks_extensionRows > 0) {
@@ -157,10 +164,10 @@ abstract class ModuleScreenDisplayBindingMixin(
             row.selected = row.choice.ingressPos == ccaeroworks_selectedRadarIngress
         }
 
-        ccaeroworks_scriptDropdown?.let { dropdown ->
+        ccaeroworks_scriptDropdowns.forEachIndexed { index, dropdown ->
             val rowTop = ModuleScreenRowGeometry.extensionScreenTop(
                 ccaeroworks_nativeContentHeight,
-                0,
+                index,
                 listTop,
                 renderedScroll
             )
@@ -221,29 +228,56 @@ abstract class ModuleScreenDisplayBindingMixin(
     }
 
     @Unique
-    private fun ccaeroworks_addScriptRow(desk: ConsoleBlockEntity, socket: Int) {
+    private fun ccaeroworks_addScriptRows(desk: ConsoleBlockEntity, socket: Int) {
         DisplayScriptCatalogState.clear(desk.blockPos, socket)
         PacketDistributor.sendToServer(RequestDisplayScriptCatalogPayload(desk.blockPos, socket))
-        val currentPath = (DisplayBindings.get(desk, socket) as? DisplayBinding.LuaHandler)?.path.orEmpty()
+
+        val binding = DisplayBindings.get(desk, socket)
+        ccaeroworks_selectedControllerPath = DisplayBindings.controllerPath(binding)
+        ccaeroworks_selectedApplicationPath = DisplayBindings.bootProgramPath(binding)
+
         val invoker = this as ModuleScreenInvoker
-        val dropdown = ScriptSourceDropdownWidget(
-            invoker.ccaeroworks_rowLeft(),
-            ModuleScreenRowGeometry.extensionScreenTop(
-                ccaeroworks_nativeContentHeight,
-                0,
-                invoker.ccaeroworks_listTop(),
-                (this as ModuleScreenAccessor).ccaeroworks_getRenderedScroll()
-            ),
-            BINDING_ROW_WIDTH,
-            ModuleScreenRowGeometry.EXTENSION_ROW_HEIGHT,
-            font,
-            desk.blockPos,
-            socket,
-            currentPath
-        ) { path ->
-            PacketDistributor.sendToServer(SetDisplayTouchScriptPayload(desk.blockPos, socket, path))
+        fun addDropdown(index: Int, role: ScriptSourceRole, selectedPath: String, callback: (String) -> Unit) {
+            val dropdown = ScriptSourceDropdownWidget(
+                invoker.ccaeroworks_rowLeft(),
+                ModuleScreenRowGeometry.extensionScreenTop(
+                    ccaeroworks_nativeContentHeight,
+                    index,
+                    invoker.ccaeroworks_listTop(),
+                    (this as ModuleScreenAccessor).ccaeroworks_getRenderedScroll()
+                ),
+                BINDING_ROW_WIDTH,
+                ModuleScreenRowGeometry.EXTENSION_ROW_HEIGHT,
+                font,
+                desk.blockPos,
+                socket,
+                role,
+                selectedPath,
+                callback
+            )
+            ccaeroworks_scriptDropdowns += addRenderableWidget(dropdown)
         }
-        ccaeroworks_scriptDropdown = addRenderableWidget(dropdown)
-        ccaeroworks_extensionRows = 1
+
+        addDropdown(0, ScriptSourceRole.REACTIVE_APP, ccaeroworks_selectedApplicationPath) { path ->
+            ccaeroworks_selectedApplicationPath = path
+            ccaeroworks_sendApplicationBinding(desk, socket)
+        }
+        addDropdown(1, ScriptSourceRole.LEGACY_TOUCH, ccaeroworks_selectedControllerPath) { path ->
+            ccaeroworks_selectedControllerPath = path
+            ccaeroworks_sendApplicationBinding(desk, socket)
+        }
+        ccaeroworks_extensionRows = 2
+    }
+
+    @Unique
+    private fun ccaeroworks_sendApplicationBinding(desk: ConsoleBlockEntity, socket: Int) {
+        PacketDistributor.sendToServer(
+            SetDisplayApplicationPayload(
+                desk.blockPos,
+                socket,
+                ccaeroworks_selectedControllerPath,
+                ccaeroworks_selectedApplicationPath
+            )
+        )
     }
 }

@@ -90,6 +90,34 @@ internal class RadarSourceRowButton(
     }
 }
 
+internal enum class ScriptSourceRole {
+    REACTIVE_APP,
+    LEGACY_TOUCH;
+
+    fun accepts(entry: DisplayScriptDescriptor): Boolean = when (this) {
+        REACTIVE_APP -> entry.reactiveUi
+        LEGACY_TOUCH -> entry.touchDisplay
+    }
+
+    val label: String
+        get() = when (this) {
+            REACTIVE_APP -> "Application"
+            LEGACY_TOUCH -> "Legacy Touch"
+        }
+
+    val emptyLabel: String
+        get() = when (this) {
+            REACTIVE_APP -> "Keine Application"
+            LEGACY_TOUCH -> "Kein Legacy-Handler"
+        }
+
+    val hint: String
+        get() = when (this) {
+            REACTIVE_APP -> "require(\"cc_aeroworks.ui\")"
+            LEGACY_TOUCH -> "require(\"touchdisplay\") / onTap"
+        }
+}
+
 internal class ScriptSourceDropdownWidget(
     x: Int,
     y: Int,
@@ -98,9 +126,10 @@ internal class ScriptSourceDropdownWidget(
     private val font: Font,
     private val deskPos: BlockPos,
     private val socket: Int,
+    private val role: ScriptSourceRole,
     selectedPath: String,
     private val callback: (String) -> Unit
-) : AbstractWidget(x, y, width, height, Component.literal("Script source")) {
+) : AbstractWidget(x, y, width, height, Component.literal(role.label)) {
     private var selectedPath: String = selectedPath
     private var expanded = false
     private var scrollIndex = 0
@@ -109,12 +138,12 @@ internal class ScriptSourceDropdownWidget(
         val entries = entries()
         val selected = entries.firstOrNull { it.path == selectedPath }
         val title = when {
-            selected != null -> selected.name
-            selectedPath.isNotBlank() -> "Fehlende Skriptquelle"
-            entries.isEmpty() -> "Keine gültigen Skripte"
-            else -> "Skriptquelle auswählen"
+            selected != null -> "${role.label}: ${selected.name}"
+            selectedPath.isNotBlank() -> "${role.label}: fehlende Quelle"
+            entries.isEmpty() -> "${role.label}: keine gültigen Skripte"
+            else -> "${role.label} auswählen"
         }
-        val subtitle = selected?.path ?: selectedPath.ifBlank { "require(\"display\") / require(\"touchdisplay\")" }
+        val subtitle = selected?.path ?: selectedPath.ifBlank { role.hint }
 
         if (isHovered) graphics.fill(x + 1, y + 1, x + width - 1, y + height - 1, 0x18FFFFFF)
         graphics.drawString(font, font.plainSubstrByWidth(title, width - 26), x + 8, y + 6, 0x202020, false)
@@ -181,7 +210,8 @@ internal class ScriptSourceDropdownWidget(
         selectedPath = path
     }
 
-    private fun entries(): List<DisplayScriptDescriptor> = DisplayScriptCatalogState.get(deskPos, socket)
+    private fun entries(): List<DisplayScriptDescriptor> =
+        DisplayScriptCatalogState.get(deskPos, socket).filter(role::accepts)
 
     private fun options(entries: List<DisplayScriptDescriptor>): List<DisplayScriptDescriptor?> = listOf(null) + entries
 
@@ -209,7 +239,7 @@ internal class ScriptSourceDropdownWidget(
             if (inside(mouseX.toDouble(), mouseY.toDouble(), popup.x, rowY, popup.width, POPUP_ROW_HEIGHT)) {
                 graphics.fill(popup.x + 1, rowY + 1, popup.x + popup.width - 1, rowY + POPUP_ROW_HEIGHT - 1, 0xFFD8D8D8.toInt())
             }
-            val name = option?.name ?: "Keine Skriptquelle"
+            val name = option?.name ?: role.emptyLabel
             val path = option?.path ?: "Standard / deaktiviert"
             graphics.drawString(font, font.plainSubstrByWidth(name, popup.width - 12), popup.x + 6, rowY + 3, 0x202020, false)
             graphics.drawString(font, font.plainSubstrByWidth(path, popup.width - 12), popup.x + 6, rowY + 13, 0x777777, false)

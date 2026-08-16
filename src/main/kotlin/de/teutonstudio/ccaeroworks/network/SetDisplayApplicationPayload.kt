@@ -6,6 +6,7 @@ import de.teutonstudio.ccaeroworks.compat.sable.SableInteractionGeometry
 import de.teutonstudio.ccaeroworks.display.DeskDisplayType
 import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
+import de.teutonstudio.ccaeroworks.display.DisplayScriptCatalog
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 import net.minecraft.core.BlockPos
 import net.minecraft.network.RegistryFriendlyByteBuf
@@ -58,16 +59,34 @@ data class SetDisplayApplicationPayload(
             if (payload.socket !in 0 until desk.socketCount()) return
 
             val module = desk.module(payload.socket) ?: return
-            if (CCModuleTypes.displayType(module.type()) != DeskDisplayType.THREE_DIGIT) return
+            val displayType = CCModuleTypes.displayType(module.type()) ?: return
+            if (displayType != DeskDisplayType.THREE_DIGIT) return
 
-            val controller = payload.controllerPath.trim()
-            val boot = payload.bootProgramPath.trim()
-            if (!DisplayBindings.validOptionalPath(controller) || !DisplayBindings.validOptionalPath(boot)) return
+            val requestedController = payload.controllerPath.trim()
+            val requestedBoot = payload.bootProgramPath.trim()
+            if (!DisplayBindings.validOptionalPath(requestedController) || !DisplayBindings.validOptionalPath(requestedBoot)) return
 
-            val binding = if (controller.isEmpty() && boot.isEmpty()) {
-                DisplayBinding.Default
+            val owner = if (requestedController.isNotEmpty() || requestedBoot.isNotEmpty()) {
+                DisplayScriptCatalog.ownerFor(desk) ?: return
             } else {
-                DisplayBinding.LuaApplication(controller, boot)
+                null
+            }
+
+            val controller = if (requestedController.isEmpty()) {
+                ""
+            } else {
+                DisplayScriptCatalog.findLegacyTouch(owner!!, requestedController, displayType)?.path ?: return
+            }
+            val boot = if (requestedBoot.isEmpty()) {
+                ""
+            } else {
+                DisplayScriptCatalog.findReactiveUi(owner!!, requestedBoot, displayType)?.path ?: return
+            }
+
+            val binding = when {
+                controller.isEmpty() && boot.isEmpty() -> DisplayBinding.Default
+                boot.isEmpty() -> DisplayBinding.LuaHandler(controller)
+                else -> DisplayBinding.LuaApplication(controller, boot)
             }
             DisplayBindings.set(desk, payload.socket, binding)
         }

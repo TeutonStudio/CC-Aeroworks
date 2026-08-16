@@ -3,7 +3,6 @@ package de.teutonstudio.ccaeroworks.network
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.sable.SableInteractionGeometry
-import de.teutonstudio.ccaeroworks.display.DeskDisplayType
 import de.teutonstudio.ccaeroworks.display.DisplayScriptCatalog
 import de.teutonstudio.ccaeroworks.display.DisplayScriptCatalogState
 import de.teutonstudio.ccaeroworks.display.DisplayScriptDescriptor
@@ -84,7 +83,8 @@ data class DisplayScriptCatalogPayload(
                             path = buffer.readUtf(DisplayScriptCatalog.MAX_PATH_LENGTH),
                             name = buffer.readUtf(128),
                             display = buffer.readBoolean(),
-                            touchDisplay = buffer.readBoolean()
+                            touchDisplay = buffer.readBoolean(),
+                            reactiveUi = buffer.readBoolean()
                         )
                     }
                     return DisplayScriptCatalogPayload(pos, socket, entries)
@@ -99,6 +99,7 @@ data class DisplayScriptCatalogPayload(
                         buffer.writeUtf(entry.name, 128)
                         buffer.writeBoolean(entry.display)
                         buffer.writeBoolean(entry.touchDisplay)
+                        buffer.writeBoolean(entry.reactiveUi)
                     }
                 }
             }

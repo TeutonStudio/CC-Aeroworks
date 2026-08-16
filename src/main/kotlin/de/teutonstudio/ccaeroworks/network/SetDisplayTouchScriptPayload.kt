@@ -66,7 +66,7 @@ data class SetDisplayTouchScriptPayload(
             } else {
                 if (normalized.length > DisplayBindings.MAX_HANDLER_PATH_LENGTH) return
                 val owner = DisplayScriptCatalog.ownerFor(desk) ?: return
-                val descriptor = DisplayScriptCatalog.find(owner, normalized, displayType) ?: return
+                val descriptor = DisplayScriptCatalog.findLegacyTouch(owner, normalized, displayType) ?: return
                 if (bootProgram.isEmpty()) DisplayBinding.LuaHandler(descriptor.path)
                 else DisplayBinding.LuaApplication(descriptor.path, bootProgram)
             }

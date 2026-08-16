@@ -8,17 +8,24 @@ import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.util.WeakHashMap
 
-/** Metadata for a Lua file which explicitly opts into one of the display APIs or controller callbacks. */
+/** Metadata for a Lua file which explicitly opts into one or more display APIs. */
 data class DisplayScriptDescriptor(
     val path: String,
     val name: String,
     val display: Boolean,
-    val touchDisplay: Boolean
+    val touchDisplay: Boolean,
+    val reactiveUi: Boolean
 ) {
     fun supports(type: DeskDisplayType): Boolean = when (type) {
         DeskDisplayType.TWO_DIGIT -> display
-        DeskDisplayType.THREE_DIGIT -> display || touchDisplay
+        DeskDisplayType.THREE_DIGIT -> display || touchDisplay || reactiveUi
     }
+
+    fun supportsLegacyTouch(type: DeskDisplayType): Boolean =
+        type == DeskDisplayType.THREE_DIGIT && touchDisplay
+
+    fun supportsReactiveUi(type: DeskDisplayType): Boolean =
+        type == DeskDisplayType.THREE_DIGIT && reactiveUi
 }
 
 /**
@@ -69,6 +76,28 @@ object DisplayScriptCatalog {
         return scan(owner, force = true).firstOrNull { it.path == path && it.supports(type) }
     }
 
+    fun findLegacyTouch(
+        owner: ComputerControlDeskBlockEntity,
+        rawPath: String,
+        type: DeskDisplayType
+    ): DisplayScriptDescriptor? {
+        val path = normalizePath(rawPath) ?: return null
+        return scan(owner, force = true).firstOrNull {
+            it.path == path && it.supportsLegacyTouch(type)
+        }
+    }
+
+    fun findReactiveUi(
+        owner: ComputerControlDeskBlockEntity,
+        rawPath: String,
+        type: DeskDisplayType
+    ): DisplayScriptDescriptor? {
+        val path = normalizePath(rawPath) ?: return null
+        return scan(owner, force = true).firstOrNull {
+            it.path == path && it.supportsReactiveUi(type)
+        }
+    }
+
     fun normalizePath(rawPath: String): String? {
         val normalized = rawPath.trim().replace('\\', '/').trimStart('/')
         if (normalized.isBlank() || normalized.length > MAX_PATH_LENGTH) return null
@@ -96,12 +125,13 @@ object DisplayScriptCatalog {
                 if (size <= 0L || size > MAX_FILE_SIZE) return@forEach
                 val source = readUtf8(mount, path, size) ?: return@forEach
                 val capabilities = LuaRequireScanner.scan(source)
-                if (!capabilities.display && !capabilities.touchDisplay) return@forEach
+                if (!capabilities.display && !capabilities.touchDisplay && !capabilities.reactiveUi) return@forEach
                 result += DisplayScriptDescriptor(
                     path = "/$path",
                     name = child.removeSuffix(".lua"),
                     display = capabilities.display || capabilities.touchDisplay,
-                    touchDisplay = capabilities.touchDisplay
+                    touchDisplay = capabilities.touchDisplay,
+                    reactiveUi = capabilities.reactiveUi
                 )
             }
         }
@@ -124,12 +154,17 @@ object DisplayScriptCatalog {
 
 /** Tiny Lua lexer for real display requires/controller callbacks, ignoring comments and strings. */
 private object LuaRequireScanner {
-    data class Capabilities(val display: Boolean, val touchDisplay: Boolean)
+    data class Capabilities(
+        val display: Boolean,
+        val touchDisplay: Boolean,
+        val reactiveUi: Boolean
+    )
 
     fun scan(source: String): Capabilities {
         var index = 0
         var display = false
         var touch = false
+        var reactiveUi = false
         while (index < source.length) {
             index = skipTrivia(source, index)
             if (index >= source.length) break
@@ -139,7 +174,7 @@ private object LuaRequireScanner {
                 c == '_' || c.isLetter() -> {
                     val start = index++
                     while (index < source.length && (source[index] == '_' || source[index].isLetterOrDigit())) index++
-                    when (val identifier = source.substring(start, index)) {
+                    when (source.substring(start, index)) {
                         "onTap", "onDoubleTap", "onPointer" -> touch = true
                         "require" -> {
                             val parsed = requireArgument(source, index)
@@ -147,18 +182,18 @@ private object LuaRequireScanner {
                                 when (parsed.first) {
                                     "display" -> display = true
                                     "touchdisplay" -> touch = true
+                                    "cc_aeroworks.ui" -> reactiveUi = true
                                 }
                                 index = parsed.second
                             }
                         }
-                        else -> Unit
                     }
                 }
                 else -> index++
             }
-            if (display && touch) break
+            if (display && touch && reactiveUi) break
         }
-        return Capabilities(display = display, touchDisplay = touch)
+        return Capabilities(display = display, touchDisplay = touch, reactiveUi = reactiveUi)
     }
 
     private fun requireArgument(source: String, start: Int): Pair<String, Int>? {
