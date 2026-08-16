@@ -19,40 +19,45 @@ object DeskDisplayInputDispatcher {
         if (snapshot.state != ConsoleNetworkState.ACTIVE) return
         val owner = snapshot.owner ?: return
         val member = snapshot.members.firstOrNull { it.desk === desk } ?: return
-        val computer = owner.getServerComputer() ?: return
         val handlerPath = DisplayBindings.controllerPath(DisplayBindings.get(desk, touch.socket))
 
-        computer.queueEvent(
+        owner.queueComputerEventWhenReady(
             CCAeroworks.CONSOLE_DISPLAY_INPUT_EVENT,
-            arrayOf(
+            member.id,
+            member.index,
+            touch.socket,
+            touch.socketName,
+            touch.moduleId,
+            action.eventName,
+            touch.x,
+            touch.y,
+            touch.width,
+            touch.height,
+            handlerPath,
+            touch.u,
+            touch.v,
+            member.pos.x,
+            member.pos.y,
+            member.pos.z
+        )
+
+        if (action == DisplayPointerAction.TAP) {
+            owner.queueComputerEventWhenReady(
+                CCAeroworks.CONSOLE_TOUCH_EVENT,
                 member.id,
                 member.index,
                 touch.socket,
                 touch.socketName,
                 touch.moduleId,
-                action.eventName,
                 touch.x,
                 touch.y,
                 touch.width,
                 touch.height,
-                handlerPath
-            )
-        )
-
-        if (action == DisplayPointerAction.TAP) {
-            computer.queueEvent(
-                CCAeroworks.CONSOLE_TOUCH_EVENT,
-                arrayOf(
-                    member.id,
-                    member.index,
-                    touch.socket,
-                    touch.socketName,
-                    touch.moduleId,
-                    touch.x,
-                    touch.y,
-                    touch.width,
-                    touch.height
-                )
+                touch.u,
+                touch.v,
+                member.pos.x,
+                member.pos.y,
+                member.pos.z
             )
         }
     }
