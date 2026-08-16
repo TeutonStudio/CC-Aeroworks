@@ -16,6 +16,7 @@ def require(condition: bool, message: str) -> None:
 binding_path = "src/main/kotlin/de/teutonstudio/ccaeroworks/display/DisplayBinding.kt"
 native_path = "src/main/kotlin/de/teutonstudio/ccaeroworks/computer/DisplayUiLuaApi.kt"
 service_path = "src/main/kotlin/de/teutonstudio/ccaeroworks/compat/aeroworks/AeroworksDeskService.kt"
+dispatcher_path = "src/main/kotlin/de/teutonstudio/ccaeroworks/computer/DeskDisplayInputDispatcher.kt"
 catalog_path = "src/main/kotlin/de/teutonstudio/ccaeroworks/display/DisplayScriptCatalog.kt"
 application_payload_path = "src/main/kotlin/de/teutonstudio/ccaeroworks/network/SetDisplayApplicationPayload.kt"
 touch_payload_path = "src/main/kotlin/de/teutonstudio/ccaeroworks/network/SetDisplayTouchScriptPayload.kt"
@@ -28,6 +29,7 @@ workflow_path = ".github/workflows/verify.yml"
 binding = read(binding_path)
 native = read(native_path)
 service = read(service_path)
+dispatcher = read(dispatcher_path)
 catalog = read(catalog_path)
 application_payload = read(application_payload_path)
 touch_payload = read(touch_payload_path)
@@ -90,6 +92,23 @@ for field, index in (("u", 13), ("v", 14), ("deskX", 15), ("deskY", 16), ("deskZ
 require(ui.count("pointerEventFromRaw(event)") >= 2,
         "ui.run and automatic supervision must share the same pointer conversion")
 
+# Application-only input must remain self-sufficient. The event carries the real boot binding so a
+# supervisor which missed the binding-change event can reconstruct the reactive runtime on touch.
+require("val binding = DisplayBindings.get(desk, touch.socket)" in dispatcher and
+        "val bootProgramPath = DisplayBindings.bootProgramPath(binding)" in dispatcher,
+        "display input must resolve the reactive application independently of a legacy controller")
+require("member.pos.z,\n            bootProgramPath" in dispatcher,
+        "console display input must append the reactive boot path as recovery metadata")
+require("local function ensureReactiveRuntime(event)" in autorun and
+        "supervisor:hasRuntime(event[2], event[4])" in autorun and
+        "local bootProgram = event[18]" in autorun,
+        "automatic runtime must recover a missing application directly from application-only input")
+require('"cc_aeroworks_display_application_changed"' in autorun and
+        "ensureReactiveRuntime(event)" in autorun,
+        "application-only input recovery must reuse the normal application lifecycle")
+require("event[2] = tostring(event[2])" in autorun and "event[4] = socket" in autorun,
+        "reactive input targets must be normalized before runtime lookup")
+
 # Automatic supervision uses the current CraftOS coroutine, never a manually resumed child coroutine.
 require("function ui.createSupervisor()" in ui and "function supervisor:handle(...)" in ui,
         "reactive apps need a reusable non-blocking supervisor")
@@ -124,4 +143,4 @@ require("SetDisplayApplicationPayload" in module_screen and
 require("python3 tools/verify-display-reactive-ui.py" in workflow,
         "workflow must enforce the reactive display input architecture")
 
-print("Validated reactive display ownership, pointer dependencies, CraftOS scheduling, role-aware script selection, and legacy compatibility.")
+print("Validated reactive display ownership, application-only pointer recovery, CraftOS scheduling, role-aware script selection, and legacy compatibility.")
