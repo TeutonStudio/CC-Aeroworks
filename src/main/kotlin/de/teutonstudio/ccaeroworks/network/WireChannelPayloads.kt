@@ -8,6 +8,7 @@ import de.teutonstudio.ccaeroworks.computer.channel.ChannelRegistry
 import de.teutonstudio.ccaeroworks.computer.channel.UserChannelBindingView
 import de.teutonstudio.ccaeroworks.computer.channel.UserChannelGroupView
 import de.teutonstudio.ccaeroworks.computer.channel.channelGroups
+import de.teutonstudio.ccaeroworks.computer.channel.channelPaths
 import de.teutonstudio.ccaeroworks.computer.wire.ChannelPathMutationState
 import de.teutonstudio.ccaeroworks.computer.wire.ControlChannelView
 import de.teutonstudio.ccaeroworks.computer.wire.ControlModuleGroupView
@@ -63,7 +64,11 @@ data class MutateWireChannelPayload(val mutation: WireChannelMutation, val id: U
                 when (payload.mutation) {
                     WireChannelMutation.ADD -> owner.wireBank.addChannel(payload.name)
                     WireChannelMutation.RENAME -> owner.wireBank.renameChannel(payload.id ?: return, payload.name)
-                    WireChannelMutation.REMOVE -> owner.wireBank.removeChannel(payload.id ?: return)
+                    WireChannelMutation.REMOVE -> {
+                        val id = payload.id ?: return
+                        owner.wireBank.removeChannel(id)
+                        owner.channelPaths().clearPath("wire:$id")
+                    }
                 }
             }.onFailure { CCAeroworks.LOGGER.debug("Rejected wire channel UI mutation for {}: {}", player.scoreboardName, it.message) }
             sendSnapshot(player)
@@ -103,7 +108,7 @@ data class ChannelPathMutationResultPayload(val success: Boolean, val message: S
         @JvmField val STREAM_CODEC: StreamCodec<RegistryFriendlyByteBuf, ChannelPathMutationResultPayload> = object : StreamCodec<RegistryFriendlyByteBuf, ChannelPathMutationResultPayload> {
             override fun decode(buffer: RegistryFriendlyByteBuf) = ChannelPathMutationResultPayload(buffer.readBoolean(), buffer.readUtf(256))
             override fun encode(buffer: RegistryFriendlyByteBuf, payload: ChannelPathMutationResultPayload) {
-                buffer.writeBoolean(payload.success); buffer.writeUtf(payload.message, 256)
+                buffer.writeBoolean(payload.success); buffer.writeUtf(payload.message.take(256), 256)
             }
         }
         @JvmStatic fun handle(payload: ChannelPathMutationResultPayload, context: IPayloadContext) {
@@ -191,7 +196,7 @@ data class WireChannelSnapshotPayload(val snapshot: WireChannelManagerSnapshot) 
                     val id = buffer.readUUID(); val name = buffer.readUtf(32); val bindingCount = buffer.readVarInt(); require(bindingCount in 0..64)
                     val bindings = ArrayList<UserChannelBindingView>(bindingCount)
                     repeat(bindingCount) {
-                        val alias = buffer.readUtf(32); val targetId = buffer.readUtf(512); val targetLabel = buffer.readUtf(192); val available = buffer.readBoolean()
+                        val alias = buffer.readUtf(32); val targetId = buffer.readUtf(512); val targetLabel = buffer.readUtf(512); val available = buffer.readBoolean()
                         val value = if (buffer.readBoolean()) buffer.readVarInt().coerceIn(0, 15) else null
                         val kindOrdinal = buffer.readVarInt(); val kind = if (kindOrdinal == 0) null else ChannelKind.entries.getOrNull(kindOrdinal - 1)
                         bindings += UserChannelBindingView(alias, targetId, targetLabel, available, value, kind)
@@ -223,7 +228,7 @@ data class WireChannelSnapshotPayload(val snapshot: WireChannelManagerSnapshot) 
                 snapshot.userGroups.take(32).forEach { group ->
                     buffer.writeUUID(group.id); buffer.writeUtf(group.name, 32); buffer.writeVarInt(group.bindings.size.coerceAtMost(64))
                     group.bindings.take(64).forEach { binding ->
-                        buffer.writeUtf(binding.alias, 32); buffer.writeUtf(binding.targetId, 512); buffer.writeUtf(binding.targetLabel, 192); buffer.writeBoolean(binding.available)
+                        buffer.writeUtf(binding.alias, 32); buffer.writeUtf(binding.targetId, 512); buffer.writeUtf(binding.targetLabel.take(512), 512); buffer.writeBoolean(binding.available)
                         buffer.writeBoolean(binding.value != null); binding.value?.let { buffer.writeVarInt(it.coerceIn(0, 15)) }
                         buffer.writeVarInt(binding.kind?.ordinal?.plus(1) ?: 0)
                     }

@@ -84,9 +84,7 @@ abstract class AbstractComputerScreenSwitchMixin(menu: AbstractComputerMenu, inv
 
     @Inject(method = ["keyPressed(III)Z"], at = [At("HEAD")], cancellable = true)
     private fun ccaeroworks_handleDeskPageKeys(keyCode: Int, scanCode: Int, modifiers: Int, callback: CallbackInfoReturnable<Boolean>) {
-        if (ccaeroworks_page == ComputerDeskPage.CHANNELS && ccaeroworks_channelName?.isFocused == true && Minecraft.getInstance().options.keyInventory.matches(keyCode, scanCode)) {
-            callback.returnValue = true; return
-        }
+        if (ccaeroworks_page == ComputerDeskPage.CHANNELS && ccaeroworks_channelName?.isFocused == true && Minecraft.getInstance().options.keyInventory.matches(keyCode, scanCode)) { callback.returnValue = true; return }
         if (ccaeroworks_page == ComputerDeskPage.TERMINAL || keyCode != GLFW.GLFW_KEY_ESCAPE) return
         ccaeroworks_setPage(ComputerDeskPage.TERMINAL); callback.returnValue = true
     }
@@ -98,15 +96,7 @@ abstract class AbstractComputerScreenSwitchMixin(menu: AbstractComputerMenu, inv
         val fieldWidth = (terminal.width - buttonWidth * buttonCount - gap * (buttonCount + 2)).coerceAtLeast(48)
         val nameField = EditBox(font, terminal.x + gap, footerY, fieldWidth, 18, Component.literal("name / path / alias"))
         nameField.setMaxLength(ChannelPath.MAX_PATH_LENGTH); nameField.visible = false; nameField.active = false; ccaeroworks_channelName = addRenderableWidget(nameField)
-        val panel = WireChannelManagerWidget(
-            terminal.x,
-            terminal.y,
-            terminal.width,
-            (terminal.height - footerHeight).coerceAtLeast(30),
-            font
-        ) { selectedName ->
-            nameField.setValue(selectedName.orEmpty())
-        }
+        val panel = WireChannelManagerWidget(terminal.x, terminal.y, terminal.width, (terminal.height - footerHeight).coerceAtLeast(30), font) { selectedName -> nameField.setValue(selectedName.orEmpty()) }
         panel.visible = false; panel.active = false; ccaeroworks_channelPanel = addRenderableWidget(panel)
         var buttonX = terminal.x + gap * 2 + fieldWidth
         fun button(label: String, action: () -> Unit): Button = Button.builder(Component.literal(label)) { action() }.bounds(buttonX, footerY, buttonWidth, 18).build().also { it.visible = false; it.active = false; buttonX += buttonWidth + gap }
@@ -139,14 +129,15 @@ abstract class AbstractComputerScreenSwitchMixin(menu: AbstractComputerMenu, inv
     @Unique private fun ccaeroworks_requestWireSnapshot(now: Long) { ccaeroworks_lastSnapshotRequest = now; PacketDistributor.sendToServer(RequestWireChannelSnapshotPayload()) }
     @Unique private fun ccaeroworks_requestInformationSources(now: Long) { ccaeroworks_lastSourceSnapshotRequest = now; PacketDistributor.sendToServer(RequestInformationSourceSnapshotPayload()) }
     @Unique private fun ccaeroworks_text(): String = ccaeroworks_channelName?.value.orEmpty().trim()
+    @Unique private fun ccaeroworks_shortName(): String? = ccaeroworks_text().takeIf { it.isNotEmpty() && it.length <= 32 }
 
     @Unique private fun ccaeroworks_addWireChannel() {
-        val name = ccaeroworks_text(); if (name.isEmpty()) return
+        val name = ccaeroworks_shortName() ?: return
         PacketDistributor.sendToServer(MutateWireChannelPayload(WireChannelMutation.ADD, null, name)); ccaeroworks_channelName?.setValue(""); ccaeroworks_resetDelete()
     }
 
     @Unique private fun ccaeroworks_addUserGroup() {
-        val name = ccaeroworks_text(); if (name.isEmpty()) return
+        val name = ccaeroworks_shortName() ?: return
         PacketDistributor.sendToServer(MutateChannelGroupPayload(ChannelGroupMutation.ADD, null, name, "", "")); ccaeroworks_channelName?.setValue(""); ccaeroworks_resetDelete()
     }
 
@@ -154,6 +145,7 @@ abstract class AbstractComputerScreenSwitchMixin(menu: AbstractComputerMenu, inv
         val name = ccaeroworks_text(); if (name.isEmpty()) return
         val panel = ccaeroworks_channelPanel ?: return
         panel.selectedBindingAlias()?.let { oldAlias ->
+            if (name.length > 32) return
             val group = panel.selectedGroupId() ?: return
             PacketDistributor.sendToServer(MutateChannelGroupPayload(ChannelGroupMutation.RENAME_BINDING, group, name, oldAlias, "")); ccaeroworks_resetDelete(); return
         }
@@ -161,12 +153,13 @@ abstract class AbstractComputerScreenSwitchMixin(menu: AbstractComputerMenu, inv
             PacketDistributor.sendToServer(MutateChannelPathPayload(targetId, name)); ccaeroworks_resetDelete(); return
         }
         panel.selectedGroupForMutation()?.let {
+            if (name.length > 32) return
             PacketDistributor.sendToServer(MutateChannelGroupPayload(ChannelGroupMutation.RENAME, it, name, "", "")); ccaeroworks_resetDelete()
         }
     }
 
     @Unique private fun ccaeroworks_bindSelection() {
-        val alias = ccaeroworks_text(); if (alias.isEmpty()) return
+        val alias = ccaeroworks_shortName() ?: return
         val panel = ccaeroworks_channelPanel ?: return; val group = panel.selectedGroupId() ?: return; val target = panel.selectedTargetId() ?: return
         PacketDistributor.sendToServer(MutateChannelGroupPayload(ChannelGroupMutation.BIND, group, "", alias, target)); ccaeroworks_channelName?.setValue(""); ccaeroworks_resetDelete()
     }
