@@ -63,23 +63,66 @@ data class DisplayPointerActionPayload(
         fun handle(payload: DisplayPointerActionPayload, context: IPayloadContext) {
             val player = context.player() as? ServerPlayer ?: return
             val level = player.serverLevel()
-            if (!payload.u.isFinite() || !payload.v.isFinite() || payload.u !in 0.0..1.0 || payload.v !in 0.0..1.0) return
-            if (!level.hasChunkAt(payload.pos) || !SableInteractionGeometry.mayInteract(player, level, payload.pos)) return
+            CCAeroworks.LOGGER.info(
+                "[CC-AW TOUCH 3/8 SERVER_RECEIVE] player=${player.gameProfile.name} pos=${payload.pos} " +
+                    "socket=${payload.socket} action=${payload.action.eventName} uv=${payload.u},${payload.v}"
+            )
 
-            val desk = level.getBlockEntity(payload.pos) as? ConsoleBlockEntity ?: return
-            if (desk.hasController() && !desk.checkUser(player.uuid)) return
+            fun reject(reason: String) {
+                CCAeroworks.LOGGER.warn(
+                    "[CC-AW TOUCH 3/8 SERVER_REJECT] reason=$reason player=${player.gameProfile.name} " +
+                        "pos=${payload.pos} socket=${payload.socket} action=${payload.action.eventName}"
+                )
+            }
+
+            if (!payload.u.isFinite() || !payload.v.isFinite() || payload.u !in 0.0..1.0 || payload.v !in 0.0..1.0) {
+                reject("invalid_uv")
+                return
+            }
+            if (!level.hasChunkAt(payload.pos)) {
+                reject("chunk_not_loaded")
+                return
+            }
+            if (!SableInteractionGeometry.mayInteract(player, level, payload.pos)) {
+                reject("may_interact_failed")
+                return
+            }
+
+            val desk = level.getBlockEntity(payload.pos) as? ConsoleBlockEntity
+            if (desk == null) {
+                reject("target_not_console")
+                return
+            }
+            if (desk.hasController() && !desk.checkUser(player.uuid)) {
+                reject("desk_user_check_failed")
+                return
+            }
 
             val network = ConsoleMultiblockManager.resolve(level, payload.pos)
             if (network.members.none {
                     SableInteractionGeometry.withinReach(player, level, it.pos)
                 }
-            ) return
+            ) {
+                reject("network_out_of_reach")
+                return
+            }
 
-            val touch = DeskDisplayGeometry.touch(desk, payload.socket, payload.u, payload.v) ?: return
+            val touch = DeskDisplayGeometry.touch(desk, payload.socket, payload.u, payload.v)
+            if (touch == null) {
+                reject("display_geometry_failed")
+                return
+            }
             val tick = level.gameTime
             val key = RateKey(player.uuid, payload.pos.asLong(), payload.socket, payload.action)
-            if (lastAcceptedTick.put(key, tick) == tick) return
+            if (lastAcceptedTick.put(key, tick) == tick) {
+                reject("same_tick_duplicate")
+                return
+            }
 
+            CCAeroworks.LOGGER.info(
+                "[CC-AW TOUCH 4/8 SERVER_ACCEPT] desk=${desk.blockPos} socket=${touch.socket} " +
+                    "action=${payload.action.eventName} pixel=${touch.x},${touch.y} size=${touch.width}x${touch.height}"
+            )
             DeskDisplayInputDispatcher.dispatch(desk, touch, payload.action)
         }
 
