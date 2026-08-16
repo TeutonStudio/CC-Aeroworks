@@ -59,10 +59,30 @@ object DisplayCombinedInputController {
         }
     }
 
-    @SubscribeEvent(priority = EventPriority.HIGH)
+    @SubscribeEvent(priority = EventPriority.HIGHEST, receiveCanceled = true)
     fun onMouseButton(event: InputEvent.MouseButton.Pre) {
         val minecraft = Minecraft.getInstance()
         val binding = InputConstants.Type.MOUSE.getOrCreate(event.button).name
+        val pointerButton = event.button == GLFW.GLFW_MOUSE_BUTTON_LEFT ||
+            event.button == GLFW.GLFW_MOUSE_BUTTON_RIGHT
+        val activeBeforeActivation = target
+
+        // Once a display owns Combined focus, left/right are semantic display gestures first.
+        // Do this before generic binding acquisition: a mouse button may itself be configured as a
+        // Combined activation key, and another control handler may already have cancelled the event.
+        if (activeBeforeActivation != null && pointerButton &&
+            !CombinedInputCoordinator.isShiftCameraOnly(minecraft)
+        ) {
+            event.isCanceled = true
+            when (event.action) {
+                GLFW.GLFW_PRESS -> if (basicSessionValid(minecraft)) {
+                    sendPointerAction(activeBeforeActivation, event.button)
+                }
+                GLFW.GLFW_RELEASE -> onBindingReleased(binding)
+            }
+            return
+        }
+
         val activationEdge = when (event.action) {
             GLFW.GLFW_PRESS -> onBindingPressed(binding, minecraft)
             GLFW.GLFW_RELEASE -> onBindingReleased(binding)
@@ -71,17 +91,11 @@ object DisplayCombinedInputController {
 
         if (activationEdge) {
             event.isCanceled = true
-            return
         }
+    }
 
-        if (CombinedInputCoordinator.isShiftCameraOnly(minecraft)) return
-        val active = target ?: return
-        if (event.button != GLFW.GLFW_MOUSE_BUTTON_LEFT && event.button != GLFW.GLFW_MOUSE_BUTTON_RIGHT) return
-
-        event.isCanceled = true
-        if (event.action != GLFW.GLFW_PRESS || !basicSessionValid(minecraft)) return
-
-        val action = if (event.button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+    private fun sendPointerAction(active: DisplayCombinedTarget, button: Int) {
+        val action = if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
             DisplayPointerAction.TAP
         } else {
             DisplayPointerAction.DOUBLE_TAP
