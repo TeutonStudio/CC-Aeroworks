@@ -5,11 +5,10 @@ import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import com.mred231.aeroworks.content.controls.ConsoleControlClient
 import de.teutonstudio.ccaeroworks.compat.sable.SableInteractionGeometry
 import de.teutonstudio.ccaeroworks.config.CCClientConfig
+import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
 import de.teutonstudio.ccaeroworks.display.DeskDisplayGeometry
 import de.teutonstudio.ccaeroworks.mixin.client.MouseHandlerAccessor
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
-import de.teutonstudio.ccaeroworks.network.DisplayPointerAction
-import de.teutonstudio.ccaeroworks.network.DisplayPointerActionPayload
 import net.minecraft.client.Minecraft
 import net.neoforged.bus.api.EventPriority
 import net.neoforged.bus.api.SubscribeEvent
@@ -17,7 +16,6 @@ import net.neoforged.neoforge.client.event.CalculatePlayerTurnEvent
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent
 import net.neoforged.neoforge.client.event.ClientTickEvent
 import net.neoforged.neoforge.client.event.InputEvent
-import net.neoforged.neoforge.network.PacketDistributor
 import org.lwjgl.glfw.GLFW
 
 object DisplayCombinedInputController {
@@ -37,6 +35,10 @@ object DisplayCombinedInputController {
     fun abortControlMode() {
         val active = target ?: return
         suppressedBindings += active.heldBindings
+        TouchInputDiagnostics.info(
+            "client",
+            "abort control mode desk=${active.pos.toShortString()} socket=${active.socket} held=${active.heldBindings}"
+        )
         stop()
     }
 
@@ -62,38 +64,31 @@ object DisplayCombinedInputController {
     @SubscribeEvent(priority = EventPriority.HIGH)
     fun onMouseButton(event: InputEvent.MouseButton.Pre) {
         val minecraft = Minecraft.getInstance()
+
+        // Fallback only: the raw MouseHandler mixin normally sees primary display buttons first.
+        // This path shares DisplayPrimaryMouseCapture's edge state with both raw capture and direct
+        // GLFW polling, so it cannot duplicate an action already observed through another route.
+        if (target != null &&
+            (event.button == GLFW.GLFW_MOUSE_BUTTON_LEFT || event.button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) &&
+            DisplayPrimaryMouseCapture.captureFallback(event.button, event.action)
+        ) {
+            event.isCanceled = true
+            return
+        }
+
         val binding = InputConstants.Type.MOUSE.getOrCreate(event.button).name
         val activationEdge = when (event.action) {
             GLFW.GLFW_PRESS -> onBindingPressed(binding, minecraft)
             GLFW.GLFW_RELEASE -> onBindingReleased(binding)
             else -> false
         }
-
-        if (activationEdge) {
-            event.isCanceled = true
-            return
-        }
-
-        if (CombinedInputCoordinator.isShiftCameraOnly(minecraft)) return
-        val active = target ?: return
-        if (event.button != GLFW.GLFW_MOUSE_BUTTON_LEFT && event.button != GLFW.GLFW_MOUSE_BUTTON_RIGHT) return
-
-        event.isCanceled = true
-        if (event.action != GLFW.GLFW_PRESS || !basicSessionValid(minecraft)) return
-
-        val action = if (event.button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
-            DisplayPointerAction.TAP
-        } else {
-            DisplayPointerAction.DOUBLE_TAP
-        }
-        PacketDistributor.sendToServer(
-            DisplayPointerActionPayload(active.pos, active.socket, active.u, active.v, action)
-        )
+        if (activationEdge) event.isCanceled = true
     }
 
     /**
-     * The tick path only retires lost releases and runs a low-frequency world watchdog.
-     * It never performs target acquisition.
+     * The tick path retires lost releases, samples physical primary mouse buttons independently of
+     * NeoForge's mouse event routing, flushes at most one moved draw sample, and runs a low-frequency
+     * world watchdog. Target acquisition remains edge-driven and never happens here.
      */
     @SubscribeEvent
     fun onClientTick(event: ClientTickEvent.Post) {
@@ -112,6 +107,11 @@ object DisplayCombinedInputController {
             stop()
             return
         }
+
+        // This is the critical fallback: touch remains functional even if another integration
+        // prevents MouseHandler/NeoForge button callbacks from reaching CC-Aeroworks.
+        DisplayPrimaryMouseCapture.poll(minecraft, active)
+        DisplayPrimaryMouseCapture.flushDrawSample(active)
 
         active.watchdogTicks++
         if (active.watchdogTicks >= WATCHDOG_INTERVAL_TICKS) {
@@ -165,6 +165,11 @@ object DisplayCombinedInputController {
         if (active.yActive() && deltaY != 0.0) {
             active.v = (active.v - deltaY * sensitivity).coerceIn(0.0, 1.0)
         }
+
+        // Preserve the proven raw/event/poll button capture and only layer draw sampling behind it.
+        // Polling here sees the newest pointer position for move-and-click gestures.
+        DisplayPrimaryMouseCapture.poll(minecraft, active)
+        DisplayPrimaryMouseCapture.observePointer(active)
     }
 
     @SubscribeEvent
@@ -187,6 +192,10 @@ object DisplayCombinedInputController {
                 return false
             }
             active.heldBindings += binding
+            TouchInputDiagnostics.info(
+                "client",
+                "additional display binding held='$binding' desk=${active.pos.toShortString()} socket=${active.socket} held=${active.heldBindings}"
+            )
             return true
         }
 
@@ -195,8 +204,19 @@ object DisplayCombinedInputController {
             suppressedBindings += binding
             return false
         }
-        if (!CombinedInputCoordinator.claimDisplay(minecraft)) return false
+        if (!CombinedInputCoordinator.claimDisplay(minecraft)) {
+            TouchInputDiagnostics.warn(
+                "client",
+                "target acquired but CombinedInputCoordinator refused display claim desk=${candidate.pos.toShortString()} socket=${candidate.socket} binding='$binding'"
+            )
+            return false
+        }
         target = candidate
+        DisplayPrimaryMouseCapture.beginSession(candidate, minecraft)
+        TouchInputDiagnostics.info(
+            "client",
+            "display session acquired desk=${candidate.pos.toShortString()} socket=${candidate.socket} binding='$binding' xBinding=${candidate.xBinding} yBinding=${candidate.yBinding} startU=${candidate.u} startV=${candidate.v}"
+        )
         return true
     }
 
@@ -293,11 +313,25 @@ object DisplayCombinedInputController {
     }
 
     private fun stop() {
+        val active = target
+        active?.let {
+            TouchInputDiagnostics.info(
+                "client",
+                "display session stopped desk=${it.pos.toShortString()} socket=${it.socket} u=${it.u} v=${it.v} held=${it.heldBindings} drawActive=${it.drawActive} gesture=${it.drawGestureId} seq=${it.drawSequence}"
+            )
+        }
+        DisplayPrimaryMouseCapture.endSession(active)
         target = null
         CombinedInputCoordinator.releaseDisplay()
     }
 
     private fun reset() {
+        if (target != null || suppressedBindings.isNotEmpty()) {
+            TouchInputDiagnostics.info("client", "display input state reset")
+        }
+        // Logout/clone may already have lost the play connection, so retire local draw state without
+        // attempting a final network packet. Server draw state has its own short timeout.
+        DisplayPrimaryMouseCapture.endSession(target, sendDrawEnd = false)
         target = null
         suppressedBindings.clear()
         CombinedInputCoordinator.releaseDisplay()

@@ -10,6 +10,7 @@ object CCPayloads {
         registrar.playToServer(SetCombinedLeverValuePayload.TYPE, SetCombinedLeverValuePayload.STREAM_CODEC, SetCombinedLeverValuePayload::handle)
         registrar.playToServer(CombinedControlSamplePayload.TYPE, CombinedControlSamplePayload.STREAM_CODEC, CombinedControlSamplePayload::handle)
         registrar.playToServer(DisplayPointerActionPayload.TYPE, DisplayPointerActionPayload.STREAM_CODEC, DisplayPointerActionPayload::handle)
+        registrar.playToServer(DisplayDrawPayload.TYPE, DisplayDrawPayload.STREAM_CODEC, DisplayDrawPayload::handle)
         registrar.playToServer(SwitchControlDeskUiPayload.TYPE, SwitchControlDeskUiPayload.STREAM_CODEC, SwitchControlDeskUiPayload::handle)
         registrar.playToServer(SetDisplayTouchScriptPayload.TYPE, SetDisplayTouchScriptPayload.STREAM_CODEC, SetDisplayTouchScriptPayload::handle)
         registrar.playToServer(RequestDisplayScriptCatalogPayload.TYPE, RequestDisplayScriptCatalogPayload.STREAM_CODEC, RequestDisplayScriptCatalogPayload::handle)

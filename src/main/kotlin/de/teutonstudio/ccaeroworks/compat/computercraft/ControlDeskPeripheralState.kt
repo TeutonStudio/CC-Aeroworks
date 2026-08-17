@@ -3,10 +3,11 @@ package de.teutonstudio.ccaeroworks.compat.computercraft
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskInputSnapshot
+import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
+import de.teutonstudio.ccaeroworks.display.DeskDisplayInput
 import de.teutonstudio.ccaeroworks.display.DeskDisplayTouch
 import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
-import de.teutonstudio.ccaeroworks.network.DisplayPointerAction
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.event.tick.ServerTickEvent
 import java.util.concurrent.ConcurrentHashMap
@@ -61,33 +62,52 @@ object ControlDeskPeripheralState {
 
     internal fun queueDisplayInput(
         desk: ConsoleBlockEntity,
-        touch: DeskDisplayTouch,
-        action: DisplayPointerAction
+        input: DeskDisplayInput
     ) {
+        val touch = input.touch
         val handlerPath = (DisplayBindings.get(desk, touch.socket) as? DisplayBinding.LuaHandler)?.path.orEmpty()
+        var matchedPeripherals = 0
+        var queuedComputers = 0
         active.forEach { peripheral ->
             if (peripheral.validDesk() !== desk) return@forEach
+            matchedPeripherals++
             peripheral.computers.forEach { computer ->
+                queuedComputers++
+                TouchInputDiagnostics.info(
+                    "peripheral",
+                    "queue ${CCAeroworks.DESK_DISPLAY_INPUT_EVENT} attachment=${computer.attachmentName} desk=${desk.blockPos.toShortString()} socket=${touch.socket} action=${input.action} handler='$handlerPath' pixel=${touch.x},${touch.y} gesture=${input.gestureId} seq=${input.sequence} delta=${input.deltaX},${input.deltaY} end=${input.isEnd}"
+                )
                 computer.queueEvent(
                     CCAeroworks.DESK_DISPLAY_INPUT_EVENT,
                     computer.attachmentName,
                     touch.socket,
                     touch.socketName,
                     touch.moduleId,
-                    action.eventName,
+                    input.action,
                     touch.x,
                     touch.y,
                     touch.width,
                     touch.height,
                     handlerPath,
                     touch.u,
-                    touch.v
+                    touch.v,
+                    input.gestureId ?: -1L,
+                    input.sequence ?: -1,
+                    input.startX ?: touch.x,
+                    input.startY ?: touch.y,
+                    input.deltaX ?: 0,
+                    input.deltaY ?: 0,
+                    input.isEnd
                 )
-                if (action == DisplayPointerAction.TAP) {
+                if (input.action == "tap") {
                     queueCompatibleTouch(computer, touch)
                 }
             }
         }
+        TouchInputDiagnostics.info(
+            "peripheral",
+            "delivery summary desk=${desk.blockPos.toShortString()} socket=${touch.socket}: activePeripherals=${active.size} matched=$matchedPeripherals queuedExternalComputers=$queuedComputers"
+        )
     }
 
     internal fun queueDisplayTouch(desk: ConsoleBlockEntity, touch: DeskDisplayTouch) {

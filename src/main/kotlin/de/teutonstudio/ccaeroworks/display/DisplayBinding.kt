@@ -1,6 +1,7 @@
 package de.teutonstudio.ccaeroworks.display
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 import net.minecraft.nbt.CompoundTag
 import java.util.concurrent.ConcurrentHashMap
@@ -74,11 +75,17 @@ object DisplayBindings {
     const val MAX_HANDLER_PATH_LENGTH: Int = 256
 
     fun get(desk: ConsoleBlockEntity, socket: Int): DisplayBinding {
-        val binding = (desk as? DisplayBindingStateAccess)
+        val stored = (desk as? DisplayBindingStateAccess)
             ?.ccaeroworks_getDisplayBindings()
             ?.get(socket)
             ?: DisplayBinding.Default
-        return if (supports(desk, socket, binding)) binding else DisplayBinding.Default
+        if (supports(desk, socket, stored)) return stored
+
+        TouchInputDiagnostics.warn(
+            "binding",
+            "stored binding rejected by current module desk=${desk.blockPos.toShortString()} socket=$socket stored=${describe(stored)} module=${if (socket in 0 until desk.socketCount()) desk.module(socket)?.type() else null}; falling back to default"
+        )
+        return DisplayBinding.Default
     }
 
     fun set(desk: ConsoleBlockEntity, socket: Int, binding: DisplayBinding): Boolean {

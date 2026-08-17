@@ -2,6 +2,7 @@ package de.teutonstudio.ccaeroworks.compat.aeroworks
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import com.mred231.aeroworks.content.controls.MountedModule
+import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
 import de.teutonstudio.ccaeroworks.display.DeskDisplayFormatter
 import de.teutonstudio.ccaeroworks.display.DeskDisplayPixels
 import de.teutonstudio.ccaeroworks.display.DeskDisplayState
@@ -45,9 +46,39 @@ object AeroworksDeskAccess {
 
     @JvmStatic
     fun setDisplayPixels(desk: ConsoleBlockEntity, socket: Int, pixels: DeskDisplayPixels): DeskDisplayState? {
-        val current = display(desk, socket) ?: return null
-        if (pixels.width != current.type.pixelWidth || pixels.height != current.type.pixelHeight) return null
-        desk.setModuleName(socket, "", Component.literal(pixels.encode()))
+        val pos = desk.blockPos.toShortString()
+        val current = display(desk, socket)
+        if (current == null) {
+            TouchInputDiagnostics.warn("pixels", "write rejected desk=$pos socket=$socket: socket is not a CC-Aeroworks display")
+            return null
+        }
+        if (pixels.width != current.type.pixelWidth || pixels.height != current.type.pixelHeight) {
+            TouchInputDiagnostics.warn(
+                "pixels",
+                "write rejected desk=$pos socket=$socket: raster=${pixels.width}x${pixels.height} expected=${current.type.pixelWidth}x${current.type.pixelHeight} ppb=${current.type.partsPerBlock}"
+            )
+            return null
+        }
+
+        val encoded = pixels.encode()
+        TouchInputDiagnostics.info(
+            "pixels",
+            "writing desk=$pos socket=$socket raster=${pixels.width}x${pixels.height} encodedChars=${encoded.length}"
+        )
+        desk.setModuleName(socket, "", Component.literal(encoded))
+
+        val readBack = display(desk, socket)
+        if (readBack?.pixels == null) {
+            TouchInputDiagnostics.warn(
+                "pixels",
+                "write completed but readback is not in pixel mode desk=$pos socket=$socket storedNameLength=${desk.module(socket)?.customName()?.string?.length ?: 0}"
+            )
+        } else {
+            TouchInputDiagnostics.info(
+                "pixels",
+                "readback confirmed desk=$pos socket=$socket mode=pixels raster=${readBack.pixels.width}x${readBack.pixels.height}"
+            )
+        }
         return current.copy(text = "", pixels = pixels)
     }
 }

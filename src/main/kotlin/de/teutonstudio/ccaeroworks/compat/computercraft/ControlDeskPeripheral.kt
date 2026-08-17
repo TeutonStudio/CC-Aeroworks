@@ -12,6 +12,7 @@ import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskService
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskIdentityAccess
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskInputSnapshot
+import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
 import de.teutonstudio.ccaeroworks.display.DisplayBindingService
 import java.lang.ref.WeakReference
 
@@ -133,11 +134,9 @@ open class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral 
     fun clearDisplayPixels(arguments: IArguments) =
         AeroworksDeskService.clearDisplayPixels(desk(), arguments.get(0))
 
-
     @LuaFunction(mainThread = true)
     fun getDisplayBinding(arguments: IArguments): Map<String, Any> =
         DisplayBindingService.getBinding(desk(), arguments.get(0))
-
 
     @LuaFunction(mainThread = true)
     fun setDisplayTouchScript(arguments: IArguments): Map<String, Any> =
@@ -146,6 +145,21 @@ open class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral 
     @LuaFunction(mainThread = true)
     fun clearDisplayBinding(arguments: IArguments): Map<String, Any> =
         DisplayBindingService.clearBinding(desk(), arguments.get(0))
+
+    /**
+     * Diagnostic bridge used by the bundled display-handler runtime. It intentionally logs at
+     * INFO so Lua load/dispatch failures are visible in ordinary latest.log without debug mode.
+     */
+    @LuaFunction(mainThread = true)
+    fun debugDisplayTouchLog(arguments: IArguments) {
+        val currentDesk = desk()
+        val socket = AeroworksDeskService.parseSocket(currentDesk, arguments.get(0))
+        val message = arguments.getString(1).take(2000)
+        TouchInputDiagnostics.info(
+            "lua",
+            "desk=${currentDesk.blockPos.toShortString()} socket=$socket $message"
+        )
+    }
 
     internal fun validDesk(): ConsoleBlockEntity? = blockEntity.get()?.takeIf {
         !it.isRemoved && it.level != null && it.level?.isLoaded(it.blockPos) == true
