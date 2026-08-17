@@ -27,6 +27,7 @@
   ],
   "client": [
     "client.AbstractContainerScreenAccessor",
+    "client.AbstractContainerScreenSourceSelectorTooltipMixin",
     "client.AbstractComputerScreenAccessor",
     "client.AbstractComputerScreenSwitchMixin",
     "client.MouseHandlerAccessor",

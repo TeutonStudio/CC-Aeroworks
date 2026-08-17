@@ -29,6 +29,9 @@ combined = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/Module
 bindings = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ModuleScreenDisplayBindingMixin.kt")
 presentations = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/DisplayBindingRowWidgets.kt")
 selector = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/SourceSelectorWidget.kt")
+overlay_owner = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/SourceSelectorOverlayOwner.kt")
+tooltip_mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/AbstractContainerScreenSourceSelectorTooltipMixin.kt")
+mixins = read("src/main/resources/cc_aeroworks.mixins.json")
 workflow = read(".github/workflows/verify.yml")
 
 # Ordinary helper classes must stay outside the configured Mixin package tree.
@@ -51,6 +54,10 @@ require("fun nativeGroups" in geometry and "column.isButton()" in geometry and "
         "row geometry must mirror Aeroworks native group pairing")
 require("renderedScroll" in geometry and "extensionScreenTop" in geometry,
         "all extension Y coordinates must derive from the animated native scroll")
+require("fun intersectsViewport" in geometry and "rowTop < listBottom" in geometry,
+        "source rows must become visible on viewport intersection rather than waiting for full visibility")
+require("fullyVisible" not in geometry,
+        "source-row geometry must not regress to all-or-nothing full-row visibility")
 
 # The mixins may read native list state, but must not invent a parallel scroll state.
 require('@Accessor("contentHeight")' in accessor and '@Accessor("renderedScroll")' in accessor,
@@ -89,8 +96,12 @@ require("extensionScreenTop" in bindings and "ccaeroworks_getRenderedScroll" in 
         "source selector must follow native animated scroll")
 require('method = ["renderBg(Lnet/minecraft/client/gui/GuiGraphics;FII)V"]' in bindings,
         "source selector position must synchronize after native renderBg scroll interpolation")
-require("fullyVisible" in bindings,
-        "source selector must deactivate when its row leaves the native list viewport")
+require("ModuleScreenRowGeometry.intersectsViewport" in bindings,
+        "source selector must remain active while any part intersects the native list viewport")
+require("listBottom = listTop + ModuleScreenRowGeometry.LIST_HEIGHT" in bindings,
+        "source selector must receive the exact native list clipping bounds")
+require("setRowPosition(rowLeft, rowTop, visible, listTop, listBottom)" in bindings,
+        "source selector placement must include viewport bounds for clipping and hit testing")
 require("AeroworksGuiTextures.MODULE_ROW" not in bindings,
         "source selector must not reuse the native control row with Redstone/radio slots")
 require(bindings.count("ccaeroworks_extensionRows = 1") == 2,
@@ -124,13 +135,35 @@ require("fun renderOverlay" in selector and "ccaeroworks_renderBindingPopup" in 
         "open selector popups must render after ModuleScreen's normal widget/decorations pass")
 require('method = ["render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V"]' in bindings,
         "popup overlay must be attached to the complete ModuleScreen render pass")
-require("val rowHovered = active && inside" in selector,
-        "hovering popup options must not incorrectly hover the closed selector row")
+require("graphics.enableScissor(x, viewportTop, x + width, viewportBottom)" in selector and
+        "graphics.disableScissor()" in selector,
+        "partially visible source rows must be clipped to the native list instead of hidden wholesale")
+require("insideVisibleRow" in selector and "mouseY >= viewportTop" in selector and "mouseY < viewportBottom" in selector,
+        "hidden portions of clipped source rows must not remain clickable or hoverable")
+require("fun isPopupMouseOver" in selector,
+        "selector must expose exact popup hit testing for tooltip suppression")
 require("preferredY.coerceIn(SCREEN_MARGIN, maxY)" in selector and
         "x.coerceIn(SCREEN_MARGIN, maxX)" in selector,
         "popup bounds must stay inside the resized screen")
 require("EditBox" not in bindings,
         "script source must not restore the old free-form EditBox")
+
+# Container item tooltips behind an open popup must not leak through the selector overlay.
+require("interface SourceSelectorOverlayOwner" in overlay_owner and
+        "ccaeroworks_isSourceSelectorPopupHovered" in overlay_owner,
+        "source selector screens must expose popup hover state through a narrow client interface")
+require("SourceSelectorOverlayOwner" in bindings and
+        "override fun ccaeroworks_isSourceSelectorPopupHovered" in bindings,
+        "ModuleScreen source binding mixin must implement popup hover ownership")
+require('@Mixin(AbstractContainerScreen::class)' in tooltip_mixin,
+        "item tooltip suppression must target vanilla AbstractContainerScreen")
+require('method = ["renderTooltip(Lnet/minecraft/client/gui/GuiGraphics;II)V"]' in tooltip_mixin and
+        "callback.cancel()" in tooltip_mixin,
+        "container item tooltip rendering must be cancellable beneath an open source popup")
+require("ccaeroworks_isSourceSelectorPopupHovered" in tooltip_mixin,
+        "tooltip cancellation must only occur when the mouse is actually inside the source popup")
+require('"client.AbstractContainerScreenSourceSelectorTooltipMixin"' in mixins,
+        "source-selector container tooltip mixin must be registered on the client")
 
 # Radar source icon is the Create: Radars Network Filterer / network controller, never radarPos.
 require('ResourceLocation.fromNamespaceAndPath("create_radar", "network_filterer")' in presentations,
@@ -160,6 +193,6 @@ require("python3 tools/verify-control-settings-scroll-rows.py" in workflow,
         "repository workflow must enforce the source-selector architecture")
 
 print(
-    "Validated ControlDesk settings rows: resize-safe native height restoration, one slot-free source selector row, "
-    "overlay-rendered bounded dropdowns, sprite chevrons, a 16x16 script icon, and registry-backed radar Network Filterer icon."
+    "Validated ControlDesk settings rows: resize-safe native height restoration, partially clipped source rows, "
+    "overlay-rendered dropdowns without underlying item tooltips, sprite chevrons, and registry-backed radar source icons."
 )

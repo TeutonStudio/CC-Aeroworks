@@ -44,12 +44,21 @@ internal class SourceSelectorWidget<T>(
     private var selectedKey: String = selectedKey
     private var expanded: Boolean = false
     private var scrollIndex: Int = 0
+    private var viewportTop: Int = Int.MIN_VALUE
+    private var viewportBottom: Int = Int.MAX_VALUE
 
     override fun renderWidget(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
+        if (!visible) return
         val entries = options(selectedKey)
         val selected = entries.firstOrNull { it.key == selectedKey } ?: entries.firstOrNull()
-        val rowHovered = active && inside(mouseX.toDouble(), mouseY.toDouble(), x, y, width, height)
-        renderSelectorRow(graphics, x, y, width, height, selected?.presentation, rowHovered, expanded)
+        val rowHovered = active && insideVisibleRow(mouseX.toDouble(), mouseY.toDouble())
+
+        graphics.enableScissor(x, viewportTop, x + width, viewportBottom)
+        try {
+            renderSelectorRow(graphics, x, y, width, height, selected?.presentation, rowHovered, expanded)
+        } finally {
+            graphics.disableScissor()
+        }
     }
 
     /**
@@ -62,9 +71,15 @@ internal class SourceSelectorWidget<T>(
         renderPopup(graphics, mouseX, mouseY, options(selectedKey))
     }
 
+    fun isPopupMouseOver(mouseX: Double, mouseY: Double): Boolean {
+        if (!expanded || !visible) return false
+        val popup = popupBounds(options(selectedKey).size)
+        return inside(mouseX, mouseY, popup.x, popup.y, popup.width, popup.height)
+    }
+
     override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
         if (!visible || !active || button != 0) return false
-        if (inside(mouseX, mouseY, x, y, width, height)) {
+        if (insideVisibleRow(mouseX, mouseY)) {
             expanded = !expanded
             return true
         }
@@ -104,19 +119,25 @@ internal class SourceSelectorWidget<T>(
 
     override fun isMouseOver(mouseX: Double, mouseY: Double): Boolean {
         if (!visible) return false
-        if (inside(mouseX, mouseY, x, y, width, height)) return true
-        if (!expanded) return false
-        val popup = popupBounds(options(selectedKey).size)
-        return inside(mouseX, mouseY, popup.x, popup.y, popup.width, popup.height)
+        if (insideVisibleRow(mouseX, mouseY)) return true
+        return isPopupMouseOver(mouseX, mouseY)
     }
 
     override fun updateWidgetNarration(output: NarrationElementOutput) {
         defaultButtonNarrationText(output)
     }
 
-    fun setRowPosition(rowX: Int, rowY: Int, rowVisible: Boolean) {
+    fun setRowPosition(
+        rowX: Int,
+        rowY: Int,
+        rowVisible: Boolean,
+        listTop: Int,
+        listBottom: Int
+    ) {
         x = rowX
         y = rowY
+        viewportTop = listTop
+        viewportBottom = listBottom
         visible = rowVisible
         active = rowVisible
         if (!rowVisible) expanded = false
@@ -233,6 +254,11 @@ internal class SourceSelectorWidget<T>(
             popupHeight
         )
     }
+
+    private fun insideVisibleRow(mouseX: Double, mouseY: Double): Boolean =
+        mouseY >= viewportTop &&
+            mouseY < viewportBottom &&
+            inside(mouseX, mouseY, x, y, width, height)
 
     private fun inside(mouseX: Double, mouseY: Double, left: Int, top: Int, width: Int, height: Int): Boolean =
         mouseX >= left && mouseX < left + width && mouseY >= top && mouseY < top + height

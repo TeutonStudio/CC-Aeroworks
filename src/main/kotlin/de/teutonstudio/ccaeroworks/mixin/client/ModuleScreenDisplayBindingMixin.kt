@@ -6,6 +6,7 @@ import com.mred231.aeroworks.content.controls.ModuleMenu
 import com.mred231.aeroworks.content.controls.ModuleScreen
 import de.teutonstudio.ccaeroworks.client.ModuleScreenRowGeometry
 import de.teutonstudio.ccaeroworks.client.RadarSourceChoice
+import de.teutonstudio.ccaeroworks.client.SourceSelectorOverlayOwner
 import de.teutonstudio.ccaeroworks.client.SourceSelectorWidget
 import de.teutonstudio.ccaeroworks.client.radarSourceKey
 import de.teutonstudio.ccaeroworks.client.radarSourceOption
@@ -49,7 +50,7 @@ abstract class ModuleScreenDisplayBindingMixin(
     menu: ModuleMenu,
     inventory: Inventory,
     title: Component
-) : AbstractContainerScreen<ModuleMenu>(menu, inventory, title) {
+) : AbstractContainerScreen<ModuleMenu>(menu, inventory, title), SourceSelectorOverlayOwner {
     @Unique
     private var ccaeroworks_nativeContentHeight: Int = -1
 
@@ -121,6 +122,7 @@ abstract class ModuleScreenDisplayBindingMixin(
         if (ccaeroworks_extensionRows <= 0) return
         val invoker = this as ModuleScreenInvoker
         val listTop = invoker.ccaeroworks_listTop()
+        val listBottom = listTop + ModuleScreenRowGeometry.LIST_HEIGHT
         val rowLeft = invoker.ccaeroworks_rowLeft()
         val renderedScroll = (this as ModuleScreenAccessor).ccaeroworks_getRenderedScroll()
         val rowTop = ModuleScreenRowGeometry.extensionScreenTop(
@@ -129,13 +131,13 @@ abstract class ModuleScreenDisplayBindingMixin(
             listTop,
             renderedScroll
         )
-        val visible = ModuleScreenRowGeometry.fullyVisible(
+        val visible = ModuleScreenRowGeometry.intersectsViewport(
             rowTop,
             ModuleScreenRowGeometry.EXTENSION_ROW_HEIGHT,
             listTop
         )
-        ccaeroworks_radarDropdown?.setRowPosition(rowLeft, rowTop, visible)
-        ccaeroworks_scriptDropdown?.setRowPosition(rowLeft, rowTop, visible)
+        ccaeroworks_radarDropdown?.setRowPosition(rowLeft, rowTop, visible, listTop, listBottom)
+        ccaeroworks_scriptDropdown?.setRowPosition(rowLeft, rowTop, visible, listTop, listBottom)
     }
 
     @Inject(
@@ -152,6 +154,10 @@ abstract class ModuleScreenDisplayBindingMixin(
         ccaeroworks_radarDropdown?.renderOverlay(graphics, mouseX, mouseY)
         ccaeroworks_scriptDropdown?.renderOverlay(graphics, mouseX, mouseY)
     }
+
+    override fun ccaeroworks_isSourceSelectorPopupHovered(mouseX: Double, mouseY: Double): Boolean =
+        ccaeroworks_radarDropdown?.isPopupMouseOver(mouseX, mouseY) == true ||
+            ccaeroworks_scriptDropdown?.isPopupMouseOver(mouseX, mouseY) == true
 
     @Unique
     private fun ccaeroworks_addRadarRow(desk: ConsoleBlockEntity, socket: Int) {

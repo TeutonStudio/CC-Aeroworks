@@ -106,8 +106,10 @@ internal object ModuleScreenRowGeometry {
         return lastTop + EXTENSION_ROW_HEIGHT + BOTTOM_PADDING
     }
 
-    fun fullyVisible(rowTop: Int, rowHeight: Int, listTop: Int): Boolean =
-        rowTop >= listTop && rowTop + rowHeight <= listTop + LIST_HEIGHT
+    fun intersectsViewport(rowTop: Int, rowHeight: Int, listTop: Int): Boolean {
+        val listBottom = listTop + LIST_HEIGHT
+        return rowTop < listBottom && rowTop + rowHeight > listTop
+    }
 
     private fun screenY(contentTop: Int, listTop: Int, renderedScroll: Float): Int =
         (listTop + LIST_CONTENT_INSET_Y + contentTop - renderedScroll).toInt()
