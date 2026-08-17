@@ -70,8 +70,7 @@ require(
     "Combined sessions must follow Aeroworks lifecycle",
 )
 
-# Display touch must be captured below NeoForge's mouse event routing. The MouseHandler guard records
-# the raw GLFW edge and cancels vanilla processing only while DISPLAY owns Combined input.
+# Primary display buttons are still blocked at MouseHandler before NeoForge/vanilla routing.
 require(
     "@Mixin(MouseHandler::class)" in mouse_guard and
     'method = ["onPress(JIII)V"]' in mouse_guard and
@@ -85,13 +84,23 @@ require(
     '"client.CombinedMouseButtonGuardMixin"' in mixins,
     "raw display mouse guard mixin is not registered",
 )
+
+# Touch detection itself must not depend on the MouseHandler callback. A physical GLFW poll runs
+# from the active controller and shares one edge state with raw and NeoForge fallback routes.
 require(
-    "CombinedInputCoordinator.ownsDisplay()" in raw_mouse and
-    "CombinedInputCoordinator.isShiftCameraOnly(minecraft)" in raw_mouse and
-    "minecraft.screen != null" in raw_mouse and
-    "GLFW.GLFW_MOUSE_BUTTON_LEFT" in raw_mouse and
-    "GLFW.GLFW_MOUSE_BUTTON_RIGHT" in raw_mouse,
-    "raw display mouse capture must be exclusive to a valid DISPLAY Combined session",
+    "fun beginSession(active: DisplayCombinedTarget" in raw_mouse and
+    "GLFW.glfwGetMouseButton" in raw_mouse and
+    "fun poll(minecraft: Minecraft, active: DisplayCombinedTarget)" in raw_mouse and
+    "fun captureFallback(button: Int, action: Int)" in raw_mouse and
+    "leftOwnedByDisplay" in raw_mouse and "rightOwnedByDisplay" in raw_mouse,
+    "display touch must keep a physical-button baseline and shared raw/event/poll edge state",
+)
+require(
+    "DisplayPrimaryMouseCapture.beginSession(candidate, minecraft)" in controller and
+    controller.count("DisplayPrimaryMouseCapture.poll(minecraft, active)") >= 2 and
+    "DisplayPrimaryMouseCapture.captureFallback(event.button, event.action)" in controller and
+    "DisplayPrimaryMouseCapture.endSession(active)" in controller,
+    "active display controller must initialise, poll, fallback-route and retire physical button state",
 )
 require(
     "if (!rightDown)" in raw_mouse and
@@ -100,21 +109,16 @@ require(
     "active.holdActive = true" in raw_mouse and
     "sendPointerAction(active, DisplayPointerAction.HOLD)" in raw_mouse and
     "active.holdActive = false" in raw_mouse,
-    "raw display mouse capture must edge-detect right tap and left hold press/release",
+    "shared display mouse state must edge-detect right tap and left hold press/release",
 )
 require(
     '"mouse-gate"' in raw_mouse and '"button-sample"' in raw_mouse and
-    "PacketDistributor.sendToServer" in raw_mouse,
-    "raw display mouse path must remain visible in TouchTrace and send the server payload directly",
+    '"send physical action=' in raw_mouse and "PacketDistributor.sendToServer" in raw_mouse,
+    "physical display mouse path must remain visible in TouchTrace and send the server payload directly",
 )
-
-# Keep the event-level route as a compatibility fallback. In the repaired runtime the MouseHandler
-# guard cancels primary buttons before this NeoForge event is produced, so this is not the primary path.
-pointer_capture = controller.find("handlePointerButton(event, minecraft, active)")
-activation_routing = controller.find("val binding = InputConstants.Type.MOUSE.getOrCreate(event.button).name")
 require(
-    pointer_capture >= 0 and activation_routing >= 0 and pointer_capture < activation_routing,
-    "event-level display pointer fallback must not move behind activation routing",
+    "handlePointerButton(" not in controller and "send action=${action.eventName}" not in controller,
+    "legacy independent event touch sender must not reintroduce duplicate tap/hold packets",
 )
 require(
     'DOUBLE_TAP("double_tap"),\n    HOLD("hold")' in pointer,
@@ -188,4 +192,4 @@ require(
     "Combined icon missing",
 )
 require("python3 tools/verify-display-combined-input.py" in workflow, "workflow must enforce display Combined contract")
-print("Validated raw display tap/hold capture, Combined ownership, Sable-aware pointer reach, and DBW isolation.")
+print("Validated polled/raw display tap-hold capture, Combined ownership, Sable-aware pointer reach, and DBW isolation.")
