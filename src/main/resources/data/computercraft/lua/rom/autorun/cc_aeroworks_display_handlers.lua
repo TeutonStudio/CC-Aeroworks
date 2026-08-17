@@ -163,6 +163,7 @@ local function recordTouchHandlers(path, event, handler)
         tostring(event.deskId or ""),
         tonumber(event.socket) or -1,
         type(handler.onTap) == "function",
+        type(handler.onDraw) == "function",
         type(handler.onDoubleTap) == "function",
         type(handler.onPointer) == "function"
     )

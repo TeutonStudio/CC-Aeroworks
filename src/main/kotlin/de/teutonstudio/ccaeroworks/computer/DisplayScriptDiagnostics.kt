@@ -103,7 +103,15 @@ class DisplayScriptDiagnosticsRuntime {
     }
 
     @Synchronized
-    fun setTouchHandlers(path: String, deskId: String, socket: Int, tap: Boolean, doubleTap: Boolean, pointer: Boolean) {
+    fun setTouchHandlers(
+        path: String,
+        deskId: String,
+        socket: Int,
+        tap: Boolean,
+        draw: Boolean,
+        doubleTap: Boolean,
+        pointer: Boolean
+    ) {
         val normalizedPath = DisplayScriptCatalog.normalizePath(path) ?: return
         val normalizedDesk = deskId.trim().take(MAX_DESK_ID_LENGTH)
         if (normalizedDesk.isEmpty()) return
@@ -114,6 +122,7 @@ class DisplayScriptDiagnosticsRuntime {
         }
         observation.touchEvents.clear()
         if (tap) observation.touchEvents += "tap"
+        if (draw) observation.touchEvents += "draw"
         if (doubleTap) observation.touchEvents += "double_tap"
         if (pointer) observation.touchEvents += "pointer"
     }
@@ -204,8 +213,16 @@ class DisplayScriptDiagnosticsLuaApi(
     }
 
     @LuaFunction
-    fun setTouchHandlers(path: String, deskId: String, socket: Int, tap: Boolean, doubleTap: Boolean, pointer: Boolean) {
-        runtime()?.setTouchHandlers(path, deskId, socket, tap, doubleTap, pointer)
+    fun setTouchHandlers(
+        path: String,
+        deskId: String,
+        socket: Int,
+        tap: Boolean,
+        draw: Boolean,
+        doubleTap: Boolean,
+        pointer: Boolean
+    ) {
+        runtime()?.setTouchHandlers(path, deskId, socket, tap, draw, doubleTap, pointer)
     }
 
     private fun runtime(): DisplayScriptDiagnosticsRuntime? =
