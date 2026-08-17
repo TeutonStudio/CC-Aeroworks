@@ -281,7 +281,7 @@ internal object LuaRequireScanner {
         }
     }
 
-    private val TOUCH_CALLBACKS = setOf("onTap", "onHold", "onDoubleTap", "onPointer")
+    private val TOUCH_CALLBACKS = setOf("onTap", "onDraw", "onHold", "onDoubleTap", "onPointer")
     private const val MAX_IMPORTS = 32
     private const val MAX_IMPORT_LENGTH = 128
 }
