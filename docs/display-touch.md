@@ -10,8 +10,10 @@ Die große Pultanzeige und die große Radaranzeige verwenden ausschließlich den
 4. Die Kamera wird eingefroren und ein halbtransparenter 3D-Zeiger erscheint orthogonal auf der Displayfläche.
 5. Die Maus verschiebt den Zeiger über die Displayfläche.
 6. Rechtsklick erzeugt `tap`.
-7. Linksklick erzeugt `double_tap`.
-8. Beim Loslassen der Taste endet die Sitzung sofort.
+7. Linksklick aktiviert den Display-Hold und erzeugt `hold`; beim Loslassen wird der interne Hold-Zustand beendet.
+8. Beim Loslassen der Display-Bedienungstaste endet die Sitzung sofort.
+
+Während die Display-Bedienungstaste gehalten wird, besitzen die beiden primären Maustasten Vorrang vor der normalen kombinierten Binding-Verarbeitung und vor Vanilla-Aktionen. Damit können Mausbewegung und Touchaktion innerhalb derselben Display-Sitzung parallel ausgewertet werden, ohne dass ein Klick als Angriff, Benutzung oder anderes Steuerobjekt verloren geht.
 
 Der Zeiger bleibt auf die normierte Displayfläche `0..1` begrenzt. Das erste Maus-Sample beim Aktivieren wird verworfen, damit die Bewegung zum Anvisieren des Displays nicht als Zeigerbewegung übernommen wird. Wird das Display entfernt, der Spieler zu weit entfernt, ein Menü geöffnet oder der Fokus verloren, endet die Sitzung ebenfalls.
 
@@ -28,7 +30,7 @@ local _, peripheralName, socket, socketName, moduleId, action, x, y, width, heig
   os.pullEvent("cc_aeroworks_desk_display_input")
 ```
 
-`action` ist entweder `"tap"` oder `"double_tap"`.
+Die aktuelle kombinierte Mausbedienung erzeugt `action = "tap"` oder `action = "hold"`. Der ältere Wert `"double_tap"` bleibt aus Protokollkompatibilität erhalten, wird durch die aktuelle Rechts-/Linksklick-Belegung aber nicht mehr erzeugt.
 
 Ein normaler `tap` erzeugt aus Kompatibilitätsgründen zusätzlich weiterhin:
 
@@ -43,7 +45,7 @@ local _, peripheralName, socket, socketName, moduleId, x, y, width, height =
   os.pullEvent("cc_aeroworks_desk_touch")
 ```
 
-Ein `double_tap` erzeugt diese alten Touch-Ereignisse ausdrücklich nicht. Dadurch können Programme den Doppeltipp als eigenständige Eingabe behandeln, ohne zweimal auf `monitor_touch` zu reagieren.
+`hold` und `double_tap` erzeugen diese alten Touch-Ereignisse ausdrücklich nicht. Damit bleibt `monitor_touch` ein einfacher Tap-Kompatibilitätspfad und speziellere Displayaktionen können nicht versehentlich doppelt verarbeitet werden.
 
 ### Eingebetteter Computer
 
@@ -60,6 +62,8 @@ Für `tap` wird zusätzlich das kompatible Ereignis geliefert:
 local _, deskId, deskIndex, socket, socketName, moduleId, x, y, width, height =
   os.pullEvent("cc_aeroworks_console_touch")
 ```
+
+Automatische Display-Handler können `onTap`, `onHold`, `onDoubleTap` oder als allgemeinen Fallback `onPointer` bereitstellen. Das Modul `touchdisplay` stellt entsprechend `isTap(event)`, `isHold(event)` und `isDoubleTap(event)` bereit.
 
 ## Koordinaten und Sicherheit
 
