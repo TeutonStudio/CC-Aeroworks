@@ -22,8 +22,6 @@ data class DisplayCombinedTarget(
     var drawActive: Boolean = false
     var drawGestureId: Long = 0L
     var drawSequence: Int = 0
-    var drawStartU: Double = 0.0
-    var drawStartV: Double = 0.0
     var drawLastSentU: Double = 0.0
     var drawLastSentV: Double = 0.0
     var drawDirty: Boolean = false
