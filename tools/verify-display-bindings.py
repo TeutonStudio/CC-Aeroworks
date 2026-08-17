@@ -14,19 +14,24 @@ def require(condition: bool, message: str) -> None:
 
 
 binding = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DisplayBinding.kt")
-registry = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/RadarSourceRegistry.kt")
+radar_bindings = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/display/RadarDisplayBindings.kt")
+registry = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/display/RadarSourceRegistry.kt")
 catalog = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DisplayScriptCatalog.kt")
 catalog_state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DisplayScriptCatalogState.kt")
 widgets = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/DisplayBindingRowWidgets.kt")
+radar_widgets = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/client/RadarSourceOptions.kt")
 selector = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/SourceSelectorWidget.kt")
-access = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/aeroworks/AeroworksDeskAccess.kt")
+access = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/compat/aeroworks/RadarDeskAccess.kt")
 state_mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/ConsoleBlockEntityDisplayBindingMixin.kt")
 ui_mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ModuleScreenDisplayBindingMixin.kt")
-radar_payload = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/SetRadarDisplaySourcePayload.kt")
+radar_ui_mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/mixin/client/RadarModuleScreenMixin.kt")
+radar_payload = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/network/SetRadarDisplaySourcePayload.kt")
 script_payload = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/SetDisplayTouchScriptPayload.kt")
 catalog_payload = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/DisplayScriptCatalogPayloads.kt")
 payloads = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/CCPayloads.kt")
+radar_payloads = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/network/RadarPayloads.kt")
 peripheral = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ControlDeskPeripheral.kt")
+radar_peripheral = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/compat/computercraft/RadarControlDeskPeripheral.kt")
 computer_desk = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerControlDeskBlockEntity.kt")
 dispatcher = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/DeskDisplayInputDispatcher.kt")
 peripheral_state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ControlDeskPeripheralState.kt")
@@ -34,11 +39,14 @@ display_module = read("src/main/resources/data/computercraft/lua/rom/modules/mai
 handler_runtime = read("src/main/resources/data/computercraft/lua/rom/autorun/cc_aeroworks_display_handlers.lua")
 router_example = read("examples/cc/display-binding-router.lua")
 mixins = read("src/main/resources/cc_aeroworks.mixins.json")
+radar_mixins = read("src/main/resources/cc_aeroworks_radarcompat.mixins.json")
 workflow = read(".github/workflows/verify.yml")
 
 # Binding configuration remains separate from Aeroworks input channels.
 require("sealed interface DisplayBinding" in binding, "display binding model is missing")
-require("data class RadarSource" in binding, "radar source binding is missing")
+require("data class Extension" in binding, "generic extension binding model is missing")
+require('const val TYPE = "radar_source"' in radar_bindings, "radar source extension binding identity is missing")
+require("DisplayBindingExtensions.register" in radar_bindings, "radar binding extension is not registered")
 require("data class LuaHandler" in binding, "Lua handler binding is missing")
 require("ControlChannel" not in binding, "display bindings must not masquerade as Aeroworks ControlChannels")
 require("MAX_HANDLER_PATH_LENGTH" in binding, "Lua handler path must be bounded")
@@ -60,20 +68,22 @@ require('"ConsoleBlockEntityDisplayBindingMixin"' in mixins,
         "display binding state mixin must be registered")
 
 # Radar sources use the shared one-row selector and the Network Filterer item as their source icon.
-require("radarSourceOption" in widgets and "SourceSelectorIcon.Item" in widgets,
+require("radarSourceOption" in radar_widgets and "SourceSelectorIcon.Item" in radar_widgets,
         "radar source presentation must provide item icon/title/network text to the shared selector")
-require('ResourceLocation.fromNamespaceAndPath("create_radar", "network_filterer")' in widgets,
+require('ResourceLocation.fromNamespaceAndPath("create_radar", "network_filterer")' in radar_widgets,
         "radar source presentation must use the Create: Radars Network Filterer registry item")
-require("descriptor.radarPos" not in widgets,
+require("descriptor.radarPos" not in radar_widgets,
         "radar source icon must never regress to the radar bearing/radar block")
-require("SourceSelectorWidget<RadarSourceChoice>" in ui_mixin and "SetRadarDisplaySourcePayload" in ui_mixin,
+require("SourceSelectorWidget<RadarSourceChoice>" in radar_ui_mixin and "SetRadarDisplaySourcePayload" in radar_ui_mixin,
         "Radar Display module UI must use the shared selector and the binding payload")
 require("RadarSourceRegistry.sources(desk)" in radar_payload,
         "server must validate requested radar sources against the current multiblock")
-require("CCModuleTypes.radarDisplayType(module.type())" in radar_payload,
+require("RadarModuleTypes.radarDisplayType(module.type())" in radar_payload,
         "server must reject source bindings on non-radar modules")
 require('"client.ModuleScreenDisplayBindingMixin"' in mixins,
-        "Radar Display binding UI mixin must be registered")
+        "Script Display binding UI mixin must be registered")
+require('"client.RadarModuleScreenMixin"' in radar_mixins,
+        "Radar Display binding UI mixin must be registered by radar compat")
 
 # Script sources are discovered from the embedded computer instead of accepting arbitrary typed paths.
 require("createRootMount()" in catalog, "script catalog must scan the embedded computer root mount")
@@ -111,6 +121,8 @@ require("PacketDistributor.sendToPlayer" in catalog_payload,
         "script catalog metadata must be returned by a server response payload")
 require("RequestDisplayScriptCatalogPayload.TYPE" in payloads and "DisplayScriptCatalogPayload.TYPE" in payloads,
         "script catalog request/response payloads must be registered")
+require("SetRadarDisplaySourcePayload.TYPE" in radar_payloads and "SetRadarDisplaySourcePayload" not in payloads,
+        "radar source payload must be registered only by radar compat")
 
 for module_path in (
     "src/main/resources/data/computercraft/lua/rom/modules/main/display.lua",
@@ -179,8 +191,10 @@ require("local cache" not in router_example,
         "display binding router example must not retain stale handler chunks")
 
 # Existing programmatic configuration and compatibility events remain available.
-for method in ("getRadarSources", "getDisplayBinding", "setRadarSource", "setDisplayTouchScript", "clearDisplayBinding"):
-    require(f"fun {method}" in peripheral, f"ControlDesk API is missing {method}")
+for method in ("getDisplayBinding", "setDisplayTouchScript", "clearDisplayBinding"):
+    require(f"fun {method}" in peripheral, f"ControlDesk core API is missing {method}")
+for method in ("getRadarSources", "setRadarSource"):
+    require(f"fun {method}" in radar_peripheral, f"Radar compat ControlDesk API is missing {method}")
 require("handlerPath" in dispatcher and "handlerPath" in peripheral_state,
         "display input events must expose the optional Lua handler path")
 require("CONSOLE_TOUCH_EVENT" in dispatcher, "legacy embedded touch event must remain available")

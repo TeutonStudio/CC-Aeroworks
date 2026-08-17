@@ -76,17 +76,19 @@ def main() -> int:
             f"Obsolete custom radar model remains: {obsolete}",
         )
 
-    snapshot = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/RadarDisplaySnapshot.kt")
-    radar_mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/ConsoleBlockEntityRadarMixin.kt")
-    compat = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/createradar/CreateRadarCompat.kt")
-    trace = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/createradar/RadarTrace.kt")
-    desk_access = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/aeroworks/AeroworksDeskAccess.kt")
+    snapshot = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/display/RadarDisplaySnapshot.kt")
+    radar_mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/mixin/ConsoleBlockEntityRadarMixin.kt")
+    compat = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/createradar/CreateRadarCompat.kt")
+    trace = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/createradar/RadarTrace.kt")
+    desk_access = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/compat/aeroworks/RadarDeskAccess.kt")
     models = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/DeskDisplayModels.kt")
-    native_renderer = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/CreateRadarNativeMonitorRenderer.kt")
-    overlay = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/RadarOverlayRenderer.kt")
+    native_renderer = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/client/render/CreateRadarNativeMonitorRenderer.kt")
+    overlay = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/client/render/RadarOverlayRenderer.kt")
     fallback = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/DeskDisplayRenderer.kt")
     flywheel = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ConsoleVisualMixin.kt")
     client = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/CCAeroworksClient.kt")
+    radar_client = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/RadarCompatClient.kt")
+    render_extensions = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/DisplayRenderExtensions.kt")
 
     require(
         not (ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/RadarSurfaceRenderer.kt").exists(),
@@ -187,17 +189,20 @@ def main() -> int:
     for stage in ("R00_TRACK_ADD", "R01_OVERLAY_STAGE", "R02_OVERLAY_EMPTY", "R04_OVERLAY_DESK", "R08_NATIVE_RETURN", "R09_END_BATCH", "R09_NO_DRAW"):
         require(stage in overlay, f"Overlay trace stage missing: {stage}")
 
-    require("RadarOverlayRenderer.track(desk)" in fallback, "Classic renderer does not register RadarDisplay for native overlay")
+    require("DisplayRenderExtensions.track(desk)" in fallback, "Classic renderer does not invoke optional display render trackers")
     require("RadarSurfaceRenderer" not in fallback, "Classic renderer still invokes custom RadarSurfaceRenderer")
-    require("RadarOverlayRenderer.track(blockEntity)" in flywheel, "Flywheel visual does not register RadarDisplay for native overlay")
+    require("DisplayRenderExtensions.track(blockEntity)" in flywheel, "Flywheel visual does not invoke optional display render trackers")
     require("RadarSurfaceRenderer" not in flywheel, "Flywheel still contains custom radar rendering")
     require("RADAR_" not in flywheel, "Flywheel still creates radar partial models")
-    require("NeoForge.EVENT_BUS.addListener(RadarOverlayRenderer::renderLevel)" in client, "Native radar overlay event is not registered")
-    require("C00_OVERLAY_LISTENER_REGISTERED" in client and "C03_COMPUTER_VISUAL_REGISTERED" in client, "Client bootstrap trace is incomplete")
+    require("RadarOverlayRenderer" not in client, "Core client bootstrap still depends on radar rendering")
+    require("DisplayRenderExtensions.registerTracker(RadarOverlayRenderer::track)" in radar_client, "Radar compat does not register its render tracker")
+    require("NeoForge.EVENT_BUS.addListener(RadarOverlayRenderer::renderLevel)" in radar_client, "Radar compat overlay event is not registered")
+    require("fun track(desk: ConsoleBlockEntity)" in render_extensions, "Generic display render extension point is missing")
     require("SimpleBlockEntityVisualizer.builder(CCBlockEntities.COMPUTER_CONTROL_DESK.get())" in client, "Computer desk Flywheel visual is missing")
 
     metadata = read("src/main/templates/META-INF/neoforge.mods.toml")
     require('modId="create_radar"' in metadata, "Create: Radars metadata is missing")
+    require('modId="${radarcompat_mod_id}"' in metadata, "Separate radar compat mod metadata is missing")
     require('versionRange="[0.4.9.4,)"' in metadata, "Create: Radars metadata range drifted")
 
     manifest = load_json(ROOT / "libs/dependencies.json")

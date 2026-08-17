@@ -28,6 +28,11 @@ invoker = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ModuleS
 combined = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ModuleScreenCombinedInputMixin.kt")
 bindings = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ModuleScreenDisplayBindingMixin.kt")
 presentations = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/DisplayBindingRowWidgets.kt")
+radar_bindings = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/mixin/client/RadarModuleScreenMixin.kt")
+radar_presentations = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/client/RadarSourceOptions.kt")
+overlay_extensions = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/SourceSelectorOverlayExtensions.kt")
+radar_overlay_owner = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/client/RadarSourceSelectorOverlayOwner.kt")
+radar_client = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/RadarCompatClient.kt")
 selector = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/SourceSelectorWidget.kt")
 overlay_owner = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/SourceSelectorOverlayOwner.kt")
 tooltip_mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/AbstractContainerScreenSourceSelectorTooltipMixin.kt")
@@ -84,10 +89,10 @@ require("ccaeroworks_prepareDisplayBindingRows" in bindings and
 require("ccaeroworks_nativeContentHeight >= 0" in bindings and
         "ccaeroworks_setContentHeight(ccaeroworks_nativeContentHeight)" in bindings,
         "repeated init must restore the unextended native content height before Aeroworks runs")
-require("ccaeroworks_radarDropdown = null" in bindings and "ccaeroworks_scriptDropdown = null" in bindings,
-        "repeated init must discard references to widgets cleared by Screen rebuildWidgets")
-require(bindings.count("ccaeroworks_setContentHeight(") == 2,
-        "display binding mixin must have exactly one native-height restore and one final extension write")
+require("ccaeroworks_scriptDropdown = null" in bindings and "ccaeroworks_radarDropdown = null" in radar_bindings,
+        "repeated init must discard references to script and radar widgets cleared by Screen rebuildWidgets")
+require(bindings.count("ccaeroworks_setContentHeight(") == 2 and radar_bindings.count("ccaeroworks_setContentHeight(") == 2,
+        "script and radar source mixins must each have one native-height restore and one final extension write")
 require("ccaeroworks_nativeContentHeight = screen.ccaeroworks_getContentHeight()" in bindings,
         "native content height must be recaptured only after the restored Aeroworks init completes")
 require("contentHeightWithExtensions" in bindings and "ccaeroworks_extensionRows" in bindings,
@@ -102,10 +107,14 @@ require("listBottom = listTop + ModuleScreenRowGeometry.LIST_HEIGHT" in bindings
         "source selector must receive the exact native list clipping bounds")
 require("setRowPosition(rowLeft, rowTop, visible, listTop, listBottom)" in bindings,
         "source selector placement must include viewport bounds for clipping and hit testing")
+require("ModuleScreenRowGeometry.intersectsViewport" in radar_bindings and
+        "setRowPosition(invoker.ccaeroworks_rowLeft(), rowTop, visible, listTop, listBottom)" in radar_bindings,
+        "radar selector must use the current clipped-row placement contract")
 require("AeroworksGuiTextures.MODULE_ROW" not in bindings,
         "source selector must not reuse the native control row with Redstone/radio slots")
-require(bindings.count("ccaeroworks_extensionRows = 1") == 2,
-        "radar and script sources must each consume exactly one extension row")
+require(bindings.count("ccaeroworks_extensionRows = 1") == 1 and
+        "contentHeightWithExtensions(ccaeroworks_radarNativeContentHeight, 1)" in radar_bindings,
+        "script and radar sources must each consume exactly one extension row")
 require("topPos + imageHeight" not in bindings and "leftPos + (imageWidth" not in bindings,
         "configuration rows must not return to inventory-overlapping absolute placement")
 
@@ -113,13 +122,13 @@ require("topPos + imageHeight" not in bindings and "leftPos + (imageWidth" not i
 require("ccaeroworks_scriptCatalogRequested" in bindings and
         "if (!ccaeroworks_scriptCatalogRequested)" in bindings,
         "script catalog requests must be per Screen instance rather than repeated on resize")
-require(bindings.count("DisplayScriptCatalogState.clear(desk.blockPos, socket)") == 1,
-        "script catalog must only be cleared inside the one-time request guard")
+require(bindings.count("DisplayScriptCatalogState.clear(") == 1,
+        "script catalog must only be cleared once inside the one-time request guard")
 
 # Radar and script are presentations over one selector implementation.
-require("SourceSelectorWidget<RadarSourceChoice>" in bindings and "SourceSelectorWidget<String>" in bindings,
-        "radar and script bindings must share SourceSelectorWidget")
-require("{ _ -> choices.map(::radarSourceOption) }" in bindings,
+require("SourceSelectorWidget<String>" in bindings and "SourceSelectorWidget<RadarSourceChoice>" in radar_bindings,
+        "radar and script bindings must share the generic SourceSelectorWidget across the package boundary")
+require("{ _ -> choices.map(::radarSourceOption) }" in radar_bindings,
         "radar choices must feed the shared dropdown instead of creating one row per radar")
 require("mouseScrolled" in selector and "MAX_VISIBLE_OPTIONS = 5" in selector,
         "shared dropdown must have bounded independent scrolling")
@@ -131,8 +140,9 @@ require('if (expanded) "^" else "v"' not in selector,
         "dropdown arrow must never regress to text glyphs")
 require("SourceSelectorIcon.Item" in selector and "SourceSelectorIcon.Sprite" in selector,
         "shared selector must support both Minecraft item icons and custom GUI sprites")
-require("fun renderOverlay" in selector and "ccaeroworks_renderBindingPopup" in bindings,
-        "open selector popups must render after ModuleScreen's normal widget/decorations pass")
+require("fun renderOverlay" in selector and "ccaeroworks_renderBindingPopup" in bindings and
+        "ccaeroworks_renderRadarBindingPopup" in radar_bindings,
+        "script and radar selector popups must render after ModuleScreen's normal widget/decorations pass")
 require('method = ["render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V"]' in bindings,
         "popup overlay must be attached to the complete ModuleScreen render pass")
 require("graphics.enableScissor(x, viewportTop, x + width, viewportBottom)" in selector and
@@ -154,23 +164,31 @@ require("interface SourceSelectorOverlayOwner" in overlay_owner and
         "source selector screens must expose popup hover state through a narrow client interface")
 require("SourceSelectorOverlayOwner" in bindings and
         "override fun ccaeroworks_isSourceSelectorPopupHovered" in bindings,
-        "ModuleScreen source binding mixin must implement popup hover ownership")
+        "core script binding mixin must implement popup hover ownership")
+require("RadarSourceSelectorOverlayOwner" in radar_bindings and
+        "ccaeroworks_isRadarSourceSelectorPopupHovered" in radar_bindings,
+        "radar compat must expose radar popup hover state without a core radar dependency")
+require("CopyOnWriteArrayList" in overlay_extensions and "fun register" in overlay_extensions and
+        "SourceSelectorOverlayOwner" in overlay_extensions,
+        "core tooltip hover handling must expose a generic extension registry")
+require("SourceSelectorOverlayExtensions.register" in radar_client and "RadarSourceSelectorOverlayOwner" in radar_client,
+        "radar compat client must register radar popup hover handling through the generic extension registry")
 require('@Mixin(AbstractContainerScreen::class)' in tooltip_mixin,
         "item tooltip suppression must target vanilla AbstractContainerScreen")
 require('method = ["renderTooltip(Lnet/minecraft/client/gui/GuiGraphics;II)V"]' in tooltip_mixin and
         "callback.cancel()" in tooltip_mixin,
         "container item tooltip rendering must be cancellable beneath an open source popup")
-require("ccaeroworks_isSourceSelectorPopupHovered" in tooltip_mixin,
-        "tooltip cancellation must only occur when the mouse is actually inside the source popup")
+require("SourceSelectorOverlayExtensions.isPopupHovered" in tooltip_mixin,
+        "tooltip cancellation must consult the generic source-selector overlay extension path")
 require('"client.AbstractContainerScreenSourceSelectorTooltipMixin"' in mixins,
         "source-selector container tooltip mixin must be registered on the client")
 
 # Radar source icon is the Create: Radars Network Filterer / network controller, never radarPos.
-require('ResourceLocation.fromNamespaceAndPath("create_radar", "network_filterer")' in presentations,
+require('ResourceLocation.fromNamespaceAndPath("create_radar", "network_filterer")' in radar_presentations,
         "radar source icon must resolve the Create: Radars network_filterer registry block")
-require("BuiltInRegistries.BLOCK.getOptional(NETWORK_CONTROLLER_ID)" in presentations,
+require("BuiltInRegistries.BLOCK.getOptional(NETWORK_CONTROLLER_ID)" in radar_presentations,
         "radar source icon must use registry lookup rather than a world/chunk lookup")
-require("descriptor.radarPos" not in presentations,
+require("descriptor.radarPos" not in radar_presentations,
         "radar source presentation must not derive its icon or title from the radar bearing/radar block")
 require('CCAeroworks.id("source_selector/script")' in presentations,
         "script source must use the dedicated Minecraft-style script sprite")

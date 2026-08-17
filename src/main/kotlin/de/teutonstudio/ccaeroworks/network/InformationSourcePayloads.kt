@@ -72,9 +72,11 @@ data class InformationSourceSnapshotPayload(
                     val sourceCount = boundedCount(buffer, MAX_SOURCES, "information source")
                     val sources = ArrayList<InformationSourceView>(sourceCount)
                     repeat(sourceCount) {
-                        val kindOrdinal = buffer.readVarInt()
-                        val kind = InformationSourceKind.entries.getOrNull(kindOrdinal)
-                            ?: throw IllegalArgumentException("Invalid information source kind: $kindOrdinal")
+                        val kind = InformationSourceKind(
+                            id = buffer.readUtf(64),
+                            title = buffer.readUtf(64),
+                            order = buffer.readVarInt()
+                        )
                         sources += InformationSourceView(
                             id = buffer.readUtf(256),
                             kind = kind,
@@ -142,7 +144,9 @@ data class InformationSourceSnapshotPayload(
                     val sources = payload.snapshot.sources.take(MAX_SOURCES)
                     buffer.writeVarInt(sources.size)
                     sources.forEach { source ->
-                        buffer.writeVarInt(source.kind.ordinal)
+                        buffer.writeUtf(source.kind.id.take(64), 64)
+                        buffer.writeUtf(source.kind.title.take(64), 64)
+                        buffer.writeVarInt(source.kind.order)
                         buffer.writeUtf(source.id.take(256), 256)
                         buffer.writeUtf(source.label.take(128), 128)
                         buffer.writeUtf(source.status.take(32), 32)

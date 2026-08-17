@@ -2,69 +2,72 @@ package de.teutonstudio.ccaeroworks.display
 
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
-import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
-import net.minecraft.nbt.NbtUtils
-import net.minecraft.resources.ResourceLocation
+import java.util.concurrent.ConcurrentHashMap
 
-data class RadarSourceKey(
-    val dimension: ResourceLocation,
-    val ingressPos: BlockPos
-) {
-    val id: String
-        get() = "$dimension@${ingressPos.asLong()}"
-
-    fun toTag(): CompoundTag = CompoundTag().apply {
-        putString("dimension", dimension.toString())
-        put("ingressPos", NbtUtils.writeBlockPos(ingressPos))
-    }
-
-    companion object {
-        fun fromTag(tag: CompoundTag): RadarSourceKey? {
-            val dimension = ResourceLocation.tryParse(tag.getString("dimension")) ?: return null
-            val ingressPos = NbtUtils.readBlockPos(tag, "ingressPos").orElse(null) ?: return null
-            return RadarSourceKey(dimension, ingressPos.immutable())
-        }
-    }
-}
+data class ExtensionBindingHandler(
+    val supports: (ConsoleBlockEntity, Int, DisplayBinding.Extension) -> Boolean,
+    val describe: (DisplayBinding.Extension) -> Map<String, Any>
+)
 
 sealed interface DisplayBinding {
     data object Default : DisplayBinding
-
-    data class RadarSource(val source: RadarSourceKey) : DisplayBinding
-
     data class LuaHandler(val path: String) : DisplayBinding
+    data class Extension(val type: String, val payload: CompoundTag) : DisplayBinding
 
     fun toTag(): CompoundTag = CompoundTag().apply {
         when (this@DisplayBinding) {
             Default -> putString("type", "default")
-            is RadarSource -> {
-                putString("type", "radar_source")
-                put("source", source.toTag())
-            }
             is LuaHandler -> {
                 putString("type", "lua_handler")
                 putString("path", path)
+            }
+            is Extension -> {
+                merge(payload.copy())
+                putString("type", this@DisplayBinding.type)
             }
         }
     }
 
     companion object {
-        fun fromTag(tag: CompoundTag): DisplayBinding? = when (tag.getString("type")) {
-            "default" -> Default
-            "radar_source" -> RadarSourceKey.fromTag(tag.getCompound("source"))?.let(::RadarSource)
-            "lua_handler" -> tag.getString("path")
-                .takeIf { it.isNotBlank() && it.length <= DisplayBindings.MAX_HANDLER_PATH_LENGTH }
-                ?.let(::LuaHandler)
-            else -> null
+        fun fromTag(tag: CompoundTag): DisplayBinding? {
+            val type = tag.getString("type")
+            return when (type) {
+                "default" -> Default
+                "lua_handler" -> tag.getString("path")
+                    .takeIf { it.isNotBlank() && it.length <= DisplayBindings.MAX_HANDLER_PATH_LENGTH }
+                    ?.let(::LuaHandler)
+                "" -> null
+                else -> Extension(type, tag.copy().apply { remove("type") })
+            }
         }
     }
 }
 
 interface DisplayBindingStateAccess {
     fun ccaeroworks_getDisplayBindings(): Map<Int, DisplayBinding>
-
     fun ccaeroworks_setDisplayBinding(socket: Int, binding: DisplayBinding)
+}
+
+object DisplayBindingExtensions {
+    private val handlers = ConcurrentHashMap<String, ExtensionBindingHandler>()
+
+    fun register(
+        type: String,
+        supports: (ConsoleBlockEntity, Int, DisplayBinding.Extension) -> Boolean,
+        describe: (DisplayBinding.Extension) -> Map<String, Any>
+    ) {
+        require(type.isNotBlank() && type != "default" && type != "lua_handler")
+        check(handlers.putIfAbsent(type, ExtensionBindingHandler(supports, describe)) == null) {
+            "Display binding extension '$type' is already registered"
+        }
+    }
+
+    internal fun supports(desk: ConsoleBlockEntity, socket: Int, binding: DisplayBinding.Extension): Boolean =
+        handlers[binding.type]?.supports?.invoke(desk, socket, binding) == true
+
+    internal fun describe(binding: DisplayBinding.Extension): Map<String, Any> =
+        handlers[binding.type]?.describe?.invoke(binding) ?: linkedMapOf("type" to binding.type)
 }
 
 object DisplayBindings {
@@ -85,8 +88,7 @@ object DisplayBindings {
         return true
     }
 
-    fun clear(desk: ConsoleBlockEntity, socket: Int): Boolean =
-        set(desk, socket, DisplayBinding.Default)
+    fun clear(desk: ConsoleBlockEntity, socket: Int): Boolean = set(desk, socket, DisplayBinding.Default)
 
     fun supports(desk: ConsoleBlockEntity, socket: Int, binding: DisplayBinding): Boolean {
         if (socket !in 0 until desk.socketCount()) return false
@@ -94,27 +96,17 @@ object DisplayBindings {
         val module = desk.module(socket) ?: return false
         return when (binding) {
             DisplayBinding.Default -> true
-            is DisplayBinding.RadarSource -> CCModuleTypes.radarDisplayType(module.type()) != null
             is DisplayBinding.LuaHandler ->
                 CCModuleTypes.displayType(module.type()) == DeskDisplayType.THREE_DIGIT &&
                     binding.path.isNotBlank() &&
                     binding.path.length <= MAX_HANDLER_PATH_LENGTH
+            is DisplayBinding.Extension -> DisplayBindingExtensions.supports(desk, socket, binding)
         }
     }
 
     fun describe(binding: DisplayBinding): Map<String, Any> = when (binding) {
         DisplayBinding.Default -> linkedMapOf("type" to "default")
-        is DisplayBinding.RadarSource -> linkedMapOf(
-            "type" to "radar_source",
-            "source" to binding.source.id,
-            "dimension" to binding.source.dimension.toString(),
-            "x" to binding.source.ingressPos.x,
-            "y" to binding.source.ingressPos.y,
-            "z" to binding.source.ingressPos.z
-        )
-        is DisplayBinding.LuaHandler -> linkedMapOf(
-            "type" to "lua_handler",
-            "path" to binding.path
-        )
+        is DisplayBinding.LuaHandler -> linkedMapOf("type" to "lua_handler", "path" to binding.path)
+        is DisplayBinding.Extension -> DisplayBindingExtensions.describe(binding)
     }
 }

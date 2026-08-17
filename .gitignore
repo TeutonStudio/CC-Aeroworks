@@ -15,6 +15,10 @@ build/
 run/
 run-data/
 
+# Python verification cache.
+__pycache__/
+*.pyc
+
 # IDE output.
 .idea/
 *.iml

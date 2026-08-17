@@ -6,7 +6,7 @@ import com.mred231.aeroworks.content.controls.ConsoleVisual
 import de.teutonstudio.ccaeroworks.client.display.DeskDisplayModels
 import de.teutonstudio.ccaeroworks.client.display.DeskDisplayRenderer
 import de.teutonstudio.ccaeroworks.client.display.DeskPixelOverlayRenderer
-import de.teutonstudio.ccaeroworks.client.display.RadarOverlayRenderer
+import de.teutonstudio.ccaeroworks.client.display.DisplayRenderExtensions
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess
 import dev.engine_room.flywheel.api.instance.Instance
 import dev.engine_room.flywheel.api.visual.DynamicVisual
@@ -76,9 +76,8 @@ abstract class ConsoleVisualMixin(
 
     @Unique
     private fun rebuildElements() {
-        // Radar and programmable pixel surfaces are rendered in shared world passes. In
-        // particular, high-PPB rasters must not become thousands of persistent Flywheel instances.
-        RadarOverlayRenderer.track(blockEntity)
+        // Optional display integrations and programmable pixel surfaces use shared world passes.
+        DisplayRenderExtensions.track(blockEntity)
         DeskPixelOverlayRenderer.track(blockEntity)
 
         val displays = AeroworksDeskAccess.renderedDisplays(blockEntity)

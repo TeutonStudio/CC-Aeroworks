@@ -1,15 +1,12 @@
 package de.teutonstudio.ccaeroworks.computer.source
 
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskSockets
-import de.teutonstudio.ccaeroworks.compat.createradar.RadarNetworkControllerLookup
 import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
 import de.teutonstudio.ccaeroworks.computer.DisplayScriptDiagnosticsRegistry
-import de.teutonstudio.ccaeroworks.computer.DisplayScriptRuntimeObservation
 import de.teutonstudio.ccaeroworks.computer.PeripheralNetworkBuilder
 import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
 import de.teutonstudio.ccaeroworks.display.DisplayScriptCatalog
-import de.teutonstudio.ccaeroworks.display.RadarSourceRegistry
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import de.teutonstudio.ccaeroworks.telemetry.TelemetryRuntime
@@ -23,11 +20,10 @@ object InformationSourceSnapshotBuilder {
         val sources = arrayListOf<InformationSourceView>()
         addDisplayLinks(owner, sources)
         addStorage(owner, sources)
-        addRadarIngress(owner, sources)
-        addRadarControllers(owner, sources)
+        sources += InformationSourceExtensions.sources(owner)
         addGps(owner, sources)
         return InformationSourceSnapshot(
-            sources = sources.sortedWith(compareBy<InformationSourceView>({ it.kind.ordinal }, { it.label }, { it.id })),
+            sources = sources.sortedWith(compareBy<InformationSourceView>({ it.kind.order }, { it.label }, { it.id })),
             displayScripts = buildDisplayScripts(owner)
         )
     }
@@ -49,7 +45,7 @@ object InformationSourceSnapshotBuilder {
             val link = linkPos?.let { " · link ${it.x},${it.y},${it.z}" }.orEmpty()
             result += InformationSourceView(
                 id = "display_link:$id",
-                kind = InformationSourceKind.DISPLAY_LINK,
+                kind = InformationSourceKinds.DISPLAY_LINK,
                 label = label,
                 status = status,
                 x = pos.x,
@@ -69,7 +65,7 @@ object InformationSourceSnapshotBuilder {
             .forEach { node ->
                 result += InformationSourceView(
                     id = "storage:${node.address}",
-                    kind = InformationSourceKind.STORAGE,
+                    kind = InformationSourceKinds.STORAGE,
                     label = node.primaryType,
                     status = "connected",
                     x = node.pos.x,
@@ -81,45 +77,6 @@ object InformationSourceSnapshotBuilder {
             }
     }
 
-    private fun addRadarIngress(owner: ComputerControlDeskBlockEntity, result: MutableList<InformationSourceView>) {
-        RadarSourceRegistry.sources(owner).forEach { source ->
-            val radar = source.radarPos
-            val details = radar?.let { "radar ${it.x},${it.y},${it.z}" }.orEmpty()
-            result += InformationSourceView(
-                id = "radar_data_link:${source.id}",
-                kind = InformationSourceKind.RADAR_DATA_LINK,
-                label = "Radar ingress ${source.memberIndex}",
-                status = source.status.name.lowercase(),
-                x = source.ingressPos.x,
-                y = source.ingressPos.y,
-                z = source.ingressPos.z,
-                side = "",
-                details = details
-            )
-        }
-    }
-
-    private fun addRadarControllers(owner: ComputerControlDeskBlockEntity, result: MutableList<InformationSourceView>) {
-        val level = owner.level ?: return
-        val network = ConsoleMultiblockManager.resolve(level, owner.blockPos)
-        val seen = hashSetOf<BlockPos>()
-        network.members.forEach { member ->
-            val controller = RadarNetworkControllerLookup.controllerFor(member.desk) ?: return@forEach
-            if (!seen.add(controller)) return@forEach
-            result += InformationSourceView(
-                id = "radar_controller:${controller.asLong()}",
-                kind = InformationSourceKind.RADAR_NETWORK_CONTROLLER,
-                label = "Radar network controller",
-                status = "linked",
-                x = controller.x,
-                y = controller.y,
-                z = controller.z,
-                side = "",
-                details = "via desk ${member.index}"
-            )
-        }
-    }
-
     private fun addGps(owner: ComputerControlDeskBlockEntity, result: MutableList<InformationSourceView>) {
         GpsSourceTracker.request(owner)
         val source = GpsSourceTracker.current(owner) ?: return
@@ -127,7 +84,7 @@ object InformationSourceSnapshotBuilder {
         val ageSeconds = source.ageTicks / 20L
         result += InformationSourceView(
             id = "gps:${owner.deskId}",
-            kind = InformationSourceKind.GPS,
+            kind = InformationSourceKinds.GPS,
             label = "GPS fix",
             status = source.status,
             x = fix.x.roundToInt(),

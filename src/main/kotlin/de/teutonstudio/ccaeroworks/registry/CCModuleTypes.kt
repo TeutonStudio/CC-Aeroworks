@@ -8,7 +8,6 @@ import com.mred231.aeroworks.content.controls.SocketType
 import com.mred231.aeroworks.content.controls.SocketTypes
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.display.DeskDisplayType
-import de.teutonstudio.ccaeroworks.display.RadarDisplayType
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.phys.Vec3
 import java.lang.reflect.Array
@@ -26,34 +25,21 @@ object CCModuleTypes {
     )
 
     @JvmField
-    val TWO_DIGIT: ModuleType = create(
+    val TWO_DIGIT: ModuleType = createExtensionModule(
         DeskDisplayType.TWO_DIGIT,
         DeskDisplayType.TWO_DIGIT.modulePath,
         interactive = false
     )
 
     @JvmField
-    val THREE_DIGIT: ModuleType = create(
+    val THREE_DIGIT: ModuleType = createExtensionModule(
         DeskDisplayType.THREE_DIGIT,
         DeskDisplayType.THREE_DIGIT.modulePath,
         interactive = true
     )
 
-    @JvmField
-    val SMALL_RADAR: ModuleType = create(
-        RadarDisplayType.SMALL.displayType,
-        RadarDisplayType.SMALL.modulePath,
-        interactive = false
-    )
 
-    @JvmField
-    val LARGE_RADAR: ModuleType = create(
-        RadarDisplayType.LARGE.displayType,
-        RadarDisplayType.LARGE.modulePath,
-        interactive = true
-    )
-
-    private fun create(displayType: DeskDisplayType, modulePath: String, interactive: Boolean): ModuleType {
+    internal fun createExtensionModule(displayType: DeskDisplayType, modulePath: String, interactive: Boolean): ModuleType {
         val model = CCAeroworks.id("block/module/$modulePath")
         val shanks = when (displayType) {
             DeskDisplayType.TWO_DIGIT -> arrayOf(AeroworksSocketTypes.SMALL, AeroworksSocketTypes.LARGE)
@@ -162,14 +148,6 @@ object CCModuleTypes {
             .firstOrNull()
     }
 
-    @JvmStatic
-    fun radarDisplayType(moduleType: ModuleType): RadarDisplayType? {
-        if (moduleType === SMALL_RADAR || moduleType == SMALL_RADAR) return RadarDisplayType.SMALL
-        if (moduleType === LARGE_RADAR || moduleType == LARGE_RADAR) return RadarDisplayType.LARGE
-        return moduleTypeIdentities(moduleType)
-            .mapNotNull(::radarDisplayTypeFromIdentity)
-            .firstOrNull()
-    }
 
     private fun displayTypeFromIdentity(rawIdentity: String): DeskDisplayType? = when {
         matchesModuleIdentity(rawIdentity, DeskDisplayType.TWO_DIGIT.modulePath) -> DeskDisplayType.TWO_DIGIT
@@ -177,11 +155,9 @@ object CCModuleTypes {
         else -> null
     }
 
-    private fun radarDisplayTypeFromIdentity(rawIdentity: String): RadarDisplayType? = when {
-        matchesModuleIdentity(rawIdentity, RadarDisplayType.SMALL.modulePath) -> RadarDisplayType.SMALL
-        matchesModuleIdentity(rawIdentity, RadarDisplayType.LARGE.modulePath) -> RadarDisplayType.LARGE
-        else -> null
-    }
+
+    internal fun matchesExtensionModule(moduleType: ModuleType, modulePath: String): Boolean =
+        moduleTypeIdentities(moduleType).any { matchesModuleIdentity(it, modulePath) }
 
     private fun matchesModuleIdentity(rawIdentity: String, modulePath: String): Boolean {
         val identity = rawIdentity.lowercase(Locale.ROOT)

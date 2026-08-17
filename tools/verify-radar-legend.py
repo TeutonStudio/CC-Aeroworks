@@ -6,8 +6,8 @@ from __future__ import annotations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-LEGEND = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/RadarLegendRenderer.kt"
-OVERLAY = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/RadarOverlayRenderer.kt"
+LEGEND = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/client/render/RadarLegendRenderer.kt"
+OVERLAY = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/client/render/RadarOverlayRenderer.kt"
 BYTECODE = ROOT / "tools/verify-create-radars-bytecode.py"
 
 

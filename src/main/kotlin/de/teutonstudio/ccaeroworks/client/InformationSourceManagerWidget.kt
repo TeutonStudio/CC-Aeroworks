@@ -2,6 +2,7 @@ package de.teutonstudio.ccaeroworks.client
 
 import de.teutonstudio.ccaeroworks.computer.source.DisplayScriptInformationView
 import de.teutonstudio.ccaeroworks.computer.source.InformationSourceKind
+import de.teutonstudio.ccaeroworks.computer.source.InformationSourceKinds
 import de.teutonstudio.ccaeroworks.computer.source.InformationSourceSnapshotState
 import de.teutonstudio.ccaeroworks.computer.source.InformationSourceView
 import net.minecraft.client.gui.Font
@@ -70,8 +71,11 @@ internal class InformationSourceManagerWidget(
 
     private fun rows(): List<SourceRow> = buildList {
         val snapshot = InformationSourceSnapshotState.get()
-        InformationSourceKind.entries.forEach { kind ->
-            if (kind == InformationSourceKind.DISPLAY_SCRIPT) {
+        val kinds = (InformationSourceKinds.CORE + snapshot.sources.map { it.kind })
+            .distinctBy { it.id }
+            .sortedBy { it.order }
+        kinds.forEach { kind ->
+            if (kind == InformationSourceKinds.DISPLAY_SCRIPT) {
                 val scripts = snapshot.displayScripts
                 add(SourceRow.Section(kind, scripts.size))
                 if (kind in collapsedKinds) return@forEach

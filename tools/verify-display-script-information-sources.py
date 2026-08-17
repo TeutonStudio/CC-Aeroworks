@@ -25,8 +25,10 @@ access = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerCons
 handler = read("src/main/resources/data/computercraft/lua/rom/autorun/cc_aeroworks_display_handlers.lua")
 mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/AbstractComputerScreenSwitchMixin.kt")
 
-require('DISPLAY_SCRIPT("DISPLAY SCRIPTS")' in state,
-        "information source model must expose a DISPLAY SCRIPTS category")
+require('InformationSourceKind("display_script", "DISPLAY SCRIPTS"' in state,
+        "information source model must expose a DISPLAY SCRIPTS core category")
+require("data class InformationSourceKind" in state and "InformationSourceKinds" in state,
+        "information source kinds must remain extensible for optional compatibility modules")
 for model in ("DisplayScriptInformationView", "DisplayScriptInstanceView", "DisplayScriptDependencyView"):
     require(model in state, f"structured display script diagnostics are missing {model}")
 
@@ -57,17 +59,23 @@ require("buildDisplayScripts" in builder and "DisplayScriptCatalog.scan(owner)" 
         "information source snapshot must project the authoritative display script catalog")
 require("DisplayScriptDiagnosticsRegistry.snapshot(owner)" in builder,
         "snapshot must merge runtime observations with static script metadata")
+require("InformationSourceExtensions.sources(owner)" in builder,
+        "snapshot must preserve optional information-source extension providers")
 require("dependencyLabel" in builder and 'key == "telemetry:*"' in builder,
         "observed telemetry dependencies must resolve back to readable information source labels")
 
 require("displayScripts" in payload and "MAX_DEPENDENCIES" in payload,
         "network payload must serialize bounded structured display diagnostics")
+require("source.kind.id" in payload and "source.kind.title" in payload,
+        "network payload must preserve extensible information-source kinds")
 require("expandedScripts" in widget and "SourceRow.Script" in widget,
         "each display script must be independently expandable")
+require("InformationSourceKinds.CORE" in widget and "snapshot.sources.map { it.kind }" in widget,
+        "information-source UI must combine core and optional compatibility categories")
 for section in ("IMPORTS", "REACTIVE", "OBSERVED", "TOUCH"):
     require(f'"    {section}' in widget or f'"      {section}' in widget,
             f"display script tree is missing {section} diagnostics")
 require("ccaeroworks_lastSourceSnapshotRequest" in mixin and "ccaeroworks_snapshotIntervalTicks" in mixin,
         "information source page must keep refreshing while visible")
 
-print("Validated display script source category, static Lua metadata, runtime dependency observation, touch diagnostics, bounded payloads, and expandable UI.")
+print("Validated display script source category, extensible compatibility kinds, static Lua metadata, runtime dependency observation, touch diagnostics, bounded payloads, and expandable UI.")

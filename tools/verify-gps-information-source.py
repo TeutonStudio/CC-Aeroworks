@@ -18,10 +18,10 @@ def main() -> int:
     widget = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/InformationSourceManagerWidget.kt")
     mod = read("src/main/kotlin/de/teutonstudio/ccaeroworks/CCAeroworks.kt")
 
-    require('GPS("GPS")' in state, "information-source enum must include GPS")
+    require('InformationSourceKind("gps", "GPS", 30)' in state, "information-source core kinds must include GPS")
     require("GpsSourceTracker.request(owner)" in builder and "GpsSourceTracker.current(owner)" in builder,
             "information-source snapshot must trigger and read GPS discovery")
-    require("InformationSourceKind.GPS" in builder and 'id = "gps:${owner.deskId}"' in builder,
+    require("InformationSourceKinds.GPS" in builder and 'id = "gps:${owner.deskId}"' in builder,
             "GPS source projection missing stable desk-scoped id")
 
     require("ComputerCraftAPI.getWirelessNetwork" in tracker,
@@ -51,7 +51,7 @@ def main() -> int:
     require("NeoForge.EVENT_BUS.register(GpsSourceTracker)" in mod,
             "GPS tracker must be registered on the NeoForge server event bus")
 
-    require("InformationSourceKind.entries.forEach" in widget and "InformationSourceKind.GPS" not in widget,
+    require("InformationSourceKinds.CORE + sources.map { it.kind }" in widget and "InformationSourceKinds.GPS" not in widget,
             "GPS should use the generic collapsible information-source UI, not a parallel widget path")
     require("CompoundTag" not in tracker and "DataComponent" not in tracker,
             "runtime GPS availability/fixes must not be persisted")

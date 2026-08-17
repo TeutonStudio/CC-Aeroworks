@@ -1,0 +1,23 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "de.teutonstudio.ccaeroworks.radarcompat.mixin",
+  "plugin": "de.teutonstudio.ccaeroworks.radarcompat.mixin.RadarCompatMixinPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "mixinextras": {
+    "minVersion": "0.5.0"
+  },
+  "mixins": [
+    "ConsoleBlockEntityRadarMixin",
+    "createradar.CreateRadarBearingBlockEntityMixin",
+    "createradar.CreateRadarBearingBlockMixin",
+    "createradar.CreateRadarBearingContraptionMixin",
+    "createradar.CreateRadarDataLinkTargetMixin"
+  ],
+  "client": [
+    "client.RadarModuleScreenMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

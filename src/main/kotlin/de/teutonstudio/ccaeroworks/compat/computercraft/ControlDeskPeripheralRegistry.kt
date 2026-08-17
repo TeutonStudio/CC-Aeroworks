@@ -31,7 +31,7 @@ object ControlDeskPeripheralRegistry {
     ) {
         event.registerBlockEntity(PeripheralCapability.get(), type) { blockEntity, _ ->
             synchronized(peripherals) {
-                peripherals.getOrPut(blockEntity) { ControlDeskPeripheral(blockEntity) }
+                peripherals.getOrPut(blockEntity) { ControlDeskPeripheralFactory.create(blockEntity) }
             }
         }
     }

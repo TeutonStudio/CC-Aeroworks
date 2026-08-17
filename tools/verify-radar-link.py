@@ -9,16 +9,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE_BRANCH = "master"
-MIXIN_CONFIG = ROOT / "src/main/resources/cc_aeroworks.mixins.json"
-TARGET_MIXIN = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/mixin/compat/CreateRadarDataLinkTargetMixin.java"
-OLD_CONTROLLER_MIXIN = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/mixin/compat/CreateRadarNetworkControllerMixin.java"
-COMPAT = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/compat/createradar/CreateRadarCompat.kt"
-DESK_MIXIN = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/ConsoleBlockEntityRadarMixin.kt"
-SNAPSHOT = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/display/RadarDisplaySnapshot.kt"
-DESK_ACCESS = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/compat/aeroworks/AeroworksDeskAccess.kt"
+MIXIN_CONFIG = ROOT / "src/main/resources/cc_aeroworks_radarcompat.mixins.json"
+TARGET_MIXIN = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/radarcompat/mixin/createradar/CreateRadarDataLinkTargetMixin.java"
+OLD_CONTROLLER_MIXIN = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/radarcompat/mixin/createradar/CreateRadarNetworkControllerMixin.java"
+COMPAT = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/createradar/CreateRadarCompat.kt"
+DESK_MIXIN = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/mixin/ConsoleBlockEntityRadarMixin.kt"
+SNAPSHOT = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/display/RadarDisplaySnapshot.kt"
+DESK_ACCESS = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/compat/aeroworks/RadarDeskAccess.kt"
 CLIENT = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/client/CCAeroworksClient.kt"
+RADAR_CLIENT = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/RadarCompatClient.kt"
 CLASSIC_RENDERER = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/client/ComputerControlDeskRenderer.kt"
-PONDER = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/client/ponder/RadarDisplayScenes.java"
+PONDER = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/radarcompat/client/ponder/RadarDisplayScenes.java"
 DOCS = ROOT / "docs/create-radars-integration.md"
 ANALYSIS = ROOT / "docs/create-radars-native-flow-analysis.md"
 TEST_PLAN = ROOT / "docs/radar-controller-test-plan.md"
@@ -63,17 +64,17 @@ def main() -> int:
     common_mixins = set(mixins.get("mixins", []))
     require("ConsoleBlockEntityRadarMixin" in common_mixins, "Radar desk state mixin is missing")
     require(
-        "compat.CreateRadarDataLinkTargetMixin" in common_mixins,
+        "createradar.CreateRadarDataLinkTargetMixin" in common_mixins,
         "Native Data Link monitor-classification mixin is missing",
     )
     mixinextras = mixins.get("mixinextras")
     require(isinstance(mixinextras, dict), "MixinExtras version contract is missing from mixin config")
     require(mixinextras.get("minVersion") == "0.5.0", "MixinExtras 0.5.0 expression support is not pinned")
     for forbidden in (
-        "compat.CreateRadarNetworkControllerMixin",
-        "compat.CreateRadarNetworkControllerLinkMixin",
-        "compat.CreateRadarDataLinkMixin",
-        "compat.CreateRadarDataLinkItemMixin",
+        "createradar.CreateRadarNetworkControllerMixin",
+        "createradar.CreateRadarNetworkControllerLinkMixin",
+        "createradar.CreateRadarDataLinkMixin",
+        "createradar.CreateRadarDataLinkItemMixin",
     ):
         require(forbidden not in common_mixins, f"Obsolete radar mixin remains registered: {forbidden}")
     require(TARGET_MIXIN.is_file(), "Native Data Link target mixin file is missing")
@@ -92,7 +93,7 @@ def main() -> int:
         "boolean nativeMonitor",
         "BlockEntity candidate",
         "boolean isDesk = candidate instanceof ConsoleBlockEntity",
-        "AeroworksDeskAccess.hasRadarDisplay((ConsoleBlockEntity) candidate)",
+        "RadarDeskAccess.hasRadarDisplay((ConsoleBlockEntity) candidate)",
         "boolean accepted = nativeMonitor || hasRadarDisplay",
         '"DL_CLASSIFY"',
         "return accepted",
@@ -203,10 +204,12 @@ def main() -> int:
     require("RadarDisplayTrack" not in snapshot, "Snapshot still defines a parallel RadarTrack type")
 
     client = read(CLIENT)
+    radar_client = read(RADAR_CLIENT)
     classic = read(CLASSIC_RENDERER)
     require("SimpleBlockEntityVisualizer.builder(CCBlockEntities.COMPUTER_CONTROL_DESK.get())" in client, "Computer desk Flywheel visual is not registered")
     require("ConsoleVisual(context, blockEntity, partialTick)" in client, "Computer desk does not preserve native Aeroworks ConsoleVisual")
-    require("RadarOverlayRenderer::renderLevel" in client, "Shared native radar overlay is not registered")
+    require("RadarOverlayRenderer" not in client, "Core client bootstrap still owns radar rendering")
+    require("RadarOverlayRenderer::renderLevel" in radar_client, "Radar compat client does not register shared native radar overlay")
     require("ConsoleRenderer" in classic and "DeskDisplayRenderer.render" in classic, "Classic computer desk render fallback is missing")
 
     ponder = read(PONDER)

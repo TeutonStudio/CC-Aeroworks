@@ -15,7 +15,7 @@ import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskInputSnapshot
 import de.teutonstudio.ccaeroworks.display.DisplayBindingService
 import java.lang.ref.WeakReference
 
-class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral {
+open class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral {
     private val blockEntity = WeakReference(blockEntity)
     internal val computers = AttachedComputerSet()
     internal var lastInputs: Map<Int, DeskInputSnapshot>? = null
@@ -133,17 +133,11 @@ class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral {
     fun clearDisplayPixels(arguments: IArguments) =
         AeroworksDeskService.clearDisplayPixels(desk(), arguments.get(0))
 
-    @LuaFunction(mainThread = true)
-    fun getRadarSources(): List<Map<String, Any>> =
-        DisplayBindingService.getRadarSources(desk())
 
     @LuaFunction(mainThread = true)
     fun getDisplayBinding(arguments: IArguments): Map<String, Any> =
         DisplayBindingService.getBinding(desk(), arguments.get(0))
 
-    @LuaFunction(mainThread = true)
-    fun setRadarSource(arguments: IArguments): Map<String, Any> =
-        DisplayBindingService.setRadarSource(desk(), arguments.get(0), arguments.getString(1))
 
     @LuaFunction(mainThread = true)
     fun setDisplayTouchScript(arguments: IArguments): Map<String, Any> =
@@ -160,6 +154,6 @@ class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral {
     internal fun snapshotInputs(): Map<Int, DeskInputSnapshot> =
         validDesk()?.let(AeroworksDeskService::snapshotInputs).orEmpty()
 
-    private fun desk(): ConsoleBlockEntity =
+    protected fun desk(): ConsoleBlockEntity =
         validDesk() ?: throw LuaException("Aeroworks control desk is no longer loaded")
 }

@@ -143,8 +143,7 @@ object DeskDisplayGeometry {
         if (socket != LARGE_SOCKET) return null
         val module = desk.module(socket) ?: return null
         val displayType = CCModuleTypes.displayType(module.type())
-        val radarType = CCModuleTypes.radarDisplayType(module.type())
-        if (displayType != DeskDisplayType.THREE_DIGIT && radarType != RadarDisplayType.LARGE) return null
+        if (displayType != DeskDisplayType.THREE_DIGIT && !InteractiveDisplayExtensions.isInteractive(module.type())) return null
 
         return DeskDisplayPointer(
             socket = socket,

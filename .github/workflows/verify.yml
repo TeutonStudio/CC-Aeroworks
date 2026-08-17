@@ -104,6 +104,9 @@ jobs:
       - name: Validate Create telemetry and docking relay
         run: python3 tools/verify-telemetry.py
 
+      - name: Validate radar compat isolation
+        run: python3 tools/verify-radar-compat-isolation.py
+
       - name: Validate optional radar integration
         run: python3 tools/verify-radar.py
 

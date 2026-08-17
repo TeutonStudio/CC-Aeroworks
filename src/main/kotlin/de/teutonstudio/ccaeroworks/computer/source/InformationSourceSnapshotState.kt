@@ -1,12 +1,13 @@
 package de.teutonstudio.ccaeroworks.computer.source
 
-enum class InformationSourceKind(val title: String) {
-    DISPLAY_LINK("DISPLAY LINKS"),
-    STORAGE("STORAGE"),
-    RADAR_DATA_LINK("RADAR DATA LINKS"),
-    RADAR_NETWORK_CONTROLLER("NETWORK CONTROLLERS"),
-    GPS("GPS"),
-    DISPLAY_SCRIPT("DISPLAY SCRIPTS")
+data class InformationSourceKind(val id: String, val title: String, val order: Int)
+
+object InformationSourceKinds {
+    val DISPLAY_LINK = InformationSourceKind("display_link", "DISPLAY LINKS", 10)
+    val STORAGE = InformationSourceKind("storage", "STORAGE", 20)
+    val GPS = InformationSourceKind("gps", "GPS", 30)
+    val DISPLAY_SCRIPT = InformationSourceKind("display_script", "DISPLAY SCRIPTS", 40)
+    val CORE = listOf(DISPLAY_LINK, STORAGE, GPS, DISPLAY_SCRIPT)
 }
 
 data class InformationSourceView(

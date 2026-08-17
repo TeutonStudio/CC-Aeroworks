@@ -3,7 +3,9 @@
   "minVersion": "0.8",
   "package": "de.teutonstudio.ccaeroworks.mixin",
   "compatibilityLevel": "JAVA_21",
-  "mixinextras": { "minVersion": "0.5.0" },
+  "mixinextras": {
+    "minVersion": "0.5.0"
+  },
   "mixins": [
     "BlockEntityComponentInvoker",
     "BlockEntityChannelGroupsMixin",
@@ -16,14 +18,9 @@
     "ConsoleBlockEntityControlOverrideMixin",
     "ConsoleBlockEntityDeskIdMixin",
     "ConsoleBlockEntityDisplayBindingMixin",
-    "ConsoleBlockEntityRadarMixin",
     "ConsoleMultiblockWireChannelsMixin",
     "compat.ConsoleWireChannelsDisplayFilterMixin",
-    "compat.DriveByWireSignalFilterMixin",
-    "compat.CreateRadarBearingBlockEntityMixin",
-    "compat.CreateRadarBearingBlockMixin",
-    "compat.CreateRadarBearingContraptionMixin",
-    "compat.CreateRadarDataLinkTargetMixin"
+    "compat.DriveByWireSignalFilterMixin"
   ],
   "client": [
     "client.AbstractContainerScreenAccessor",
@@ -51,5 +48,7 @@
     "client.ModuleScreenSwitchMixin",
     "client.SubLevelPoseClientMixin"
   ],
-  "injectors": { "defaultRequire": 1 }
+  "injectors": {
+    "defaultRequire": 1
+  }
 }
