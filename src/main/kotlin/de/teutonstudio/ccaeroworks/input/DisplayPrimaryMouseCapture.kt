@@ -255,8 +255,6 @@ object DisplayPrimaryMouseCapture {
         active.drawGestureId = nextGestureId++
         if (nextGestureId <= 0L) nextGestureId = 1L
         active.drawSequence = 0
-        active.drawStartU = active.u
-        active.drawStartV = active.v
         active.drawLastSentU = active.u
         active.drawLastSentV = active.v
         active.drawDirty = false
@@ -273,8 +271,6 @@ object DisplayPrimaryMouseCapture {
         active.drawActive = false
         active.drawGestureId = 0L
         active.drawSequence = 0
-        active.drawStartU = 0.0
-        active.drawStartV = 0.0
         active.drawLastSentU = 0.0
         active.drawLastSentV = 0.0
         active.drawDirty = false
