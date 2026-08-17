@@ -195,9 +195,10 @@ local function loadHandler(path, event)
     end
     recordTouchHandlers(path, event, handler)
     bridgeTouchLog(event, string.format(
-        "handler loaded path='%s' callbacks tap=%s hold=%s doubleTap=%s pointer=%s",
+        "handler loaded path='%s' callbacks tap=%s draw=%s hold=%s doubleTap=%s pointer=%s",
         path,
         tostring(type(handler.onTap) == "function"),
+        tostring(type(handler.onDraw) == "function"),
         tostring(type(handler.onHold) == "function"),
         tostring(type(handler.onDoubleTap) == "function"),
         tostring(type(handler.onPointer) == "function")
@@ -211,6 +212,9 @@ local function dispatch(handler, event)
     if event.action == "tap" then
         callback = handler.onTap or handler.onPointer
         callbackName = handler.onTap and "onTap" or "onPointer"
+    elseif event.action == "draw" then
+        callback = handler.onDraw or handler.onPointer
+        callbackName = handler.onDraw and "onDraw" or "onPointer"
     elseif event.action == "double_tap" then
         callback = handler.onDoubleTap or handler.onPointer
         callbackName = handler.onDoubleTap and "onDoubleTap" or "onPointer"
@@ -227,8 +231,21 @@ local function dispatch(handler, event)
         return
     end
     local action = tostring(event.action or "pointer")
+    local drawSuffix = ""
+    if action == "draw" then
+        drawSuffix = string.format(
+            " gesture=%s seq=%s start=%s,%s delta=%s,%s end=%s",
+            tostring(event.gestureId),
+            tostring(event.sequence),
+            tostring(event.startX),
+            tostring(event.startY),
+            tostring(event.deltaX),
+            tostring(event.deltaY),
+            tostring(event.isEnd)
+        )
+    end
     bridgeTouchLog(event, string.format(
-        "dispatch action=%s callback=%s pixel=%s,%s size=%sx%s u=%s v=%s",
+        "dispatch action=%s callback=%s pixel=%s,%s size=%sx%s u=%s v=%s%s",
         action,
         tostring(callbackName),
         tostring(event.x),
@@ -236,7 +253,8 @@ local function dispatch(handler, event)
         tostring(event.width),
         tostring(event.height),
         tostring(event.u),
-        tostring(event.v)
+        tostring(event.v),
+        drawSuffix
     ))
     local started = diagnosticBegin(event.handler, event, "event", "legacy:" .. action)
     local ok, err = pcall(callback, event)
@@ -261,7 +279,14 @@ local function signatureFor(event)
         tostring(event[14]),
         tostring(event[15]),
         tostring(event[16]),
-        tostring(event[17])
+        tostring(event[17]),
+        tostring(event[18]),
+        tostring(event[19]),
+        tostring(event[20]),
+        tostring(event[21]),
+        tostring(event[22]),
+        tostring(event[23]),
+        tostring(event[24])
     }, "\0")
 end
 
@@ -301,16 +326,28 @@ local function dispatchConsoleEvent(event)
         v = event[14],
         deskX = event[15],
         deskY = event[16],
-        deskZ = event[17]
+        deskZ = event[17],
+        gestureId = event[18],
+        sequence = event[19],
+        startX = event[20],
+        startY = event[21],
+        deltaX = event[22],
+        deltaY = event[23],
+        isEnd = event[24] == true
     }
     bridgeTouchLog(descriptor, string.format(
-        "console event received action=%s handler='%s' pixel=%s,%s size=%sx%s",
+        "console event received action=%s handler='%s' pixel=%s,%s size=%sx%s gesture=%s seq=%s delta=%s,%s end=%s",
         tostring(descriptor.action),
         tostring(handlerPath),
         tostring(descriptor.x),
         tostring(descriptor.y),
         tostring(descriptor.width),
-        tostring(descriptor.height)
+        tostring(descriptor.height),
+        tostring(descriptor.gestureId),
+        tostring(descriptor.sequence),
+        tostring(descriptor.deltaX),
+        tostring(descriptor.deltaY),
+        tostring(descriptor.isEnd)
     ))
     local handler = loadHandler(handlerPath, descriptor)
     if not handler then return end
