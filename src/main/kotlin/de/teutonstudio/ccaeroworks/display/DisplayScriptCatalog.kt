@@ -2,6 +2,7 @@ package de.teutonstudio.ccaeroworks.display
 
 import dan200.computercraft.api.filesystem.Mount
 import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
+import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import java.nio.ByteBuffer
@@ -55,10 +56,27 @@ object DisplayScriptCatalog {
 
         val computer = owner.getServerComputer() ?: owner.createServerComputer()
         val entries = runCatching {
-            val rootMount = computer.createRootMount() ?: return@runCatching emptyList()
+            val rootMount = computer.createRootMount()
+            if (rootMount == null) {
+                TouchInputDiagnostics.warn(
+                    "catalog",
+                    "cannot scan touch scripts for owner=${owner.blockPos.toShortString()}: ComputerCraft root mount is unavailable"
+                )
+                return@runCatching emptyList()
+            }
             scanMount(rootMount)
-        }.getOrElse { emptyList() }
+        }.getOrElse { error ->
+            TouchInputDiagnostics.warn(
+                "catalog",
+                "touch script scan failed owner=${owner.blockPos.toShortString()}: ${error.javaClass.simpleName}: ${error.message}"
+            )
+            emptyList()
+        }
         cache[owner] = Cached(tick, entries)
+        TouchInputDiagnostics.info(
+            "catalog",
+            "scanned owner=${owner.blockPos.toShortString()} force=$force scripts=${entries.size} entries=${entries.joinToString { "${it.path}[touch=${it.touchDisplay},events=${it.declaredTouchEvents}]" }}"
+        )
         return entries
     }
 
@@ -67,8 +85,28 @@ object DisplayScriptCatalog {
         rawPath: String,
         type: DeskDisplayType
     ): DisplayScriptDescriptor? {
-        val path = normalizePath(rawPath) ?: return null
-        return scan(owner, force = true).firstOrNull { it.path == path && it.supports(type) }
+        val path = normalizePath(rawPath)
+        if (path == null) {
+            TouchInputDiagnostics.warn(
+                "catalog",
+                "script lookup rejected owner=${owner.blockPos.toShortString()} rawPath='$rawPath': path normalization failed"
+            )
+            return null
+        }
+        val entries = scan(owner, force = true)
+        val result = entries.firstOrNull { it.path == path && it.supports(type) }
+        if (result == null) {
+            TouchInputDiagnostics.warn(
+                "catalog",
+                "script lookup missed owner=${owner.blockPos.toShortString()} path='$path' displayType=$type; scannedPaths=${entries.joinToString { it.path }}"
+            )
+        } else {
+            TouchInputDiagnostics.info(
+                "catalog",
+                "script lookup matched owner=${owner.blockPos.toShortString()} path='${result.path}' displayType=$type imports=${result.imports} events=${result.declaredTouchEvents}"
+            )
+        }
+        return result
     }
 
     fun normalizePath(rawPath: String): String? {
@@ -243,7 +281,7 @@ internal object LuaRequireScanner {
         }
     }
 
-    private val TOUCH_CALLBACKS = setOf("onTap", "onDoubleTap", "onPointer")
+    private val TOUCH_CALLBACKS = setOf("onTap", "onHold", "onDoubleTap", "onPointer")
     private const val MAX_IMPORTS = 32
     private const val MAX_IMPORT_LENGTH = 128
 }
