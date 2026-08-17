@@ -104,12 +104,15 @@ require(
 )
 require(
     "if (!rightDown)" in raw_mouse and
-    "sendPointerAction(active, DisplayPointerAction.TAP)" in raw_mouse and
-    "if (!leftDown)" in raw_mouse and
+    "source=$source right false->true holdEdge=true" in raw_mouse and
     "active.holdActive = true" in raw_mouse and
     "sendPointerAction(active, DisplayPointerAction.HOLD)" in raw_mouse and
+    "source=$source right true->false holdReleased=$wasOwned" in raw_mouse and
+    "if (!leftDown)" in raw_mouse and
+    "source=$source left false->true tapEdge=true" in raw_mouse and
+    "sendPointerAction(active, DisplayPointerAction.TAP)" in raw_mouse and
     "active.holdActive = false" in raw_mouse,
-    "shared display mouse state must edge-detect right tap and left hold press/release",
+    "shared display mouse state must edge-detect right hold press/release and left tap",
 )
 require(
     '"mouse-gate"' in raw_mouse and '"button-sample"' in raw_mouse and
@@ -192,4 +195,4 @@ require(
     "Combined icon missing",
 )
 require("python3 tools/verify-display-combined-input.py" in workflow, "workflow must enforce display Combined contract")
-print("Validated polled/raw display tap-hold capture, Combined ownership, Sable-aware pointer reach, and DBW isolation.")
+print("Validated polled/raw right-hold left-tap display capture, Combined ownership, Sable-aware pointer reach, and DBW isolation.")
