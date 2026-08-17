@@ -87,8 +87,8 @@ object DisplayCombinedInputController {
 
     /**
      * The tick path retires lost releases, samples physical primary mouse buttons independently of
-     * NeoForge's mouse event routing, and runs a low-frequency world watchdog. Target acquisition
-     * remains edge-driven and never happens here.
+     * NeoForge's mouse event routing, flushes at most one moved draw sample, and runs a low-frequency
+     * world watchdog. Target acquisition remains edge-driven and never happens here.
      */
     @SubscribeEvent
     fun onClientTick(event: ClientTickEvent.Post) {
@@ -111,6 +111,7 @@ object DisplayCombinedInputController {
         // This is the critical fallback: touch remains functional even if another integration
         // prevents MouseHandler/NeoForge button callbacks from reaching CC-Aeroworks.
         DisplayPrimaryMouseCapture.poll(minecraft, active)
+        DisplayPrimaryMouseCapture.flushDrawSample(active)
 
         active.watchdogTicks++
         if (active.watchdogTicks >= WATCHDOG_INTERVAL_TICKS) {
@@ -165,8 +166,10 @@ object DisplayCombinedInputController {
             active.v = (active.v - deltaY * sensitivity).coerceIn(0.0, 1.0)
         }
 
-        // Sample after updating u/v so a move-and-click gesture uses the newest pointer position.
+        // Preserve the proven raw/event/poll button capture and only layer draw sampling behind it.
+        // Polling here sees the newest pointer position for move-and-click gestures.
         DisplayPrimaryMouseCapture.poll(minecraft, active)
+        DisplayPrimaryMouseCapture.observePointer(active)
     }
 
     @SubscribeEvent
@@ -314,7 +317,7 @@ object DisplayCombinedInputController {
         active?.let {
             TouchInputDiagnostics.info(
                 "client",
-                "display session stopped desk=${it.pos.toShortString()} socket=${it.socket} u=${it.u} v=${it.v} held=${it.heldBindings} holdActive=${it.holdActive}"
+                "display session stopped desk=${it.pos.toShortString()} socket=${it.socket} u=${it.u} v=${it.v} held=${it.heldBindings} drawActive=${it.drawActive} gesture=${it.drawGestureId} seq=${it.drawSequence}"
             )
         }
         DisplayPrimaryMouseCapture.endSession(active)
@@ -326,7 +329,9 @@ object DisplayCombinedInputController {
         if (target != null || suppressedBindings.isNotEmpty()) {
             TouchInputDiagnostics.info("client", "display input state reset")
         }
-        DisplayPrimaryMouseCapture.endSession(target)
+        // Logout/clone may already have lost the play connection, so retire local draw state without
+        // attempting a final network packet. Server draw state has its own short timeout.
+        DisplayPrimaryMouseCapture.endSession(target, sendDrawEnd = false)
         target = null
         suppressedBindings.clear()
         CombinedInputCoordinator.releaseDisplay()
