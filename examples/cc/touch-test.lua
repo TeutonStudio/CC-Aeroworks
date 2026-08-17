@@ -2,12 +2,12 @@
 --
 -- Assign this file as the display's touch/input handler. While holding the configured
 -- Display interaction key, move the pseudo finger with the mouse and trigger actions:
---   right mouse button -> hold
+--   right mouse button -> draw while held, end on release
 --   left mouse button  -> tap
 --
--- Every accepted action is printed to the embedded computer terminal and leaves a small
--- marker at the server-resolved pixel coordinate. The display is cleared before each marker,
--- so a stale marker cannot be mistaken for a newly accepted input.
+-- Tap clears the display and draws a plus. Draw clears only on gesture start, then connects each
+-- server-resolved event segment using deltaX/deltaY from the previous event. This deliberately
+-- exercises start coordinates, per-event deltas, ordering and the explicit end flag.
 
 local touchdisplay = require("touchdisplay")
 
@@ -29,7 +29,7 @@ local function countersFor(event)
   local key = sourceKey(event)
   local counters = state[key]
   if type(counters) ~= "table" then
-    counters = { total = 0, tap = 0, hold = 0, double_tap = 0, other = 0 }
+    counters = { total = 0, tap = 0, draw = 0, other = 0 }
     state[key] = counters
   end
   return counters
@@ -38,12 +38,13 @@ end
 local function setPixel(event, x, y)
   local width = tonumber(event.width) or 0
   local height = tonumber(event.height) or 0
+  x = math.floor(tonumber(x) or 0)
+  y = math.floor(tonumber(y) or 0)
   if x < 1 or y < 1 or x > width or y > height then return end
   touchdisplay.setPixel(event, x, y, true)
 end
 
-local function drawPlus(event)
-  local x, y = touchdisplay.position(event)
+local function drawPlus(event, x, y)
   setPixel(event, x, y)
   setPixel(event, x - 1, y)
   setPixel(event, x + 1, y)
@@ -51,28 +52,28 @@ local function drawPlus(event)
   setPixel(event, x, y + 1)
 end
 
-local function drawBox(event)
-  local x, y = touchdisplay.position(event)
-  for dx = -1, 1 do
-    setPixel(event, x + dx, y - 1)
-    setPixel(event, x + dx, y + 1)
+local function drawLine(event, x0, y0, x1, y1)
+  x0, y0 = math.floor(x0), math.floor(y0)
+  x1, y1 = math.floor(x1), math.floor(y1)
+  local dx = math.abs(x1 - x0)
+  local sx = x0 < x1 and 1 or -1
+  local dy = -math.abs(y1 - y0)
+  local sy = y0 < y1 and 1 or -1
+  local err = dx + dy
+
+  while true do
+    setPixel(event, x0, y0)
+    if x0 == x1 and y0 == y1 then break end
+    local e2 = 2 * err
+    if e2 >= dy then
+      err = err + dy
+      x0 = x0 + sx
+    end
+    if e2 <= dx then
+      err = err + dx
+      y0 = y0 + sy
+    end
   end
-  setPixel(event, x - 1, y)
-  setPixel(event, x + 1, y)
-end
-
-local function drawX(event)
-  local x, y = touchdisplay.position(event)
-  setPixel(event, x, y)
-  setPixel(event, x - 1, y - 1)
-  setPixel(event, x + 1, y - 1)
-  setPixel(event, x - 1, y + 1)
-  setPixel(event, x + 1, y + 1)
-end
-
-local function drawDot(event)
-  local x, y = touchdisplay.position(event)
-  setPixel(event, x, y)
 end
 
 local function report(event)
@@ -86,52 +87,56 @@ local function report(event)
   end
 
   local x, y, width, height = touchdisplay.position(event)
-  local u, v = touchdisplay.normalizedPosition(event)
-  local normalized
-  if type(u) == "number" and type(v) == "number" then
-    normalized = string.format("u=%.4f v=%.4f", u, v)
-  else
-    normalized = "u=? v=?"
+  if touchdisplay.isDraw(event) then
+    local sx, sy = touchdisplay.drawStart(event)
+    local dx, dy = touchdisplay.drawDelta(event)
+    local gestureId, sequence = touchdisplay.drawIdentity(event)
+    print(string.format(
+      "[touch-test] DRAW id=%s seq=%s start=%d,%d current=%d,%d delta=%d,%d end=%s total=%d",
+      tostring(gestureId), tostring(sequence), tonumber(sx) or -1, tonumber(sy) or -1,
+      tonumber(x) or -1, tonumber(y) or -1, tonumber(dx) or 0, tonumber(dy) or 0,
+      tostring(touchdisplay.drawEnded(event)), counters.total
+    ))
+    return
   end
 
+  local u, v = touchdisplay.normalizedPosition(event)
   print(string.format(
-    "[touch-test] %-10s pixel=%d,%d / %dx%d  %s  total=%d tap=%d hold=%d",
-    action,
+    "[touch-test] TAP pixel=%d,%d / %dx%d u=%s v=%s total=%d tap=%d draw=%d",
     tonumber(x) or -1,
     tonumber(y) or -1,
     tonumber(width) or -1,
     tonumber(height) or -1,
-    normalized,
+    type(u) == "number" and string.format("%.4f", u) or "?",
+    type(v) == "number" and string.format("%.4f", v) or "?",
     counters.total,
     counters.tap,
-    counters.hold
+    counters.draw
   ))
-end
-
-local function render(event, marker)
-  touchdisplay.clear(event)
-  marker(event)
-  report(event)
 end
 
 return {
   onTap = function(event)
     assert(touchdisplay.isTap(event), "onTap received a non-tap event")
-    render(event, drawPlus)
+    touchdisplay.clear(event)
+    local x, y = touchdisplay.position(event)
+    drawPlus(event, x, y)
+    report(event)
   end,
 
-  onHold = function(event)
-    assert(touchdisplay.isHold(event), "onHold received a non-hold event")
-    render(event, drawBox)
-  end,
+  onDraw = function(event)
+    assert(touchdisplay.isDraw(event), "onDraw received a non-draw event")
+    local x, y = touchdisplay.position(event)
+    local dx, dy = touchdisplay.drawDelta(event)
+    local _, sequence = touchdisplay.drawIdentity(event)
 
-  -- Kept as a compatibility diagnostic. Current combined mouse input no longer emits it.
-  onDoubleTap = function(event)
-    assert(touchdisplay.isDoubleTap(event), "onDoubleTap received a non-double-tap event")
-    render(event, drawX)
+    if tonumber(sequence) == 0 then touchdisplay.clear(event) end
+    drawLine(event, x - dx, y - dy, x, y)
+    if touchdisplay.drawEnded(event) then drawPlus(event, x, y) end
+    report(event)
   end,
 
   onPointer = function(event)
-    render(event, drawDot)
+    report(event)
   end,
 }
