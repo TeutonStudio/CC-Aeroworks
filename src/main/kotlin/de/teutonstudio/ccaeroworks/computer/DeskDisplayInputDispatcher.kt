@@ -4,6 +4,7 @@ import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.computercraft.ControlDeskPeripheralState
 import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
+import de.teutonstudio.ccaeroworks.display.DeskDisplayInput
 import de.teutonstudio.ccaeroworks.display.DeskDisplayTouch
 import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
@@ -13,14 +14,22 @@ import de.teutonstudio.ccaeroworks.network.DisplayPointerAction
 
 object DeskDisplayInputDispatcher {
     @JvmStatic
-    fun dispatch(desk: ConsoleBlockEntity, touch: DeskDisplayTouch, action: DisplayPointerAction) {
+    fun dispatch(desk: ConsoleBlockEntity, touch: DeskDisplayTouch, action: DisplayPointerAction) =
+        dispatch(desk, DeskDisplayInput(action = action.eventName, touch = touch, isEnd = true))
+
+    @JvmStatic
+    fun dispatch(desk: ConsoleBlockEntity, input: DeskDisplayInput) {
+        val touch = input.touch
         val deskPos = desk.blockPos.toShortString()
+        val gesture = if (input.isDraw) {
+            " gesture=${input.gestureId} seq=${input.sequence} start=${input.startX},${input.startY} delta=${input.deltaX},${input.deltaY} end=${input.isEnd}"
+        } else ""
         TouchInputDiagnostics.info(
             "dispatch",
-            "begin desk=$deskPos socket=${touch.socket}/${touch.socketName} action=${action.eventName} pixel=${touch.x},${touch.y}/${touch.width}x${touch.height} u=${touch.u} v=${touch.v}"
+            "begin desk=$deskPos socket=${touch.socket}/${touch.socketName} action=${input.action} pixel=${touch.x},${touch.y}/${touch.width}x${touch.height} u=${touch.u} v=${touch.v}$gesture"
         )
 
-        ControlDeskPeripheralState.queueDisplayInput(desk, touch, action)
+        ControlDeskPeripheralState.queueDisplayInput(desk, input)
 
         val level = desk.level
         if (level == null) {
@@ -67,7 +76,7 @@ object DeskDisplayInputDispatcher {
             touch.socket,
             touch.socketName,
             touch.moduleId,
-            action.eventName,
+            input.action,
             touch.x,
             touch.y,
             touch.width,
@@ -77,14 +86,21 @@ object DeskDisplayInputDispatcher {
             touch.v,
             member.pos.x,
             member.pos.y,
-            member.pos.z
+            member.pos.z,
+            input.gestureId ?: -1L,
+            input.sequence ?: -1,
+            input.startX ?: touch.x,
+            input.startY ?: touch.y,
+            input.deltaX ?: 0,
+            input.deltaY ?: 0,
+            input.isEnd
         )
         TouchInputDiagnostics.info(
             "dispatch",
-            "queued ${CCAeroworks.CONSOLE_DISPLAY_INPUT_EVENT} action=${action.eventName} handler='$handlerPath' to embedded computer at ${owner.blockPos.toShortString()}"
+            "queued ${CCAeroworks.CONSOLE_DISPLAY_INPUT_EVENT} action=${input.action} handler='$handlerPath' to embedded computer at ${owner.blockPos.toShortString()}$gesture"
         )
 
-        if (action == DisplayPointerAction.TAP) {
+        if (input.action == DisplayPointerAction.TAP.eventName) {
             owner.queueComputerEventWhenReady(
                 CCAeroworks.CONSOLE_TOUCH_EVENT,
                 member.id,
