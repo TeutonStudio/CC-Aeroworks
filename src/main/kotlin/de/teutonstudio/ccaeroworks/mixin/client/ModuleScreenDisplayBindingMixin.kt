@@ -38,6 +38,11 @@ private const val BINDING_ROW_WIDTH: Int = 235
  * Radar and script bindings both occupy exactly one extension row. The selector owns its visual
  * background instead of reusing Aeroworks' native control row, so source bindings do not inherit
  * unrelated Redstone/radio slot decoration.
+ *
+ * Minecraft rebuilds the same Screen instance when the window size or GUI scale changes. Before
+ * each native init we therefore restore the unextended Aeroworks content height. Without this,
+ * our previous extension becomes the next init's "native" height and the row drifts downward after
+ * every resize until it is considered outside the list viewport.
  */
 @Mixin(value = [ModuleScreen::class], remap = false)
 abstract class ModuleScreenDisplayBindingMixin(
@@ -46,7 +51,7 @@ abstract class ModuleScreenDisplayBindingMixin(
     title: Component
 ) : AbstractContainerScreen<ModuleMenu>(menu, inventory, title) {
     @Unique
-    private var ccaeroworks_nativeContentHeight: Int = 0
+    private var ccaeroworks_nativeContentHeight: Int = -1
 
     @Unique
     private var ccaeroworks_extensionRows: Int = 0
@@ -56,6 +61,19 @@ abstract class ModuleScreenDisplayBindingMixin(
 
     @Unique
     private var ccaeroworks_scriptDropdown: SourceSelectorWidget<String>? = null
+
+    @Unique
+    private var ccaeroworks_scriptCatalogRequested: Boolean = false
+
+    @Inject(method = ["init()V"], at = [At("HEAD")])
+    private fun ccaeroworks_prepareDisplayBindingRows(callback: CallbackInfo) {
+        if (ccaeroworks_nativeContentHeight >= 0) {
+            (this as ModuleScreenAccessor).ccaeroworks_setContentHeight(ccaeroworks_nativeContentHeight)
+        }
+        ccaeroworks_extensionRows = 0
+        ccaeroworks_radarDropdown = null
+        ccaeroworks_scriptDropdown = null
+    }
 
     @Inject(method = ["init()V"], at = [At("TAIL")])
     private fun ccaeroworks_addDisplayBindingRows(callback: CallbackInfo) {
@@ -120,6 +138,21 @@ abstract class ModuleScreenDisplayBindingMixin(
         ccaeroworks_scriptDropdown?.setRowPosition(rowLeft, rowTop, visible)
     }
 
+    @Inject(
+        method = ["render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V"],
+        at = [At("TAIL")]
+    )
+    private fun ccaeroworks_renderBindingPopup(
+        graphics: GuiGraphics,
+        mouseX: Int,
+        mouseY: Int,
+        partialTick: Float,
+        callback: CallbackInfo
+    ) {
+        ccaeroworks_radarDropdown?.renderOverlay(graphics, mouseX, mouseY)
+        ccaeroworks_scriptDropdown?.renderOverlay(graphics, mouseX, mouseY)
+    }
+
     @Unique
     private fun ccaeroworks_addRadarRow(desk: ConsoleBlockEntity, socket: Int) {
         val selectedIngress =
@@ -164,8 +197,11 @@ abstract class ModuleScreenDisplayBindingMixin(
 
     @Unique
     private fun ccaeroworks_addScriptRow(desk: ConsoleBlockEntity, socket: Int) {
-        DisplayScriptCatalogState.clear(desk.blockPos, socket)
-        PacketDistributor.sendToServer(RequestDisplayScriptCatalogPayload(desk.blockPos, socket))
+        if (!ccaeroworks_scriptCatalogRequested) {
+            DisplayScriptCatalogState.clear(desk.blockPos, socket)
+            PacketDistributor.sendToServer(RequestDisplayScriptCatalogPayload(desk.blockPos, socket))
+            ccaeroworks_scriptCatalogRequested = true
+        }
         val currentPath = (DisplayBindings.get(desk, socket) as? DisplayBinding.LuaHandler)?.path.orEmpty()
         val invoker = this as ModuleScreenInvoker
         val dropdown = SourceSelectorWidget(

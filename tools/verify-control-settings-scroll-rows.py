@@ -68,13 +68,23 @@ require("ccaeroworks_getRenderedScroll" in combined,
 require("graphics.enableScissor" in combined and "ModuleScreenRowGeometry.LIST_HEIGHT" in combined,
         "Combined decoration must be clipped to the native list viewport")
 
-# One owner computes the single source-selector extension row and contentHeight exactly once.
+# One owner computes the single source-selector extension row and restores native height on Screen rebuilds.
 require("ccaeroworks_extensionRows" in bindings,
         "display binding mixin must own a single extension-row count")
-require(bindings.count("ccaeroworks_setContentHeight(") == 1,
-        "only one ModuleScreen extension owner may mutate contentHeight")
+require("ccaeroworks_prepareDisplayBindingRows" in bindings and
+        '@Inject(method = ["init()V"], at = [At("HEAD")])' in bindings,
+        "display binding mixin must prepare repeated Screen.init calls before Aeroworks rebuilds")
+require("ccaeroworks_nativeContentHeight >= 0" in bindings and
+        "ccaeroworks_setContentHeight(ccaeroworks_nativeContentHeight)" in bindings,
+        "repeated init must restore the unextended native content height before Aeroworks runs")
+require("ccaeroworks_radarDropdown = null" in bindings and "ccaeroworks_scriptDropdown = null" in bindings,
+        "repeated init must discard references to widgets cleared by Screen rebuildWidgets")
+require(bindings.count("ccaeroworks_setContentHeight(") == 2,
+        "display binding mixin must have exactly one native-height restore and one final extension write")
+require("ccaeroworks_nativeContentHeight = screen.ccaeroworks_getContentHeight()" in bindings,
+        "native content height must be recaptured only after the restored Aeroworks init completes")
 require("contentHeightWithExtensions" in bindings and "ccaeroworks_extensionRows" in bindings,
-        "extension owner must derive native content height from final row count")
+        "extension owner must derive final content height from the restored native height")
 require("extensionScreenTop" in bindings and "ccaeroworks_getRenderedScroll" in bindings,
         "source selector must follow native animated scroll")
 require('method = ["renderBg(Lnet/minecraft/client/gui/GuiGraphics;FII)V"]' in bindings,
@@ -87,6 +97,13 @@ require(bindings.count("ccaeroworks_extensionRows = 1") == 2,
         "radar and script sources must each consume exactly one extension row")
 require("topPos + imageHeight" not in bindings and "leftPos + (imageWidth" not in bindings,
         "configuration rows must not return to inventory-overlapping absolute placement")
+
+# A resize must not throw away an already delivered script catalog.
+require("ccaeroworks_scriptCatalogRequested" in bindings and
+        "if (!ccaeroworks_scriptCatalogRequested)" in bindings,
+        "script catalog requests must be per Screen instance rather than repeated on resize")
+require(bindings.count("DisplayScriptCatalogState.clear(desk.blockPos, socket)") == 1,
+        "script catalog must only be cleared inside the one-time request guard")
 
 # Radar and script are presentations over one selector implementation.
 require("SourceSelectorWidget<RadarSourceChoice>" in bindings and "SourceSelectorWidget<String>" in bindings,
@@ -103,6 +120,15 @@ require('if (expanded) "^" else "v"' not in selector,
         "dropdown arrow must never regress to text glyphs")
 require("SourceSelectorIcon.Item" in selector and "SourceSelectorIcon.Sprite" in selector,
         "shared selector must support both Minecraft item icons and custom GUI sprites")
+require("fun renderOverlay" in selector and "ccaeroworks_renderBindingPopup" in bindings,
+        "open selector popups must render after ModuleScreen's normal widget/decorations pass")
+require('method = ["render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V"]' in bindings,
+        "popup overlay must be attached to the complete ModuleScreen render pass")
+require("val rowHovered = active && inside" in selector,
+        "hovering popup options must not incorrectly hover the closed selector row")
+require("preferredY.coerceIn(SCREEN_MARGIN, maxY)" in selector and
+        "x.coerceIn(SCREEN_MARGIN, maxX)" in selector,
+        "popup bounds must stay inside the resized screen")
 require("EditBox" not in bindings,
         "script source must not restore the old free-form EditBox")
 
@@ -134,6 +160,6 @@ require("python3 tools/verify-control-settings-scroll-rows.py" in workflow,
         "repository workflow must enforce the source-selector architecture")
 
 print(
-    "Validated ControlDesk settings rows: native Aeroworks geometry, one slot-free source selector row, "
-    "sprite chevrons, a 16x16 script icon, registry-backed radar Network Filterer icon, and independent popup scrolling."
+    "Validated ControlDesk settings rows: resize-safe native height restoration, one slot-free source selector row, "
+    "overlay-rendered bounded dropdowns, sprite chevrons, a 16x16 script icon, and registry-backed radar Network Filterer icon."
 )

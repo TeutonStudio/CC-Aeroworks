@@ -48,8 +48,18 @@ internal class SourceSelectorWidget<T>(
     override fun renderWidget(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
         val entries = options(selectedKey)
         val selected = entries.firstOrNull { it.key == selectedKey } ?: entries.firstOrNull()
-        renderSelectorRow(graphics, x, y, width, height, selected?.presentation, isHovered, expanded)
-        if (expanded) renderPopup(graphics, mouseX, mouseY, entries)
+        val rowHovered = active && inside(mouseX.toDouble(), mouseY.toDouble(), x, y, width, height)
+        renderSelectorRow(graphics, x, y, width, height, selected?.presentation, rowHovered, expanded)
+    }
+
+    /**
+     * Popup rendering is deliberately separated from normal widget rendering. ModuleScreen calls
+     * this at the end of its complete render pass so native rows, buttons and decorations cannot
+     * accidentally paint over an open source selector.
+     */
+    fun renderOverlay(graphics: GuiGraphics, mouseX: Int, mouseY: Int) {
+        if (!expanded || !visible) return
+        renderPopup(graphics, mouseX, mouseY, options(selectedKey))
     }
 
     override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
@@ -209,10 +219,19 @@ internal class SourceSelectorWidget<T>(
     private fun popupBounds(optionCount: Int): PopupBounds {
         val rows = optionCount.coerceAtLeast(1).coerceAtMost(MAX_VISIBLE_OPTIONS)
         val popupHeight = rows * POPUP_ROW_HEIGHT
-        val screenHeight = Minecraft.getInstance().screen?.height ?: Int.MAX_VALUE
+        val screen = Minecraft.getInstance().screen
+        val screenWidth = screen?.width ?: Int.MAX_VALUE
+        val screenHeight = screen?.height ?: Int.MAX_VALUE
         val below = y + height + 1
-        val popupY = if (below + popupHeight <= screenHeight - SCREEN_MARGIN) below else y - popupHeight - 1
-        return PopupBounds(x, popupY, width, popupHeight)
+        val preferredY = if (below + popupHeight <= screenHeight - SCREEN_MARGIN) below else y - popupHeight - 1
+        val maxX = max(SCREEN_MARGIN, screenWidth - SCREEN_MARGIN - width)
+        val maxY = max(SCREEN_MARGIN, screenHeight - SCREEN_MARGIN - popupHeight)
+        return PopupBounds(
+            x.coerceIn(SCREEN_MARGIN, maxX),
+            preferredY.coerceIn(SCREEN_MARGIN, maxY),
+            width,
+            popupHeight
+        )
     }
 
     private fun inside(mouseX: Double, mouseY: Double, left: Int, top: Int, width: Int, height: Int): Boolean =
