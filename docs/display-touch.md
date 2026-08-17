@@ -9,8 +9,8 @@ Die große Pultanzeige und die große Radaranzeige verwenden ausschließlich den
 3. Die Taste gedrückt halten.
 4. Die Kamera wird eingefroren und ein halbtransparenter 3D-Zeiger erscheint orthogonal auf der Displayfläche.
 5. Die Maus verschiebt den Zeiger über die Displayfläche.
-6. Rechtsklick erzeugt `tap`.
-7. Linksklick aktiviert den Display-Hold und erzeugt `hold`; beim Loslassen wird der interne Hold-Zustand beendet.
+6. Rechtsklick aktiviert den Display-Hold und erzeugt `hold`; beim Loslassen wird der interne Hold-Zustand beendet.
+7. Linksklick erzeugt `tap`.
 8. Beim Loslassen der Display-Bedienungstaste endet die Sitzung sofort.
 
 Während die Display-Bedienungstaste gehalten wird, besitzen die beiden primären Maustasten Vorrang vor der normalen kombinierten Binding-Verarbeitung und vor Vanilla-Aktionen. Damit können Mausbewegung und Touchaktion innerhalb derselben Display-Sitzung parallel ausgewertet werden, ohne dass ein Klick als Angriff, Benutzung oder anderes Steuerobjekt verloren geht.
