@@ -17,250 +17,133 @@ data class ApiReference(
     val source: ApiSourceContract? = null
 )
 
-/**
- * Canonical inventory of the public Lua surfaces shown by the in-game manual.
- *
- * Narrative guide text intentionally stays separate. Method names, availability and module names
- * live here so CI can compare the manual against the real @LuaFunction surfaces instead of asking
- * several hand-written documents to remain synchronized by optimism alone.
- */
+/** Canonical public Lua inventory used by the in-game manual and checked by CI. */
 object ApiReferenceCatalog {
+    private val displayMethods = listOf(
+        "resolve(event)",
+        "getSize(event)",
+        "clear(event)",
+        "getPixel(event, x, y)",
+        "setPixel(event, x, y, enabled)",
+        "setPixels(event, rows)",
+        "setText(event, text)",
+        "setNumber(event, value, zeroPad?)"
+    )
+
     val references: List<ApiReference> = listOf(
         ApiReference(
-            id = "control_desk",
-            name = "ControlDesk",
-            availability = "LOCAL DESK · EXTERNAL CC:TWEAKED",
+            "control_desk", "ControlDesk", "LOCAL DESK · EXTERNAL CC:TWEAKED",
             methods = listOf(
-                "getInfo()",
-                "getSocketCount()",
-                "getSockets()",
-                "getModules()",
-                "getModule(socket)",
-                "getInput(socket)",
-                "getInputs()",
-                "getDisplays()",
-                "getDisplay(socket)",
-                "setDisplayText(socket, text)",
-                "setDisplayNumber(socket, value, zeroPad?)",
-                "clearDisplay(socket)",
-                "clearDisplays()",
-                "getDisplaySize(socket)",
-                "getDisplayPixel(socket, x, y)",
-                "setDisplayPixel(socket, x, y, enabled)",
-                "setDisplayPixels(socket, rows)",
-                "clearDisplayPixels(socket)",
-                "getDisplayBinding(socket)",
-                "setDisplayTouchScript(socket, path)",
-                "clearDisplayBinding(socket)"
+                "getInfo()", "getSocketCount()", "getSockets()", "getModules()", "getModule(socket)",
+                "getInput(socket)", "getInputs()", "getDisplays()", "getDisplay(socket)",
+                "setDisplayText(socket, text)", "setDisplayNumber(socket, value, zeroPad?)", "clearDisplay(socket)",
+                "clearDisplays()", "getDisplaySize(socket)", "getDisplayPixel(socket, x, y)",
+                "setDisplayPixel(socket, x, y, enabled)", "setDisplayPixels(socket, rows)", "clearDisplayPixels(socket)",
+                "getDisplayBinding(socket)", "setDisplayTouchScript(socket, path)", "clearDisplayBinding(socket)"
             ),
             source = ApiSourceContract(
-                path = "src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ControlDeskPeripheral.kt",
-                className = "ControlDeskPeripheral",
-                internalMethods = setOf("debugDisplayTouchLog")
+                "src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ControlDeskPeripheral.kt",
+                "ControlDeskPeripheral", setOf("debugDisplayTouchLog")
             )
         ),
         ApiReference(
-            id = "desk_handle",
-            name = "Desk handle",
-            availability = "EMBEDDED · peripherals.find(\"ControlDesk\")",
+            "desk_handle", "Desk handle", "EMBEDDED · peripherals.find(\"ControlDesk\")",
             methods = listOf(
-                "getInfo()",
-                "getSocketCount()",
-                "getSockets()",
-                "getModules()",
-                "getModule(socket)",
-                "getInput(socket)",
-                "getInputs()",
-                "getDisplays()",
-                "getDisplay(socket)",
-                "setDisplayText(socket, text)",
-                "setDisplayNumber(socket, value, zeroPad?)",
-                "clearDisplay(socket)",
-                "clearDisplays()",
-                "getDisplaySize(socket)",
-                "getDisplayPixel(socket, x, y)",
-                "setDisplayPixel(socket, x, y, enabled)",
-                "setDisplayPixels(socket, rows)",
-                "clearDisplayPixels(socket)",
-                "getPeripherals()",
-                "find(type)",
-                "findAll(type)",
-                "wrap(side)"
+                "getInfo()", "getSocketCount()", "getSockets()", "getModules()", "getModule(socket)",
+                "getInput(socket)", "getInputs()", "getDisplays()", "getDisplay(socket)",
+                "setDisplayText(socket, text)", "setDisplayNumber(socket, value, zeroPad?)", "clearDisplay(socket)",
+                "clearDisplays()", "getDisplaySize(socket)", "getDisplayPixel(socket, x, y)",
+                "setDisplayPixel(socket, x, y, enabled)", "setDisplayPixels(socket, rows)", "clearDisplayPixels(socket)",
+                "getPeripherals()", "find(type)", "findAll(type)", "wrap(side)"
             ),
             source = ApiSourceContract(
-                path = "src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralNetwork.kt",
-                className = "DeskLuaHandle"
+                "src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralNetwork.kt", "DeskLuaHandle"
             )
         ),
         ApiReference(
-            id = "peripherals",
-            name = "peripherals",
-            availability = "EMBEDDED · GLOBAL + MODULE",
+            "peripherals", "peripherals", "EMBEDDED · GLOBAL + MODULE",
             moduleName = "cc_aeroworks.peripherals",
             methods = listOf(
-                "find(type)",
-                "findAll(type)",
-                "wrap(x, y, z, type?)",
-                "getDesks()",
-                "getTree()",
-                "getTypes()",
-                "getNetwork()",
-                "refresh()"
+                "find(type)", "findAll(type)", "wrap(x, y, z, type?)", "getDesks()", "getTree()",
+                "getTypes()", "getNetwork()", "refresh()"
             ),
             source = ApiSourceContract(
-                path = "src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerConsoleLuaApi.kt",
-                className = "ComputerConsoleLuaApi"
+                "src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerConsoleLuaApi.kt", "ComputerConsoleLuaApi"
             )
         ),
         ApiReference(
-            id = "channels",
-            name = "channels",
-            availability = "EMBEDDED · GLOBAL + MODULE · HIGH LEVEL",
-            moduleName = "cc_aeroworks.channels",
-            preferred = true,
+            "channels", "channels", "EMBEDDED · GLOBAL + MODULE · HIGH LEVEL",
+            moduleName = "cc_aeroworks.channels", preferred = true,
             methods = listOf(
-                "ls(path?)",
-                "stat(pathOrId)",
-                "read(pathOrId)",
-                "setWire(pathOrId, value)",
-                "pulseWire(pathOrId, ticks?, value?)",
-                "resetWire(pathOrId)",
-                "override(pathOrId, value)",
-                "overrideBatch(commands)",
-                "release(pathOrId)",
-                "releaseAll()"
+                "ls(path?)", "stat(pathOrId)", "read(pathOrId)", "setWire(pathOrId, value)",
+                "pulseWire(pathOrId, ticks?, value?)", "resetWire(pathOrId)", "override(pathOrId, value)",
+                "overrideBatch(commands)", "release(pathOrId)", "releaseAll()"
             ),
             source = ApiSourceContract(
-                path = "src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerChannelLuaApi.kt",
-                className = "ComputerChannelLuaApi"
+                "src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerChannelLuaApi.kt", "ComputerChannelLuaApi"
             )
         ),
         ApiReference(
-            id = "controls",
-            name = "controls",
-            availability = "EMBEDDED · GLOBAL + MODULE · NATIVE -15..15",
+            "controls", "controls", "EMBEDDED · GLOBAL + MODULE · NATIVE -15..15",
             moduleName = "cc_aeroworks.controls",
             methods = listOf(
-                "getChannels()",
-                "getState(deskId, socket, channel)",
-                "override(deskId, socket, channel, value)",
-                "overrideBatch(commands)",
-                "release(deskId, socket, channel)",
-                "releaseAll()"
+                "getChannels()", "getState(deskId, socket, channel)", "override(deskId, socket, channel, value)",
+                "overrideBatch(commands)", "release(deskId, socket, channel)", "releaseAll()"
             ),
             source = ApiSourceContract(
-                path = "src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerControlLuaApi.kt",
-                className = "ComputerControlLuaApi"
+                "src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerControlLuaApi.kt", "ComputerControlLuaApi"
             )
         ),
         ApiReference(
-            id = "wires",
-            name = "wires",
-            availability = "EMBEDDED · GLOBAL + MODULE · LOW LEVEL 0..15",
+            "wires", "wires", "EMBEDDED · GLOBAL + MODULE · LOW LEVEL 0..15",
             moduleName = "cc_aeroworks.wires",
             methods = listOf(
-                "list()",
-                "exists(name)",
-                "get(name)",
-                "set(name, value)",
-                "pulse(name, ticks?, value?)",
-                "reset(name)",
-                "resetAll()",
-                "getInfo(name)",
-                "getBackend()",
-                "isEnabled()"
+                "list()", "exists(name)", "get(name)", "set(name, value)", "pulse(name, ticks?, value?)",
+                "reset(name)", "resetAll()", "getInfo(name)", "getBackend()", "isEnabled()"
             ),
             source = ApiSourceContract(
-                path = "src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerWireLuaApi.kt",
-                className = "ComputerWireLuaApi"
+                "src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerWireLuaApi.kt", "ComputerWireLuaApi"
             )
         ),
         ApiReference(
-            id = "telemetry",
-            name = "telemetry",
-            availability = "EMBEDDED · GLOBAL + MODULE",
+            "telemetry", "telemetry", "EMBEDDED · GLOBAL + MODULE",
             moduleName = "cc_aeroworks.telemetry",
             methods = listOf(
-                "list()",
-                "get(nameOrId)",
-                "find(type)",
-                "rename(nameOrId, alias)",
-                "clearName(nameOrId)",
-                "getStatus()",
-                "getDocks()",
-                "getDock(nameOrId)",
-                "renameDock(nameOrId, alias)",
-                "clearDockName(nameOrId)"
+                "list()", "get(nameOrId)", "find(type)", "rename(nameOrId, alias)", "clearName(nameOrId)",
+                "getStatus()", "getDocks()", "getDock(nameOrId)", "renameDock(nameOrId, alias)", "clearDockName(nameOrId)"
             ),
             source = ApiSourceContract(
-                path = "src/main/kotlin/de/teutonstudio/ccaeroworks/telemetry/TelemetryLuaApi.kt",
-                className = "TelemetryLuaApi"
+                "src/main/kotlin/de/teutonstudio/ccaeroworks/telemetry/TelemetryLuaApi.kt", "TelemetryLuaApi"
             )
         ),
         ApiReference(
-            id = "dock_handle",
-            name = "Dock handle",
-            availability = "EMBEDDED · telemetry.getDock(...) · CREATE: SIMULATED",
+            "dock_handle", "Dock handle", "EMBEDDED · telemetry.getDock(...) · CREATE: SIMULATED",
             requiredMod = "simulated",
             methods = listOf(
-                "getInfo()",
-                "listTelemetry()",
-                "getTelemetry(nameOrId)",
-                "renameTelemetry(nameOrId, alias)",
-                "clearTelemetryName(nameOrId)",
-                "getTransferBuffers()"
+                "getInfo()", "listTelemetry()", "getTelemetry(nameOrId)", "renameTelemetry(nameOrId, alias)",
+                "clearTelemetryName(nameOrId)", "getTransferBuffers()"
             ),
             source = ApiSourceContract(
-                path = "src/main/kotlin/de/teutonstudio/ccaeroworks/telemetry/TelemetryLuaApi.kt",
-                className = "DockLuaHandle"
+                "src/main/kotlin/de/teutonstudio/ccaeroworks/telemetry/TelemetryLuaApi.kt", "DockLuaHandle"
             )
         ),
         ApiReference(
-            id = "display",
-            name = "display",
-            availability = "DISPLAY SCRIPT · MODULE",
-            moduleName = "display",
-            methods = listOf(
-                "getContext()",
-                "getDesk()",
-                "getSize()",
-                "getPixel(x, y)",
-                "setPixel(x, y, enabled)",
-                "setPixels(rows)",
-                "clearPixels()",
-                "setText(text)",
-                "setNumber(value, zeroPad?)",
-                "clear()"
+            "display", "display", "DISPLAY SCRIPT · MODULE", moduleName = "display", methods = displayMethods
+        ),
+        ApiReference(
+            "touchdisplay", "touchdisplay", "DISPLAY SCRIPT · MODULE · LARGE DISPLAY", moduleName = "touchdisplay",
+            methods = displayMethods + listOf(
+                "isTap(event)", "isDraw(event)", "isDoubleTap(event) [legacy]", "isHold(event) [legacy]",
+                "position(event)", "drawStart(event)", "drawDelta(event)", "drawEnded(event)",
+                "drawIdentity(event)", "normalizedPosition(event)"
             )
         ),
         ApiReference(
-            id = "touchdisplay",
-            name = "touchdisplay",
-            availability = "DISPLAY SCRIPT · MODULE · LARGE DISPLAY",
-            moduleName = "touchdisplay",
-            methods = listOf(
-                "isTap(event)",
-                "isDraw(event)",
-                "position(event)",
-                "normalizedPosition(event)",
-                "drawStart(event)",
-                "drawDelta(event)",
-                "drawIdentity(event)",
-                "drawEnded(event)"
-            )
-        ),
-        ApiReference(
-            id = "radar_control_desk",
-            name = "ControlDesk + Create: Radars",
-            availability = "LOCAL DESK · OPTIONAL",
-            requiredMod = "create_radar",
-            methods = listOf(
-                "getRadarSources()",
-                "setRadarSource(socket, sourceId)"
-            ),
+            "radar_control_desk", "ControlDesk + Create: Radars", "LOCAL DESK · OPTIONAL",
+            requiredMod = "create_radar", methods = listOf("getRadarSources()", "setRadarSource(socket, sourceId)"),
             source = ApiSourceContract(
-                path = "src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/compat/computercraft/RadarControlDeskPeripheral.kt",
-                className = "RadarControlDeskPeripheral"
+                "src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/compat/computercraft/RadarControlDeskPeripheral.kt",
+                "RadarControlDeskPeripheral"
             )
         )
     )
