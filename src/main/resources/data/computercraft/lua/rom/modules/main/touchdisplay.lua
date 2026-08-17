@@ -11,6 +11,10 @@ function touchdisplay.isDoubleTap(event)
     return type(event) == "table" and event.action == "double_tap"
 end
 
+function touchdisplay.isHold(event)
+    return type(event) == "table" and event.action == "hold"
+end
+
 function touchdisplay.position(event)
     if type(event) ~= "table" then error("display event table expected", 2) end
     return event.x, event.y, event.width, event.height
