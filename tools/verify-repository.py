@@ -24,11 +24,20 @@ REQUIRED_PATHS = (
     "docs/cc-peripheral-api.md",
     "docs/manual-test-plan.md",
     "examples/cc/README.md",
+    "examples/cc/channels-demo.lua",
+    "examples/cc/control-override-demo.lua",
     "examples/cc/dashboard.lua",
     "examples/cc/embedded-console.lua",
     "examples/cc/input-monitor.lua",
+    "examples/cc/local-desk.lua",
     "examples/cc/multiblock-dashboard.lua",
+    "examples/cc/network-basics.lua",
     "examples/cc/pixel-test.lua",
+    "examples/cc/telemetry-dashboard.lua",
+    "examples/cc/telemetry-read.lua",
+    "examples/cc/touch-test.lua",
+    "examples/cc/wires-demo.lua",
+    "tools/verify-examples.py",
     "src/test/kotlin",
 )
 
@@ -170,7 +179,7 @@ def verify_safe_lua_tables() -> None:
 
 
 def verify_lua_examples() -> None:
-    """Keep every shipped Lua example topology-aware and useful as a regression test."""
+    """Keep robust diagnostic examples topology-aware while allowing small API quickstarts."""
     root = ROOT / "examples/cc"
     scripts = {path.name: path.read_text(encoding="utf-8") for path in sorted(root.glob("*.lua"))}
     required = {
@@ -253,7 +262,6 @@ def verify_lua_examples() -> None:
         "assert(next(desks)": "first-match-only desk assumption",
     }
     deprecated_patterns = {
-        "aeroworks.": "removed global aeroworks API",
         "cc_aeroworks_multiblock_input": "removed legacy multiblock input event",
         "setDeskDisplay": "removed network-wide display facade",
         "clearDeskDisplay": "removed network-wide display facade",
@@ -262,12 +270,22 @@ def verify_lua_examples() -> None:
     for filename, content in scripts.items():
         violations = [description for pattern, description in brittle_patterns.items() if pattern in content]
         violations += [description for pattern, description in deprecated_patterns.items() if pattern in content]
+        if re.search(r"(?<![A-Za-z0-9_])aeroworks\.", content):
+            violations.append("removed global aeroworks API")
         if violations:
             fail(f"{filename} contains brittle or deprecated example logic: {', '.join(sorted(set(violations)))}")
 
     for filename in ("embedded-console.lua", "multiblock-dashboard.lua"):
         if "setDisplay" in scripts[filename] or "clearDisplay" in scripts[filename]:
             fail(f"{filename} must remain read-only; use dashboard.lua for Input-to-Display examples")
+
+
+def verify_example_documentation() -> None:
+    subprocess.run(
+        [sys.executable, str(ROOT / "tools/verify-examples.py")],
+        cwd=ROOT,
+        check=True,
+    )
 
 
 def verify_text_files() -> None:
@@ -292,6 +310,7 @@ def main() -> int:
         verify_no_tracked_jars,
         verify_safe_lua_tables,
         verify_lua_examples,
+        verify_example_documentation,
         verify_text_files,
     )
     for check in checks:

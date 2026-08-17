@@ -20,20 +20,9 @@ Gleich ausgerichtete Steuerungspulte verbinden sich unmittelbar links und rechts
 
 Jedes Pult bleibt ein eigenes Peripheral vom Typ `ControlDesk`. Es besitzt seine eigene Position, stabile Desk-ID, Module, Displays und angrenzenden Geräte. Die Netzwerkauflösung lädt keine Chunks nach und ist auf 64 vollständig geladene Pulte begrenzt.
 
-Ein externer CC:Tweaked-Computer oder ein Wired Modem arbeitet mit dem direkt angeschlossenen lokalen Pult:
+Ein externer CC:Tweaked-Computer oder ein Wired Modem arbeitet mit dem direkt angeschlossenen lokalen Pult. Zusätzliche Typnamen für die lokale Erkennung sind `control_desk`, `cc_aeroworks:control_desk` und `cc_aeroworks_control_desk`.
 
-```lua
-local desk = peripheral.find("ControlDesk")
-assert(desk, "Kein Steuerungspult verbunden")
-
-for _, module in ipairs(desk.getModules()) do
-  print(module.socketName, module.id)
-end
-
-desk.setDisplayText("big", "123")
-```
-
-Zusätzliche Typnamen für die lokale Erkennung sind `control_desk`, `cc_aeroworks:control_desk` und `cc_aeroworks_control_desk`.
+Beispiel: [`examples/cc/local-desk.lua`](examples/cc/local-desk.lua)
 
 ## Computer-Steuerungspulte
 
@@ -62,37 +51,21 @@ Die frühere globale API `aeroworks` und alte netzwerkweite `getDesk...`-Fassade
 
 ### `peripherals`
 
-Der eingebettete Computer stellt den vollständigen Pultgraphen bereit:
-
-```lua
-local peripherals = require("cc_aeroworks.peripherals")
-local network = peripherals.getNetwork()
-print(network.state, network.deskCount, network.peripheralCount)
-
-local desks = peripherals.find("ControlDesk")
-local desk = desks["12,64,-7"]
-desk.setDisplayText("big", "123")
-```
-
-`peripherals.find("ControlDesk")` liefert immer alle Pulte als nach `x,y,z` adressierte Tabelle. Bei normalen Peripheral-Typen liefert `find` bei genau einem Treffer direkt das Handle und bei mehreren Treffern eine Tabelle. Wer immer eine Sammlung benötigt, verwendet `findAll(type)`.
+Der eingebettete Computer stellt den vollständigen Pultgraphen bereit. `peripherals.find("ControlDesk")` liefert immer alle Pulte als nach `x,y,z` adressierte Tabelle. Bei normalen Peripheral-Typen liefert `find` bei genau einem Treffer direkt das Handle und bei mehreren Treffern eine Tabelle. Wer immer eine Sammlung benötigt, verwendet `findAll(type)`.
 
 Für Diagnose und Navigation stehen unter anderem `getTree()`, `getTypes()`, `getNetwork()`, `wrap(...)` und `refresh()` zur Verfügung. Geräte-Handles delegieren echte CC:Tweaked-Methoden einschließlich Attach-/Detach-Lifecycle, Events, Mounts und Main-Thread-Aufrufen.
 
+Beispiel: [`examples/cc/network-basics.lua`](examples/cc/network-basics.lua)
+
 ### `channels`, `controls` und `wires`
 
-Neue Cockpit- und Automatisierungsskripte sollten bevorzugt `channels` verwenden:
+Neue Cockpit- und Automatisierungsskripte sollten bevorzugt `channels` verwenden. `controls` bietet die niedrigere native Aeroworks-Sicht mit signierten Werten `-15..15`. `wires` verwaltet benutzerdefinierte Redstone-/Drive-By-Wire-Ausgänge mit `0..15`. Overrides sind Laufzeitzustand und werden bei ungültigem Netzwerk oder Computer-Aus fail-safe freigegeben.
 
-```lua
-local channels = require("cc_aeroworks.channels")
+Beispiele:
 
-print(channels.read("/groups/flight/roll"))
-channels.override("/groups/flight/roll", 7)
-channels.setWire("/groups/flight/gear", 15)
-channels.pulseWire("/groups/flight/flaps", 10, 15)
-channels.release("/groups/flight/roll")
-```
-
-`controls` bietet die niedrigere native Aeroworks-Sicht mit signierten Werten `-15..15`. `wires` verwaltet benutzerdefinierte Redstone-/Drive-By-Wire-Ausgänge mit `0..15`. Overrides sind Laufzeitzustand und werden bei ungültigem Netzwerk oder Computer-Aus fail-safe freigegeben.
+- [`examples/cc/channels-demo.lua`](examples/cc/channels-demo.lua)
+- [`examples/cc/control-override-demo.lua`](examples/cc/control-override-demo.lua)
+- [`examples/cc/wires-demo.lua`](examples/cc/wires-demo.lua)
 
 Details:
 
@@ -115,14 +88,9 @@ Die nutzbare Oberfläche misst:
 - klein: `7/16 × 7/16` Block, bei 256 PPB also `112 × 112` Pixel;
 - groß: `10/16 × 7/16` Block, bei 256 PPB also `160 × 112` Pixel.
 
-Dadurch bleiben Pixel unabhängig vom Seitenverhältnis physisch quadratisch. Programme sollten die aktuelle Größe trotzdem immer abfragen:
+Dadurch bleiben Pixel unabhängig vom Seitenverhältnis physisch quadratisch. Programme sollten die aktuelle Größe immer dynamisch über die Display-API abfragen. Pixelzustände werden bitgepackt zusammen mit ihrer Rastergröße gespeichert. Ändert sich `display.ppb`, wird ein inkompatibler alter Rasterzustand als leeres Pixelraster behandelt und nicht versehentlich als Text interpretiert.
 
-```lua
-local size = desk.getDisplaySize("big")
-print(size.width, size.height, size.ppb)
-```
-
-Pixelzustände werden bitgepackt zusammen mit ihrer Rastergröße gespeichert. Ändert sich `display.ppb`, wird ein inkompatibler alter Rasterzustand als leeres Pixelraster behandelt und nicht versehentlich als Text interpretiert.
+Beispiel: [`examples/cc/pixel-test.lua`](examples/cc/pixel-test.lua)
 
 ### Display-Skripte und Touch
 
@@ -159,24 +127,19 @@ telemetry
 
 Strukturiert unterstützt werden unter anderem Füllstände, Item Count/List und Fluid Amount/List. CC-Aeroworks liest Create-Messwerte und Behaviours direkt; formatierte Texte wie `50%` werden nicht wieder in Zahlen zurückgeparst.
 
-```lua
-local telemetry = require("cc_aeroworks.telemetry")
-local fuel = telemetry.get("fuel")
-
-if fuel then
-  print(fuel.value.current, fuel.value.maximum, fuel.value.percent)
-end
-```
-
 Mehrere Display Links dürfen denselben Computer als Ziel verwenden. Jede Quelle besitzt eine stabile ID, Revision und Frischeinformationen. Auf Sable basiert die Identität auf Sublevel-UUID und lokaler Linkposition.
 
 Mit optionalem Create: Simulated kann ein Docking Connector Telemetrie-Endpunkt eines separaten Sable-Moduls sein. Dadurch kann ein Fahrzeugcomputer nach dem Verriegeln Sensoren eines Anhängers oder Tankpods auslesen, ohne dass das Remote-Modul einen eigenen CC:Tweaked-Computer benötigt.
+
+Beispiele:
+
+- [`examples/cc/telemetry-read.lua`](examples/cc/telemetry-read.lua)
+- [`examples/cc/telemetry-dashboard.lua`](examples/cc/telemetry-dashboard.lua)
 
 Details:
 
 - [`docs/telemetry.md`](docs/telemetry.md)
 - [`docs/docking-telemetry.md`](docs/docking-telemetry.md)
-- [`examples/cc/telemetry-dashboard.lua`](examples/cc/telemetry-dashboard.lua)
 
 ## Optionale Create:-Radars-Kompatibilität
 
@@ -187,6 +150,25 @@ Mit der unterstützten Create:-Radars-Laufzeit werden eine kleine und eine groß
 Radarquelle, eingebetteter Computer und Anzeige dürfen an verschiedenen Pulten desselben Pultnetzes liegen. Die konkrete Quellenwahl kann über den Radar-`ControlDesk`-Adapter ausgelesen und gesetzt werden.
 
 Details stehen in [`docs/create-radars-integration.md`](docs/create-radars-integration.md).
+
+## Beispielskripte
+
+Die ausführbaren Lua-Beispiele liegen gesammelt unter [`examples/cc/`](examples/cc/). Der dortige [`README`](examples/cc/README.md) trennt kurze API-Einstiege, interaktive Beispiele und Diagnoseprogramme und nennt jeweils Laufzeitumgebung und Seiteneffekte.
+
+| Bereich | Beispiel |
+|---|---|
+| lokales `ControlDesk` | [`local-desk.lua`](examples/cc/local-desk.lua) |
+| Pultnetzwerk / `peripherals` | [`network-basics.lua`](examples/cc/network-basics.lua) |
+| High-Level-Kanäle | [`channels-demo.lua`](examples/cc/channels-demo.lua) |
+| native Control Overrides | [`control-override-demo.lua`](examples/cc/control-override-demo.lua) |
+| Drive By Wire / Redstone | [`wires-demo.lua`](examples/cc/wires-demo.lua) |
+| Input → Display | [`dashboard.lua`](examples/cc/dashboard.lua) |
+| Pixelanzeige | [`pixel-test.lua`](examples/cc/pixel-test.lua) |
+| Touch / Draw | [`touch-test.lua`](examples/cc/touch-test.lua) |
+| Telemetrie | [`telemetry-read.lua`](examples/cc/telemetry-read.lua) |
+| Diagnoseprogramme | [`examples/cc/README.md`](examples/cc/README.md) |
+
+Der Root-README enthält absichtlich keinen kopierten Lua-Beispielcode. Die ausführbaren Dateien sind die kanonischen Beispiele, damit Dokumentation und tatsächlich getesteter Code nicht in zwei Richtungen altern.
 
 ## Ponder-Erklärungen
 
@@ -234,6 +216,7 @@ Repositorydateien ohne Fremd-JARs lassen sich mit den eingecheckten Prüfwerkzeu
 
 ```bash
 python3 tools/verify-repository.py
+python3 tools/verify-examples.py
 python3 tools/verify-guide.py
 python3 tools/verify-api-reference.py
 python3 tools/verify-display-bindings.py

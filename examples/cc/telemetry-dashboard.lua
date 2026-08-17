@@ -1,9 +1,8 @@
--- CC-Aeroworks Create telemetry inspector/dashboard.
--- Requires an embedded ComputerControlDesk with the global `telemetry` API.
+-- Purpose: inspect local and docked Create telemetry without changing it.
+-- Runs on: an embedded ComputerControlDesk computer.
+-- Requires: cc_aeroworks.telemetry; Create: Simulated is optional for docking data.
 
-if type(telemetry) ~= "table" then
-  error("Dieses Programm benötigt einen eingebetteten CC-Aeroworks ComputerControlDesk mit telemetry-API", 0)
-end
+local telemetry = require("cc_aeroworks.telemetry")
 
 local running = true
 local scroll = 0
