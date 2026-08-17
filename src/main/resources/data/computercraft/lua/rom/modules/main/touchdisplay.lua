@@ -7,6 +7,12 @@ function touchdisplay.isTap(event)
     return type(event) == "table" and event.action == "tap"
 end
 
+function touchdisplay.isDraw(event)
+    return type(event) == "table" and event.action == "draw"
+end
+
+-- Legacy protocol helpers remain available for old/manual event producers. New combined input emits
+-- tap and draw only.
 function touchdisplay.isDoubleTap(event)
     return type(event) == "table" and event.action == "double_tap"
 end
@@ -18,6 +24,27 @@ end
 function touchdisplay.position(event)
     if type(event) ~= "table" then error("display event table expected", 2) end
     return event.x, event.y, event.width, event.height
+end
+
+function touchdisplay.drawStart(event)
+    if not touchdisplay.isDraw(event) then error("draw event expected", 2) end
+    return event.startX, event.startY
+end
+
+-- Delta from the immediately preceding accepted draw event, already resolved in display pixels by
+-- the server. A handler can therefore draw x-dx,y-dy -> x,y without keeping cross-event state.
+function touchdisplay.drawDelta(event)
+    if not touchdisplay.isDraw(event) then error("draw event expected", 2) end
+    return event.deltaX or 0, event.deltaY or 0
+end
+
+function touchdisplay.drawEnded(event)
+    return touchdisplay.isDraw(event) and event.isEnd == true
+end
+
+function touchdisplay.drawIdentity(event)
+    if not touchdisplay.isDraw(event) then error("draw event expected", 2) end
+    return event.gestureId, event.sequence
 end
 
 -- Resolution-independent position across the physical display surface.
