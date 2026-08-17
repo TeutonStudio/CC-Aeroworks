@@ -1,14 +1,26 @@
 # CC-Aeroworks
 
-CC-Aeroworks verbindet Create: Aeroworks Control Desks mit CC:Tweaked. Die Mod ergänzt adressierbare Pultadapter, ein netzwerkweites Peripheral-Verzeichnis für eingebettete Computer, Create-Display-Link-Telemetrie, programmierbare Displays, kombinierte Maussteuerung und optionale Create:-Radars-Anzeigen.
+CC-Aeroworks verbindet **Create: Aeroworks Control Desks** mit **CC:Tweaked** und macht aus einer Reihe von Steuerungspulten ein programmierbares Cockpit-Netzwerk. Die Mod ergänzt Computer-Steuerungspulte, adressierbare Desk-Peripherals, eine netzwerkweite Lua-API, programmierbare Displays, Touch-/Draw-Eingabe, Create-Telemetrie, steuerbare Kanäle und optionale Create:-Radars-Anzeigen.
+
+## Kernfunktionen
+
+- lineare Netzwerke aus normalen Aeroworks-Pulten und Computer-Steuerungspulten;
+- normaler oder erweiterter CC:Tweaked-Computer direkt im Pult;
+- jedes Pult bleibt ein eigenes `ControlDesk`-Peripheral mit eigener Position, Modulen und Displays;
+- globale APIs für eingebettete Computer: `peripherals`, `channels`, `controls`, `wires` und `telemetry`;
+- kleine und große programmierbare Displaymodule mit Text-, Zahlen- und Pixelmodus;
+- Touch-/Draw-Eingabe auf großen Displays über einen frei beweglichen 3D-Zeiger;
+- Create Display Links als strukturierte Informationsquellen für Tank-, Lager- und weitere Telemetriedaten;
+- optionale Create:-Radars-Kompatibilität mit nativen Data-Link-Endpunkten;
+- integriertes Manual/API-Nachschlagewerk und lokalisierte Create-Ponder-Erklärungen.
 
 ## Pultnetzwerke
 
 Gleich ausgerichtete Steuerungspulte verbinden sich unmittelbar links und rechts zu einem linearen Netzwerk. Unterstützt werden normale Aeroworks-Steuerungspulte sowie normale und erweiterte Computer-Steuerungspulte aus CC-Aeroworks.
 
-Jedes Pult bleibt ein eigenes Peripheral vom Typ `ControlDesk`. Es besitzt seine eigene Position, stabile Desk-ID, Module, Displays und benachbarten Geräte. Die Netzwerkauflösung lädt keine Chunks nach und ist auf 64 vollständig geladene Pulte begrenzt.
+Jedes Pult bleibt ein eigenes Peripheral vom Typ `ControlDesk`. Es besitzt seine eigene Position, stabile Desk-ID, Module, Displays und angrenzenden Geräte. Die Netzwerkauflösung lädt keine Chunks nach und ist auf 64 vollständig geladene Pulte begrenzt.
 
-Ein externer CC:Tweaked-Computer oder ein Wired Modem verwendet den direkt verbundenen lokalen Adapter:
+Ein externer CC:Tweaked-Computer oder ein Wired Modem arbeitet mit dem direkt angeschlossenen lokalen Pult:
 
 ```lua
 local desk = peripheral.find("ControlDesk")
@@ -21,21 +33,39 @@ end
 desk.setDisplayText("big", "123")
 ```
 
-Die zusätzlichen Typnamen `control_desk`, `cc_aeroworks:control_desk` und `cc_aeroworks_control_desk` bleiben für die lokale Peripheral-Erkennung verfügbar. Netzwerkweite `getDesk...`-Methoden gehören nicht zum neuen Vertrag.
+Zusätzliche Typnamen für die lokale Erkennung sind `control_desk`, `cc_aeroworks:control_desk` und `cc_aeroworks_control_desk`.
 
 ## Computer-Steuerungspulte
 
-Ein Aeroworks-Steuerungspult kann mit einem normalen oder erweiterten CC:Tweaked-Computer kombiniert werden. Das Rezept erhält Aeroworks-Moduldaten und CC:Tweaked-Computerkomponenten.
+Ein Aeroworks-Steuerungspult kann mit einem normalen oder erweiterten CC:Tweaked-Computer kombiniert werden. Das Rezept erhält sowohl Aeroworks-Moduldaten als auch CC:Tweaked-Computerkomponenten.
 
-Der eingebettete Computer darf an jeder Position der Pultreihe stehen. Er stellt die globale API `peripherals` bereit und indexiert:
+Der eingebettete Computer darf an jeder Position der Pultreihe stehen. Pro gültigem Netzwerk existiert höchstens ein eingebetteter Computer. Wird versehentlich ein zweites Computerpult platziert, bleibt dort ein normales Aeroworks-Pult zurück und der zusätzliche Computer wird mitsamt seinen Daten ausgeworfen.
 
-- alle Pulte des Multiblocks,
-- alle Module und Displays über Desk-Handles,
-- alle CC:Tweaked-Peripherals an den sechs Seiten jedes Pults,
-- Primärtypen und zusätzliche Peripheral-Typen,
-- Pultposition, Anschlussseite und Zielposition jedes Geräts.
+Mit Schleichen und Rechtsklick bei leerer Haupthand lässt sich das eingebettete Terminal von jedem geladenen Mitglied des gültigen Pultnetzes öffnen. Ein normaler Rechtsklick bedient montierte Steuerobjekte; ein Create-Schraubenschlüssel auf einer horizontalen Pultseite öffnet die Steuerungseinstellungen.
+
+## Lua- und Peripheral-API
+
+Die öffentliche API ist in [`docs/cc-peripheral-api.md`](docs/cc-peripheral-api.md) dokumentiert. Das Ingame-Manual enthält zusätzlich einen aus dem Quellcode gepflegten API-Katalog. `tools/verify-api-reference.py` vergleicht diesen Katalog mit den tatsächlichen öffentlichen Lua-Oberflächen, damit Dokumentation und Code nicht still auseinanderlaufen.
+
+| Oberfläche | Verfügbarkeit | Zweck |
+|---|---|---|
+| `ControlDesk` | lokales Peripheral | Module, Inputs, Displays und Display-Bindings eines einzelnen Pults |
+| `peripherals` | eingebetteter Computer | gesamtes Pultnetz und angrenzende CC:Tweaked-Peripherals |
+| `channels` | eingebetteter Computer | bevorzugte High-Level-Steuerung über stabile Pfade |
+| `controls` | eingebetteter Computer | native Aeroworks-Control-Overrides im Bereich `-15..15` |
+| `wires` | eingebetteter Computer | benutzerdefinierte Redstone-/Drive-By-Wire-Kanäle im Bereich `0..15` |
+| `telemetry` | eingebetteter Computer | Create-Informationsquellen und Docking-Telemetrie |
+| `display` | Display-Skript | Displayzugriff aus einem gebundenen Skript |
+| `touchdisplay` | Display-Skript | Displayzugriff plus Tap-/Draw-Helfer |
+
+Die frühere globale API `aeroworks` und alte netzwerkweite `getDesk...`-Fassaden gehören nicht mehr zum öffentlichen Vertrag.
+
+### `peripherals`
+
+Der eingebettete Computer stellt den vollständigen Pultgraphen bereit:
 
 ```lua
+local peripherals = require("cc_aeroworks.peripherals")
 local network = peripherals.getNetwork()
 print(network.state, network.deskCount, network.peripheralCount)
 
@@ -44,66 +74,81 @@ local desk = desks["12,64,-7"]
 desk.setDisplayText("big", "123")
 ```
 
-`ControlDesk` liefert immer eine nach `x,y,z` adressierte Tabelle aller Pulte.
+`peripherals.find("ControlDesk")` liefert immer alle Pulte als nach `x,y,z` adressierte Tabelle. Bei normalen Peripheral-Typen liefert `find` bei genau einem Treffer direkt das Handle und bei mehreren Treffern eine Tabelle. Wer immer eine Sammlung benötigt, verwendet `findAll(type)`.
 
-Für Inspektion und die Terminalansicht steht zusätzlich ein hierarchischer Snapshot bereit. Jeder Desk ist ein Root-Eintrag; seine direkt angrenzenden CC:Tweaked-Geräte liegen unter `peripherals` und sind nach Anschlussseite indiziert:
+Für Diagnose und Navigation stehen unter anderem `getTree()`, `getTypes()`, `getNetwork()`, `wrap(...)` und `refresh()` zur Verfügung. Geräte-Handles delegieren echte CC:Tweaked-Methoden einschließlich Attach-/Detach-Lifecycle, Events, Mounts und Main-Thread-Aufrufen.
 
-```lua
-local tree = peripherals.getTree()
-local desk = tree["12,64,-7"]
-local monitor = desk.peripherals.north
-print(desk.x, desk.y, desk.z, monitor.type)
-monitor.handle.setTextScale(0.5)
-```
+### `channels`, `controls` und `wires`
 
-Auf eingebetteten ComputerControlDesks zeigt der CraftOS-Befehl `peripherals` diese Baumansicht. Normale CC:Tweaked-Computer behalten das originale flache Programm.
-
-### Eindeutige Peripheral-Suche
-
-Kommt eine Peripheral-Gattung im gesamten Pultnetz genau einmal vor, liefert `peripherals.find` direkt ihr Methoden-Handle:
+Neue Cockpit- und Automatisierungsskripte sollten bevorzugt `channels` verwenden:
 
 ```lua
-local modem = peripherals.find("endermodem")
-assert(modem, "Kein EnderModem vorhanden")
-modem.open(42)
+local channels = require("cc_aeroworks.channels")
+
+print(channels.read("/groups/flight/roll"))
+channels.override("/groups/flight/roll", 7)
+channels.setWire("/groups/flight/gear", 15)
+channels.pulseWire("/groups/flight/flaps", 10, 15)
+channels.release("/groups/flight/roll")
 ```
 
-Großschreibung, Unterstriche und kompakte Schreibweisen werden normalisiert. So kann ein gemeldeter Typ wie `advanced_peripherals:ender_modem` auch über `ender_modem` oder `endermodem` gefunden werden.
+`controls` bietet die niedrigere native Aeroworks-Sicht mit signierten Werten `-15..15`. `wires` verwaltet benutzerdefinierte Redstone-/Drive-By-Wire-Ausgänge mit `0..15`. Overrides sind Laufzeitzustand und werden bei ungültigem Netzwerk oder Computer-Aus fail-safe freigegeben.
 
-Bei mehreren Treffern liefert `find` eine nach Pultposition und Anschlussseite adressierte Tabelle:
+Details:
+
+- [`docs/wire-channels.md`](docs/wire-channels.md)
+- [`docs/control-overrides.md`](docs/control-overrides.md)
+
+## Programmierbare Displays
+
+CC-Aeroworks registriert zwei normale Displaymodule:
+
+- **Two Digit Display:** passt in kleine und große Sockets;
+- **Three Digit Display:** passt ausschließlich in den großen Socket und unterstützt interaktive Eingabe.
+
+Ein normaler CC:Tweaked-Monitor wird unter einer mechanischen Presse zum kleinen Display, ein erweiterter Monitor zum großen Display.
+
+Die Displays unterstützen Text, Zahlen und frei beschreibbare Pixelraster. Die Rasterdichte wird über `display.ppb` in **Parts per Block** festgelegt. `16 PPB` entspricht der üblichen Minecraft-Texturdichte; Standard sind `256 PPB`.
+
+Die nutzbare Oberfläche misst:
+
+- klein: `7/16 × 7/16` Block, bei 256 PPB also `112 × 112` Pixel;
+- groß: `10/16 × 7/16` Block, bei 256 PPB also `160 × 112` Pixel.
+
+Dadurch bleiben Pixel unabhängig vom Seitenverhältnis physisch quadratisch. Programme sollten die aktuelle Größe trotzdem immer abfragen:
 
 ```lua
-for address, modem in pairs(peripherals.find("endermodem")) do
-  print(address)
-end
+local size = desk.getDisplaySize("big")
+print(size.width, size.height, size.ppb)
 ```
 
-`peripherals.findAll(type)` liefert unabhängig von der Trefferzahl immer eine Tabelle. Das ist für Programme sinnvoll, die stets iterieren müssen, denn offenbar war eine einzige Rückgabeform zu langweilig.
+Pixelzustände werden bitgepackt zusammen mit ihrer Rastergröße gespeichert. Ändert sich `display.ppb`, wird ein inkompatibler alter Rasterzustand als leeres Pixelraster behandelt und nicht versehentlich als Text interpretiert.
 
-Weitere Methoden:
+### Display-Skripte und Touch
 
-```lua
-peripherals.wrap(12, 64, -7)
-peripherals.wrap({ x = 12, y = 64, z = -7 })
-peripherals.getTree()
-peripherals.getTypes()
-peripherals.refresh()
-```
+Große Displays können ein Skript als Eingabe-/Touch-Handler binden. Der kombinierte Display-Eingabemodus friert die Kamera ein und bewegt einen halbtransparenten 3D-Zeiger orthogonal über die Displayfläche.
 
-Die Geräte-Handles delegieren echte CC:Tweaked-Methoden einschließlich Attach-/Detach-Lifecycle, Events, Mounts und Main-Thread-Begrenzung. Sie sind keine Tabellenattrappen mit optimistischem Namen.
+Aktuell erzeugt die Mausbedienung:
 
-Mit Schleichen und Rechtsklick bei leerer Haupthand lässt sich das Terminal von jedem Mitglied eines gültigen Einzelcomputer-Netzwerks öffnen. Ein normaler Rechtsklick bedient montierte Steuerungen; ein Create-Schraubenschlüssel auf einer horizontalen Pultseite öffnet die Steuerungseinstellungen.
+- Linksklick: `tap`;
+- gehaltene rechte Maustaste: geordnete `draw`-Geste mit Start, Samples und Ende.
 
-Pro Netzwerk ist höchstens ein eingebetteter Computer vorgesehen. Wird versehentlich ein weiteres Computerpult platziert, bleibt dort ein normales Aeroworks-Pult zurück und der zusätzliche CC:Tweaked-Computer wird mit ID, Label und Komponenten ausgeworfen. Konflikte aus Altwelten, Befehlen oder Strukturwerkzeugen bleiben diagnostizierbar und sperren den globalen Graphzugriff.
+`touchdisplay.normalizedPosition(event)` liefert auflösungsunabhängige Koordinaten im Bereich `0..1`. Für Draw stehen zusätzlich unter anderem `drawStart`, `drawDelta`, `drawIdentity` und `drawEnded` bereit.
+
+Details:
+
+- [`docs/display-touch.md`](docs/display-touch.md)
+- [`wiki/Programmierbare-Displays.md`](wiki/Programmierbare-Displays.md)
+- [`examples/cc/touch-test.lua`](examples/cc/touch-test.lua)
 
 ## Create-Display-Link-Telemetrie
 
-Der eingebettete Computer stellt zusätzlich die globale API `telemetry` bereit. Ein Create Display Link kann direkt auf einen `ComputerControlDesk` zeigen und dessen Create-Quelle als strukturierten Messwert einspeisen.
+Ein Create Display Link kann direkt auf einen `ComputerControlDesk` zeigen und seine Quelle als strukturierten Messwert an `telemetry` übergeben.
 
 ```text
 Tank / Lager
     |
-Threshold Switch / Smart Observer
+Create-Informationsquelle
     |
 Display Link
     |
@@ -112,114 +157,94 @@ ComputerControlDesk
 telemetry
 ```
 
-Strukturiert unterstützt werden `fill_level`, Item Count/List und Fluid Amount/List. CC-Aeroworks liest dafür die Create-Messwerte und Behaviours direkt; formatierte Texte wie `50%` werden nicht wieder in Zahlen zurückgeparst.
+Strukturiert unterstützt werden unter anderem Füllstände, Item Count/List und Fluid Amount/List. CC-Aeroworks liest Create-Messwerte und Behaviours direkt; formatierte Texte wie `50%` werden nicht wieder in Zahlen zurückgeparst.
 
 ```lua
+local telemetry = require("cc_aeroworks.telemetry")
 local fuel = telemetry.get("fuel")
+
 if fuel then
   print(fuel.value.current, fuel.value.maximum, fuel.value.percent)
 end
 ```
 
-Mehrere Display Links dürfen denselben Computer als Ziel verwenden. Jede Quelle besitzt eine stabile ID, eine Revision und Frischeinformationen; eigene Aliase werden persistent am Endpoint gespeichert. Auf Sable basiert die Identität auf Sublevel-UUID und lokaler Linkposition, sodass ein fahrendes oder rotierendes Fahrzeug nicht ständig neue Sensoren erfindet.
+Mehrere Display Links dürfen denselben Computer als Ziel verwenden. Jede Quelle besitzt eine stabile ID, Revision und Frischeinformationen. Auf Sable basiert die Identität auf Sublevel-UUID und lokaler Linkposition.
 
-Mit optionalem Create: Simulated kann ein Docking Connector selbst Telemetrie-Endpunkt eines separaten Sable-Moduls sein. Der Fahrzeugcomputer findet alle Docks seines eigenen Sublevels und kann nach dem Verriegeln die Quellen des gegenüberliegenden Connectors abfragen:
-
-```lua
-local dock = telemetry.getDock("left_cargo")
-if dock and dock.getInfo().locked then
-  local remoteFuel = dock.getTelemetry("fuel")
-  if remoteFuel then print(remoteFuel.value.percent) end
-end
-```
-
-Ein Remote-Tankpod oder Anhänger benötigt dafür keinen eigenen CC:Tweaked-Computer. Seine Create-Sensoren und Display Links enden am Remote-Docking-Connector. Item-, Fluid- und Energiepuffer des Connectors werden über `getTransferBuffers()` separat als Diagnosewerte geführt und niemals als tatsächlicher Cargo-/Tankfüllstand ausgegeben.
+Mit optionalem Create: Simulated kann ein Docking Connector Telemetrie-Endpunkt eines separaten Sable-Moduls sein. Dadurch kann ein Fahrzeugcomputer nach dem Verriegeln Sensoren eines Anhängers oder Tankpods auslesen, ohne dass das Remote-Modul einen eigenen CC:Tweaked-Computer benötigt.
 
 Details:
 
 - [`docs/telemetry.md`](docs/telemetry.md)
 - [`docs/docking-telemetry.md`](docs/docking-telemetry.md)
-- [`docs/telemetry-test-plan.md`](docs/telemetry-test-plan.md)
 - [`examples/cc/telemetry-dashboard.lua`](examples/cc/telemetry-dashboard.lua)
 
-## Programmierbare Displays
+## Optionale Create:-Radars-Kompatibilität
 
-Die Displays unterstützen Text, Zahlen und frei beschreibbare Pixelraster. Die Rasterauflösung wird nicht mehr als getrennte Breite und Höhe konfiguriert, sondern über eine gemeinsame Pixeldichte `display.ppb` in **Parts per Block**. `16 PPB` entspricht der üblichen Minecraft-Texturdichte; Standard sind `256 PPB`.
+Die Radar-Integration ist vollständig unter `de.teutonstudio.ccaeroworks.radarcompat` isoliert und wird nur aktiviert, wenn Create: Radars geladen ist. Damit bleibt der Basismod unabhängig von Radar-Klassen und Radar-Registrierungen.
 
-Die nutzbare Oberfläche des kleinen Displays misst `7/16 × 7/16` Block, die des großen Displays `10/16 × 7/16` Block. Aus derselben PPB-Dichte für beide Achsen entstehen dadurch physisch quadratische Pixel. Bei der Standarddichte ergeben sich `112x112` Pixel für das kleine und `160x112` Pixel für das große Display.
+Mit der unterstützten Create:-Radars-Laufzeit werden eine kleine und eine große Radaranzeige freigeschaltet. Die Anzeige wird als echtes Aeroworks-Pultmodul gerendert und kann einen nativen Create:-Radars-Data-Link-Endpunkt verwenden.
 
-Vor Pixelzugriffen muss die wirksame Auflösung gelesen werden:
-
-```lua
-local size = desk.getDisplaySize("big")
-print(size.width, size.height, size.ppb)
-```
-
-Programme, die Bedienelemente auf Touchdisplays unabhängig von der Rasterdichte positionieren wollen, können mit `require("touchdisplay")` die normierten Koordinaten `touchdisplay.normalizedPosition(event)` im Bereich `0..1` verwenden. Die bisherigen Felder `x`, `y`, `width` und `height` bleiben erhalten.
-
-Das kleine Pultdisplay passt in kleine und große Sockets, das große Pultdisplay ausschließlich in den großen Socket. Ein normaler CC:Tweaked-Monitor wird unter einer mechanischen Presse zum kleinen Pultdisplay, ein erweiterter Monitor zum großen Pultdisplay.
-
-Pixelzustände werden bitgepackt und mit ihrer Rastergröße gespeichert. Wird `display.ppb` geändert, wird ein nicht mehr passender alter Rasterzustand als leeres Pixelraster behandelt und muss vom Skript neu gezeichnet werden; er wird nicht als Displaytext fehlinterpretiert. Für Flywheel-Pulte werden programmierbare Pixel nicht mehr als eine dauerhaft verwaltete Instanz pro aktivem Pixel gehalten, sondern in einem gemeinsamen Pixelpass gerendert.
-
-## Optionale Create:-Radars-Anzeigen
-
-Mit Create: Radars 0.4.4 für Minecraft 1.21.1 werden eine kleine und eine große Radaranzeige freigeschaltet. Die unterstützte Laufzeit verwendet zusätzlich Create Big Cannons 5.11.7 und Ritchie's Projectile Library 2.1.2. Die Abhängigkeiten bleiben optional für CC-Aeroworks.
-
-Radarquelle, Computer und Anzeige dürfen an verschiedenen Pulten desselben Netzwerks liegen. Der Data-Link-Gegenstand wird zuerst auf einen verbundenen Radar-Monitor und danach auf eine freie Seite eines beliebigen Pults im Zielnetz rechtsgeklickt. CC-Aeroworks platziert den originalen Data-Link-Block und routet dessen Snapshot automatisch zur Radaranzeige.
-
-Für automatisches Routing muss im Netz genau eine Radaranzeige vorhanden sein. Keine Anzeige erzeugt eine fehlende Route; mehrere Anzeigen sind mehrdeutig und werden nicht zufällig ausgewählt. Ein Lua-Programm ist für die eindeutige Standardroute nicht erforderlich.
-
-Alle fünf Ticks werden Radarzentrum, Reichweite, ausgewähltes Ziel und höchstens 256 Tracks übertragen. Nach 20 Ticks ohne Aktualisierung zeigt das Display `X`.
+Radarquelle, eingebetteter Computer und Anzeige dürfen an verschiedenen Pulten desselben Pultnetzes liegen. Die konkrete Quellenwahl kann über den Radar-`ControlDesk`-Adapter ausgelesen und gesetzt werden.
 
 Details stehen in [`docs/create-radars-integration.md`](docs/create-radars-integration.md).
 
 ## Ponder-Erklärungen
 
-Die bisherige Sammlung langer Einzelanimationen wurde durch acht lokalisierte Storyboards ersetzt:
+CC-Aeroworks liefert acht lokalisierte Create-Ponder-Storyboards:
 
-- Pultnetz aufbauen,
-- Peripherals netzwerkweit finden,
-- Netzwerkfehler diagnostizieren,
-- Displays herstellen,
-- Displays montieren,
-- Displays programmieren,
-- Radar automatisch routen,
-- Create:-Radars-Data-Link als Quelle verwenden.
+1. Pultnetz aufbauen;
+2. Peripherals netzwerkweit finden;
+3. Netzwerkfehler diagnostizieren;
+4. Displays herstellen;
+5. Displays montieren;
+6. Displays programmieren;
+7. Radar/Data Link verbinden;
+8. Radar-Endpunkt verwenden und trennen.
 
-Alle Erklärtexte liegen auf Deutsch und Englisch vor. Feste Pixelgesamtzahlen, die alte zentrale Multiblock-API und der Data Link als ausschließlich lokales Displaykabel werden nicht mehr erklärt, weil falsche Dokumentation erstaunlicherweise selten hilft.
+Die Ponder-Szenen verwenden für montierte Pultmodule **keine Itemmodelle als Ersatzdarstellung**. Ein Display-Item wird nur dort eingeblendet, wo tatsächlich ein Item hergestellt oder eingesetzt wird. Nach der Montage befindet sich das Modul im echten `ConsoleBlockEntity` des Pults und wird über die normale Aeroworks-Modul-/Display-Pipeline dargestellt.
 
-Create-Telemetrie ist im API-Handbuch, Wiki und Beispielprogramm dokumentiert; die bestehende Ponder-Sammlung bleibt unverändert, damit deren exakt synchronisierter Sprach-/Storyboardvertrag nicht für ein nicht funktional erforderliches Erklärbild aufgeweitet wird.
+Die Display-Szenen zeigen außerdem echte Zustandsänderungen am montierten Modul, beispielsweise Text, Pixelmuster und leeren Zustand. Die Socket-Kompatibilität wird visuell demonstriert, einschließlich einer ungültigen großen Anzeige auf einem kleinen Socket.
 
-## Kombinierte Eingabe
+Basis- und Radar-Ponder bleiben getrennt: Radar-Storyboards liegen im `radarcompat`-Paket und werden nur bei aktiver Create:-Radars-Kompatibilität registriert. Ponder-Texte liegen auf Deutsch und Englisch vor; die Schlüssel und Storyboard-Verträge werden durch `tools/verify-guide.py` geprüft.
 
-Für Lever, Joystick und Throttle Quadrants kann im Aeroworks-Modulbildschirm der Input Type `Kombiniert` gewählt werden. Anschließend wird im mittleren Eingabefeld die Aktivierungstaste erfasst und beim Steuern gehalten.
+## Ingame-Manual und API-Referenz
 
-Desk-Sockets heißen in Lua `left`, `right` und `big`; kompatible Indizes sind `0`, `1` und `2`.
+Das integrierte Manual verwendet eine gemeinsame `MANUAL / API`-Oberfläche. Neben erklärenden Seiten enthält es einen kanonischen API-Katalog mit Verfügbarkeit, Modulnamen und öffentlichen Methoden. Optionale APIs werden nur angezeigt, wenn die zugehörige Mod geladen ist.
+
+Die ausführliche externe Referenz liegt unter [`docs/cc-peripheral-api.md`](docs/cc-peripheral-api.md).
 
 ## Entwicklungsumgebung
 
-- Minecraft 1.21.1, NeoForge 21.1.228 und Java 21
-- Kotlin 2.2.20 mit KotlinForForge NeoForge 5.11.0
+- Minecraft 1.21.1
+- NeoForge 21.1.228+
+- Java 21
+- Kotlin 2.2.20 / KotlinForForge NeoForge 5.11.0
 - Create 6.0.10 mit Ponder API 1.0.82
 - Aeronautics/Aeroworks 1.3.0
-- CC:Tweaked API-Baseline 1.119.0; Metadatenbereich bis vor 1.121
-- Create: Simulated 1.3.0 optional für Docking-Telemetrie
-- Sable 2.0.1 für Sublevel-Integration
+- CC:Tweaked API-Baseline 1.119.0
+- Sable 2.0.1
+- Create: Simulated 1.3.0 optional
 - Create: Radars 0.4.4-1.21.1 optional
 - Create Big Cannons 5.11.7 optional
-- Ritchie's Projectile Library 2.1.2 als CBC-Laufzeitbibliothek
+- Ritchie's Projectile Library 2.1.2 für die unterstützte Radar-Laufzeit
 
 ## Repositoryprüfung
 
-Der eingecheckte Bootstrap benötigt Java 21. Repositorydateien ohne Fremd-JARs prüfen:
+Repositorydateien ohne Fremd-JARs lassen sich mit den eingecheckten Prüfwerkzeugen validieren:
 
 ```bash
 python3 tools/verify-repository.py
 python3 tools/verify-guide.py
+python3 tools/verify-api-reference.py
+python3 tools/verify-display-bindings.py
+python3 tools/verify-display-combined-input.py
 python3 tools/verify-display-ppb.py
 python3 tools/verify-peripheral-network.py
 python3 tools/verify-peripheral-tree.py
+python3 tools/verify-wire-channels.py
+python3 tools/verify-control-overrides.py
 python3 tools/verify-telemetry.py
+python3 tools/verify-radar-compat-isolation.py
 python3 tools/verify-radar.py
 python3 tools/verify-radar-link.py
 python3 tools/verify-display-recipes.py
@@ -236,24 +261,25 @@ Nach dem rechtmäßigen Bereitstellen der Baseline-JARs:
 ./gradlew runClient
 ```
 
-Ein alternatives Verzeichnis wird mit `-Pmod_dependency_dir=/pfad/zu/mods` angegeben.
+Ein alternatives Mod-Verzeichnis kann mit `-Pmod_dependency_dir=/pfad/zu/mods` angegeben werden.
 
-## Dokumentation und Tests
+## Dokumentation
 
-- [Peripheral-Netzwerk und Lua-API](docs/cc-peripheral-api.md)
+- [Lua- und Peripheral-API](docs/cc-peripheral-api.md)
+- [Programmierbare Displays](wiki/Programmierbare-Displays.md)
+- [Display-Touch](docs/display-touch.md)
+- [Wire-Channels](docs/wire-channels.md)
+- [Control Overrides](docs/control-overrides.md)
 - [Create-Display-Link-Telemetrie](docs/telemetry.md)
 - [Docking-Telemetrie](docs/docking-telemetry.md)
-- [Telemetrie-Testplan](docs/telemetry-test-plan.md)
 - [Hierarchische Peripheral-Ansicht](docs/peripheral-tree.md)
-- [Einführung zur Programmierung](docs/peripheral-programming.md)
 - [Konfiguration](docs/configuration.md)
-- [Create: Radars integration](docs/create-radars-integration.md)
+- [Create: Radars Integration](docs/create-radars-integration.md)
 - [Runtime-Testmatrix](docs/runtime-test-matrix.md)
 - [Manueller Testplan](docs/manual-test-plan.md)
-- [Multiblock-Testplan](docs/multiblock-test-plan.md)
 - [Computerpult-, Display- und Ponder-Testplan](docs/computer-desk-guide-test-plan.md)
 - [Lua-Beispiele](examples/cc/)
 
-`.github/workflows/verify.yml` prüft bei Push und Pull Request Repositoryvertrag, Sprachen, Buch, Ponder, PPB-Displayvertrag, Peripheral-Graph, hierarchische Peripheral-Ansicht, Telemetrie/Docking, Radar, Data Link, Rezepte und Itemmodelle. Der geschützte Vollbuild benötigt rechtmäßig bereitgestellte Mod-JARs über die Repository-Secrets `MOD_DEPENDENCY_URL` und `MOD_DEPENDENCY_SHA256`.
+`.github/workflows/verify.yml` prüft bei Push und Pull Request unter anderem Repositoryvertrag, Sprachen, Manual/Ponder, API-Katalog, Displayverträge, Peripheral-Graph, Wire-Channels, Control-Overrides, Telemetrie, Radar-Kompatibilität, Rezepte und Itemmodelle.
 
 Repository: `TeutonStudio/CC-Aeroworks`

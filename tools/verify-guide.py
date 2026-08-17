@@ -16,11 +16,12 @@ GUIDE_CONTENT = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/client/guide
 CLIENT_ENTRY = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/client/CCAeroworksClient.kt"
 ITEM_ORIENTATION = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/client/ControlDeskItemOrientation.kt"
 PONDER_PLUGIN = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/client/ponder/CCAeroworksPonderPlugin.java"
+RADAR_PONDER_PLUGIN = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/radarcompat/client/ponder/RadarCompatPonderPlugin.java"
 PONDER_TEXT = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/client/ponder/PonderText.java"
 PONDER_DESK_SETUP = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/client/ponder/PonderDeskSetup.java"
 COMPUTER_SCENES = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/client/ponder/ComputerControlDeskScenes.java"
 DISPLAY_SCENES = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/client/ponder/DisplayModuleScenes.java"
-RADAR_SCENES = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/client/ponder/RadarDisplayScenes.java"
+RADAR_SCENES = ROOT / "src/main/java/de/teutonstudio/ccaeroworks/radarcompat/client/ponder/RadarDisplayScenes.java"
 PONDER_STRUCTURE = ROOT / "src/main/resources/assets/cc_aeroworks/ponder/computer_control_desk.nbt"
 WIKI_CONTROLS = ROOT / "wiki/Bedienung.md"
 WIKI_SIDEBAR = ROOT / "wiki/_Sidebar.md"
@@ -48,10 +49,7 @@ def load_language(directory: Path, name: str) -> dict[str, str]:
     path = directory / name
     data = json.loads(path.read_text(encoding="utf-8"))
     require(isinstance(data, dict), f"{path} must contain a JSON object")
-    require(
-        all(isinstance(key, str) and isinstance(value, str) for key, value in data.items()),
-        f"{path} must contain string keys and values",
-    )
+    require(all(isinstance(k, str) and isinstance(v, str) for k, v in data.items()), f"{path} must contain string keys and values")
     return data
 
 
@@ -60,27 +58,14 @@ def verify_language_pair(directory: Path, label: str) -> tuple[dict[str, str], d
     english = load_language(directory, "en_us.json")
     require(set(german) == set(english), f"{label} German and English language keys differ")
     for key in sorted(english):
-        require(
-            sorted(FORMAT_PLACEHOLDER.findall(english[key]))
-            == sorted(FORMAT_PLACEHOLDER.findall(german[key])),
-            f"{label} placeholder mismatch for {key}",
-        )
+        require(sorted(FORMAT_PLACEHOLDER.findall(english[key])) == sorted(FORMAT_PLACEHOLDER.findall(german[key])), f"{label} placeholder mismatch for {key}")
     return german, english
 
 
 def verify_item_orientation() -> None:
     source = ITEM_ORIENTATION.read_text(encoding="utf-8")
-    require(
-        "Axis.YP.rotationDegrees(180.0F)" in source,
-        "Computer Control Desk item models must rotate 180 degrees around their vertical axis",
-    )
-    for context in (
-        "ItemDisplayContext.GUI",
-        "ItemDisplayContext.FIRST_PERSON_LEFT_HAND",
-        "ItemDisplayContext.FIRST_PERSON_RIGHT_HAND",
-        "ItemDisplayContext.THIRD_PERSON_LEFT_HAND",
-        "ItemDisplayContext.THIRD_PERSON_RIGHT_HAND",
-    ):
+    require("Axis.YP.rotationDegrees(180.0F)" in source, "Computer Control Desk item models must rotate 180 degrees around their vertical axis")
+    for context in ("ItemDisplayContext.GUI", "ItemDisplayContext.FIRST_PERSON_LEFT_HAND", "ItemDisplayContext.FIRST_PERSON_RIGHT_HAND", "ItemDisplayContext.THIRD_PERSON_LEFT_HAND", "ItemDisplayContext.THIRD_PERSON_RIGHT_HAND"):
         require(context in source, f"Computer Control Desk item rotation is missing {context}")
 
 
@@ -88,10 +73,7 @@ def expected_ponder_keys() -> set[str]:
     result: set[str] = set()
     for _, (source_group, count) in PONDER_SCENES.items():
         result.add(f"ponder.cc_aeroworks.{source_group}.header")
-        result.update(
-            f"ponder.cc_aeroworks.{source_group}.text_{index}"
-            for index in range(1, count + 1)
-        )
+        result.update(f"ponder.cc_aeroworks.{source_group}.text_{index}" for index in range(1, count + 1))
     return result
 
 
@@ -99,111 +81,67 @@ def expected_runtime_ponder_keys() -> set[str]:
     result: set[str] = set()
     for scene_id, (_, count) in PONDER_SCENES.items():
         result.add(f"cc_aeroworks.ponder.{scene_id}.header")
-        result.update(
-            f"cc_aeroworks.ponder.{scene_id}.text_{index}"
-            for index in range(1, count + 1)
-        )
+        result.update(f"cc_aeroworks.ponder.{scene_id}.text_{index}" for index in range(1, count + 1))
     return result
 
 
-def verify_ponder_runtime_language(
-    german: dict[str, str],
-    english: dict[str, str],
-    runtime_german: dict[str, str],
-    runtime_english: dict[str, str],
-) -> None:
-    expected = expected_runtime_ponder_keys()
-    require(
-        set(runtime_english) == expected,
-        "Ponder runtime language keys do not match the scene IDs generated by Ponder",
-    )
-
+def verify_ponder_runtime_language(german: dict[str, str], english: dict[str, str], runtime_german: dict[str, str], runtime_english: dict[str, str]) -> None:
+    require(set(runtime_english) == expected_runtime_ponder_keys(), "Ponder runtime language keys do not match the scene IDs generated by Ponder")
     for scene_id, (source_group, count) in PONDER_SCENES.items():
         for suffix in ("header", *(f"text_{index}" for index in range(1, count + 1))):
             source_key = f"ponder.cc_aeroworks.{source_group}.{suffix}"
             runtime_key = f"cc_aeroworks.ponder.{scene_id}.{suffix}"
-            require(
-                runtime_english[runtime_key] == english[source_key],
-                f"English Ponder runtime text drifted for {runtime_key}",
-            )
-            require(
-                runtime_german[runtime_key] == german[source_key],
-                f"German Ponder runtime text drifted for {runtime_key}",
-            )
+            require(runtime_english[runtime_key] == english[source_key], f"English Ponder runtime text drifted for {runtime_key}")
+            require(runtime_german[runtime_key] == german[source_key], f"German Ponder runtime text drifted for {runtime_key}")
 
 
 def verify_ponder_sources(german: dict[str, str], english: dict[str, str]) -> None:
     missing = sorted(expected_ponder_keys() - german.keys())
     require(not missing, "Missing Ponder translations: " + ", ".join(missing))
-
     plugin = PONDER_PLUGIN.read_text(encoding="utf-8")
+    radar_plugin = RADAR_PONDER_PLUGIN.read_text(encoding="utf-8")
     computer = COMPUTER_SCENES.read_text(encoding="utf-8")
     display = DISPLAY_SCENES.read_text(encoding="utf-8")
     radar = RADAR_SCENES.read_text(encoding="utf-8")
     desk_setup = PONDER_DESK_SETUP.read_text(encoding="utf-8")
-
-    registrations = (
-        "ComputerControlDeskScenes::network",
-        "ComputerControlDeskScenes::peripheralSearch",
-        "ComputerControlDeskScenes::diagnostics",
-        "DisplayModuleScenes::crafting",
-        "DisplayModuleScenes::mounting",
-        "DisplayModuleScenes::programming",
-        "RadarDisplayScenes::controllerConnection",
-        "RadarDisplayScenes::directRadarDisplay",
-    )
-    for registration in registrations:
-        require(registration in plugin, f"Missing Ponder registration: {registration}")
-
-    require('isLoaded("create_radar")' in plugin, "Radar Ponder scenes must remain optional")
+    for registration in ("ComputerControlDeskScenes::network", "ComputerControlDeskScenes::peripheralSearch", "ComputerControlDeskScenes::diagnostics", "DisplayModuleScenes::crafting", "DisplayModuleScenes::mounting", "DisplayModuleScenes::programming"):
+        require(registration in plugin, f"Missing base Ponder registration: {registration}")
+    for registration in ("RadarDisplayScenes::controllerConnection", "RadarDisplayScenes::directRadarDisplay"):
+        require(registration in radar_plugin, f"Missing radar Ponder registration: {registration}")
+    require("RadarDisplayScenes" not in plugin, "Base Ponder plugin must not regain Create Radars scene dependencies")
     require(computer.count("showText(") == 18, "Computer Ponder scenes must contain 18 explanation steps")
     require(display.count("showText(") == 13, "Display Ponder scenes must contain 13 explanation steps")
     require(radar.count("showText(") == 10, "Radar Ponder scenes must contain ten explanation steps")
-
-    for path, source in (
-        (COMPUTER_SCENES, computer),
-        (DISPLAY_SCENES, display),
-        (RADAR_SCENES, radar),
-    ):
+    for path, source in ((COMPUTER_SCENES, computer), (DISPLAY_SCENES, display), (RADAR_SCENES, radar)):
         require("PonderText.get(" in source, f"{path.name} does not use translated Ponder text")
         require('.text("' not in source, f"{path.name} contains a hard-coded explanation")
-
-    require(
-        "modifyBlockEntity(position, ConsoleBlockEntity.class" in desk_setup
-        and "desk.mount(socket, stack.copy())" in desk_setup,
-        "Ponder desk setup must mount display items into the actual Aeroworks ConsoleBlockEntity",
-    )
-    require(
-        display.count("PonderDeskSetup.mount(") == 7,
-        "Display Ponder scenes must render seven mounted display examples",
-    )
-    require(
-        radar.count("PonderDeskSetup.mount(") == 3,
-        "Radar Ponder scenes must render three mounted radar-display examples",
-    )
-    require(
-        ".withItem(new ItemStack(CCItems." not in display,
-        "Display Ponder must not use CC-Aeroworks display items as visual stand-ins",
-    )
-    require(
-        ".withItem(new ItemStack(CCItems." not in radar,
-        "Radar Ponder must not use CC-Aeroworks display items as visual stand-ins",
-    )
-
+    require("modifyBlockEntity(position, ConsoleBlockEntity.class" in desk_setup and "desk.mount(socket, stack.copy())" in desk_setup, "Ponder desk setup must mount display items into the actual Aeroworks ConsoleBlockEntity")
+    require("AeroworksDeskAccess.setDisplayText" in desk_setup and "AeroworksDeskAccess.setDisplayPixels" in desk_setup, "Ponder desk setup must drive the real display state instead of visual stand-ins")
+    require(display.count("PonderDeskSetup.mount(") == 7, "Display Ponder scenes must render seven mounted display examples")
+    require(radar.count("PonderDeskSetup.mount(") == 3, "Radar Ponder scenes must render three mounted radar-display examples")
+    mounting_start = display.index("public static void mounting")
+    programming_start = display.index("public static void programming")
+    mounting = display[mounting_start:programming_start]
+    outside_mounting = display[:mounting_start] + display[programming_start:]
+    require(".withItem(CCItems." not in outside_mounting, "CC-Aeroworks display items may only appear while the mounting scene is actively inserting them")
+    require(mounting.count(".withItem(CCItems.") == 4 and mounting.count("PonderDeskSetup.mount(") == 4, "Display mounting must transition from installation items to four real mounted module states")
+    require("scene.world().setBlock(modem" in computer and "scene.world().setBlock(speaker" in computer, "Peripheral Ponder must render the modem and speaker as world blocks")
+    require(".withItem(itemStack(ADVANCED_MODEM))" not in computer and ".withItem(itemStack(SPEAKER))" not in computer, "Peripheral Ponder must not substitute floating items for attached world peripherals")
+    require("PonderDeskSetup.setDisplayText" in computer and "PonderDeskSetup.setDisplayText" in display and "PonderDeskSetup.setDisplayPattern" in display, "Ponder scenes must visibly exercise mounted display state")
     require('"create_radar", "network_filterer"' in radar, "Radar Ponder omits the native Network Filterer")
     require('"create_radar", "data_link"' in radar, "Radar Ponder omits the physical Data Link")
     require("setBlock(physicalLink" in radar, "Radar Ponder does not place the native Data Link")
     require("hideSection(util.select().position(physicalLink)" in radar, "Radar Ponder does not show link removal")
-
     radar_keys = sorted(key for key in expected_ponder_keys() if ".radar_" in key)
     english_radar = " ".join(english[key] for key in radar_keys)
     german_radar = " ".join(german[key] for key in radar_keys)
     require("Data Link" in english_radar and "Data Link" in german_radar, "Localized Radar Ponder omits the Data Link")
     require("adjacent" not in english_radar.lower(), "English Radar Ponder still describes controller adjacency")
     require("angrenzend" not in german_radar.lower(), "German Radar Ponder still describes controller adjacency")
-
     helper = PONDER_TEXT.read_text(encoding="utf-8")
     require("I18n.get" in helper, "Ponder text helper does not resolve client translations")
+    require('PREFIX = "cc_aeroworks.ponder."' in helper and 'LEGACY_PREFIX = "ponder.cc_aeroworks."' in helper, "Ponder text helper must centralize runtime keys and normalize the legacy key order")
+    require('"ponder.cc_aeroworks.' not in computer and '"ponder.cc_aeroworks.' not in display, "Base Ponder scenes must use the centralized scene/entry key builder")
 
 
 def verify_structure() -> None:
@@ -213,56 +151,32 @@ def verify_structure() -> None:
     require(len(raw) > 100, "Ponder structure is unexpectedly small")
     require(b"minecraft:smooth_stone" in raw, "Ponder structure has no base plate")
     require(b"aeroworks:control_desk" in raw, "Ponder structure has no Aeroworks desks")
-    require(
-        b"cc_aeroworks:computer_control_desk" in raw,
-        "Ponder structure has no Computer Control Desk",
-    )
+    require(b"cc_aeroworks:computer_control_desk" in raw, "Ponder structure has no Computer Control Desk")
 
 
 def main() -> int:
     german, english = verify_language_pair(LANG_DIR, "CC-Aeroworks")
     _, aeroworks_english = verify_language_pair(AEROWORKS_LANG_DIR, "Aeroworks")
-    runtime_german, runtime_english = verify_language_pair(
-        PONDER_RUNTIME_LANG_DIR,
-        "Ponder runtime",
-    )
-    require(
-        len(aeroworks_english) == AEROWORKS_1_3_0_LANGUAGE_KEY_COUNT,
-        "Aeroworks language overrides must cover the complete 1.3.0 key set",
-    )
-
+    runtime_german, runtime_english = verify_language_pair(PONDER_RUNTIME_LANG_DIR, "Ponder runtime")
+    require(len(aeroworks_english) == AEROWORKS_1_3_0_LANGUAGE_KEY_COUNT, "Aeroworks language overrides must cover the complete 1.3.0 key set")
     guide_source = GUIDE_CONTENT.read_text(encoding="utf-8")
     guide_keys = set(re.findall(r'"(guide\.cc_aeroworks\.[a-z0-9_.]+)"', guide_source))
     require(guide_keys, "GuideBookContent.kt contains no translation keys")
     missing_guide = sorted(guide_keys - german.keys())
     require(not missing_guide, "Missing guide translations: " + ", ".join(missing_guide))
-
     for page in range(1, 9):
         require(f"book.cc_aeroworks.page_{page}" in german, f"Missing fallback book page {page}")
     require("Network Filterer" in english["book.cc_aeroworks.page_7"], "English radar manual does not use the filterer-first Data Link flow")
     require("Network Filterer" in german["book.cc_aeroworks.page_7"], "German radar manual does not use the filterer-first Data Link flow")
-
     client_source = CLIENT_ENTRY.read_text(encoding="utf-8")
-    require(
-        "PonderIndex.addPlugin(CCAeroworksPonderPlugin())" in client_source,
-        "CCAeroworksPonderPlugin is not registered during client setup",
-    )
+    require("PonderIndex.addPlugin(CCAeroworksPonderPlugin())" in client_source, "CCAeroworksPonderPlugin is not registered during client setup")
     verify_ponder_sources(german, english)
     verify_ponder_runtime_language(german, english, runtime_german, runtime_english)
     verify_structure()
     verify_item_orientation()
-
     require(WIKI_CONTROLS.is_file(), "wiki/Bedienung.md is missing")
-    require(
-        "[[Bedienung]]" in WIKI_SIDEBAR.read_text(encoding="utf-8"),
-        "Wiki sidebar does not link the central controls page",
-    )
-
-    print(
-        "Validated matching language files, Ponder runtime keys, eight guide pages, eight localized "
-        "Ponder storyboards, mounted display examples, the native Radar Data-Link lifecycle, shared "
-        "structure, item orientation and wiki navigation."
-    )
+    require("[[Bedienung]]" in WIKI_SIDEBAR.read_text(encoding="utf-8"), "Wiki sidebar does not link the central controls page")
+    print("Validated matching language files, runtime Ponder keys, eight guide pages, split base/radar Ponder registration, real mounted display states, native Radar Data-Link lifecycle, shared structure, item orientation and wiki navigation.")
     return 0
 
 
