@@ -50,6 +50,12 @@ jobs:
           curl --fail --location --retry 3 \
             "https://maven.squiddev.cc/cc/tweaked/cc-tweaked-1.21.1-forge/1.119.0/cc-tweaked-1.21.1-forge-1.119.0.jar" \
             -o "${mods}/cc-tweaked-1.21.1-forge-1.119.0.jar"
+          curl --fail --location --retry 3 \
+            "https://maven.createmod.net/dev/engine-room/flywheel/flywheel-neoforge-api-1.21.1/1.0.6/flywheel-neoforge-api-1.21.1-1.0.6.jar" \
+            -o "${mods}/flywheel-neoforge-api-1.21.1-1.0.6.jar"
+          curl --fail --location --retry 3 \
+            "https://cursemaven.com/curse/maven/drive-by-wire-with-sable-1520378/8101676/drive-by-wire-with-sable-1520378-8101676.jar" \
+            -o "${mods}/drivebywire-0.2.9.jar"
 
           find "${mods}" -maxdepth 1 -type f -name '*.jar' -print -exec test -s '{}' ';'
           echo "MOD_DEPENDENCY_DIR=${mods}" >> "${GITHUB_ENV}"
