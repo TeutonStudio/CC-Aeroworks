@@ -198,35 +198,56 @@ Dieser Plan ergänzt `manual-test-plan.md` um die Interaktions-, Netzwerk-, Disp
 - Genau ein Radarziel wird automatisch verwendet.
 - Mehrere Radarziele werden als mehrdeutig erklärt.
 - Data Link wird als optionaler Quellenadapter, nicht als lokales Pflichtkabel dargestellt.
-- Insgesamt erscheinen 11 lokalisierte Erklärungsschritte.
+- Insgesamt erscheinen 10 lokalisierte Erklärungsschritte.
 
-## `GUIDE-01` Überarbeitetes Ingame-Handbuch
+## `GUIDE-01` Dynamisches Ingame-Handbuch
 
-**Profil:** `BASE-CLIENT`
+**Profile:** `BASE-CLIENT`, `RADAR-CLIENT`
 
-1. API-Handbuch öffnen.
-2. Alle acht Bereiche auswählen.
-3. Bei kleiner und großer GUI-Skalierung scrollen und Vor/Zurück verwenden.
-4. Deutsch und Englisch prüfen.
+1. Handbuch öffnen.
+2. Die Sidebar vollständig hoch und herunter scrollen und jede verfügbare Seite öffnen.
+3. Bei kleiner und großer GUI-Skalierung Inhalts- und Sidebar-Scrolling sowie Vor/Zurück verwenden.
+4. Im Basisprofil prüfen, dass optionale Integrationsseiten nicht erscheinen.
+5. Im Radarprofil prüfen, dass die Create:-Radars-Seite erscheint.
+6. Deutsch und Englisch für alle weiterhin lokalisierten Kerntexte prüfen.
 
 **Erwartung:**
 
-- Bereiche: Einstieg, Computerpulte, Netzwerk & API, Module, Displays, Pixel-Editor, Steuerung, Fehlerhilfe.
-- Lokaler `ControlDesk` und globale `peripherals`-API werden klar getrennt.
-- Eindeutige und mehrdeutige Typsuche werden korrekt beschrieben.
-- Hinweise, Warnungen, Eingabehinweise und Codeblöcke sind optisch unterscheidbar.
-- Kein Text läuft aus dem Panel oder unter den Footer.
+- Kernbereiche umfassen Einstieg, Computerpulte, Netzwerk/API, Module, Steuerung, `telemetry`, Displays, `touch / draw`, Events, Pixel-Editor und Fehlerhilfe.
+- Lokaler `ControlDesk` und eingebettetes Desk-Handle werden als unterschiedliche Verträge dargestellt.
+- `peripherals`, `channels`, `controls`, `wires`, `telemetry`, `display` und `touchdisplay` besitzen sichtbare API-Karten mit Scope und Methoden.
+- `channels` ist als bevorzugte High-Level-Steuerungs-API markiert; `controls` und `wires` bleiben als Low-Level-Verträge sichtbar.
+- Kein Beispiel verwendet die entfernte globale `aeroworks.*`-API.
+- Tap/Draw und die Draw-Felder `gestureId`, `sequence`, Start, Delta und `isEnd` werden dokumentiert.
+- Create: Radars und Create: Simulated erscheinen nur bei vorhandener Integration.
+- Kein Text läuft aus dem Panel oder unter den Footer; die Sidebar bleibt bei jeder Seitenzahl vollständig erreichbar.
 
 ## `GUIDE-02` Vanilla-Buchfallback
 
-**Profil:** `BASE-CLIENT`
+**Profile:** `BASE-CLIENT`, `RADAR-CLIENT`
 
-1. Acht `book.cc_aeroworks.page_*`-Seiten prüfen.
-2. Beide Sprachen laden.
+1. Im Basisprofil den Vanilla-Fallback prüfen.
+2. Mit Create: Radars denselben Fallback erneut prüfen.
+3. Beide Sprachen laden.
 
 **Erwartung:**
 
-- Alle acht Seiten existieren.
-- Desk-Netzwerk, Bedienung, lokale Adapter, globale Suche, Displays, Radar und Diagnose werden abgedeckt.
-- `peripherals.find("ControlDesk")` und der eindeutige EnderModem-Zugriff stimmen mit der Laufzeit überein.
+- Die allgemeinen Fallbackseiten bleiben vorhanden und verwenden aktuelle `ControlDesk`-/`peripherals`-Beispiele.
+- Ohne Create: Radars wird die Radar-Fallbackseite nicht in das Buch aufgenommen.
+- Mit Create: Radars wird die Radar-Fallbackseite zusätzlich aufgenommen.
 - Kein roher Translation-Key wird angezeigt.
+
+## `GUIDE-03` API-Drift-Vertrag
+
+**Profil:** Repository-Verifikation
+
+1. `python3 tools/verify-api-reference.py` ausführen.
+2. Testweise eine öffentliche `@LuaFunction` ergänzen, ohne den Katalog zu ändern, und den erwarteten Fehler prüfen.
+3. Testweise einen `display.lua`- oder `touchdisplay.lua`-Export aus dem Katalog entfernen und den erwarteten Fehler prüfen.
+
+**Erwartung:**
+
+- Öffentliche Kotlin-Lua-Methoden und ROM-Modulmethoden müssen im `ApiReferenceCatalog` vorhanden sein.
+- `debugDisplayTouchLog` bleibt als interne Diagnosebrücke aus der öffentlichen Referenz ausgeschlossen.
+- Optionale Integrationen müssen feature-gated bleiben.
+- Die entfernte globale `aeroworks.*`-API darf nicht wieder in das Handbuch gelangen.
