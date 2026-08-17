@@ -38,6 +38,38 @@ local function report(message)
     end
 end
 
+-- Mirror handler-runtime diagnostics into the normal Minecraft/server latest.log. The peripheral
+-- method logs at INFO on purpose, so this works without launching runClient with debug logging.
+local function bridgeTouchLog(event, message)
+    if type(event) ~= "table" then return false end
+    local socket = event.socketName or event.socket
+
+    local function tryDesk(desk)
+        if not desk or type(desk.debugDisplayTouchLog) ~= "function" then return false end
+        local ok = pcall(desk.debugDisplayTouchLog, socket, tostring(message))
+        return ok
+    end
+
+    if event.attachment and type(peripheral) == "table" and type(peripheral.wrap) == "function" then
+        local ok, desk = pcall(peripheral.wrap, event.attachment)
+        if ok and tryDesk(desk) then return true end
+    end
+
+    local networkApi = rawget(_G, "peripherals")
+    if type(networkApi) == "table" and type(networkApi.wrap) == "function" and
+       type(event.deskX) == "number" and type(event.deskY) == "number" and type(event.deskZ) == "number" then
+        local ok, desk = pcall(networkApi.wrap, event.deskX, event.deskY, event.deskZ, "ControlDesk")
+        if ok and tryDesk(desk) then return true end
+    end
+
+    return false
+end
+
+local function reportEvent(event, message)
+    report(message)
+    bridgeTouchLog(event, message)
+end
+
 local function diagnosticBegin(path, event, phase, scope)
     if not diagnostics or type(diagnostics.begin) ~= "function" then return false end
     local ok, started = pcall(
@@ -137,11 +169,15 @@ local function recordTouchHandlers(path, event, handler)
 end
 
 local function loadHandler(path, event)
-    if type(path) ~= "string" or path == "" then return nil end
+    if type(path) ~= "string" or path == "" then
+        reportEvent(event, "display handler: event contains no handler path")
+        return nil
+    end
 
+    bridgeTouchLog(event, "loading handler path='" .. path .. "'")
     local chunk, loadError = loadfile(path, nil, createHandlerEnvironment())
     if chunk == nil then
-        report("display handler " .. path .. ": " .. tostring(loadError))
+        reportEvent(event, "display handler " .. path .. ": loadfile failed: " .. tostring(loadError))
         return nil
     end
 
@@ -149,36 +185,67 @@ local function loadHandler(path, event)
     local ok, handler = pcall(chunk)
     diagnosticFinish(started)
     if not ok then
-        report("display handler " .. path .. ": " .. tostring(handler))
+        reportEvent(event, "display handler " .. path .. ": top-level execution failed: " .. tostring(handler))
         return nil
     end
 
     if type(handler) ~= "table" then
-        report("display handler " .. path .. " must return a table")
+        reportEvent(event, "display handler " .. path .. " must return a table, got " .. type(handler))
         return nil
     end
     recordTouchHandlers(path, event, handler)
+    bridgeTouchLog(event, string.format(
+        "handler loaded path='%s' callbacks tap=%s hold=%s doubleTap=%s pointer=%s",
+        path,
+        tostring(type(handler.onTap) == "function"),
+        tostring(type(handler.onHold) == "function"),
+        tostring(type(handler.onDoubleTap) == "function"),
+        tostring(type(handler.onPointer) == "function")
+    ))
     return handler
 end
 
 local function dispatch(handler, event)
     local callback
+    local callbackName
     if event.action == "tap" then
         callback = handler.onTap or handler.onPointer
+        callbackName = handler.onTap and "onTap" or "onPointer"
     elseif event.action == "double_tap" then
         callback = handler.onDoubleTap or handler.onPointer
+        callbackName = handler.onDoubleTap and "onDoubleTap" or "onPointer"
     elseif event.action == "hold" then
         callback = handler.onHold or handler.onPointer
+        callbackName = handler.onHold and "onHold" or "onPointer"
     else
         callback = handler.onPointer
+        callbackName = "onPointer"
     end
 
-    if type(callback) ~= "function" then return end
+    if type(callback) ~= "function" then
+        reportEvent(event, "display handler " .. tostring(event.handler) .. ": no callback for action " .. tostring(event.action))
+        return
+    end
     local action = tostring(event.action or "pointer")
+    bridgeTouchLog(event, string.format(
+        "dispatch action=%s callback=%s pixel=%s,%s size=%sx%s u=%s v=%s",
+        action,
+        tostring(callbackName),
+        tostring(event.x),
+        tostring(event.y),
+        tostring(event.width),
+        tostring(event.height),
+        tostring(event.u),
+        tostring(event.v)
+    ))
     local started = diagnosticBegin(event.handler, event, "event", "legacy:" .. action)
     local ok, err = pcall(callback, event)
     diagnosticFinish(started)
-    if not ok then report("display handler " .. tostring(event.handler) .. ": " .. tostring(err)) end
+    if not ok then
+        reportEvent(event, "display handler " .. tostring(event.handler) .. ": callback failed: " .. tostring(err))
+        return
+    end
+    bridgeTouchLog(event, "callback completed successfully action=" .. action .. " callback=" .. tostring(callbackName))
 end
 
 local function signatureFor(event)
@@ -210,7 +277,6 @@ end
 local function dispatchConsoleEvent(event)
     if event[1] ~= "cc_aeroworks_console_display_input" then return end
     local handlerPath = event[12]
-    if type(handlerPath) ~= "string" or handlerPath == "" then return end
 
     -- Preserve the old explicit router example if somebody deliberately runs it. Without this,
     -- both the automatic hook and that compatibility program would invoke the same callback.
@@ -237,6 +303,15 @@ local function dispatchConsoleEvent(event)
         deskY = event[16],
         deskZ = event[17]
     }
+    bridgeTouchLog(descriptor, string.format(
+        "console event received action=%s handler='%s' pixel=%s,%s size=%sx%s",
+        tostring(descriptor.action),
+        tostring(handlerPath),
+        tostring(descriptor.x),
+        tostring(descriptor.y),
+        tostring(descriptor.width),
+        tostring(descriptor.height)
+    ))
     local handler = loadHandler(handlerPath, descriptor)
     if not handler then return end
     dispatch(handler, descriptor)
