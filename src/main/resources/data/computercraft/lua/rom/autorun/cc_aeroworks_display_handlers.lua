@@ -167,6 +167,8 @@ local function dispatch(handler, event)
         callback = handler.onTap or handler.onPointer
     elseif event.action == "double_tap" then
         callback = handler.onDoubleTap or handler.onPointer
+    elseif event.action == "hold" then
+        callback = handler.onHold or handler.onPointer
     else
         callback = handler.onPointer
     end
