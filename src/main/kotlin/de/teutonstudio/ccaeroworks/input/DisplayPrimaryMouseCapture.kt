@@ -2,6 +2,7 @@ package de.teutonstudio.ccaeroworks.input
 
 import com.mred231.aeroworks.content.controls.ConsoleControlClient
 import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
+import de.teutonstudio.ccaeroworks.network.DisplayDrawPayload
 import de.teutonstudio.ccaeroworks.network.DisplayPointerAction
 import de.teutonstudio.ccaeroworks.network.DisplayPointerActionPayload
 import net.minecraft.client.Minecraft
@@ -17,7 +18,7 @@ import org.lwjgl.glfw.GLFW
  * same edge state, so a press can be observed through several paths without producing duplicates.
  *
  * Display semantics intentionally follow the configured interaction model:
- * RIGHT -> hold, LEFT -> tap.
+ * RIGHT -> draw gesture, LEFT -> tap.
  */
 object DisplayPrimaryMouseCapture {
     private var sessionTarget: DisplayCombinedTarget? = null
@@ -25,6 +26,7 @@ object DisplayPrimaryMouseCapture {
     private var rightDown: Boolean = false
     private var leftOwnedByDisplay: Boolean = false
     private var rightOwnedByDisplay: Boolean = false
+    private var nextGestureId: Long = 1L
 
     /**
      * Synchronise the edge detector when DISPLAY acquires Combined ownership.
@@ -39,7 +41,7 @@ object DisplayPrimaryMouseCapture {
         rightDown = GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS
         leftOwnedByDisplay = false
         rightOwnedByDisplay = false
-        active.holdActive = false
+        resetDraw(active)
         TouchInputDiagnostics.info(
             "button-sample",
             "baseline desk=${active.pos.toShortString()} socket=${active.socket} leftDown=$leftDown rightDown=$rightDown"
@@ -47,8 +49,9 @@ object DisplayPrimaryMouseCapture {
     }
 
     @JvmStatic
-    fun endSession(active: DisplayCombinedTarget?) {
+    fun endSession(active: DisplayCombinedTarget?, sendDrawEnd: Boolean = true) {
         if (active != null && sessionTarget === active) {
+            if (sendDrawEnd && active.drawActive) finishDraw(active, "session-end") else resetDraw(active)
             TouchInputDiagnostics.info(
                 "button-sample",
                 "end button session desk=${active.pos.toShortString()} socket=${active.socket} leftDown=$leftDown rightDown=$rightDown leftOwned=$leftOwnedByDisplay rightOwned=$rightOwnedByDisplay"
@@ -137,6 +140,28 @@ object DisplayPrimaryMouseCapture {
         }
     }
 
+    /** Mark a moved pointer for the next 20 Hz draw sample without sending render-frame packets. */
+    @JvmStatic
+    fun observePointer(active: DisplayCombinedTarget) {
+        if (!active.drawActive) return
+        if (active.u != active.drawLastSentU || active.v != active.drawLastSentV) active.drawDirty = true
+    }
+
+    /** Send at most one moved draw sample per client tick. */
+    @JvmStatic
+    fun flushDrawSample(active: DisplayCombinedTarget) {
+        if (!active.drawActive || !active.drawDirty) return
+        if (active.u == active.drawLastSentU && active.v == active.drawLastSentV) {
+            active.drawDirty = false
+            return
+        }
+        active.drawSequence += 1
+        sendDraw(active, isEnd = false, stage = "sample")
+        active.drawLastSentU = active.u
+        active.drawLastSentV = active.v
+        active.drawDirty = false
+    }
+
     private fun ensureSession(active: DisplayCombinedTarget, minecraft: Minecraft) {
         if (sessionTarget !== active) beginSession(active, minecraft)
     }
@@ -157,12 +182,11 @@ object DisplayPrimaryMouseCapture {
                     if (!rightDown) {
                         rightDown = true
                         rightOwnedByDisplay = true
-                        active.holdActive = true
                         TouchInputDiagnostics.info(
                             "button-sample",
-                            "source=$source right false->true holdEdge=true desk=${active.pos.toShortString()} socket=${active.socket} u=${active.u} v=${active.v}"
+                            "source=$source right false->true drawEdge=true desk=${active.pos.toShortString()} socket=${active.socket} u=${active.u} v=${active.v}"
                         )
-                        sendPointerAction(active, DisplayPointerAction.HOLD)
+                        beginDraw(active)
                     }
                     blockMinecraft = rightOwnedByDisplay
                 }
@@ -172,12 +196,12 @@ object DisplayPrimaryMouseCapture {
                     val wasDown = rightDown
                     rightDown = false
                     rightOwnedByDisplay = false
-                    active.holdActive = false
                     blockMinecraft = wasOwned
                     if (wasDown) {
+                        if (wasOwned && active.drawActive) finishDraw(active, source)
                         TouchInputDiagnostics.info(
                             "button-sample",
-                            "source=$source right true->false holdReleased=$wasOwned desk=${active.pos.toShortString()} socket=${active.socket} u=${active.u} v=${active.v}"
+                            "source=$source right true->false drawReleased=$wasOwned desk=${active.pos.toShortString()} socket=${active.socket} u=${active.u} v=${active.v}"
                         )
                     }
                 }
@@ -226,6 +250,36 @@ object DisplayPrimaryMouseCapture {
         return blockMinecraft
     }
 
+    private fun beginDraw(active: DisplayCombinedTarget) {
+        active.drawActive = true
+        active.drawGestureId = nextGestureId++
+        if (nextGestureId <= 0L) nextGestureId = 1L
+        active.drawSequence = 0
+        active.drawStartU = active.u
+        active.drawStartV = active.v
+        active.drawLastSentU = active.u
+        active.drawLastSentV = active.v
+        active.drawDirty = false
+        sendDraw(active, isEnd = false, stage = "start")
+    }
+
+    private fun finishDraw(active: DisplayCombinedTarget, source: String) {
+        active.drawSequence += 1
+        sendDraw(active, isEnd = true, stage = "end:$source")
+        resetDraw(active)
+    }
+
+    private fun resetDraw(active: DisplayCombinedTarget) {
+        active.drawActive = false
+        active.drawGestureId = 0L
+        active.drawSequence = 0
+        active.drawStartU = 0.0
+        active.drawStartV = 0.0
+        active.drawLastSentU = 0.0
+        active.drawLastSentV = 0.0
+        active.drawDirty = false
+    }
+
     private fun runtimeValid(minecraft: Minecraft, active: DisplayCombinedTarget): Boolean =
         ConsoleControlClient.isActive() &&
             minecraft.screen == null &&
@@ -243,6 +297,24 @@ object DisplayPrimaryMouseCapture {
         )
         PacketDistributor.sendToServer(
             DisplayPointerActionPayload(active.pos, active.socket, active.u, active.v, action)
+        )
+    }
+
+    private fun sendDraw(active: DisplayCombinedTarget, isEnd: Boolean, stage: String) {
+        TouchInputDiagnostics.info(
+            "client",
+            "send draw stage=$stage desk=${active.pos.toShortString()} socket=${active.socket} gesture=${active.drawGestureId} seq=${active.drawSequence} u=${active.u} v=${active.v} previousU=${active.drawLastSentU} previousV=${active.drawLastSentV} end=$isEnd held=${active.heldBindings}"
+        )
+        PacketDistributor.sendToServer(
+            DisplayDrawPayload(
+                pos = active.pos,
+                socket = active.socket,
+                gestureId = active.drawGestureId,
+                sequence = active.drawSequence,
+                u = active.u,
+                v = active.v,
+                isEnd = isEnd
+            )
         )
     }
 }
