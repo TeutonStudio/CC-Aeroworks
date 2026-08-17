@@ -19,6 +19,27 @@ Der Zeiger bleibt auf die normierte Displayfläche `0..1` begrenzt. Das erste Ma
 
 Die Zeigergeschwindigkeit kann über `displayPointerSensitivity` in `cc_aeroworks-client.toml` angepasst werden.
 
+## TouchTrace-Diagnose
+
+Der Diagnose-Branch protokolliert den vollständigen Touch-Pfad absichtlich auf `INFO`/`WARN`. Dafür muss `runClient` **nicht** im Debug-Modus gestartet werden. Alle relevanten Zeilen tragen den stabilen Präfix:
+
+```text
+[TouchTrace]
+```
+
+Die Stufen bedeuten:
+
+- `[client]`: Display-Sitzung, Mausaktion und Paketversand;
+- `[server]`: Paketempfang, Sicherheits-/Reichweitenprüfung und Pixelauflösung;
+- `[dispatch]`: Multiblock-Auflösung, gespeichertes Display-Binding und Event-Weiterleitung;
+- `[peripheral]`: Weiterleitung an normale/verkabelte ComputerCraft-Computer;
+- `[catalog]`: Scan und Auflösung der auf dem eingebetteten Computer vorhandenen Lua-Skriptdateien;
+- `[binding]`: Lesen, Setzen oder ungültiges Zurückfallen einer Skriptbindung;
+- `[lua]`: `loadfile`, Handler-Aufbau, Callback-Auswahl, Callback-Erfolg oder Lua-Fehler;
+- `[pixels]`: tatsächlicher Raster-Write in das Displaymodul und unmittelbarer Readback.
+
+Für eine Reproduktion genügt es, die Skriptquelle einzustellen, die Display-Bedienungstaste zu halten, den Pseudo-Finger zu bewegen und mindestens einmal rechts sowie links zu klicken. Danach lassen sich die `[TouchTrace]`-Zeilen aus `logs/latest.log` chronologisch lesen. Die letzte erreichte Stufe zeigt unmittelbar, in welcher Schicht die Verarbeitung abbricht.
+
 ## CC:Tweaked-Ereignisse
 
 ### Direkt angeschlossener `ControlDesk`
