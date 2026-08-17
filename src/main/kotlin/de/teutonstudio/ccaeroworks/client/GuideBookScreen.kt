@@ -1,5 +1,6 @@
 package de.teutonstudio.ccaeroworks.client
 
+import de.teutonstudio.ccaeroworks.client.guide.ApiReferenceCatalog
 import de.teutonstudio.ccaeroworks.client.guide.GuideBookContent
 import de.teutonstudio.ccaeroworks.client.guide.GuideEntry
 import de.teutonstudio.ccaeroworks.client.guide.GuideSectionId
@@ -8,12 +9,14 @@ import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import net.minecraft.util.Mth
+import kotlin.math.min
 
 class GuideBookScreen(
     private val parent: Screen? = null,
     initialSection: GuideSectionId = GuideSectionId.START
 ) : Screen(Component.translatable("guide.cc_aeroworks.title")) {
     private var sectionIndex: Int = GuideBookContent.indexOf(initialSection)
+    private var sidebarScroll: Int = 0
     private var scroll: Int = 0
     private var measuredContentHeight: Int = 0
     private val pixelEditorPanel = PixelEditorPanel()
@@ -25,8 +28,6 @@ class GuideBookScreen(
     }
 
     override fun render(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        // Do not call Screen.renderBackground here: in-world screens enable Minecraft's blur
-        // shader there, which makes small API text unnecessarily hard to read.
         graphics.fill(0, 0, width, height, SCREEN_OVERLAY)
         val layout = layout()
 
@@ -38,20 +39,23 @@ class GuideBookScreen(
 
         graphics.drawString(font, "CC>", layout.left + 12, layout.top + 11, CYAN, false)
         graphics.drawString(font, title, layout.left + 35, layout.top + 11, TEXT, false)
-        if (layout.width >= 380) graphics.drawString(font, "API DOCS", layout.right - 62, layout.top + 11, MUTED, false)
+        if (layout.width >= 380) graphics.drawString(font, "MANUAL / API", layout.right - 82, layout.top + 11, MUTED, false)
 
         renderSidebar(graphics, layout, mouseX, mouseY)
         renderSection(graphics, layout, mouseX, mouseY)
         renderFooter(graphics, layout, mouseX, mouseY)
-        // There are no vanilla widgets to render. Calling super.render() would invoke
-        // Screen.renderBackground() and apply the blur shader after drawing this UI.
     }
 
     private fun renderSidebar(graphics: GuiGraphics, layout: Layout, mouseX: Int, mouseY: Int) {
         graphics.fill(layout.left, layout.headerBottom, layout.contentLeft - 1, layout.footerTop, SIDEBAR)
         graphics.fill(layout.contentLeft - 1, layout.headerBottom, layout.contentLeft, layout.footerTop, BORDER_DARK)
-        GuideBookContent.sections.forEachIndexed { index, section ->
-            val y = layout.headerBottom + 9 + index * TAB_HEIGHT
+        clampSidebarScroll(layout)
+        val top = sidebarTop(layout)
+        val visibleRows = sidebarVisibleRows(layout)
+        val end = min(GuideBookContent.sections.size, sidebarScroll + visibleRows)
+        for (index in sidebarScroll until end) {
+            val section = GuideBookContent.sections[index]
+            val y = top + (index - sidebarScroll) * TAB_HEIGHT
             val hovered = mouseX in (layout.left + 5) until (layout.contentLeft - 5) &&
                 mouseY in y until (y + TAB_HEIGHT - 2)
             if (index == sectionIndex || hovered) {
@@ -68,28 +72,30 @@ class GuideBookScreen(
             }
             graphics.drawString(
                 font,
-                Component.translatable(section.labelKey),
+                section.label,
                 layout.left + 13,
                 y + 5,
                 if (index == sectionIndex) TEXT else MUTED,
                 false
             )
         }
+        if (sidebarScroll > 0) graphics.drawString(font, "^", layout.contentLeft - 13, layout.headerBottom + 3, MUTED, false)
+        if (end < GuideBookContent.sections.size) graphics.drawString(font, "v", layout.contentLeft - 13, layout.footerTop - 10, MUTED, false)
     }
 
     private fun renderSection(graphics: GuiGraphics, layout: Layout, mouseX: Int, mouseY: Int) {
         val x = layout.contentLeft + 14
-        val width = layout.right - x - 14
+        val contentWidth = layout.right - x - 14
         val clipTop = layout.headerBottom + 7
         val clipBottom = layout.footerTop - 5
         graphics.enableScissor(layout.contentLeft, clipTop, layout.right, clipBottom)
 
         var y = clipTop - scroll
         val section = GuideBookContent.sections[sectionIndex]
-        graphics.drawString(font, Component.translatable(section.titleKey), x, y, GOLD, false)
+        graphics.drawString(font, section.title, x, y, GOLD, false)
         y += 18
         section.entries.forEach { entry ->
-            y += renderEntry(graphics, entry, x, y, width, mouseX, mouseY)
+            y += renderEntry(graphics, entry, x, y, contentWidth, mouseX, mouseY)
         }
         measuredContentHeight = y + scroll - clipTop
         graphics.disableScissor()
@@ -109,17 +115,61 @@ class GuideBookScreen(
         is GuideEntry.Note -> renderCallout(graphics, entry.key, x, y, width, NOTE_BG, GOLD, NOTE_TEXT)
         is GuideEntry.Warning -> renderCallout(graphics, entry.key, x, y, width, WARNING_BG, WARNING, WARNING_TEXT)
         is GuideEntry.InputHint -> renderCallout(graphics, entry.key, x, y, width, INPUT_BG, CYAN, TEXT)
-        is GuideEntry.Code -> {
-            val lines = entry.lines.size
-            val height = lines * 11 + 10
-            graphics.fill(x, y, x + width, y + height, CODE_BG)
-            graphics.renderOutline(x, y, width, height, BORDER_DARK)
-            entry.lines.forEachIndexed { index, line ->
-                graphics.drawString(font, line, x + 8, y + 6 + index * 11, CYAN, false)
-            }
-            height + 7
+        is GuideEntry.Heading -> {
+            graphics.drawString(font, entry.text, x, y + 2, GOLD, false)
+            16
         }
+        is GuideEntry.Api -> renderApiReference(graphics, entry.referenceId, x, y, width)
+        is GuideEntry.Code -> renderCode(graphics, entry.lines, x, y, width)
         GuideEntry.PixelEditor -> pixelEditorPanel.render(graphics, font, x, y, width, mouseX, mouseY) + 7
+    }
+
+    private fun renderApiReference(graphics: GuiGraphics, referenceId: String, x: Int, y: Int, width: Int): Int {
+        val reference = ApiReferenceCatalog.find(referenceId)
+        val moduleRows = if (reference.moduleName == null) 0 else 1
+        val height = 31 + moduleRows * 11 + reference.methods.size * 11
+        graphics.fill(x, y, x + width, y + height, API_BG)
+        graphics.renderOutline(x, y, width, height, BORDER_DARK)
+        graphics.drawString(font, reference.name, x + 8, y + 6, CYAN, false)
+        if (reference.preferred) {
+            val marker = "PREFERRED"
+            graphics.drawString(font, marker, x + width - font.width(marker) - 8, y + 6, GOLD, false)
+        }
+        graphics.drawString(
+            font,
+            font.plainSubstrByWidth(reference.availability, width - 16),
+            x + 8,
+            y + 17,
+            MUTED,
+            false
+        )
+        var lineY = y + 28
+        reference.moduleName?.let { module ->
+            graphics.drawString(font, "require(\"$module\")", x + 8, lineY, NOTE_TEXT, false)
+            lineY += 11
+        }
+        reference.methods.forEach { method ->
+            graphics.drawString(font, font.plainSubstrByWidth(method, width - 16), x + 8, lineY, TEXT, false)
+            lineY += 11
+        }
+        return height + 7
+    }
+
+    private fun renderCode(graphics: GuiGraphics, lines: List<String>, x: Int, y: Int, width: Int): Int {
+        val height = lines.size * 11 + 10
+        graphics.fill(x, y, x + width, y + height, CODE_BG)
+        graphics.renderOutline(x, y, width, height, BORDER_DARK)
+        lines.forEachIndexed { index, line ->
+            graphics.drawString(
+                font,
+                font.plainSubstrByWidth(line, width - 16),
+                x + 8,
+                y + 6 + index * 11,
+                CYAN,
+                false
+            )
+        }
+        return height + 7
     }
 
     private fun renderCallout(
@@ -170,26 +220,25 @@ class GuideBookScreen(
         val layout = layout()
         if (activeSectionHasPixelEditor() && layout.containsContent(mouseX, mouseY) &&
             pixelEditorPanel.mouseClicked(mouseX, mouseY, button)
-        ) {
-            return true
-        }
+        ) return true
         if (button != 0) return super.mouseClicked(mouseX, mouseY, button)
-        GuideBookContent.sections.indices.firstOrNull { index ->
-            val y = layout.headerBottom + 9 + index * TAB_HEIGHT
-            mouseX >= layout.left + 5 && mouseX < layout.contentLeft - 5 &&
-                mouseY >= y && mouseY < y + TAB_HEIGHT - 2
-        }?.let {
-            selectSection(it)
-            return true
+
+        if (layout.containsSidebar(mouseX, mouseY)) {
+            val row = ((mouseY - sidebarTop(layout)) / TAB_HEIGHT).toInt()
+            val index = sidebarScroll + row
+            if (index in GuideBookContent.sections.indices) {
+                selectSection(index, layout)
+                return true
+            }
         }
         if (NavBox(layout.contentLeft + 12, layout.footerTop + 5, 28, 15).contains(mouseX, mouseY) && sectionIndex > 0) {
-            selectSection(sectionIndex - 1)
+            selectSection(sectionIndex - 1, layout)
             return true
         }
         if (NavBox(layout.contentLeft + 45, layout.footerTop + 5, 28, 15).contains(mouseX, mouseY) &&
             sectionIndex < GuideBookContent.sections.lastIndex
         ) {
-            selectSection(sectionIndex + 1)
+            selectSection(sectionIndex + 1, layout)
             return true
         }
         if (NavBox(layout.right - 55, layout.footerTop + 5, 43, 15).contains(mouseX, mouseY)) {
@@ -199,13 +248,7 @@ class GuideBookScreen(
         return super.mouseClicked(mouseX, mouseY, button)
     }
 
-    override fun mouseDragged(
-        mouseX: Double,
-        mouseY: Double,
-        button: Int,
-        dragX: Double,
-        dragY: Double
-    ): Boolean {
+    override fun mouseDragged(mouseX: Double, mouseY: Double, button: Int, dragX: Double, dragY: Double): Boolean {
         if (activeSectionHasPixelEditor() && pixelEditorPanel.mouseDragged(mouseX, mouseY, button)) return true
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY)
     }
@@ -217,11 +260,12 @@ class GuideBookScreen(
 
     override fun mouseScrolled(mouseX: Double, mouseY: Double, scrollX: Double, scrollY: Double): Boolean {
         val layout = layout()
-        if (mouseX < layout.contentLeft || mouseX >= layout.right ||
-            mouseY < layout.headerBottom || mouseY >= layout.footerTop
-        ) {
-            return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY)
+        if (layout.containsSidebar(mouseX, mouseY)) {
+            sidebarScroll = (sidebarScroll - scrollY.toInt()).coerceAtLeast(0)
+            clampSidebarScroll(layout)
+            return true
         }
+        if (!layout.containsContent(mouseX, mouseY)) return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY)
         scroll = (scroll - (scrollY * 18.0).toInt()).coerceAtLeast(0)
         clampScroll(layout)
         return true
@@ -230,9 +274,27 @@ class GuideBookScreen(
     private fun activeSectionHasPixelEditor(): Boolean =
         GuideBookContent.sections[sectionIndex].entries.any { it === GuideEntry.PixelEditor }
 
-    private fun selectSection(index: Int) {
+    private fun selectSection(index: Int, layout: Layout = layout()) {
         sectionIndex = index.coerceIn(GuideBookContent.sections.indices)
         scroll = 0
+        ensureSelectedSectionVisible(layout)
+    }
+
+    private fun ensureSelectedSectionVisible(layout: Layout) {
+        val rows = sidebarVisibleRows(layout)
+        if (sectionIndex < sidebarScroll) sidebarScroll = sectionIndex
+        if (sectionIndex >= sidebarScroll + rows) sidebarScroll = sectionIndex - rows + 1
+        clampSidebarScroll(layout)
+    }
+
+    private fun sidebarTop(layout: Layout): Int = layout.headerBottom + 7
+
+    private fun sidebarVisibleRows(layout: Layout): Int =
+        ((layout.footerTop - 5 - sidebarTop(layout)) / TAB_HEIGHT).coerceAtLeast(1)
+
+    private fun clampSidebarScroll(layout: Layout) {
+        val max = (GuideBookContent.sections.size - sidebarVisibleRows(layout)).coerceAtLeast(0)
+        sidebarScroll = Mth.clamp(sidebarScroll, 0, max)
     }
 
     private fun clampScroll(layout: Layout) {
@@ -250,9 +312,7 @@ class GuideBookScreen(
         lineHeight: Int
     ): Int {
         val lines = font.split(component, width)
-        lines.forEachIndexed { index, line ->
-            graphics.drawString(font, line, x, y + index * lineHeight, color, false)
-        }
+        lines.forEachIndexed { index, line -> graphics.drawString(font, line, x, y + index * lineHeight, color, false) }
         return lines.size * lineHeight
     }
 
@@ -261,7 +321,7 @@ class GuideBookScreen(
 
     private fun layout(): Layout {
         val panelWidth = (width - 24).coerceIn(280, 440)
-        val panelHeight = (height - 24).coerceIn(210, 270)
+        val panelHeight = (height - 24).coerceIn(210, 300)
         val left = (width - panelWidth) / 2
         val top = (height - panelHeight) / 2
         return Layout(left, top, left + panelWidth, top + panelHeight)
@@ -276,6 +336,9 @@ class GuideBookScreen(
 
         fun containsContent(mouseX: Double, mouseY: Double): Boolean =
             mouseX >= contentLeft && mouseX < right && mouseY >= headerBottom + 7 && mouseY < footerTop - 5
+
+        fun containsSidebar(mouseX: Double, mouseY: Double): Boolean =
+            mouseX >= left + 5 && mouseX < contentLeft - 5 && mouseY >= headerBottom + 7 && mouseY < footerTop - 5
     }
 
     private data class NavBox(val x: Int, val y: Int, val width: Int, val height: Int) {
@@ -291,6 +354,7 @@ class GuideBookScreen(
         const val SIDEBAR: Int = 0xFF0C141B.toInt()
         const val FOOTER: Int = 0xFF0C141B.toInt()
         const val CODE_BG: Int = 0xFF071117.toInt()
+        const val API_BG: Int = 0xFF0A171E.toInt()
         const val NOTE_BG: Int = 0xFF282316.toInt()
         const val WARNING_BG: Int = 0xFF321919.toInt()
         const val INPUT_BG: Int = 0xFF102832.toInt()
