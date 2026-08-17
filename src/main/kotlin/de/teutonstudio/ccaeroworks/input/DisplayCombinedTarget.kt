@@ -18,7 +18,15 @@ data class DisplayCombinedTarget(
 ) {
     var baselinePending: Boolean = true
     var watchdogTicks: Int = 0
-    var holdActive: Boolean = false
+
+    var drawActive: Boolean = false
+    var drawGestureId: Long = 0L
+    var drawSequence: Int = 0
+    var drawStartU: Double = 0.0
+    var drawStartV: Double = 0.0
+    var drawLastSentU: Double = 0.0
+    var drawLastSentV: Double = 0.0
+    var drawDirty: Boolean = false
 
     fun xActive(): Boolean = xBinding != null && xBinding in heldBindings
     fun yActive(): Boolean = yBinding != null && yBinding in heldBindings
