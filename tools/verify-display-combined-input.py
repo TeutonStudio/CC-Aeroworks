@@ -17,6 +17,8 @@ module_types = read("src/main/kotlin/de/teutonstudio/ccaeroworks/registry/CCModu
 source = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/CombinedInputSource.kt")
 control = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/CombinedLeverController.kt")
 controller = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/DisplayCombinedInputController.kt")
+raw_mouse = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/DisplayPrimaryMouseCapture.kt")
+mouse_guard = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/CombinedMouseButtonGuardMixin.kt")
 context = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/CombinedInputContext.kt")
 coordinator = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/CombinedInputCoordinator.kt")
 lifecycle = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/AeroworksControlSessionMixin.kt")
@@ -68,23 +70,51 @@ require(
     "Combined sessions must follow Aeroworks lifecycle",
 )
 
-# Once a display owns Combined input, primary mouse buttons must reach the pseudo pointer before
-# mouse activation bindings or vanilla actions can consume them.
+# Display touch must be captured below NeoForge's mouse event routing. The MouseHandler guard records
+# the raw GLFW edge and cancels vanilla processing only while DISPLAY owns Combined input.
+require(
+    "@Mixin(MouseHandler::class)" in mouse_guard and
+    'method = ["onPress(JIII)V"]' in mouse_guard and
+    'at = [At("HEAD")]' in mouse_guard and
+    "cancellable = true" in mouse_guard and
+    "DisplayPrimaryMouseCapture.capture(windowPointer, button, action)" in mouse_guard and
+    "callback.cancel()" in mouse_guard,
+    "display primary buttons must be intercepted at MouseHandler before NeoForge/vanilla routing",
+)
+require(
+    '"client.CombinedMouseButtonGuardMixin"' in mixins,
+    "raw display mouse guard mixin is not registered",
+)
+require(
+    "CombinedInputCoordinator.ownsDisplay()" in raw_mouse and
+    "CombinedInputCoordinator.isShiftCameraOnly(minecraft)" in raw_mouse and
+    "minecraft.screen != null" in raw_mouse and
+    "GLFW.GLFW_MOUSE_BUTTON_LEFT" in raw_mouse and
+    "GLFW.GLFW_MOUSE_BUTTON_RIGHT" in raw_mouse,
+    "raw display mouse capture must be exclusive to a valid DISPLAY Combined session",
+)
+require(
+    "if (!rightDown)" in raw_mouse and
+    "sendPointerAction(active, DisplayPointerAction.TAP)" in raw_mouse and
+    "if (!leftDown)" in raw_mouse and
+    "active.holdActive = true" in raw_mouse and
+    "sendPointerAction(active, DisplayPointerAction.HOLD)" in raw_mouse and
+    "active.holdActive = false" in raw_mouse,
+    "raw display mouse capture must edge-detect right tap and left hold press/release",
+)
+require(
+    '"mouse-gate"' in raw_mouse and '"button-sample"' in raw_mouse and
+    "PacketDistributor.sendToServer" in raw_mouse,
+    "raw display mouse path must remain visible in TouchTrace and send the server payload directly",
+)
+
+# Keep the event-level route as a compatibility fallback. In the repaired runtime the MouseHandler
+# guard cancels primary buttons before this NeoForge event is produced, so this is not the primary path.
 pointer_capture = controller.find("handlePointerButton(event, minecraft, active)")
 activation_routing = controller.find("val binding = InputConstants.Type.MOUSE.getOrCreate(event.button).name")
 require(
-    pointer_capture >= 0 and activation_routing >= 0 and pointer_capture < activation_routing and
-    "event.isCanceled = true" in controller,
-    "active display pointer clicks must be captured before mouse activation routing",
-)
-require(
-    "GLFW.GLFW_MOUSE_BUTTON_RIGHT ->" in controller and
-    "sendPointerAction(active, DisplayPointerAction.TAP)" in controller and
-    "GLFW.GLFW_MOUSE_BUTTON_LEFT -> when (event.action)" in controller and
-    "active.holdActive = true" in controller and
-    "sendPointerAction(active, DisplayPointerAction.HOLD)" in controller and
-    "active.holdActive = false" in controller,
-    "display pseudo pointer must distinguish right tap and left hold press/release",
+    pointer_capture >= 0 and activation_routing >= 0 and pointer_capture < activation_routing,
+    "event-level display pointer fallback must not move behind activation routing",
 )
 require(
     'DOUBLE_TAP("double_tap"),\n    HOLD("hold")' in pointer,
@@ -158,4 +188,4 @@ require(
     "Combined icon missing",
 )
 require("python3 tools/verify-display-combined-input.py" in workflow, "workflow must enforce display Combined contract")
-print("Validated Combined display input, tap/hold pointer routing, Sable-aware pointer reach, and DBW isolation.")
+print("Validated raw display tap/hold capture, Combined ownership, Sable-aware pointer reach, and DBW isolation.")
