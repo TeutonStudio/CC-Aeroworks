@@ -1,0 +1,89 @@
+name: Build v1.2.0
+
+on:
+  push:
+    branches:
+      - "release/v1.2.0"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Release build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      MOD_DEPENDENCY_URL: ${{ secrets.MOD_DEPENDENCY_URL }}
+      MOD_DEPENDENCY_SHA256: ${{ secrets.MOD_DEPENDENCY_SHA256 }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Prepare executable files
+        run: chmod +x gradlew tools/*.py
+
+      - name: Require protected dependency bundle configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MOD_DEPENDENCY_URL}" || {
+            echo "MOD_DEPENDENCY_URL secret is not configured" >&2
+            exit 1
+          }
+          [[ "${MOD_DEPENDENCY_SHA256}" =~ ^[0-9a-fA-F]{64}$ ]] || {
+            echo "MOD_DEPENDENCY_SHA256 must contain 64 hexadecimal characters" >&2
+            exit 1
+          }
+
+      - name: Download and verify protected dependency bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="${RUNNER_TEMP}/cc-aeroworks-mods.zip"
+          extracted="${RUNNER_TEMP}/cc-aeroworks-mods-extracted"
+          mods="${RUNNER_TEMP}/cc-aeroworks-mods"
+
+          curl --fail --location --retry 3 --proto '=https' \
+            --output "${archive}" "${MOD_DEPENDENCY_URL}"
+          printf '%s  %s\n' "${MOD_DEPENDENCY_SHA256}" "${archive}" | sha256sum --check --strict -
+
+          mkdir -p "${extracted}" "${mods}"
+          unzip -q "${archive}" -d "${extracted}"
+          find "${extracted}" -type f -name '*.jar' -exec cp '{}' "${mods}/" ';'
+
+          jar_count=$(find "${mods}" -maxdepth 1 -type f -name '*.jar' | wc -l)
+          test "${jar_count}" -gt 0 || {
+            echo "Verified bundle contains no JAR files" >&2
+            exit 1
+          }
+          echo "MOD_DEPENDENCY_DIR=${mods}" >> "${GITHUB_ENV}"
+
+      - name: Verify required local mod dependencies
+        run: ./gradlew -Pmod_dependency_dir="${MOD_DEPENDENCY_DIR}" verifyModDependencies --no-daemon --stacktrace
+
+      - name: Clean, test and build v1.2.0
+        run: ./gradlew -Pmod_dependency_dir="${MOD_DEPENDENCY_DIR}" clean test build --no-daemon --stacktrace
+
+      - name: Confirm release artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f build/libs/cc-aeroworks-1.2.0.jar
+          sha256sum build/libs/cc-aeroworks-1.2.0.jar
+
+      - name: Upload v1.2.0 JAR
+        uses: actions/upload-artifact@v7
+        with:
+          name: cc-aeroworks-v1.2.0
+          if-no-files-found: error
+          retention-days: 14
+          path: build/libs/cc-aeroworks-1.2.0.jar
