@@ -5,6 +5,7 @@ import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import com.mred231.aeroworks.content.controls.ConsoleControlClient
 import de.teutonstudio.ccaeroworks.compat.sable.SableInteractionGeometry
 import de.teutonstudio.ccaeroworks.config.CCClientConfig
+import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
 import de.teutonstudio.ccaeroworks.display.DeskDisplayGeometry
 import de.teutonstudio.ccaeroworks.mixin.client.MouseHandlerAccessor
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
@@ -37,6 +38,10 @@ object DisplayCombinedInputController {
     fun abortControlMode() {
         val active = target ?: return
         suppressedBindings += active.heldBindings
+        TouchInputDiagnostics.info(
+            "client",
+            "abort control mode desk=${active.pos.toShortString()} socket=${active.socket} held=${active.heldBindings}"
+        )
         stop()
     }
 
@@ -175,6 +180,10 @@ object DisplayCombinedInputController {
         event.isCanceled = true
 
         if (!basicSessionValid(minecraft)) {
+            TouchInputDiagnostics.warn(
+                "client",
+                "mouse edge consumed but display session is invalid desk=${active.pos.toShortString()} socket=${active.socket} button=${event.button} action=${event.action}"
+            )
             if (event.button == GLFW.GLFW_MOUSE_BUTTON_LEFT && event.action == GLFW.GLFW_RELEASE) {
                 active.holdActive = false
             }
@@ -194,13 +203,23 @@ object DisplayCombinedInputController {
                     sendPointerAction(active, DisplayPointerAction.HOLD)
                 }
 
-                GLFW.GLFW_RELEASE -> active.holdActive = false
+                GLFW.GLFW_RELEASE -> {
+                    active.holdActive = false
+                    TouchInputDiagnostics.info(
+                        "client",
+                        "hold released desk=${active.pos.toShortString()} socket=${active.socket} u=${active.u} v=${active.v}"
+                    )
+                }
             }
         }
         return true
     }
 
     private fun sendPointerAction(active: DisplayCombinedTarget, action: DisplayPointerAction) {
+        TouchInputDiagnostics.info(
+            "client",
+            "send action=${action.eventName} desk=${active.pos.toShortString()} socket=${active.socket} u=${active.u} v=${active.v} held=${active.heldBindings}"
+        )
         PacketDistributor.sendToServer(
             DisplayPointerActionPayload(active.pos, active.socket, active.u, active.v, action)
         )
@@ -220,6 +239,10 @@ object DisplayCombinedInputController {
                 return false
             }
             active.heldBindings += binding
+            TouchInputDiagnostics.info(
+                "client",
+                "additional display binding held='$binding' desk=${active.pos.toShortString()} socket=${active.socket} held=${active.heldBindings}"
+            )
             return true
         }
 
@@ -228,8 +251,18 @@ object DisplayCombinedInputController {
             suppressedBindings += binding
             return false
         }
-        if (!CombinedInputCoordinator.claimDisplay(minecraft)) return false
+        if (!CombinedInputCoordinator.claimDisplay(minecraft)) {
+            TouchInputDiagnostics.warn(
+                "client",
+                "target acquired but CombinedInputCoordinator refused display claim desk=${candidate.pos.toShortString()} socket=${candidate.socket} binding='$binding'"
+            )
+            return false
+        }
         target = candidate
+        TouchInputDiagnostics.info(
+            "client",
+            "display session acquired desk=${candidate.pos.toShortString()} socket=${candidate.socket} binding='$binding' xBinding=${candidate.xBinding} yBinding=${candidate.yBinding} startU=${candidate.u} startV=${candidate.v}"
+        )
         return true
     }
 
@@ -326,11 +359,20 @@ object DisplayCombinedInputController {
     }
 
     private fun stop() {
+        target?.let { active ->
+            TouchInputDiagnostics.info(
+                "client",
+                "display session stopped desk=${active.pos.toShortString()} socket=${active.socket} u=${active.u} v=${active.v} held=${active.heldBindings} holdActive=${active.holdActive}"
+            )
+        }
         target = null
         CombinedInputCoordinator.releaseDisplay()
     }
 
     private fun reset() {
+        if (target != null || suppressedBindings.isNotEmpty()) {
+            TouchInputDiagnostics.info("client", "display input state reset")
+        }
         target = null
         suppressedBindings.clear()
         CombinedInputCoordinator.releaseDisplay()
