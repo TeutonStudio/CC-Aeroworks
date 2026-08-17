@@ -43,8 +43,8 @@ object DisplayPrimaryMouseCapture {
 
         if (sessionTarget !== active) {
             // A button which was already held before this display session must not create a
-            // synthetic press. Starting from 'up' is safe because its first observed edge is then
-            // the physical release; only a later press can create an action.
+            // synthetic press. Its first observed release is passed back to Minecraft because the
+            // matching press belonged to gameplay before DISPLAY acquired Combined ownership.
             sessionTarget = active
             leftDown = false
             rightDown = false
@@ -61,6 +61,7 @@ object DisplayPrimaryMouseCapture {
             GLFW.GLFW_REPEAT -> "REPEAT"
             else -> action.toString()
         }
+        var blockMinecraft = true
 
         when (button) {
             GLFW.GLFW_MOUSE_BUTTON_RIGHT -> when (action) {
@@ -74,11 +75,15 @@ object DisplayPrimaryMouseCapture {
                 }
 
                 GLFW.GLFW_RELEASE -> {
-                    rightDown = false
-                    TouchInputDiagnostics.info(
-                        "button-sample",
-                        "right true->false desk=${active.pos.toShortString()} socket=${active.socket}"
-                    )
+                    if (!rightDown) {
+                        blockMinecraft = false
+                    } else {
+                        rightDown = false
+                        TouchInputDiagnostics.info(
+                            "button-sample",
+                            "right true->false desk=${active.pos.toShortString()} socket=${active.socket}"
+                        )
+                    }
                 }
             }
 
@@ -94,22 +99,32 @@ object DisplayPrimaryMouseCapture {
                 }
 
                 GLFW.GLFW_RELEASE -> {
-                    val wasDown = leftDown
-                    leftDown = false
-                    active.holdActive = false
-                    TouchInputDiagnostics.info(
-                        "button-sample",
-                        "left ${if (wasDown) "true" else "false"}->false holdReleased=$wasDown desk=${active.pos.toShortString()} socket=${active.socket} u=${active.u} v=${active.v}"
-                    )
+                    if (!leftDown) {
+                        blockMinecraft = false
+                    } else {
+                        leftDown = false
+                        active.holdActive = false
+                        TouchInputDiagnostics.info(
+                            "button-sample",
+                            "left true->false holdReleased=true desk=${active.pos.toShortString()} socket=${active.socket} u=${active.u} v=${active.v}"
+                        )
+                    }
                 }
             }
         }
 
-        TouchInputDiagnostics.info(
-            "mouse-gate",
-            "blocked vanilla button=$buttonName action=$actionName owner=DISPLAY desk=${active.pos.toShortString()} socket=${active.socket}"
-        )
-        return true
+        if (blockMinecraft) {
+            TouchInputDiagnostics.info(
+                "mouse-gate",
+                "blocked vanilla button=$buttonName action=$actionName owner=DISPLAY desk=${active.pos.toShortString()} socket=${active.socket}"
+            )
+        } else {
+            TouchInputDiagnostics.info(
+                "mouse-gate",
+                "passed through pre-session release button=$buttonName owner=DISPLAY desk=${active.pos.toShortString()} socket=${active.socket}"
+            )
+        }
+        return blockMinecraft
     }
 
     private fun sendPointerAction(active: DisplayCombinedTarget, action: DisplayPointerAction) {
