@@ -163,6 +163,7 @@ local function recordTouchHandlers(path, event, handler)
         tostring(event.deskId or ""),
         tonumber(event.socket) or -1,
         type(handler.onTap) == "function",
+        type(handler.onDraw) == "function",
         type(handler.onDoubleTap) == "function",
         type(handler.onPointer) == "function"
     )
@@ -268,25 +269,11 @@ end
 
 local function signatureFor(event)
     return table.concat({
-        tostring(event[2]),
-        tostring(event[3]),
-        tostring(event[4]),
-        tostring(event[7]),
-        tostring(event[8]),
-        tostring(event[9]),
-        tostring(event[12]),
-        tostring(event[13]),
-        tostring(event[14]),
-        tostring(event[15]),
-        tostring(event[16]),
-        tostring(event[17]),
-        tostring(event[18]),
-        tostring(event[19]),
-        tostring(event[20]),
-        tostring(event[21]),
-        tostring(event[22]),
-        tostring(event[23]),
-        tostring(event[24])
+        tostring(event[2]), tostring(event[3]), tostring(event[4]), tostring(event[7]),
+        tostring(event[8]), tostring(event[9]), tostring(event[12]), tostring(event[13]),
+        tostring(event[14]), tostring(event[15]), tostring(event[16]), tostring(event[17]),
+        tostring(event[18]), tostring(event[19]), tostring(event[20]), tostring(event[21]),
+        tostring(event[22]), tostring(event[23]), tostring(event[24])
     }, "\0")
 end
 
@@ -311,42 +298,18 @@ local function dispatchConsoleEvent(event)
 
     if not shouldDispatch(event) then return end
     local descriptor = {
-        deskId = event[2],
-        deskIndex = event[3],
-        socket = event[4],
-        socketName = event[5],
-        moduleId = event[6],
-        action = event[7],
-        x = event[8],
-        y = event[9],
-        width = event[10],
-        height = event[11],
-        handler = handlerPath,
-        u = event[13],
-        v = event[14],
-        deskX = event[15],
-        deskY = event[16],
-        deskZ = event[17],
-        gestureId = event[18],
-        sequence = event[19],
-        startX = event[20],
-        startY = event[21],
-        deltaX = event[22],
-        deltaY = event[23],
+        deskId = event[2], deskIndex = event[3], socket = event[4], socketName = event[5],
+        moduleId = event[6], action = event[7], x = event[8], y = event[9], width = event[10],
+        height = event[11], handler = handlerPath, u = event[13], v = event[14], deskX = event[15],
+        deskY = event[16], deskZ = event[17], gestureId = event[18], sequence = event[19],
+        startX = event[20], startY = event[21], deltaX = event[22], deltaY = event[23],
         isEnd = event[24] == true
     }
     bridgeTouchLog(descriptor, string.format(
         "console event received action=%s handler='%s' pixel=%s,%s size=%sx%s gesture=%s seq=%s delta=%s,%s end=%s",
-        tostring(descriptor.action),
-        tostring(handlerPath),
-        tostring(descriptor.x),
-        tostring(descriptor.y),
-        tostring(descriptor.width),
-        tostring(descriptor.height),
-        tostring(descriptor.gestureId),
-        tostring(descriptor.sequence),
-        tostring(descriptor.deltaX),
-        tostring(descriptor.deltaY),
+        tostring(descriptor.action), tostring(handlerPath), tostring(descriptor.x), tostring(descriptor.y),
+        tostring(descriptor.width), tostring(descriptor.height), tostring(descriptor.gestureId),
+        tostring(descriptor.sequence), tostring(descriptor.deltaX), tostring(descriptor.deltaY),
         tostring(descriptor.isEnd)
     ))
     local handler = loadHandler(handlerPath, descriptor)
