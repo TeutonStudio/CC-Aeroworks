@@ -62,33 +62,21 @@ object DisplayCombinedInputController {
     @SubscribeEvent(priority = EventPriority.HIGH)
     fun onMouseButton(event: InputEvent.MouseButton.Pre) {
         val minecraft = Minecraft.getInstance()
+
+        // Once a display owns Combined input, the primary mouse buttons belong to the pseudo
+        // pointer first. Do not let activation-binding routing or vanilla input consume the click
+        // before the display can classify it as tap/hold.
+        target?.let { active ->
+            if (handlePointerButton(event, minecraft, active)) return
+        }
+
         val binding = InputConstants.Type.MOUSE.getOrCreate(event.button).name
         val activationEdge = when (event.action) {
             GLFW.GLFW_PRESS -> onBindingPressed(binding, minecraft)
             GLFW.GLFW_RELEASE -> onBindingReleased(binding)
             else -> false
         }
-
-        if (activationEdge) {
-            event.isCanceled = true
-            return
-        }
-
-        if (CombinedInputCoordinator.isShiftCameraOnly(minecraft)) return
-        val active = target ?: return
-        if (event.button != GLFW.GLFW_MOUSE_BUTTON_LEFT && event.button != GLFW.GLFW_MOUSE_BUTTON_RIGHT) return
-
-        event.isCanceled = true
-        if (event.action != GLFW.GLFW_PRESS || !basicSessionValid(minecraft)) return
-
-        val action = if (event.button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
-            DisplayPointerAction.TAP
-        } else {
-            DisplayPointerAction.DOUBLE_TAP
-        }
-        PacketDistributor.sendToServer(
-            DisplayPointerActionPayload(active.pos, active.socket, active.u, active.v, action)
-        )
+        if (activationEdge) event.isCanceled = true
     }
 
     /**
@@ -172,6 +160,51 @@ object DisplayCombinedInputController {
 
     @SubscribeEvent
     fun onClone(event: ClientPlayerNetworkEvent.Clone) = reset()
+
+    private fun handlePointerButton(
+        event: InputEvent.MouseButton.Pre,
+        minecraft: Minecraft,
+        active: DisplayCombinedTarget
+    ): Boolean {
+        if (event.button != GLFW.GLFW_MOUSE_BUTTON_LEFT && event.button != GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+            return false
+        }
+
+        // The active display owns both edges. Cancelling release as well as press prevents a
+        // pseudo-pointer gesture from leaking through as a vanilla attack/use action.
+        event.isCanceled = true
+
+        if (!basicSessionValid(minecraft)) {
+            if (event.button == GLFW.GLFW_MOUSE_BUTTON_LEFT && event.action == GLFW.GLFW_RELEASE) {
+                active.holdActive = false
+            }
+            return true
+        }
+
+        when (event.button) {
+            GLFW.GLFW_MOUSE_BUTTON_RIGHT -> {
+                if (event.action == GLFW.GLFW_PRESS) {
+                    sendPointerAction(active, DisplayPointerAction.TAP)
+                }
+            }
+
+            GLFW.GLFW_MOUSE_BUTTON_LEFT -> when (event.action) {
+                GLFW.GLFW_PRESS -> {
+                    active.holdActive = true
+                    sendPointerAction(active, DisplayPointerAction.HOLD)
+                }
+
+                GLFW.GLFW_RELEASE -> active.holdActive = false
+            }
+        }
+        return true
+    }
+
+    private fun sendPointerAction(active: DisplayCombinedTarget, action: DisplayPointerAction) {
+        PacketDistributor.sendToServer(
+            DisplayPointerActionPayload(active.pos, active.socket, active.u, active.v, action)
+        )
+    }
 
     private fun onBindingPressed(binding: String, minecraft: Minecraft): Boolean {
         if (binding.isBlank() ||
