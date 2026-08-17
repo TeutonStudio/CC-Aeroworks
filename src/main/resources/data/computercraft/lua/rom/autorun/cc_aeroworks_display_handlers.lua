@@ -20,6 +20,13 @@ local handlerGlobalEnvironment = _G
 local handlerRequire = require
 local handlerPackage = package
 
+local diagnostics = nil
+do
+    local ok, module = pcall(handlerRequire, "cc_aeroworks.display_diagnostics")
+    if ok and type(module) == "table" then diagnostics = module end
+end
+
+local telemetryProxies = setmetatable({}, { __mode = "k" })
 local lastSignature = nil
 local lastEpoch = -1
 
@@ -31,16 +38,105 @@ local function report(message)
     end
 end
 
+local function diagnosticBegin(path, event, phase, scope)
+    if not diagnostics or type(diagnostics.begin) ~= "function" then return false end
+    local ok, started = pcall(
+        diagnostics.begin,
+        path,
+        "legacy_handler",
+        tostring(event.deskId or ""),
+        tonumber(event.socket) or -1,
+        phase,
+        scope
+    )
+    return ok and started == true
+end
+
+local function diagnosticFinish(started)
+    if not started or not diagnostics or type(diagnostics.finish) ~= "function" then return end
+    pcall(diagnostics.finish)
+end
+
+local function diagnosticRead(key, kind)
+    if not diagnostics or type(diagnostics.read) ~= "function" then return end
+    pcall(diagnostics.read, key, kind)
+end
+
+local function wrapTelemetry(module)
+    if type(module) ~= "table" then return module end
+    local existing = telemetryProxies[module]
+    if existing then return existing end
+
+    local proxy = {}
+    setmetatable(proxy, { __index = module })
+
+    if type(module.get) == "function" then
+        proxy.get = function(...)
+            local packed = table.pack(module.get(...))
+            local value = packed[1]
+            local requested = select(1, ...)
+            local id = type(value) == "table" and value.id or requested
+            if id ~= nil then diagnosticRead("telemetry:" .. tostring(id), "telemetry") end
+            return table.unpack(packed, 1, packed.n)
+        end
+    end
+    if type(module.list) == "function" then
+        proxy.list = function(...)
+            local packed = table.pack(module.list(...))
+            diagnosticRead("telemetry:*", "telemetry")
+            return table.unpack(packed, 1, packed.n)
+        end
+    end
+    if type(module.find) == "function" then
+        proxy.find = function(...)
+            local packed = table.pack(module.find(...))
+            diagnosticRead("telemetry:*", "telemetry")
+            return table.unpack(packed, 1, packed.n)
+        end
+    end
+    if type(module.getStatus) == "function" then
+        proxy.getStatus = function(...)
+            local packed = table.pack(module.getStatus(...))
+            diagnosticRead("telemetry:status", "telemetry")
+            return table.unpack(packed, 1, packed.n)
+        end
+    end
+
+    telemetryProxies[module] = proxy
+    return proxy
+end
+
+local function diagnosticRequire(name)
+    local module = handlerRequire(name)
+    if name == "cc_aeroworks.telemetry" then return wrapTelemetry(module) end
+    return module
+end
+
 local function createHandlerEnvironment()
     local environment = {
         _G = handlerGlobalEnvironment,
-        require = handlerRequire,
+        require = diagnosticRequire,
         package = handlerPackage,
     }
+    local globalTelemetry = rawget(handlerBaseEnvironment, "telemetry")
+    if type(globalTelemetry) == "table" then environment.telemetry = wrapTelemetry(globalTelemetry) end
     return setmetatable(environment, { __index = handlerBaseEnvironment })
 end
 
-local function loadHandler(path)
+local function recordTouchHandlers(path, event, handler)
+    if not diagnostics or type(diagnostics.setTouchHandlers) ~= "function" then return end
+    pcall(
+        diagnostics.setTouchHandlers,
+        path,
+        tostring(event.deskId or ""),
+        tonumber(event.socket) or -1,
+        type(handler.onTap) == "function",
+        type(handler.onDoubleTap) == "function",
+        type(handler.onPointer) == "function"
+    )
+end
+
+local function loadHandler(path, event)
     if type(path) ~= "string" or path == "" then return nil end
 
     local chunk, loadError = loadfile(path, nil, createHandlerEnvironment())
@@ -49,7 +145,9 @@ local function loadHandler(path)
         return nil
     end
 
+    local started = diagnosticBegin(path, event, "load", "legacy:load")
     local ok, handler = pcall(chunk)
+    diagnosticFinish(started)
     if not ok then
         report("display handler " .. path .. ": " .. tostring(handler))
         return nil
@@ -59,6 +157,7 @@ local function loadHandler(path)
         report("display handler " .. path .. " must return a table")
         return nil
     end
+    recordTouchHandlers(path, event, handler)
     return handler
 end
 
@@ -73,7 +172,10 @@ local function dispatch(handler, event)
     end
 
     if type(callback) ~= "function" then return end
+    local action = tostring(event.action or "pointer")
+    local started = diagnosticBegin(event.handler, event, "event", "legacy:" .. action)
     local ok, err = pcall(callback, event)
+    diagnosticFinish(started)
     if not ok then report("display handler " .. tostring(event.handler) .. ": " .. tostring(err)) end
 end
 
@@ -115,10 +217,7 @@ local function dispatchConsoleEvent(event)
     if type(running) == "string" and running:match("display%-binding%-router%.lua$") then return end
 
     if not shouldDispatch(event) then return end
-    local handler = loadHandler(handlerPath)
-    if not handler then return end
-
-    dispatch(handler, {
+    local descriptor = {
         deskId = event[2],
         deskIndex = event[3],
         socket = event[4],
@@ -135,7 +234,10 @@ local function dispatchConsoleEvent(event)
         deskX = event[15],
         deskY = event[16],
         deskZ = event[17]
-    })
+    }
+    local handler = loadHandler(handlerPath, descriptor)
+    if not handler then return end
+    dispatch(handler, descriptor)
 end
 
 -- Pull without a native filter and re-apply the filter here. This ensures a display action is still

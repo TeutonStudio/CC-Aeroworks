@@ -50,6 +50,9 @@ object CCLuaApis {
         ComputerCraftAPI.registerAPIFactory { system ->
             system.getComponent(CCComputerComponents.CONSOLE)?.let(::ComputerChannelAdminLuaApi)
         }
+        ComputerCraftAPI.registerAPIFactory { system ->
+            system.getComponent(CCComputerComponents.CONSOLE)?.let(::DisplayScriptDiagnosticsLuaApi)
+        }
         registered = true
     }
 }

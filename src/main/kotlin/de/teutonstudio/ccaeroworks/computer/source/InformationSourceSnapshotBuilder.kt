@@ -1,10 +1,17 @@
 package de.teutonstudio.ccaeroworks.computer.source
 
+import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskSockets
 import de.teutonstudio.ccaeroworks.compat.createradar.RadarNetworkControllerLookup
 import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
+import de.teutonstudio.ccaeroworks.computer.DisplayScriptDiagnosticsRegistry
+import de.teutonstudio.ccaeroworks.computer.DisplayScriptRuntimeObservation
 import de.teutonstudio.ccaeroworks.computer.PeripheralNetworkBuilder
+import de.teutonstudio.ccaeroworks.display.DisplayBinding
+import de.teutonstudio.ccaeroworks.display.DisplayBindings
+import de.teutonstudio.ccaeroworks.display.DisplayScriptCatalog
 import de.teutonstudio.ccaeroworks.display.RadarSourceRegistry
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import de.teutonstudio.ccaeroworks.telemetry.TelemetryRuntime
 import net.minecraft.core.BlockPos
 import java.util.Locale
@@ -20,7 +27,8 @@ object InformationSourceSnapshotBuilder {
         addRadarControllers(owner, sources)
         addGps(owner, sources)
         return InformationSourceSnapshot(
-            sources.sortedWith(compareBy<InformationSourceView>({ it.kind.ordinal }, { it.label }, { it.id }))
+            sources = sources.sortedWith(compareBy<InformationSourceView>({ it.kind.ordinal }, { it.label }, { it.id })),
+            displayScripts = buildDisplayScripts(owner)
         )
     }
 
@@ -138,6 +146,110 @@ object InformationSourceSnapshotBuilder {
         )
     }
 
+    private data class ScriptBindingRef(
+        val path: String,
+        val deskId: String,
+        val deskIndex: Int,
+        val socket: Int,
+        val socketName: String
+    )
+
+    private fun buildDisplayScripts(owner: ComputerControlDeskBlockEntity): List<DisplayScriptInformationView> {
+        val catalog = runCatching { DisplayScriptCatalog.scan(owner) }.getOrDefault(emptyList())
+        val descriptors = catalog.associateBy { it.path }
+        val bindings = displayScriptBindings(owner)
+        val runtime = DisplayScriptDiagnosticsRegistry.snapshot(owner)
+        val telemetry = runCatching { TelemetryRuntime.describeSources(owner) }.getOrDefault(emptyMap())
+        val paths = linkedSetOf<String>()
+        paths += descriptors.keys
+        paths += bindings.map(ScriptBindingRef::path)
+
+        return paths.take(DisplayScriptCatalog.MAX_SCRIPTS).map { path ->
+            val descriptor = descriptors[path]
+            val scriptBindings = bindings.filter { it.path == path }
+            val observations = runtime.filter { it.path == path }
+            val roles = linkedSetOf<String>()
+            if (descriptor?.display == true) roles += "DISPLAY"
+            if (descriptor?.touchDisplay == true) roles += "TOUCH"
+            if (descriptor?.imports?.contains("cc_aeroworks.ui") == true) roles += "REACTIVE_UI"
+            if (scriptBindings.isNotEmpty()) roles += "LEGACY_HANDLER"
+            observations.flatMapTo(roles) { it.roles.map(String::uppercase) }
+
+            val status = when {
+                descriptor == null && scriptBindings.isNotEmpty() -> "missing"
+                observations.isNotEmpty() -> "observed"
+                scriptBindings.isNotEmpty() -> "bound"
+                else -> "detected"
+            }
+
+            DisplayScriptInformationView(
+                path = path,
+                name = descriptor?.name ?: path.substringAfterLast('/').substringBeforeLast('.'),
+                status = status,
+                roles = roles.toList(),
+                imports = descriptor?.imports.orEmpty(),
+                declaredTouchEvents = descriptor?.declaredTouchEvents.orEmpty(),
+                instances = scriptBindings.take(MAX_SCRIPT_INSTANCES).map { binding ->
+                    val observation = observations.firstOrNull {
+                        it.deskId == binding.deskId && it.socket == binding.socket
+                    }
+                    DisplayScriptInstanceView(
+                        deskId = binding.deskId,
+                        deskIndex = binding.deskIndex,
+                        socket = binding.socket,
+                        socketName = binding.socketName,
+                        status = if (observation != null) "observed" else "bound",
+                        dependencies = observation?.dependencies.orEmpty().take(MAX_SCRIPT_DEPENDENCIES).map { dependency ->
+                            DisplayScriptDependencyView(
+                                key = dependency.key,
+                                label = dependencyLabel(dependency.key, telemetry),
+                                kind = dependency.kind,
+                                phases = dependency.phases.take(MAX_DEPENDENCY_PHASES)
+                            )
+                        },
+                        touchEvents = observation?.touchEvents.orEmpty().take(MAX_TOUCH_EVENTS)
+                    )
+                }
+            )
+        }.sortedBy(DisplayScriptInformationView::path)
+    }
+
+    private fun displayScriptBindings(owner: ComputerControlDeskBlockEntity): List<ScriptBindingRef> {
+        val level = owner.level ?: return emptyList()
+        val network = ConsoleMultiblockManager.resolve(level, owner.blockPos)
+        if (network.state != ConsoleNetworkState.ACTIVE || network.owner !== owner) return emptyList()
+        return buildList {
+            network.members.forEach { member ->
+                repeat(member.desk.socketCount()) { socket ->
+                    val binding = DisplayBindings.get(member.desk, socket) as? DisplayBinding.LuaHandler ?: return@repeat
+                    val path = DisplayScriptCatalog.normalizePath(binding.path) ?: return@repeat
+                    add(
+                        ScriptBindingRef(
+                            path = path,
+                            deskId = member.id,
+                            deskIndex = member.index,
+                            socket = socket,
+                            socketName = DeskSockets.name(socket)
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    private fun dependencyLabel(key: String, telemetry: Map<String, Any>): String {
+        if (key == "telemetry:*") return "All telemetry sources"
+        if (!key.startsWith("telemetry:")) return key
+        val sourceId = key.removePrefix("telemetry:")
+        val entry = telemetry.entries.firstOrNull { (mapKey, raw) ->
+            mapKey == sourceId || (raw as? Map<*, *>)?.get("id")?.toString() == sourceId
+        }
+        val info = entry?.value as? Map<*, *> ?: return sourceId
+        return sequenceOf(info["alias"], info["createLabel"], info["sourceType"], sourceId)
+            .firstOrNull { it != null }
+            .toString()
+    }
+
     private fun position(value: Any?): BlockPos? {
         val map = value as? Map<*, *> ?: return null
         val x = (map["x"] as? Number)?.toInt() ?: return null
@@ -145,4 +257,9 @@ object InformationSourceSnapshotBuilder {
         val z = (map["z"] as? Number)?.toInt() ?: return null
         return BlockPos(x, y, z)
     }
+
+    private const val MAX_SCRIPT_INSTANCES = 32
+    private const val MAX_SCRIPT_DEPENDENCIES = 64
+    private const val MAX_DEPENDENCY_PHASES = 8
+    private const val MAX_TOUCH_EVENTS = 8
 }

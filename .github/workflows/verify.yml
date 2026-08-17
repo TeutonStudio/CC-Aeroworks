@@ -86,6 +86,9 @@ jobs:
       - name: Validate display source bindings
         run: python3 tools/verify-display-bindings.py
 
+      - name: Validate display script information sources
+        run: python3 tools/verify-display-script-information-sources.py
+
       - name: Validate peripheral network architecture
         run: python3 tools/verify-peripheral-network.py
 

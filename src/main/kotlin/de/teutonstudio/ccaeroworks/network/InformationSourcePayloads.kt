@@ -2,6 +2,9 @@ package de.teutonstudio.ccaeroworks.network
 
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.computer.ControlDeskUiSwitchState
+import de.teutonstudio.ccaeroworks.computer.source.DisplayScriptDependencyView
+import de.teutonstudio.ccaeroworks.computer.source.DisplayScriptInformationView
+import de.teutonstudio.ccaeroworks.computer.source.DisplayScriptInstanceView
 import de.teutonstudio.ccaeroworks.computer.source.InformationSourceKind
 import de.teutonstudio.ccaeroworks.computer.source.InformationSourceSnapshot
 import de.teutonstudio.ccaeroworks.computer.source.InformationSourceSnapshotBuilder
@@ -48,6 +51,15 @@ data class InformationSourceSnapshotPayload(
     override fun type(): CustomPacketPayload.Type<out CustomPacketPayload> = TYPE
 
     companion object {
+        private const val MAX_SOURCES = 256
+        private const val MAX_SCRIPTS = 256
+        private const val MAX_ROLES = 16
+        private const val MAX_IMPORTS = 32
+        private const val MAX_TOUCH_EVENTS = 8
+        private const val MAX_INSTANCES = 32
+        private const val MAX_DEPENDENCIES = 64
+        private const val MAX_PHASES = 8
+
         @JvmField
         val TYPE = CustomPacketPayload.Type<InformationSourceSnapshotPayload>(
             CCAeroworks.id("information_source_snapshot")
@@ -57,10 +69,9 @@ data class InformationSourceSnapshotPayload(
         val STREAM_CODEC: StreamCodec<RegistryFriendlyByteBuf, InformationSourceSnapshotPayload> =
             object : StreamCodec<RegistryFriendlyByteBuf, InformationSourceSnapshotPayload> {
                 override fun decode(buffer: RegistryFriendlyByteBuf): InformationSourceSnapshotPayload {
-                    val count = buffer.readVarInt()
-                    require(count in 0..256) { "Invalid information source count: $count" }
-                    val sources = ArrayList<InformationSourceView>(count)
-                    repeat(count) {
+                    val sourceCount = boundedCount(buffer, MAX_SOURCES, "information source")
+                    val sources = ArrayList<InformationSourceView>(sourceCount)
+                    repeat(sourceCount) {
                         val kindOrdinal = buffer.readVarInt()
                         val kind = InformationSourceKind.entries.getOrNull(kindOrdinal)
                             ?: throw IllegalArgumentException("Invalid information source kind: $kindOrdinal")
@@ -76,22 +87,99 @@ data class InformationSourceSnapshotPayload(
                             details = buffer.readUtf(160)
                         )
                     }
-                    return InformationSourceSnapshotPayload(InformationSourceSnapshot(sources))
+
+                    val scriptCount = boundedCount(buffer, MAX_SCRIPTS, "display script")
+                    val scripts = ArrayList<DisplayScriptInformationView>(scriptCount)
+                    repeat(scriptCount) {
+                        val path = buffer.readUtf(256)
+                        val name = buffer.readUtf(128)
+                        val status = buffer.readUtf(32)
+                        val roles = readStrings(buffer, MAX_ROLES, 32, "script roles")
+                        val imports = readStrings(buffer, MAX_IMPORTS, 128, "script imports")
+                        val declaredTouchEvents = readStrings(buffer, MAX_TOUCH_EVENTS, 32, "declared touch events")
+                        val instanceCount = boundedCount(buffer, MAX_INSTANCES, "script instance")
+                        val instances = ArrayList<DisplayScriptInstanceView>(instanceCount)
+                        repeat(instanceCount) {
+                            val deskId = buffer.readUtf(128)
+                            val deskIndex = buffer.readInt()
+                            val socket = buffer.readInt()
+                            val socketName = buffer.readUtf(32)
+                            val instanceStatus = buffer.readUtf(32)
+                            val dependencyCount = boundedCount(buffer, MAX_DEPENDENCIES, "script dependency")
+                            val dependencies = ArrayList<DisplayScriptDependencyView>(dependencyCount)
+                            repeat(dependencyCount) {
+                                dependencies += DisplayScriptDependencyView(
+                                    key = buffer.readUtf(256),
+                                    label = buffer.readUtf(128),
+                                    kind = buffer.readUtf(32),
+                                    phases = readStrings(buffer, MAX_PHASES, 32, "dependency phases")
+                                )
+                            }
+                            instances += DisplayScriptInstanceView(
+                                deskId = deskId,
+                                deskIndex = deskIndex,
+                                socket = socket,
+                                socketName = socketName,
+                                status = instanceStatus,
+                                dependencies = dependencies,
+                                touchEvents = readStrings(buffer, MAX_TOUCH_EVENTS, 32, "runtime touch events")
+                            )
+                        }
+                        scripts += DisplayScriptInformationView(
+                            path = path,
+                            name = name,
+                            status = status,
+                            roles = roles,
+                            imports = imports,
+                            declaredTouchEvents = declaredTouchEvents,
+                            instances = instances
+                        )
+                    }
+                    return InformationSourceSnapshotPayload(InformationSourceSnapshot(sources, scripts))
                 }
 
                 override fun encode(buffer: RegistryFriendlyByteBuf, payload: InformationSourceSnapshotPayload) {
-                    val sources = payload.snapshot.sources.take(256)
+                    val sources = payload.snapshot.sources.take(MAX_SOURCES)
                     buffer.writeVarInt(sources.size)
                     sources.forEach { source ->
                         buffer.writeVarInt(source.kind.ordinal)
-                        buffer.writeUtf(source.id, 256)
-                        buffer.writeUtf(source.label, 128)
-                        buffer.writeUtf(source.status, 32)
+                        buffer.writeUtf(source.id.take(256), 256)
+                        buffer.writeUtf(source.label.take(128), 128)
+                        buffer.writeUtf(source.status.take(32), 32)
                         buffer.writeInt(source.x)
                         buffer.writeInt(source.y)
                         buffer.writeInt(source.z)
-                        buffer.writeUtf(source.side, 16)
-                        buffer.writeUtf(source.details, 160)
+                        buffer.writeUtf(source.side.take(16), 16)
+                        buffer.writeUtf(source.details.take(160), 160)
+                    }
+
+                    val scripts = payload.snapshot.displayScripts.take(MAX_SCRIPTS)
+                    buffer.writeVarInt(scripts.size)
+                    scripts.forEach { script ->
+                        buffer.writeUtf(script.path.take(256), 256)
+                        buffer.writeUtf(script.name.take(128), 128)
+                        buffer.writeUtf(script.status.take(32), 32)
+                        writeStrings(buffer, script.roles, MAX_ROLES, 32)
+                        writeStrings(buffer, script.imports, MAX_IMPORTS, 128)
+                        writeStrings(buffer, script.declaredTouchEvents, MAX_TOUCH_EVENTS, 32)
+                        val instances = script.instances.take(MAX_INSTANCES)
+                        buffer.writeVarInt(instances.size)
+                        instances.forEach { instance ->
+                            buffer.writeUtf(instance.deskId.take(128), 128)
+                            buffer.writeInt(instance.deskIndex)
+                            buffer.writeInt(instance.socket)
+                            buffer.writeUtf(instance.socketName.take(32), 32)
+                            buffer.writeUtf(instance.status.take(32), 32)
+                            val dependencies = instance.dependencies.take(MAX_DEPENDENCIES)
+                            buffer.writeVarInt(dependencies.size)
+                            dependencies.forEach { dependency ->
+                                buffer.writeUtf(dependency.key.take(256), 256)
+                                buffer.writeUtf(dependency.label.take(128), 128)
+                                buffer.writeUtf(dependency.kind.take(32), 32)
+                                writeStrings(buffer, dependency.phases, MAX_PHASES, 32)
+                            }
+                            writeStrings(buffer, instance.touchEvents, MAX_TOUCH_EVENTS, 32)
+                        }
                     }
                 }
             }
@@ -99,6 +187,33 @@ data class InformationSourceSnapshotPayload(
         @JvmStatic
         fun handle(payload: InformationSourceSnapshotPayload, context: IPayloadContext) {
             InformationSourceSnapshotState.accept(payload.snapshot)
+        }
+
+        private fun boundedCount(buffer: RegistryFriendlyByteBuf, max: Int, label: String): Int {
+            val count = buffer.readVarInt()
+            require(count in 0..max) { "Invalid $label count: $count" }
+            return count
+        }
+
+        private fun readStrings(
+            buffer: RegistryFriendlyByteBuf,
+            maxCount: Int,
+            maxLength: Int,
+            label: String
+        ): List<String> {
+            val count = boundedCount(buffer, maxCount, label)
+            return List(count) { buffer.readUtf(maxLength) }
+        }
+
+        private fun writeStrings(
+            buffer: RegistryFriendlyByteBuf,
+            values: List<String>,
+            maxCount: Int,
+            maxLength: Int
+        ) {
+            val bounded = values.take(maxCount)
+            buffer.writeVarInt(bounded.size)
+            bounded.forEach { buffer.writeUtf(it.take(maxLength), maxLength) }
         }
     }
 }

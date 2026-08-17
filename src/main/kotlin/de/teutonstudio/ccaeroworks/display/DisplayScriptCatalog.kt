@@ -13,7 +13,9 @@ data class DisplayScriptDescriptor(
     val path: String,
     val name: String,
     val display: Boolean,
-    val touchDisplay: Boolean
+    val touchDisplay: Boolean,
+    val imports: List<String> = emptyList(),
+    val declaredTouchEvents: List<String> = emptyList()
 ) {
     fun supports(type: DeskDisplayType): Boolean = when (type) {
         DeskDisplayType.TWO_DIGIT -> display
@@ -95,13 +97,15 @@ object DisplayScriptCatalog {
                 val size = mount.getSize(path)
                 if (size <= 0L || size > MAX_FILE_SIZE) return@forEach
                 val source = readUtf8(mount, path, size) ?: return@forEach
-                val capabilities = LuaRequireScanner.scan(source)
-                if (!capabilities.display && !capabilities.touchDisplay) return@forEach
+                val analysis = LuaRequireScanner.scan(source)
+                if (!analysis.display) return@forEach
                 result += DisplayScriptDescriptor(
                     path = "/$path",
-                    name = child.removeSuffix(".lua"),
-                    display = capabilities.display || capabilities.touchDisplay,
-                    touchDisplay = capabilities.touchDisplay
+                    name = child.substringBeforeLast('.'),
+                    display = analysis.display,
+                    touchDisplay = analysis.touchDisplay,
+                    imports = analysis.imports,
+                    declaredTouchEvents = analysis.declaredTouchEvents
                 )
             }
         }
@@ -122,53 +126,65 @@ object DisplayScriptCatalog {
     }.getOrNull()
 }
 
-/** Tiny Lua lexer for real require("display")/require("touchdisplay") calls, ignoring comments/strings. */
-private object LuaRequireScanner {
-    data class Capabilities(val display: Boolean, val touchDisplay: Boolean)
+/**
+ * Small bounded Lua lexer for literal require calls and touch callback declarations. It deliberately
+ * does not pretend to solve Lua data-flow: imports are static evidence, runtime diagnostics are the
+ * source of truth for actually observed dependencies.
+ */
+internal object LuaRequireScanner {
+    data class Analysis(
+        val imports: List<String>,
+        val declaredTouchEvents: List<String>
+    ) {
+        val display: Boolean
+            get() = imports.any { it == "display" || it == "touchdisplay" }
+        val touchDisplay: Boolean
+            get() = "touchdisplay" in imports
+    }
 
-    fun scan(source: String): Capabilities {
+    fun scan(source: String): Analysis {
         var index = 0
-        var display = false
-        var touch = false
+        val imports = linkedSetOf<String>()
+        val touchEvents = linkedSetOf<String>()
         while (index < source.length) {
             index = skipTrivia(source, index)
             if (index >= source.length) break
             val c = source[index]
             when {
                 c == '\'' || c == '"' -> index = skipQuoted(source, index)
+                c == '[' -> {
+                    val longString = readLongBracket(source, index)
+                    index = longString?.second ?: (index + 1)
+                }
                 c == '_' || c.isLetter() -> {
                     val start = index++
                     while (index < source.length && (source[index] == '_' || source[index].isLetterOrDigit())) index++
-                    if (source.substring(start, index) != "require") continue
-                    val parsed = requireArgument(source, index)
-                    if (parsed != null) {
-                        when (parsed.first) {
-                            "display" -> display = true
-                            "touchdisplay" -> touch = true
+                    val identifier = source.substring(start, index)
+                    if (identifier == "require") {
+                        val parsed = requireArgument(source, index)
+                        if (parsed != null) {
+                            val module = parsed.first.trim().take(MAX_IMPORT_LENGTH)
+                            if (module.isNotEmpty() && imports.size < MAX_IMPORTS) imports += module
+                            index = parsed.second
                         }
-                        index = parsed.second
+                    } else if (identifier in TOUCH_CALLBACKS) {
+                        val assignment = skipTrivia(source, index)
+                        if (assignment < source.length && source[assignment] == '=') touchEvents += identifier
                     }
                 }
                 else -> index++
             }
-            if (display && touch) break
         }
-        return Capabilities(display = display, touchDisplay = touch)
+        return Analysis(imports.toList(), touchEvents.toList())
     }
 
     private fun requireArgument(source: String, start: Int): Pair<String, Int>? {
         var index = skipTrivia(source, start)
         val parenthesized = index < source.length && source[index] == '('
         if (parenthesized) index = skipTrivia(source, index + 1)
-        if (index >= source.length || (source[index] != '\'' && source[index] != '"')) return null
-        val quote = source[index++]
-        val value = StringBuilder()
-        while (index < source.length) {
-            val c = source[index++]
-            if (c == quote) return value.toString() to index
-            if (c == '\\' && index < source.length) value.append(source[index++]) else value.append(c)
-        }
-        return null
+        if (index >= source.length) return null
+        if (source[index] == '\'' || source[index] == '"') return readQuoted(source, index)
+        return readLongBracket(source, index)
     }
 
     private fun skipTrivia(source: String, start: Int): Int {
@@ -179,9 +195,9 @@ private object LuaRequireScanner {
                 continue
             }
             if (index + 1 < source.length && source[index] == '-' && source[index + 1] == '-') {
-                if (index + 3 < source.length && source[index + 2] == '[' && source[index + 3] == '[') {
-                    val end = source.indexOf("]]", index + 4)
-                    index = if (end < 0) source.length else end + 2
+                val longComment = readLongBracket(source, index + 2)
+                if (longComment != null) {
+                    index = longComment.second
                 } else {
                     val end = source.indexOf('\n', index + 2)
                     index = if (end < 0) source.length else end + 1
@@ -193,14 +209,41 @@ private object LuaRequireScanner {
         return index
     }
 
-    private fun skipQuoted(source: String, start: Int): Int {
+    private fun skipQuoted(source: String, start: Int): Int = readQuoted(source, start)?.second ?: source.length
+
+    private fun readQuoted(source: String, start: Int): Pair<String, Int>? {
+        if (start >= source.length || (source[start] != '\'' && source[start] != '"')) return null
         val quote = source[start]
         var index = start + 1
+        val value = StringBuilder()
         while (index < source.length) {
             val c = source[index++]
-            if (c == '\\' && index < source.length) index++
-            else if (c == quote) break
+            if (c == quote) return value.toString() to index
+            if (c == '\\' && index < source.length) value.append(source[index++]) else value.append(c)
         }
-        return index
+        return value.toString() to source.length
     }
+
+    private fun readLongBracket(source: String, start: Int): Pair<String, Int>? {
+        if (start >= source.length || source[start] != '[') return null
+        var cursor = start + 1
+        var equals = 0
+        while (cursor < source.length && source[cursor] == '=') {
+            equals++
+            cursor++
+        }
+        if (cursor >= source.length || source[cursor] != '[') return null
+        val contentStart = cursor + 1
+        val closing = "]" + "=".repeat(equals) + "]"
+        val end = source.indexOf(closing, contentStart)
+        return if (end < 0) {
+            source.substring(contentStart) to source.length
+        } else {
+            source.substring(contentStart, end) to (end + closing.length)
+        }
+    }
+
+    private val TOUCH_CALLBACKS = setOf("onTap", "onDoubleTap", "onPointer")
+    private const val MAX_IMPORTS = 32
+    private const val MAX_IMPORT_LENGTH = 128
 }
