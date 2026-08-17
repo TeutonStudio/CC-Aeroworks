@@ -32,6 +32,8 @@ semantics = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/channel/C
 dbw_guard = read("src/main/java/de/teutonstudio/ccaeroworks/mixin/client/DriveByWireDisplaySourceMixin.java")
 catalog = read("src/main/java/de/teutonstudio/ccaeroworks/mixin/compat/ConsoleWireChannelsDisplayFilterMixin.java")
 signal = read("src/main/java/de/teutonstudio/ccaeroworks/mixin/compat/DriveByWireSignalFilterMixin.java")
+touchdisplay = read("src/main/resources/data/computercraft/lua/rom/modules/main/touchdisplay.lua")
+handler_runtime = read("src/main/resources/data/computercraft/lua/rom/autorun/cc_aeroworks_display_handlers.lua")
 mixins = read("src/main/resources/cc_aeroworks.mixins.json")
 workflow = read(".github/workflows/verify.yml")
 
@@ -64,6 +66,34 @@ require(
     "ConsoleControlClient.isActive()" in control and "ConsoleControlClient.isActive()" in controller and
     'method = ["exit(Ljava/lang/String;)V"]' in lifecycle,
     "Combined sessions must follow Aeroworks lifecycle",
+)
+
+# Once a display owns Combined input, primary mouse buttons must reach the pseudo pointer before
+# mouse activation bindings or vanilla actions can consume them.
+pointer_capture = controller.find("handlePointerButton(event, minecraft, active)")
+activation_routing = controller.find("val binding = InputConstants.Type.MOUSE.getOrCreate(event.button).name")
+require(
+    pointer_capture >= 0 and activation_routing >= 0 and pointer_capture < activation_routing and
+    "event.isCanceled = true" in controller,
+    "active display pointer clicks must be captured before mouse activation routing",
+)
+require(
+    "GLFW.GLFW_MOUSE_BUTTON_RIGHT ->" in controller and
+    "sendPointerAction(active, DisplayPointerAction.TAP)" in controller and
+    "GLFW.GLFW_MOUSE_BUTTON_LEFT -> when (event.action)" in controller and
+    "active.holdActive = true" in controller and
+    "sendPointerAction(active, DisplayPointerAction.HOLD)" in controller and
+    "active.holdActive = false" in controller,
+    "display pseudo pointer must distinguish right tap and left hold press/release",
+)
+require(
+    'DOUBLE_TAP("double_tap"),\n    HOLD("hold")' in pointer,
+    "display HOLD must be appended without changing existing pointer-action ordinals",
+)
+require(
+    'event.action == "hold"' in handler_runtime and "handler.onHold or handler.onPointer" in handler_runtime and
+    "function touchdisplay.isHold(event)" in touchdisplay and 'event.action == "hold"' in touchdisplay,
+    "ComputerCraft display helpers must expose HOLD without breaking generic pointer handlers",
 )
 
 # Display-pointer reach is special on Sable: plot coordinates are not rendered world coordinates.
@@ -128,4 +158,4 @@ require(
     "Combined icon missing",
 )
 require("python3 tools/verify-display-combined-input.py" in workflow, "workflow must enforce display Combined contract")
-print("Validated Combined display input, Sable-aware pointer reach, and DBW isolation.")
+print("Validated Combined display input, tap/hold pointer routing, Sable-aware pointer reach, and DBW isolation.")
