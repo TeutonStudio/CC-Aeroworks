@@ -2,8 +2,8 @@
 --
 -- Assign this file as the display's touch/input handler. While holding the configured
 -- Display interaction key, move the pseudo finger with the mouse and trigger actions:
---   right mouse button -> tap
---   left mouse button  -> hold
+--   right mouse button -> hold
+--   left mouse button  -> tap
 --
 -- Every accepted action is printed to the embedded computer terminal and leaves a small
 -- marker at the server-resolved pixel coordinate. The display is cleared before each marker,
