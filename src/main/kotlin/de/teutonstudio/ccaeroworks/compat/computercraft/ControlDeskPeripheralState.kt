@@ -3,6 +3,7 @@ package de.teutonstudio.ccaeroworks.compat.computercraft
 import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskInputSnapshot
+import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
 import de.teutonstudio.ccaeroworks.display.DeskDisplayTouch
 import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
@@ -65,9 +66,17 @@ object ControlDeskPeripheralState {
         action: DisplayPointerAction
     ) {
         val handlerPath = (DisplayBindings.get(desk, touch.socket) as? DisplayBinding.LuaHandler)?.path.orEmpty()
+        var matchedPeripherals = 0
+        var queuedComputers = 0
         active.forEach { peripheral ->
             if (peripheral.validDesk() !== desk) return@forEach
+            matchedPeripherals++
             peripheral.computers.forEach { computer ->
+                queuedComputers++
+                TouchInputDiagnostics.info(
+                    "peripheral",
+                    "queue ${CCAeroworks.DESK_DISPLAY_INPUT_EVENT} attachment=${computer.attachmentName} desk=${desk.blockPos.toShortString()} socket=${touch.socket} action=${action.eventName} handler='$handlerPath' pixel=${touch.x},${touch.y}"
+                )
                 computer.queueEvent(
                     CCAeroworks.DESK_DISPLAY_INPUT_EVENT,
                     computer.attachmentName,
@@ -88,6 +97,10 @@ object ControlDeskPeripheralState {
                 }
             }
         }
+        TouchInputDiagnostics.info(
+            "peripheral",
+            "delivery summary desk=${desk.blockPos.toShortString()} socket=${touch.socket}: activePeripherals=${active.size} matched=$matchedPeripherals queuedExternalComputers=$queuedComputers"
+        )
     }
 
     internal fun queueDisplayTouch(desk: ConsoleBlockEntity, touch: DeskDisplayTouch) {
