@@ -18,8 +18,8 @@ data class DisplayCombinedTarget(
 ) {
     var baselinePending: Boolean = true
     var watchdogTicks: Int = 0
+    var holdActive: Boolean = false
 
     fun xActive(): Boolean = xBinding != null && xBinding in heldBindings
-
     fun yActive(): Boolean = yBinding != null && yBinding in heldBindings
 }
