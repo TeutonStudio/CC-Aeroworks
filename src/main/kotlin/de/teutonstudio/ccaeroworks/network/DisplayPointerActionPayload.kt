@@ -17,7 +17,8 @@ import java.util.concurrent.ConcurrentHashMap
 
 enum class DisplayPointerAction(val eventName: String) {
     TAP("tap"),
-    DOUBLE_TAP("double_tap")
+    DOUBLE_TAP("double_tap"),
+    HOLD("hold")
 }
 
 data class DisplayPointerActionPayload(
