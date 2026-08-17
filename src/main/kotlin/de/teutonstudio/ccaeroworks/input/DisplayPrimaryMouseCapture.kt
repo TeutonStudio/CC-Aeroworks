@@ -15,6 +15,9 @@ import org.lwjgl.glfw.GLFW
  * but touch detection no longer depends on that callback alone. The active display controller also
  * polls the physical GLFW state. Raw callbacks, NeoForge fallback edges and polling all feed the
  * same edge state, so a press can be observed through several paths without producing duplicates.
+ *
+ * Display semantics intentionally follow the configured interaction model:
+ * RIGHT -> hold, LEFT -> tap.
  */
 object DisplayPrimaryMouseCapture {
     private var sessionTarget: DisplayCombinedTarget? = null
@@ -154,11 +157,12 @@ object DisplayPrimaryMouseCapture {
                     if (!rightDown) {
                         rightDown = true
                         rightOwnedByDisplay = true
+                        active.holdActive = true
                         TouchInputDiagnostics.info(
                             "button-sample",
-                            "source=$source right false->true tapEdge=true desk=${active.pos.toShortString()} socket=${active.socket} u=${active.u} v=${active.v}"
+                            "source=$source right false->true holdEdge=true desk=${active.pos.toShortString()} socket=${active.socket} u=${active.u} v=${active.v}"
                         )
-                        sendPointerAction(active, DisplayPointerAction.TAP)
+                        sendPointerAction(active, DisplayPointerAction.HOLD)
                     }
                     blockMinecraft = rightOwnedByDisplay
                 }
@@ -168,11 +172,12 @@ object DisplayPrimaryMouseCapture {
                     val wasDown = rightDown
                     rightDown = false
                     rightOwnedByDisplay = false
+                    active.holdActive = false
                     blockMinecraft = wasOwned
                     if (wasDown) {
                         TouchInputDiagnostics.info(
                             "button-sample",
-                            "source=$source right true->false ownedRelease=$wasOwned desk=${active.pos.toShortString()} socket=${active.socket}"
+                            "source=$source right true->false holdReleased=$wasOwned desk=${active.pos.toShortString()} socket=${active.socket} u=${active.u} v=${active.v}"
                         )
                     }
                 }
@@ -185,12 +190,11 @@ object DisplayPrimaryMouseCapture {
                     if (!leftDown) {
                         leftDown = true
                         leftOwnedByDisplay = true
-                        active.holdActive = true
                         TouchInputDiagnostics.info(
                             "button-sample",
-                            "source=$source left false->true holdEdge=true desk=${active.pos.toShortString()} socket=${active.socket} u=${active.u} v=${active.v}"
+                            "source=$source left false->true tapEdge=true desk=${active.pos.toShortString()} socket=${active.socket} u=${active.u} v=${active.v}"
                         )
-                        sendPointerAction(active, DisplayPointerAction.HOLD)
+                        sendPointerAction(active, DisplayPointerAction.TAP)
                     }
                     blockMinecraft = leftOwnedByDisplay
                 }
@@ -200,12 +204,11 @@ object DisplayPrimaryMouseCapture {
                     val wasDown = leftDown
                     leftDown = false
                     leftOwnedByDisplay = false
-                    active.holdActive = false
                     blockMinecraft = wasOwned
                     if (wasDown) {
                         TouchInputDiagnostics.info(
                             "button-sample",
-                            "source=$source left true->false holdReleased=$wasOwned desk=${active.pos.toShortString()} socket=${active.socket} u=${active.u} v=${active.v}"
+                            "source=$source left true->false ownedRelease=$wasOwned desk=${active.pos.toShortString()} socket=${active.socket}"
                         )
                     }
                 }
