@@ -17,6 +17,7 @@ module_types = read("src/main/kotlin/de/teutonstudio/ccaeroworks/registry/CCModu
 source = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/CombinedInputSource.kt")
 control = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/CombinedLeverController.kt")
 controller = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/DisplayCombinedInputController.kt")
+target = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/DisplayCombinedTarget.kt")
 raw_mouse = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/DisplayPrimaryMouseCapture.kt")
 mouse_guard = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/CombinedMouseButtonGuardMixin.kt")
 context = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/CombinedInputContext.kt")
@@ -25,6 +26,11 @@ lifecycle = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/Aerow
 sample = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/CombinedControlSamplePayload.kt")
 legacy = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/SetCombinedLeverValuePayload.kt")
 pointer = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/DisplayPointerActionPayload.kt")
+draw = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/DisplayDrawPayload.kt")
+payloads = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/CCPayloads.kt")
+dispatcher = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/DeskDisplayInputDispatcher.kt")
+display_input = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DeskDisplayInput.kt")
+script_catalog = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DisplayScriptCatalog.kt")
 sable_geometry = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/sable/SableInteractionGeometry.kt")
 peripheral = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ControlDeskPeripheralState.kt")
 override_guard = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/ConsoleBlockEntityControlOverrideMixin.kt")
@@ -36,6 +42,7 @@ catalog = read("src/main/java/de/teutonstudio/ccaeroworks/mixin/compat/ConsoleWi
 signal = read("src/main/java/de/teutonstudio/ccaeroworks/mixin/compat/DriveByWireSignalFilterMixin.java")
 touchdisplay = read("src/main/resources/data/computercraft/lua/rom/modules/main/touchdisplay.lua")
 handler_runtime = read("src/main/resources/data/computercraft/lua/rom/autorun/cc_aeroworks_display_handlers.lua")
+touch_test = read("examples/cc/touch-test.lua")
 mixins = read("src/main/resources/cc_aeroworks.mixins.json")
 workflow = read(".github/workflows/verify.yml")
 
@@ -70,7 +77,9 @@ require(
     "Combined sessions must follow Aeroworks lifecycle",
 )
 
-# Primary display buttons are still blocked at MouseHandler before NeoForge/vanilla routing.
+# Regression guard: this three-source capture is what fixed the previously non-functional touch
+# path. Draw may evolve behind it, but raw interception + NeoForge fallback + direct GLFW polling
+# must all stay present and share one button state.
 require(
     "@Mixin(MouseHandler::class)" in mouse_guard and
     'method = ["onPress(JIII)V"]' in mouse_guard and
@@ -78,59 +87,116 @@ require(
     "cancellable = true" in mouse_guard and
     "DisplayPrimaryMouseCapture.capture(windowPointer, button, action)" in mouse_guard and
     "callback.cancel()" in mouse_guard,
-    "display primary buttons must be intercepted at MouseHandler before NeoForge/vanilla routing",
+    "display primary buttons must still be intercepted at MouseHandler before NeoForge/vanilla routing",
 )
-require(
-    '"client.CombinedMouseButtonGuardMixin"' in mixins,
-    "raw display mouse guard mixin is not registered",
-)
-
-# Touch detection itself must not depend on the MouseHandler callback. A physical GLFW poll runs
-# from the active controller and shares one edge state with raw and NeoForge fallback routes.
+require('"client.CombinedMouseButtonGuardMixin"' in mixins, "raw display mouse guard mixin is not registered")
 require(
     "fun beginSession(active: DisplayCombinedTarget" in raw_mouse and
     "GLFW.glfwGetMouseButton" in raw_mouse and
     "fun poll(minecraft: Minecraft, active: DisplayCombinedTarget)" in raw_mouse and
     "fun captureFallback(button: Int, action: Int)" in raw_mouse and
     "leftOwnedByDisplay" in raw_mouse and "rightOwnedByDisplay" in raw_mouse,
-    "display touch must keep a physical-button baseline and shared raw/event/poll edge state",
+    "display touch must keep physical baseline plus shared raw/event/poll edge state",
 )
 require(
     "DisplayPrimaryMouseCapture.beginSession(candidate, minecraft)" in controller and
     controller.count("DisplayPrimaryMouseCapture.poll(minecraft, active)") >= 2 and
     "DisplayPrimaryMouseCapture.captureFallback(event.button, event.action)" in controller and
+    "DisplayPrimaryMouseCapture.observePointer(active)" in controller and
+    "DisplayPrimaryMouseCapture.flushDrawSample(active)" in controller and
     "DisplayPrimaryMouseCapture.endSession(active)" in controller,
-    "active display controller must initialise, poll, fallback-route and retire physical button state",
+    "active display controller must preserve capture fallbacks while sampling draw movement",
+)
+
+# LEFT remains the proven single tap. RIGHT now starts/ends a draw gesture instead of emitting one
+# hold packet. Legacy HOLD stays in the wire enum only to preserve existing ordinals.
+require(
+    "if (!leftDown)" in raw_mouse and
+    "source=$source left false->true tapEdge=true" in raw_mouse and
+    "sendPointerAction(active, DisplayPointerAction.TAP)" in raw_mouse,
+    "left display button must remain a tap edge",
 )
 require(
     "if (!rightDown)" in raw_mouse and
-    "source=$source right false->true holdEdge=true" in raw_mouse and
-    "active.holdActive = true" in raw_mouse and
-    "sendPointerAction(active, DisplayPointerAction.HOLD)" in raw_mouse and
-    "source=$source right true->false holdReleased=$wasOwned" in raw_mouse and
-    "if (!leftDown)" in raw_mouse and
-    "source=$source left false->true tapEdge=true" in raw_mouse and
-    "sendPointerAction(active, DisplayPointerAction.TAP)" in raw_mouse and
-    "active.holdActive = false" in raw_mouse,
-    "shared display mouse state must edge-detect right hold press/release and left tap",
+    "source=$source right false->true drawEdge=true" in raw_mouse and
+    "beginDraw(active)" in raw_mouse and
+    "finishDraw(active, source)" in raw_mouse and
+    "DisplayDrawPayload(" in raw_mouse and
+    "sendPointerAction(active, DisplayPointerAction.HOLD)" not in raw_mouse,
+    "right display button must own a stateful draw gesture, not emit legacy HOLD",
+)
+require(
+    "drawActive" in target and "drawGestureId" in target and "drawSequence" in target and
+    "drawLastSentU" in target and "drawLastSentV" in target and "drawDirty" in target,
+    "display target must retain draw gesture sampling state",
 )
 require(
     '"mouse-gate"' in raw_mouse and '"button-sample"' in raw_mouse and
-    '"send physical action=' in raw_mouse and "PacketDistributor.sendToServer" in raw_mouse,
-    "physical display mouse path must remain visible in TouchTrace and send the server payload directly",
+    '"send physical action=' in raw_mouse and '"send draw stage=' in raw_mouse and
+    "PacketDistributor.sendToServer" in raw_mouse,
+    "tap/draw physical path must remain visible in TouchTrace and send payloads directly",
+)
+
+# Draw network stream is ordered and server authoritative. The client sends normalized points;
+# server resolves pixels and derives delta from the last accepted event, exactly so Lua does not
+# have to maintain previous-event state merely to draw a segment.
+require(
+    "DisplayDrawPayload.TYPE" in payloads and 'CCAeroworks.id("display_draw")' in draw and
+    "val gestureId: Long" in draw and "val sequence: Int" in draw and "val isEnd: Boolean" in draw,
+    "draw payload must be registered with gesture ordering and explicit end state",
 )
 require(
-    "handlePointerButton(" not in controller and "send action=${action.eventName}" not in controller,
-    "legacy independent event touch sender must not reintroduce duplicate tap/hold packets",
+    "DeskDisplayGeometry.touch" in draw and
+    "payload.sequence != state.lastSequence + 1" in draw and
+    "current.x - state.lastTouch.x" in draw and
+    "current.y - state.lastTouch.y" in draw and
+    "startX = state.startTouch.x" in draw and
+    "startY = state.startTouch.y" in draw,
+    "server must resolve draw pixels and provide delta relative to the immediately previous event",
 )
+require(
+    "SableInteractionGeometry.withinReach" in draw and "SableInteractionGeometry.mayInteract" in draw and
+    "STALE_GESTURE_TICKS" in draw,
+    "draw stream must retain Sable-aware validation and bounded stale server state",
+)
+require(
+    'val action: String' in display_input and 'get() = action == "draw"' in display_input and
+    "gestureId" in display_input and "sequence" in display_input and
+    "startX" in display_input and "deltaX" in display_input and "isEnd" in display_input,
+    "dispatcher input model must expose semantic draw metadata",
+)
+require(
+    "ControlDeskPeripheralState.queueDisplayInput(desk, input)" in dispatcher and
+    "input.deltaX ?: 0" in dispatcher and "input.deltaY ?: 0" in dispatcher and
+    "input.isEnd" in dispatcher and
+    'if (input.action == DisplayPointerAction.TAP.eventName)' in dispatcher,
+    "embedded dispatch must append draw metadata while preserving tap compatibility",
+)
+require(
+    "input.deltaX ?: 0" in peripheral and "input.deltaY ?: 0" in peripheral and
+    'if (input.action == "tap")' in peripheral,
+    "external ComputerCraft events must expose draw deltas without turning draw into monitor_touch",
+)
+
+# Existing action ordinals remain intact for compatibility, but new combined input exposes tap/draw.
 require(
     'DOUBLE_TAP("double_tap"),\n    HOLD("hold")' in pointer,
-    "display HOLD must be appended without changing existing pointer-action ordinals",
+    "legacy pointer-action ordinals must remain stable",
 )
 require(
-    'event.action == "hold"' in handler_runtime and "handler.onHold or handler.onPointer" in handler_runtime and
-    "function touchdisplay.isHold(event)" in touchdisplay and 'event.action == "hold"' in touchdisplay,
-    "ComputerCraft display helpers must expose HOLD without breaking generic pointer handlers",
+    'event.action == "draw"' in handler_runtime and "handler.onDraw or handler.onPointer" in handler_runtime and
+    "event[24] == true" in handler_runtime and
+    "function touchdisplay.isDraw(event)" in touchdisplay and
+    "function touchdisplay.drawDelta(event)" in touchdisplay and
+    "function touchdisplay.drawEnded(event)" in touchdisplay and
+    '"onDraw"' in script_catalog,
+    "ComputerCraft handler/runtime/catalog must expose draw gestures",
+)
+require(
+    "onDraw = function(event)" in touch_test and
+    "drawLine(event, x - dx, y - dy, x, y)" in touch_test and
+    "touchdisplay.drawEnded(event)" in touch_test,
+    "manual regression handler must exercise per-event draw deltas and explicit end",
 )
 
 # Display-pointer reach is special on Sable: plot coordinates are not rendered world coordinates.
@@ -142,7 +208,7 @@ require(
 require(
     "SableInteractionGeometry.withinReach" in pointer and
     "SableInteractionGeometry.mayInteract" in pointer,
-    "server display pointer packets must use Sable-aware interaction validation",
+    "server tap packets must use Sable-aware interaction validation",
 )
 require(
     "SableInteractionGeometry.withinReach" in controller and
@@ -151,6 +217,7 @@ require(
 )
 require(
     "player.distanceToSqr(it.pos.center)" not in pointer and
+    "player.distanceToSqr(it.pos.center)" not in draw and
     "player.distanceToSqr(it.pos.center)" not in controller and
     "player.distanceToSqr(it.pos.center)" not in context,
     "display pointer paths must not compare players directly to Sable plot coordinates",
@@ -195,4 +262,4 @@ require(
     "Combined icon missing",
 )
 require("python3 tools/verify-display-combined-input.py" in workflow, "workflow must enforce display Combined contract")
-print("Validated polled/raw right-hold left-tap display capture, Combined ownership, Sable-aware pointer reach, and DBW isolation.")
+print("Validated resilient raw/event/poll display capture with left tap and ordered right-button draw gestures.")
