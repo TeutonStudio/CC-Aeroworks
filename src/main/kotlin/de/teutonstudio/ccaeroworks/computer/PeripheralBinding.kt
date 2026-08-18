@@ -90,7 +90,7 @@ internal class PeripheralBinding(
         failure = cleanupMounts(failure)
         attached = false
         contextWrapper = null
-        if (failure != null) throw failure
+        failure?.let { throw it }
     }
 
     override fun checkValid(): Boolean = synchronized(this) { attached }
@@ -151,10 +151,11 @@ internal class PeripheralBinding(
         var failure = primary
         mounts.drain().forEach { location ->
             val unmountFailure = runCatching { system.unmount(location) }.exceptionOrNull() ?: return@forEach
-            if (failure == null) {
+            val currentFailure = failure
+            if (currentFailure == null) {
                 failure = unmountFailure
-            } else if (failure !== unmountFailure) {
-                failure.addSuppressed(unmountFailure)
+            } else if (currentFailure !== unmountFailure) {
+                currentFailure.addSuppressed(unmountFailure)
             }
         }
         return failure
