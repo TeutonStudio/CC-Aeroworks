@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import re
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -18,6 +17,8 @@ types = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DeskDisplayTyp
 config = read("src/main/kotlin/de/teutonstudio/ccaeroworks/config/CCServerConfig.kt")
 pixels = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DeskDisplayPixels.kt")
 renderer = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/DeskDisplayRenderer.kt")
+texture_cache = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/DeskDisplayTextureCache.kt")
+client = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/CCAeroworksClient.kt")
 visual = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ConsoleVisualMixin.kt")
 overlay = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/DeskPixelOverlayRenderer.kt")
 touch = read("src/main/resources/data/computercraft/lua/rom/modules/main/touchdisplay.lua")
@@ -39,20 +40,41 @@ require("@cca_pixels_2:" in pixels, "pixel persistence must use version 2")
 require("Base64.getUrlEncoder" in pixels, "pixel persistence must remain bit-packed before text encoding")
 require("fun isEncoded" in pixels, "migration must distinguish encoded rasters from display text")
 
-require("type.pixelPitchBlocks" in renderer, "both pixel axes must use the PPB pitch")
-require("type.pixelModelScale" in renderer, "pixel model must scale with PPB")
-pixel_position = renderer.find("pixelOffsetX(display.type, pixels.width, x)")
-pixel_scale = renderer.find(".scale(scale, 1.0f, scale)")
-require(pixel_position >= 0 and pixel_scale >= 0 and pixel_position < pixel_scale,
-        "pixel model scaling must happen after raster placement so PPB scale cannot collapse offsets")
-require(".translate(0.5, 0.0, 0.5)\n                    .scale(scale, 1.0f, scale)\n                    .translate(-0.5, 0.0, -0.5)" in renderer,
-        "pixel model must scale locally around its X/Z centre")
+require("DeskDisplayTextureCache.texture" in renderer,
+        "programmable display rendering must resolve one cached texture per display")
+require("RenderType.entityCutoutNoCull(texture)" in renderer,
+        "programmable display rendering must draw the dynamic texture as a cutout quad")
+require(renderer.count("vertex(consumer, pose,") == 4,
+        "one programmable display must submit exactly one four-vertex quad")
+require("surfaceWidthParts.toDouble()" in renderer and "surfaceHeightParts.toDouble()" in renderer,
+        "dynamic texture quad size must derive from the physical display surface")
+require("DeskDisplayModels.PIXEL" not in renderer,
+        "programmable display renderer must not render one model per enabled pixel")
+require("for (y in 0 until pixels.height) for (x in 0 until pixels.width)" not in renderer,
+        "render frames must not iterate the raster to emit per-pixel geometry")
+require("PIXEL_SURFACE_Y = 2.251 / 16.0" in renderer,
+        "texture quad must stay on the former pixel top surface")
+
+require("NativeImage(pixels.width, pixels.height, false)" in texture_cache,
+        "dynamic texture resolution must match the logical display raster exactly")
+require("DynamicTexture(image)" in texture_cache,
+        "client cache must back programmable displays with a DynamicTexture")
+require("texture.setFilter(false, false)" in texture_cache,
+        "display texels must use nearest filtering without mipmaps")
+require("entry.pixels != pixels" in texture_cache and "entry.texture.upload()" in texture_cache,
+        "GPU texture upload must happen only after the immutable pixel snapshot changes")
+require("image.setPixelRGBA(x, y, if (pixels.get(x, y)) -1 else 0)" in texture_cache,
+        "logical on/off pixels must map directly to opaque/transparent texels")
+require("textureManager.release(entry.location)" in texture_cache,
+        "obsolete dynamic textures must be released from the texture manager")
+require("DeskDisplayTextureCache::clientTick" in client,
+        "client lifecycle must clean textures belonging to removed or unloaded desks")
 
 require("DeskPixelOverlayRenderer.track(blockEntity)" in visual,
         "Flywheel visuals must delegate programmable pixel rasters to the shared pass")
 require("DeskDisplayModels.PIXEL" not in visual,
         "Flywheel visual must not allocate one persistent instance per programmable pixel")
-require("DeskDisplayRenderer.renderPixels" in overlay, "shared pixel overlay must render the raster batch")
+require("DeskDisplayRenderer.renderPixels" in overlay, "shared pixel overlay must render the raster quad")
 require("LevelRenderer.getLightColor(level, desk.blockPos)" in overlay,
         "shared pixel overlay must use world lighting")
 require("LightTexture.FULL_BRIGHT" not in overlay,
@@ -68,17 +90,16 @@ def pixels_for(parts: int, ppb: int) -> int:
     return parts * ppb // 16
 
 
-def raster_footprint(pixel_count: int, ppb: int) -> float:
-    # display_pixel.json is 0.56 vanilla model units wide. After the vanilla-16-PPB
-    # partial is scaled by 16/ppb, the final pixel geometry is 0.56/ppb blocks wide.
-    return (pixel_count - 1 + 0.56) / ppb
+def textured_footprint(pixel_count: int, ppb: int) -> float:
+    # One texture texel is one logical display pixel, so the quad covers the complete raster cells.
+    return pixel_count / ppb
 
 
 require((pixels_for(7, 16), pixels_for(7, 16)) == (7, 7), "16 PPB small resolution changed")
 require((pixels_for(10, 16), pixels_for(7, 16)) == (10, 7), "16 PPB large resolution changed")
 require((pixels_for(7, 256), pixels_for(7, 256)) == (112, 112), "256 PPB small resolution changed")
 require((pixels_for(10, 256), pixels_for(7, 256)) == (160, 112), "256 PPB large resolution changed")
-require(raster_footprint(160, 256) <= 10 / 16, "large 256-PPB raster must remain inside display width")
-require(raster_footprint(112, 256) <= 7 / 16, "large 256-PPB raster must remain inside display height")
+require(textured_footprint(160, 256) == 10 / 16, "large 256-PPB texture must exactly fill display width")
+require(textured_footprint(112, 256) == 7 / 16, "large 256-PPB texture must exactly fill display height")
 
-print("display PPB contract OK: transform order, lighting and 16/256 PPB geometry verified")
+print("display PPB contract OK: dynamic texture cache, quad rendering, lighting and 16/256 PPB geometry verified")
