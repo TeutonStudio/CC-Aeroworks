@@ -14,17 +14,20 @@ def require(condition: bool, message: str) -> None:
 
 
 motion = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/DisplayPointerMotion.kt")
+motion_test = read("src/test/kotlin/de/teutonstudio/ccaeroworks/input/DisplayPointerMotionTest.kt")
 path_buffer = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/DisplayDrawPathBuffer.kt")
 target = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/DisplayCombinedTarget.kt")
 controller = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/DisplayCombinedInputController.kt")
 capture = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/DisplayPrimaryMouseCapture.kt")
 payload = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/DisplayDrawPayload.kt")
+budget = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/PlayerTickBudget.kt")
+budget_test = read("src/test/kotlin/de/teutonstudio/ccaeroworks/network/PlayerTickBudgetTest.kt")
 model = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DeskDisplayInput.kt")
 pixels = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DeskDisplayPixels.kt")
 service = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/aeroworks/AeroworksDeskService.kt")
 desk_access = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/aeroworks/AeroworksDeskAccess.kt")
 desk_peripheral = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ControlDeskPeripheral.kt")
-desk_handle = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralNetwork.kt")
+desk_handle = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralLuaHandles.kt")
 dispatcher = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/DeskDisplayInputDispatcher.kt")
 peripheral = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ControlDeskPeripheralState.kt")
 diagnostics = read("src/main/kotlin/de/teutonstudio/ccaeroworks/debug/TouchInputDiagnostics.kt")
@@ -35,12 +38,18 @@ catalog = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/guide/ApiRefe
 touch_test = read("examples/cc/touch-test.lua")
 
 require(
-    "NEW_SAMPLE_WEIGHT = 0.65" in motion and
+    "SMOOTHING_TIME_SECONDS = 0.016" in motion and
     "sampleVelocityU = deltaU / deltaSeconds" in motion and
     "sampleVelocityV = deltaV / deltaSeconds" in motion and
+    "1.0 - exp(-deltaSeconds / SMOOTHING_TIME_SECONDS)" in motion and
     "directionU = velocityU / magnitude" in motion and
     "directionV = velocityV / magnitude" in motion,
-    "pointer motion must expose lightly smoothed time-based velocity and normalized direction",
+    "pointer motion must expose time-invariant smoothed velocity and normalized direction",
+)
+require(
+    'listOf(20.0, 60.0, 144.0, 240.0)' in motion_test and
+    "runTurnAtRate" in motion_test,
+    "pointer tests must compare equal wall-clock motion across multiple frame rates",
 )
 require(
     "maxSamples: Int = 16" in path_buffer and
@@ -71,6 +80,24 @@ require(
     "payload.samples.forEachIndexed" in payload and
     "add(state.lastSample.toDeskSample())" in payload,
     "server must validate every batched sample and prepend the previous accepted endpoint",
+)
+require(
+    "MAX_PACKETS_PER_PLAYER_TICK = 8" in payload and
+    "MAX_SAMPLES_PER_PLAYER_TICK" in payload and
+    "ingressBudget.tryConsume(player.uuid, tick, payload.samples.size)" in payload and
+    "class PlayerTickBudget" in budget and
+    "current.packets >= maxPacketsPerTick" in budget and
+    "current.units + units > maxUnitsPerTick" in budget and
+    "packet budget resets on the next tick" in budget_test,
+    "draw ingress must be bounded per player and server tick before expensive dispatch work",
+)
+require(
+    "val key = GestureKey(player.uuid, payload.pos.asLong(), payload.socket)" in payload and
+    "val gestureId: Long" in payload and
+    "previous?.gestureId == payload.gestureId" in payload and
+    "state.gestureId != payload.gestureId" in payload and
+    "gestureId: Long\n        )" not in payload[payload.index("private data class GestureKey"):payload.index("private data class GestureState")],
+    "draw state must keep one active gesture per player/display/socket instead of per gesture id",
 )
 require(
     "data class DeskDisplayStrokeSample" in model and
@@ -126,7 +153,7 @@ require(
     '"pixels" -> true' in diagnostics and
     'message.contains("send draw stage=sample")' in diagnostics and
     'message.contains("accepted draw SAMPLE")' in diagnostics,
-    "TouchTrace must suppress high-frequency draw INFO spam while keeping WARN diagnostics",
+    "TouchTrace must suppress high-frequency draw log spam while keeping boundary diagnostics",
 )
 require(
     "function display.setPixelBatch(event, points, enabled)" in display and
@@ -167,7 +194,7 @@ require(
     "touchdisplay.drawSamples(event)" in touch_test and
     "LOG_EVERY = 10" in touch_test and
     "SEQ GAP" in touch_test,
-    "manual touch regression handler must exercise strokes without becoming a 20 Hz logging bottleneck",
+    "manual touch regression handler must exercise strokes without becoming a logging bottleneck",
 )
 
-print("Validated time-based draw velocity, bounded sub-tick batching, cached handlers, throttled diagnostics, continuous sub-pixel stroke stitching, defensive delta fallback and native Hermite pixel patches.")
+print("Validated time-invariant draw velocity, bounded per-player ingress, single-slot gesture state, sub-tick batching, cached handlers, continuous Hermite stroke stitching and native pixel patches.")
