@@ -262,17 +262,18 @@ internal class PeripheralNetworkRuntime(
         var failure: Throwable? = null
         bindings.values.forEach { binding ->
             val closeFailure = runCatching { binding.close() }.exceptionOrNull() ?: return@forEach
-            if (failure == null) {
+            val currentFailure = failure
+            if (currentFailure == null) {
                 failure = closeFailure
-            } else if (failure !== closeFailure) {
-                failure.addSuppressed(closeFailure)
+            } else if (currentFailure !== closeFailure) {
+                currentFailure.addSuppressed(closeFailure)
             }
         }
         bindings.clear()
         graph = null
         lastScanTick = Long.MIN_VALUE
         if (queueEvents && initialized) detached.forEach(::queueDetached)
-        if (failure != null) throw failure
+        failure?.let { throw it }
     }
 
     private fun queueAttached(node: PeripheralNetworkNode) {
