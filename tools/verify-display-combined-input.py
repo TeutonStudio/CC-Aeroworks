@@ -27,6 +27,7 @@ sample = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/CombinedContr
 legacy = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/SetCombinedLeverValuePayload.kt")
 pointer = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/DisplayPointerActionPayload.kt")
 draw = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/DisplayDrawPayload.kt")
+gesture_state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/SingleGestureSessionState.kt")
 payloads = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/CCPayloads.kt")
 dispatcher = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/DeskDisplayInputDispatcher.kt")
 display_input = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DeskDisplayInput.kt")
@@ -143,13 +144,14 @@ require(
 )
 require(
     "DeskDisplayGeometry.touch" in draw and
-    "payload.sequence != state.lastSequence + 1" in draw and
+    "gestures.advance(" in draw and
+    "sequence != expected" in gesture_state and
     "current.touch.x - state.lastSample.touch.x" in draw and
     "current.touch.y - state.lastSample.touch.y" in draw and
     "startX = state.startTouch.x" in draw and
     "startY = state.startTouch.y" in draw and
     "add(state.lastSample.toDeskSample())" in draw,
-    "server must resolve batched pixels, preserve final delta semantics and prepend the previous endpoint",
+    "server must resolve batched pixels, sequence through the single-slot state, preserve final delta semantics and prepend the previous endpoint",
 )
 require(
     "SableInteractionGeometry.withinReach" in draw and "SableInteractionGeometry.mayInteract" in draw and
