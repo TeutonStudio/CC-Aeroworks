@@ -6,6 +6,11 @@ on:
       - master
     paths:
       - ".github/workflows/release-v1.3.0.yml"
+  pull_request:
+    branches:
+      - master
+    paths:
+      - ".github/release/v1.3.0.trigger"
 
 permissions:
   contents: write
