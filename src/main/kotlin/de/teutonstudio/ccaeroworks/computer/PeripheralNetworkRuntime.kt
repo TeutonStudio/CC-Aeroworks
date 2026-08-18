@@ -89,7 +89,9 @@ internal class PeripheralNetworkRuntime(
                 attached += node
             }
         } catch (throwable: Throwable) {
-            invalidateGraph(queueEvents = false)
+            runCatching { invalidateGraph(queueEvents = false) }
+                .exceptionOrNull()
+                ?.let(throwable::addSuppressed)
             throw throwable
         }
 
@@ -107,16 +109,21 @@ internal class PeripheralNetworkRuntime(
         if (level.gameTime % GRAPH_REFRESH_INTERVAL != 0L) return
         try {
             graph()
-        } catch (_: LuaException) {
-            invalidateGraph(queueEvents = true)
+        } catch (failure: LuaException) {
+            runCatching { invalidateGraph(queueEvents = true) }
+                .exceptionOrNull()
+                ?.let(failure::addSuppressed)
         }
     }
 
     @Synchronized
     fun close() {
         access.owner()?.let { PeripheralNetworkRuntimes.unregister(it, this) }
-        invalidateGraph(queueEvents = false)
-        initialized = false
+        try {
+            invalidateGraph(queueEvents = false)
+        } finally {
+            initialized = false
+        }
     }
 
     fun deskHandle(node: DeskNetworkNode): DeskLuaHandle = DeskLuaHandle(this, node.address)
@@ -252,11 +259,21 @@ internal class PeripheralNetworkRuntime(
     @Synchronized
     private fun invalidateGraph(queueEvents: Boolean) {
         val detached = bindings.values.map { it.node }
-        bindings.values.forEach(PeripheralBinding::close)
+        var failure: Throwable? = null
+        bindings.values.forEach { binding ->
+            val closeFailure = runCatching { binding.close() }.exceptionOrNull() ?: return@forEach
+            val currentFailure = failure
+            if (currentFailure == null) {
+                failure = closeFailure
+            } else if (currentFailure !== closeFailure) {
+                currentFailure.addSuppressed(closeFailure)
+            }
+        }
         bindings.clear()
         graph = null
         lastScanTick = Long.MIN_VALUE
         if (queueEvents && initialized) detached.forEach(::queueDetached)
+        failure?.let { throw it }
     }
 
     private fun queueAttached(node: PeripheralNetworkNode) {

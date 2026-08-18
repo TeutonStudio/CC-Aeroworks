@@ -51,8 +51,14 @@ def main() -> int:
     require("NeoForge.EVENT_BUS.register(GpsSourceTracker)" in mod,
             "GPS tracker must be registered on the NeoForge server event bus")
 
-    require("InformationSourceKinds.CORE + sources.map { it.kind }" in widget and "InformationSourceKinds.GPS" not in widget,
-            "GPS should use the generic collapsible information-source UI, not a parallel widget path")
+    require(
+        "InformationSourceKinds.CORE + snapshot.sources.map { it.kind }" in widget and
+        "distinctBy { it.id }" in widget and
+        "SourceRow.Section" in widget and
+        "if (kind in collapsedKinds) return@forEach" in widget and
+        "InformationSourceKinds.GPS" not in widget,
+        "GPS should use the generic collapsible information-source UI, not a parallel widget path"
+    )
     require("CompoundTag" not in tracker and "DataComponent" not in tracker,
             "runtime GPS availability/fixes must not be persisted")
 

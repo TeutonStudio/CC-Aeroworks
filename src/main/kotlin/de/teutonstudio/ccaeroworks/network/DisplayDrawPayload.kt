@@ -54,6 +54,8 @@ data class DisplayDrawPayload(
     companion object {
         const val MAX_BATCH_SAMPLES: Int = 16
         private const val STALE_GESTURE_TICKS = 40L
+        private const val MAX_PACKETS_PER_PLAYER_TICK = 8
+        private const val MAX_SAMPLES_PER_PLAYER_TICK = MAX_BATCH_SAMPLES * MAX_PACKETS_PER_PLAYER_TICK
         private const val DIRECTION_EPSILON = 1.0e-12
         private const val DIRECTION_COMPONENT_TOLERANCE = 1.000001
         private const val MATCH_EPSILON = 1.0e-9
@@ -128,7 +130,14 @@ data class DisplayDrawPayload(
                 }
             }
 
-        private val gestures = PlayerSessionState<GestureKey, GestureState>(GestureKey::player, STALE_GESTURE_TICKS)
+        private val gestures = SingleGestureSessionState<GestureKey, GestureData>(
+            GestureKey::player,
+            STALE_GESTURE_TICKS
+        )
+        private val ingressBudget = PlayerTickBudget(
+            maxPacketsPerTick = MAX_PACKETS_PER_PLAYER_TICK,
+            maxUnitsPerTick = MAX_SAMPLES_PER_PLAYER_TICK
+        )
 
         @JvmStatic
         fun handle(payload: DisplayDrawPayload, context: IPayloadContext) {
@@ -150,6 +159,13 @@ data class DisplayDrawPayload(
                 return
             }
 
+            val level = player.serverLevel()
+            val tick = level.gameTime
+            if (!ingressBudget.tryConsume(player.uuid, tick, payload.samples.size)) {
+                TouchInputDiagnostics.warn("server", "rejected draw $descriptor: per-tick draw ingress budget exceeded")
+                return
+            }
+
             val normalizedSamples = arrayListOf<DisplayDrawSamplePayload>()
             payload.samples.forEachIndexed { index, sample ->
                 val normalized = normalizeSample(sample)
@@ -166,8 +182,6 @@ data class DisplayDrawPayload(
                 return
             }
 
-            val level = player.serverLevel()
-            val tick = level.gameTime
             if (!level.hasChunkAt(payload.pos)) {
                 TouchInputDiagnostics.warn("server", "rejected draw $descriptor: target chunk is not loaded")
                 return
@@ -210,14 +224,20 @@ data class DisplayDrawPayload(
             }
             val current = resolved.last()
 
-            val key = GestureKey(player.uuid, payload.pos.asLong(), payload.socket, payload.gestureId)
+            // A player can have only one active gesture per physical display socket. The gesture ID
+            // identifies which logical stroke owns that slot, rather than multiplying session keys.
+            val key = GestureKey(player.uuid, payload.pos.asLong(), payload.socket)
             if (payload.sequence == 0) {
-                if (gestures.get(key) != null) {
+                val started = gestures.start(
+                    key,
+                    payload.gestureId,
+                    GestureData(current.touch, current),
+                    tick
+                )
+                if (!started) {
                     TouchInputDiagnostics.warn("server", "rejected draw $descriptor: duplicate gesture start")
                     return
                 }
-                val state = GestureState(current.touch, current, 0)
-                gestures.put(key, state, tick)
                 val input = DeskDisplayInput(
                     action = "draw",
                     touch = current.touch,
@@ -242,18 +262,33 @@ data class DisplayDrawPayload(
                 return
             }
 
-            val state = gestures.touch(key, tick)
-            if (state == null) {
-                TouchInputDiagnostics.warn("server", "rejected draw $descriptor: gesture has no accepted start")
-                return
+            val advance = gestures.advance(
+                key = key,
+                gestureId = payload.gestureId,
+                sequence = payload.sequence,
+                tick = tick
+            ) { previous ->
+                previous.copy(lastSample = current)
             }
-            if (payload.sequence != state.lastSequence + 1) {
-                TouchInputDiagnostics.warn(
-                    "server",
-                    "rejected draw $descriptor: expected sequence ${state.lastSequence + 1}"
-                )
-                return
+            when (advance.status) {
+                SingleGestureSessionState.AdvanceStatus.MISSING_START -> {
+                    TouchInputDiagnostics.warn("server", "rejected draw $descriptor: gesture has no accepted start")
+                    return
+                }
+                SingleGestureSessionState.AdvanceStatus.STALE_GESTURE -> {
+                    TouchInputDiagnostics.warn("server", "rejected draw $descriptor: gesture id no longer owns this display slot")
+                    return
+                }
+                SingleGestureSessionState.AdvanceStatus.OUT_OF_SEQUENCE -> {
+                    TouchInputDiagnostics.warn(
+                        "server",
+                        "rejected draw $descriptor: expected sequence ${advance.expectedSequence}"
+                    )
+                    return
+                }
+                SingleGestureSessionState.AdvanceStatus.ACCEPTED -> Unit
             }
+            val state = requireNotNull(advance.previous)
 
             val deltaX = current.touch.x - state.lastSample.touch.x
             val deltaY = current.touch.y - state.lastSample.touch.y
@@ -261,7 +296,6 @@ data class DisplayDrawPayload(
                 add(state.lastSample.toDeskSample())
                 resolved.forEach { add(it.toDeskSample()) }
             }
-            gestures.put(key, GestureState(state.startTouch, current, payload.sequence), tick)
 
             val input = DeskDisplayInput(
                 action = "draw",
@@ -288,6 +322,7 @@ data class DisplayDrawPayload(
 
         internal fun clearPlayerState(playerId: UUID) {
             gestures.removePlayer(playerId)
+            ingressBudget.clearPlayer(playerId)
         }
 
         internal fun expirePlayerState(tick: Long) {
@@ -296,6 +331,7 @@ data class DisplayDrawPayload(
 
         internal fun clearAllPlayerState() {
             gestures.clear()
+            ingressBudget.clear()
         }
 
         private fun normalizeSample(sample: DisplayDrawSamplePayload): DisplayDrawSamplePayload? {
@@ -324,14 +360,12 @@ data class DisplayDrawPayload(
         private data class GestureKey(
             val player: UUID,
             val pos: Long,
-            val socket: Int,
-            val gestureId: Long
+            val socket: Int
         )
 
-        private data class GestureState(
+        private data class GestureData(
             val startTouch: DeskDisplayTouch,
-            val lastSample: ResolvedDrawSample,
-            val lastSequence: Int
+            val lastSample: ResolvedDrawSample
         )
 
         private data class ResolvedDrawSample(

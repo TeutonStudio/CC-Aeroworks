@@ -2,7 +2,7 @@ package de.teutonstudio.ccaeroworks.input
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import kotlin.math.hypot
+import kotlin.math.min
 
 class DisplayPointerMotionTest {
     @Test
@@ -17,7 +17,7 @@ class DisplayPointerMotionTest {
     }
 
     @Test
-    fun `speed is independent from sampling interval`() {
+    fun `speed is independent from sampling interval before filtering begins`() {
         val slowSampling = DisplayPointerMotion()
         val fastSampling = DisplayPointerMotion()
 
@@ -29,16 +29,16 @@ class DisplayPointerMotionTest {
     }
 
     @Test
-    fun `lightly smooths consecutive velocity before normalizing direction`() {
-        val motion = DisplayPointerMotion()
-        motion.observe(0.01, 0.0, 0.01)
+    fun `filtered motion is independent from frame rate over equal wall clock time`() {
+        val rates = listOf(20.0, 60.0, 144.0, 240.0)
+        val results = rates.map(::runTurnAtRate)
+        val reference = results.first()
 
-        motion.observe(0.0, 0.01, 0.01)
-
-        val magnitude = hypot(0.35, 0.65)
-        assertEquals(0.35 / magnitude, motion.directionU, 1.0e-12)
-        assertEquals(0.65 / magnitude, motion.directionV, 1.0e-12)
-        assertEquals(magnitude, motion.speed, 1.0e-12)
+        results.drop(1).forEach { result ->
+            assertEquals(reference.directionU, result.directionU, 1.0e-10)
+            assertEquals(reference.directionV, result.directionV, 1.0e-10)
+            assertEquals(reference.speed, result.speed, 1.0e-10)
+        }
     }
 
     @Test
@@ -69,5 +69,19 @@ class DisplayPointerMotionTest {
         assertEquals(0.0, motion.directionU, 0.0)
         assertEquals(0.0, motion.directionV, 0.0)
         assertEquals(0.0, motion.speed, 0.0)
+    }
+
+    private fun runTurnAtRate(rate: Double): DisplayPointerMotion {
+        val motion = DisplayPointerMotion()
+        motion.observe(0.01, 0.0, 0.01)
+
+        var remaining = 0.12
+        val step = 1.0 / rate
+        while (remaining > 1.0e-12) {
+            val dt = min(step, remaining)
+            motion.observe(0.0, dt, dt)
+            remaining -= dt
+        }
+        return motion
     }
 }

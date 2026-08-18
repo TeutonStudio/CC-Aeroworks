@@ -1,7 +1,7 @@
--- Purpose: temporarily override one discovered native Aeroworks control channel.
+-- Purpose: temporarily override one or more discovered native Aeroworks control channels as one batch.
 -- Runs on: an embedded ComputerControlDesk computer.
 -- Requires: cc_aeroworks.controls and at least one native control channel.
--- Side effect: moves the selected control briefly, then releases only that override.
+-- Side effect: moves the selected controls briefly, then releases every override owned by this computer.
 
 local controls = require("cc_aeroworks.controls")
 
@@ -28,15 +28,19 @@ for index, channel in ipairs(channels) do
   ))
 end
 
-local selected
-while not selected do
-  write(string.format("Select channel [1-%d]: ", #channels))
-  local choice = tonumber(read())
-  if choice and choice % 1 == 0 then
-    selected = channels[choice]
+local selected = {}
+while #selected == 0 do
+  write(string.format("Select channel numbers [1-%d], separated by commas: ", #channels))
+  local seen = {}
+  for token in tostring(read() or ""):gmatch("[^,%s]+") do
+    local index = tonumber(token)
+    if index and index % 1 == 0 and channels[index] and not seen[index] then
+      seen[index] = true
+      table.insert(selected, channels[index])
+    end
   end
-  if not selected then
-    print("Invalid selection")
+  if #selected == 0 then
+    print("No valid channel selected")
   end
 end
 
@@ -44,31 +48,34 @@ write("Temporary override value [-15..15, default 8]: ")
 local requested = tonumber(read()) or 8
 local value = math.max(-15, math.min(15, math.floor(requested)))
 
+local commands = {}
+for _, channel in ipairs(selected) do
+  table.insert(commands, {
+    desk = channel.desk,
+    socket = channel.socket,
+    channel = channel.channel,
+    value = value,
+  })
+end
+
 local ok, err = pcall(function()
-  controls.override(selected.desk, selected.socket, selected.channel, value)
-  print(string.format(
-    "Override active: %s / %s / %s = %d",
-    tostring(selected.desk),
-    tostring(selected.socket),
-    tostring(selected.channel),
-    value
-  ))
+  local applied = controls.overrideBatch(commands)
+  print(string.format("Grouped override active: %d channel(s) = %d", applied, value))
   sleep(2)
 end)
 
-local released, releaseError = pcall(
-  controls.release,
-  selected.desk,
-  selected.socket,
-  selected.channel
-)
-
+-- This demo intentionally owns the complete override lifetime. Always release all authority even
+-- when overrideBatch or the work performed while authority is held raises an error.
+local released, releaseResult = pcall(controls.releaseAll)
 if released then
-  print("Selected control override released.")
+  print(string.format("Released %d control override(s).", tonumber(releaseResult) or 0))
 else
-  printError("Could not release selected override: " .. tostring(releaseError))
+  printError("Could not release control overrides: " .. tostring(releaseResult))
 end
 
 if not ok then
   error(err, 0)
+end
+if not released then
+  error(releaseResult, 0)
 end

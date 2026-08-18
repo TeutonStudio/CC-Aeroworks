@@ -23,6 +23,9 @@ cc_sidebar = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/ControlDes
 channel_widget = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/WireChannelManagerWidget.kt")
 source_widget = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/InformationSourceManagerWidget.kt")
 source_builder = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/source/InformationSourceSnapshotBuilder.kt")
+source_extensions = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/source/InformationSourceExtensions.kt")
+radar_compat = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/RadarCompat.kt")
+radar_sources = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/computer/source/RadarInformationSources.kt")
 source_payload = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/InformationSourcePayloads.kt")
 payloads = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/CCPayloads.kt")
 mixins = read("src/main/resources/cc_aeroworks.mixins.json")
@@ -64,12 +67,22 @@ require("+Wire" in computer and "+Group" in computer and "MutateChannelGroupPayl
 require("USER GROUPS" in channel_widget and "ChannelRow.UserGroup" in channel_widget and "ChannelRow.Binding" in channel_widget, "Channels tree must render user groups/bindings")
 require("collapsedGroupIds" in channel_widget, "Channels hierarchy must remain collapsible")
 require("ChannelRow.Connection" in channel_widget, "DBW sink rows must remain visible")
-require("collapsedKinds" in source_widget and "InformationSourceKind.entries" in source_widget, "Information Sources must remain grouped/collapsible")
+require(
+    "collapsedKinds" in source_widget and
+    "InformationSourceKinds.CORE" in source_widget and
+    "SourceRow.Section" in source_widget and
+    "if (kind in collapsedKinds) return@forEach" in source_widget,
+    "Information Sources must remain grouped/collapsible"
+)
 
 require("TelemetryRuntime.describeSources(owner)" in source_builder, "Display Link sources must come from TelemetryRuntime")
 require("PeripheralNetworkBuilder.build(owner)" in source_builder, "storage must come from peripheral graph")
-require("RadarSourceRegistry.sources(owner)" in source_builder, "radar Data Links must come from registry")
-require("RadarNetworkControllerLookup.controllerFor" in source_builder, "radar controllers must use topology lookup")
+require("InformationSourceExtensions.sources(owner)" in source_builder, "optional information sources must use the extension boundary")
+require("CopyOnWriteArrayList" in source_extensions and "fun register(" in source_extensions, "information source extension registry must remain safe and explicit")
+require("InformationSourceExtensions.register(RadarInformationSources::sources)" in radar_compat, "radar compat must register its information-source provider")
+require("RadarSourceRegistry.sources(owner)" in radar_sources, "radar Data Links must come from the isolated radar registry")
+require("RadarNetworkControllerLookup.controllerFor" in radar_sources, "radar controllers must use isolated topology lookup")
+require("RadarSourceRegistry" not in source_builder and "RadarNetworkControllerLookup" not in source_builder, "base information-source builder must not depend directly on radar compat")
 require("activeComputerDesk(player)" in source_payload and "InformationSourceSnapshotBuilder.build(owner)" in source_payload, "Sources snapshot must use validated session")
 require("RequestInformationSourceSnapshotPayload.TYPE" in payloads and "InformationSourceSnapshotPayload.TYPE" in payloads, "Sources payloads must be registered")
 require("MutateChannelGroupPayload.TYPE" in payloads, "channel-group mutation payload must be registered")
@@ -91,4 +104,4 @@ for path in (
 for registered in ('"client.ConsoleScreenAccessor"','"client.ConsoleScreenSwitchMixin"','"client.AbstractComputerScreenAccessor"'):
     require(registered in mixins, f"missing UI mixin {registered}")
 require("python3 tools/verify-control-desk-ui-navigation.py" in workflow, "workflow must enforce UI navigation contract")
-print("Validated Computer/API Aeroworks navigation, explicit ComputerControlDesk UI context, keyboard-safe channel/group editing, three native CC work areas and authoritative information sources.")
+print("Validated Computer/API Aeroworks navigation, explicit ComputerControlDesk UI context, keyboard-safe channel/group editing, three native CC work areas and authoritative optional information sources.")

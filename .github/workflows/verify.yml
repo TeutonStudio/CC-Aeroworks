@@ -5,6 +5,7 @@ on:
     branches:
       - master
       - "agent/**"
+      - "release/**"
   pull_request:
   workflow_dispatch:
     inputs:
@@ -55,6 +56,12 @@ jobs:
 
       - name: Validate repository contract
         run: python3 tools/verify-repository.py
+
+      - name: Validate release stabilization layout
+        run: python3 tools/verify-release-layout.py
+
+      - name: Validate dependency manifest
+        run: python3 tools/verify-dependency-manifest.py
 
       - name: Validate guide and Ponder resources
         run: python3 tools/verify-guide.py
@@ -128,12 +135,9 @@ jobs:
       - name: Compile Gradle bootstrap
         run: javac --release 21 gradle/wrapper/GradleBootstrap.java
 
-      - name: Validate dependency manifest through Gradle
-        run: ./gradlew verifyDependencyManifest --no-daemon --stacktrace
-
   full-build:
     name: Protected full build
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_build }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.full_build) || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/')) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'release/')) }}
     needs: repository
     runs-on: ubuntu-latest
     timeout-minutes: 45
