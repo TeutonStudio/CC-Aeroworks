@@ -10,6 +10,7 @@ on:
 permissions:
   contents: write
   actions: read
+  issues: write
 
 concurrency:
   group: publish-v1.3.0
@@ -131,3 +132,18 @@ jobs:
           release_target="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.sha')"
           test "${release_target}" = "${RELEASE_TARGET}"
           gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --json tagName,name,isDraft,isPrerelease,url
+
+      - name: Report publication result
+        if: always()
+        shell: bash
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          if gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            state="published"
+          else
+            state="not published"
+          fi
+          body=$(printf '### v1.3.0 push publication\n\nStatus: **%s**\nWorkflow job: **%s**\nRelease target: `%s`\nSource evidence run: `%s`\nExpected JAR SHA-256: `%s`' "${state}" "${JOB_STATUS}" "${RELEASE_TARGET}" "${SOURCE_RUN_ID}" "${EXPECTED_JAR_SHA256}")
+          gh issue comment 45 --repo "${GITHUB_REPOSITORY}" --body "${body}"
