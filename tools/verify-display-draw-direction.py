@@ -191,10 +191,11 @@ require(
     "fast strokes must reject backwards stale tangents which would create loops or mini-strokes",
 )
 require(
-    '"setPixelBatch(event, points, enabled?)"' in catalog and
-    '"setDisplayPixelBatch(socket, points, enabled?)"' in catalog and
-    '"drawSamples(event)"' in catalog and '"drawStroke(event)"' in catalog,
-    "in-game API catalog must expose native pixel batching and stroke helpers",
+    '"setPixelBatch(event: table, points: table[], enabled?: boolean) -> integer"' in catalog and
+    '"setDisplayPixelBatch(socket: string|integer, points: table[], enabled?: boolean) -> integer"' in catalog and
+    '"drawSamples(event: table) -> table[]"' in catalog and
+    '"drawStroke(event: table) -> integer"' in catalog,
+    "in-game API catalog must expose typed native pixel batching and stroke helpers",
 )
 require(
     "touchdisplay.drawStroke(event)" in touch_test and
