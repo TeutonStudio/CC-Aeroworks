@@ -20,6 +20,8 @@ target = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/DisplayCombined
 controller = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/DisplayCombinedInputController.kt")
 capture = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/DisplayPrimaryMouseCapture.kt")
 payload = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/DisplayDrawPayload.kt")
+gesture_state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/SingleGestureSessionState.kt")
+gesture_test = read("src/test/kotlin/de/teutonstudio/ccaeroworks/network/SingleGestureSessionStateTest.kt")
 budget = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/PlayerTickBudget.kt")
 budget_test = read("src/test/kotlin/de/teutonstudio/ccaeroworks/network/PlayerTickBudgetTest.kt")
 model = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DeskDisplayInput.kt")
@@ -92,12 +94,17 @@ require(
     "draw ingress must be bounded per player and server tick before expensive dispatch work",
 )
 require(
+    "SingleGestureSessionState<GestureKey, GestureData>" in payload and
     "val key = GestureKey(player.uuid, payload.pos.asLong(), payload.socket)" in payload and
-    "val gestureId: Long" in payload and
-    "previous?.gestureId == payload.gestureId" in payload and
-    "state.gestureId != payload.gestureId" in payload and
-    "gestureId: Long\n        )" not in payload[payload.index("private data class GestureKey"):payload.index("private data class GestureState")],
-    "draw state must keep one active gesture per player/display/socket instead of per gesture id",
+    "gestures.start(" in payload and
+    "gestures.advance(" in payload and
+    "class SingleGestureSessionState" in gesture_state and
+    "existing?.gestureId == gestureId" in gesture_state and
+    "existing.gestureId != gestureId" in gesture_state and
+    "sequence != expected" in gesture_state and
+    "new gesture replaces an abandoned gesture in the same slot" in gesture_test and
+    "missing and skipped sequences are rejected without advancing state" in gesture_test,
+    "draw state must keep one tested active gesture per player/display/socket and reject stale or out-of-sequence packets",
 )
 require(
     "data class DeskDisplayStrokeSample" in model and
@@ -197,4 +204,4 @@ require(
     "manual touch regression handler must exercise strokes without becoming a logging bottleneck",
 )
 
-print("Validated time-invariant draw velocity, bounded per-player ingress, single-slot gesture state, sub-tick batching, cached handlers, continuous Hermite stroke stitching and native pixel patches.")
+print("Validated time-invariant draw velocity, bounded per-player ingress, tested single-slot gesture sequencing, sub-tick batching, cached handlers, continuous Hermite stroke stitching and native pixel patches.")
