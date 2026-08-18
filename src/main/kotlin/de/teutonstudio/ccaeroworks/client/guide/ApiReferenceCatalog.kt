@@ -181,7 +181,7 @@ object ApiReferenceCatalog {
             )
         ),
         ApiReference(
-            "wires", "wires", "EMBEDDED · GLOBAL + MODULE · DRIVE BY WIRE 0..15", ApiAccent.WIRES,
+            "wires", "wires", "EMBEDDED · GLOBAL + MODULE · DRIVE BY WIRE CABLE · MOD REQUIRED FOR OUTPUT", ApiAccent.WIRES,
             moduleName = "cc_aeroworks.wires",
             methods = listOf(
                 "list() -> table<string,table>",
