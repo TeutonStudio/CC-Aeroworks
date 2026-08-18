@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: publish-v1.3.0
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   release:
@@ -27,6 +27,12 @@ jobs:
       GH_TOKEN: ${{ github.token }}
 
     steps:
+      - name: Report release start
+        shell: bash
+        run: |
+          body=$(printf '### v1.3.0 release workflow\n\nStatus: **started**\n\nTarget commit: `%s`\nWorkflow commit: `%s`' "${RELEASE_TARGET}" "${GITHUB_SHA}")
+          gh issue comment 43 --repo "${GITHUB_REPOSITORY}" --body "${body}"
+
       - name: Check out exact v1.3.0 source commit
         uses: actions/checkout@v6
         with:
