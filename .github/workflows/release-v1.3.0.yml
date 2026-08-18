@@ -5,49 +5,44 @@ on:
     branches:
       - master
     paths:
-      - ".github/workflows/release-v1.3.0.yml"
-  pull_request:
-    branches:
-      - master
-    paths:
-      - ".github/release/v1.3.0.trigger"
+      - ".github/release/v1.3.0.publish"
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: publish-v1.3.0
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  release:
-    name: Build, verify and publish v1.3.0
+  publish:
+    name: Publish verified v1.3.0 artifact
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 15
     env:
       RELEASE_TARGET: 4573750b12223f5180775a7dd2313cc131421eb4
       RELEASE_TAG: v1.3.0
-      MOD_DIR: ${{ github.workspace }}/.release-mods
+      SOURCE_RUN_ID: "32165778287"
+      EVIDENCE_NAME: cc-aeroworks-v1.3.0-release-evidence
+      EXPECTED_JAR_SHA256: 5ca64607e4e8d08c561b1e1540c1c379a5e168f0a667ff6075bf75d5b83828bf
       GH_TOKEN: ${{ github.token }}
 
     steps:
-      - name: Check out exact v1.3.0 source commit
+      - name: Check out release publication trigger
         uses: actions/checkout@v6
         with:
-          ref: ${{ env.RELEASE_TARGET }}
           fetch-depth: 0
 
-      - name: Set up Java 21
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "21"
-          cache: gradle
+      - name: Verify publication trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fx "release_target=${RELEASE_TARGET}" .github/release/v1.3.0.publish
+          grep -Fx "source_run=${SOURCE_RUN_ID}" .github/release/v1.3.0.publish
+          grep -Fx "jar_sha256=${EXPECTED_JAR_SHA256}" .github/release/v1.3.0.publish
 
-      - name: Prepare executable files
-        run: chmod +x gradlew tools/*.py
-
-      - name: Stop if v1.3.0 is already published
+      - name: Stop if v1.3.0 already exists
         id: existing
         shell: bash
         run: |
@@ -58,133 +53,81 @@ jobs:
             echo "published=false" >> "${GITHUB_OUTPUT}"
           fi
 
-      - name: Download exact required mod dependencies
+      - name: Download verified release evidence
         if: steps.existing.outputs.published != 'true'
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "${MOD_DIR}"
+          mkdir -p release-evidence
+          gh run download "${SOURCE_RUN_ID}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --name "${EVIDENCE_NAME}" \
+            --dir release-evidence
+          find release-evidence -maxdepth 4 -type f -print | sort
 
-          fetch_mod() {
-            local url="$1"
-            local name="$2"
-            echo "Downloading ${name}"
-            curl --fail --location --retry 4 --retry-all-errors \
-              --output "${MOD_DIR}/${name}" "${url}"
-            jar tf "${MOD_DIR}/${name}" >/dev/null
-          }
-
-          fetch_mod \
-            "https://cdn.modrinth.com/data/LNytGWDc/versions/UjX6dr61/create-1.21.1-6.0.10.jar" \
-            "create-1.21.1-6.0.10.jar"
-          fetch_mod \
-            "https://cdn.modrinth.com/data/oWaK0Q19/versions/w7zlLnea/create-aeronautics-bundled-1.21.1-1.3.0.jar" \
-            "create-aeronautics-bundled-1.21.1-1.3.0.jar"
-          fetch_mod \
-            "https://cdn.modrinth.com/data/P26k79kP/versions/EYVmBa7H/aeroworks-1.3.0.jar" \
-            "aeroworks-1.3.0.jar"
-          fetch_mod \
-            "https://cdn.modrinth.com/data/T9PomCSv/versions/znvYZcVX/sable-neoforge-1.21.1-2.0.1.jar" \
-            "sable-neoforge-1.21.1-2.0.1.jar"
-          fetch_mod \
-            "https://cdn.modrinth.com/data/gu7yAYhd/versions/puxJkazX/cc-tweaked-1.21.1-forge-1.119.0.jar" \
-            "cc-tweaked-1.21.1-forge-1.119.0.jar"
-
-          echo "Required dependency set:"
-          ls -lh "${MOD_DIR}"
-
-      - name: Validate repository and dependency manifest
-        if: steps.existing.outputs.published != 'true'
-        run: |
-          python3 -m py_compile tools/*.py
-          python3 tools/verify-repository.py
-          python3 tools/verify-dependency-manifest.py
-
-      - name: Run release integration profile
-        if: steps.existing.outputs.published != 'true'
-        run: |
-          python3 tools/run-integration-profile.py BASE-SERVER \
-            --dependency-dir "${MOD_DIR}" \
-            --server-smoke
-
-      - name: Inspect and hash release JAR
+      - name: Verify exact tested artifact and evidence
         if: steps.existing.outputs.published != 'true'
         shell: bash
         run: |
           set -euo pipefail
-          jar_path="build/libs/cc-aeroworks-1.3.0.jar"
-          test -f "${jar_path}"
+          jar_path="$(find release-evidence -type f -name 'cc-aeroworks-1.3.0.jar' -print -quit)"
+          result_path="$(find release-evidence -type f -name 'base-server.json' -print -quit)"
+          metadata_path="$(find release-evidence -type f -name 'release-neoforge.mods.toml' -print -quit)"
+          notes_path="$(find release-evidence -type f -name 'release-notes-v1.3.0.md' -print -quit)"
 
-          unzip -p "${jar_path}" META-INF/neoforge.mods.toml > build/release-neoforge.mods.toml
-          grep -F 'modId="cc_aeroworks"' build/release-neoforge.mods.toml
-          grep -F 'modId="cc_aeroworks_radarcompat"' build/release-neoforge.mods.toml
-          test "$(grep -Fc 'version="1.3.0"' build/release-neoforge.mods.toml)" -ge 2
-          grep -A3 -F 'modId="sable"' build/release-neoforge.mods.toml | grep -F 'type="required"'
+          test -n "${jar_path}" && test -f "${jar_path}"
+          test -n "${result_path}" && test -f "${result_path}"
+          test -n "${metadata_path}" && test -f "${metadata_path}"
+          test -n "${notes_path}" && test -f "${notes_path}"
 
-          sha256sum "${jar_path}" | tee "${jar_path}.sha256"
+          printf '%s  %s\n' "${EXPECTED_JAR_SHA256}" "${jar_path}" | sha256sum --check --strict -
 
-      - name: Prepare release notes
-        if: steps.existing.outputs.published != 'true'
-        shell: bash
-        run: |
-          cat > build/release-notes-v1.3.0.md <<'EOF'
-          # CC-Aeroworks v1.3.0
+          python3 - "${result_path}" "${RELEASE_TARGET}" <<'PY'
+          import json
+          import sys
 
-          This release expands CC-Aeroworks into a broader programmable cockpit and vehicle-control platform for Create: Aeroworks and CC:Tweaked.
+          path, expected_commit = sys.argv[1:]
+          result = json.load(open(path, encoding="utf-8"))
+          assert result.get("status") == "PASS", result
+          assert result.get("profile") == "BASE-SERVER", result
+          assert result.get("commit") == expected_commit, result
+          steps = result.get("steps", [])
+          assert len(steps) >= 3, result
+          assert all(step.get("exitCode") == 0 for step in steps), result
+          print(f"Verified BASE-SERVER PASS for {expected_commit}")
+          PY
 
-          ## Highlights
+          grep -F 'modId="cc_aeroworks"' "${metadata_path}"
+          grep -F 'modId="cc_aeroworks_radarcompat"' "${metadata_path}"
+          test "$(grep -Fc 'version="1.3.0"' "${metadata_path}")" -ge 2
+          grep -A3 -F 'modId="sable"' "${metadata_path}" | grep -F 'type="required"'
 
-          - Reworked ComputerControlDesk APIs with typed in-game documentation for peripherals, channels, controls, wires and telemetry.
-          - Hierarchical ControlDesk peripheral networking with stable handles, lifecycle events and safer attach/detach cleanup.
-          - Programmable small and large displays using configurable PPB-based square-pixel geometry and dynamic texture rendering.
-          - Large-display touch and continuous draw input with normalized coordinates, direction/speed vectors, batched stroke samples and smoother curve reconstruction.
-          - Hardened combined-input lifecycle so display/control capture is released correctly on mode changes, GUI focus changes and invalid targets.
-          - Computer-driven Aeroworks control overrides for autopilot-style control authority, including batch operations and fail-safe release behavior.
-          - User-defined 0..15 wire channels for optional Drive By Wire integration.
-          - Structured Create telemetry, Display Link information sources, GPS support and optional docking telemetry.
-          - Optional Create: Radars compatibility isolated into the separate `cc_aeroworks_radarcompat` mod entry.
-          - Improved ControlDesk UI navigation, source grouping, multiblock previews and API/manual access.
-          - German/English README entry point and refreshed Lua examples/documentation.
+          cp "${jar_path}" ./cc-aeroworks-1.3.0.jar
+          printf '%s  cc-aeroworks-1.3.0.jar\n' "${EXPECTED_JAR_SHA256}" > ./cc-aeroworks-1.3.0.jar.sha256
+          cp "${result_path}" ./base-server.json
+          cp "${metadata_path}" ./release-neoforge.mods.toml
+          cp "${notes_path}" ./release-notes-v1.3.0.md
 
-          ## Runtime baseline
-
-          - Minecraft 1.21.1
-          - NeoForge 21.1.228+
-          - Create 6.0.10
-          - Create Aeronautics 1.3.0
-          - Create: Aeroworks 1.3.0
-          - Sable 2.0.1+
-          - CC:Tweaked 1.119.0 to <1.121.0
-
-          The attached JAR is produced from commit `4573750b12223f5180775a7dd2313cc131421eb4`. The release workflow publishes only after dependency validation, unit tests, a full Gradle build, metadata inspection and a dedicated-server smoke test pass.
-          EOF
-
-      - name: Publish GitHub release
+      - name: Publish v1.3.0 GitHub release
         if: steps.existing.outputs.published != 'true'
         shell: bash
         run: |
           set -euo pipefail
           gh release create "${RELEASE_TAG}" \
-            "build/libs/cc-aeroworks-1.3.0.jar#CC-Aeroworks v1.3.0" \
-            "build/libs/cc-aeroworks-1.3.0.jar.sha256#SHA-256" \
-            "build/test-results/integration/base-server.json#BASE-SERVER verification result" \
-            "build/release-neoforge.mods.toml#Generated NeoForge metadata" \
+            "cc-aeroworks-1.3.0.jar#CC-Aeroworks v1.3.0" \
+            "cc-aeroworks-1.3.0.jar.sha256#SHA-256" \
+            "base-server.json#BASE-SERVER verification result" \
+            "release-neoforge.mods.toml#Generated NeoForge metadata" \
             --repo "${GITHUB_REPOSITORY}" \
             --target "${RELEASE_TARGET}" \
             --title "CC-Aeroworks v1.3.0" \
-            --notes-file build/release-notes-v1.3.0.md \
+            --notes-file release-notes-v1.3.0.md \
             --latest
 
-      - name: Upload release evidence
-        if: always() && steps.existing.outputs.published != 'true'
-        uses: actions/upload-artifact@v7
-        with:
-          name: cc-aeroworks-v1.3.0-release-evidence
-          if-no-files-found: warn
-          retention-days: 30
-          path: |
-            build/test-results/**
-            build/reports/tests/**
-            build/libs/**
-            build/release-neoforge.mods.toml
-            build/release-notes-v1.3.0.md
+      - name: Verify published tag and release
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_target="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.sha')"
+          test "${release_target}" = "${RELEASE_TARGET}"
+          gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --json tagName,name,isDraft,isPrerelease,url
