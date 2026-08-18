@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      RELEASE_TARGET: 33818c730c075f86a54adbe06267eb5411933775
+      RELEASE_TARGET: 4573750b12223f5180775a7dd2313cc131421eb4
       RELEASE_TAG: v1.3.0
       MOD_DIR: ${{ github.workspace }}/.release-mods
       GH_TOKEN: ${{ github.token }}
@@ -156,7 +156,7 @@ jobs:
           - Sable 2.0.1+
           - CC:Tweaked 1.119.0 to <1.121.0
 
-          The attached JAR is produced from commit `33818c730c075f86a54adbe06267eb5411933775`. The release workflow publishes only after dependency validation, unit tests, a full Gradle build, metadata inspection and a dedicated-server smoke test pass.
+          The attached JAR is produced from commit `4573750b12223f5180775a7dd2313cc131421eb4`. The release workflow publishes only after dependency validation, unit tests, a full Gradle build, metadata inspection and a dedicated-server smoke test pass.
           EOF
 
       - name: Publish GitHub release
