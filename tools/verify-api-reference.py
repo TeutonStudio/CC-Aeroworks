@@ -19,7 +19,7 @@ PUBLIC_CLASSES = {
     "src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ControlDeskPeripheral.kt": (
         "ControlDeskPeripheral", {"debugDisplayTouchLog"}
     ),
-    "src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralNetwork.kt": ("DeskLuaHandle", set()),
+    "src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralLuaHandles.kt": ("DeskLuaHandle", set()),
     "src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerConsoleLuaApi.kt": ("ComputerConsoleLuaApi", set()),
     "src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerChannelLuaApi.kt": ("ComputerChannelLuaApi", set()),
     "src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerControlLuaApi.kt": ("ComputerControlLuaApi", set()),
