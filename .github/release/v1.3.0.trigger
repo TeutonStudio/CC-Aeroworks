@@ -1,3 +1,3 @@
-release_target=33818c730c075f86a54adbe06267eb5411933775
+release_target=4573750b12223f5180775a7dd2313cc131421eb4
 release_tag=v1.3.0
-attempt=2
+attempt=3
