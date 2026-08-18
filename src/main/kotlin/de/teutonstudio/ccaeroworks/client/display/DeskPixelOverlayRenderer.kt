@@ -10,12 +10,11 @@ import java.util.Collections
 import java.util.WeakHashMap
 
 /**
- * Shared pixel pass for Flywheel-backed Aeroworks consoles.
+ * Shared programmable-display pass for Flywheel-backed Aeroworks consoles.
  *
- * Text segments are cheap, persistent Flywheel instances. A programmable raster at 256 PPB is not:
- * one large display may contain 17,920 enabled cells. Tracking the desk and writing all pixel model
- * geometry into one normal MultiBufferSource batch avoids keeping one TransformedInstance alive per
- * pixel while preserving the existing display-segment appearance and exact PPB spacing.
+ * Flywheel continues to own cheap persistent text-segment instances. Pixel rasters are rendered
+ * here as one dynamic-texture quad per display so high PPB values no longer produce thousands of
+ * model renders or persistent instances.
  */
 object DeskPixelOverlayRenderer {
     private val trackedDesks = Collections.newSetFromMap(
@@ -24,7 +23,12 @@ object DeskPixelOverlayRenderer {
 
     @JvmStatic
     fun track(desk: ConsoleBlockEntity) {
-        if (hasPixelDisplay(desk)) trackedDesks.add(desk) else trackedDesks.remove(desk)
+        if (hasPixelDisplay(desk)) {
+            trackedDesks.add(desk)
+        } else {
+            trackedDesks.remove(desk)
+            DeskDisplayTextureCache.release(desk)
+        }
     }
 
     @JvmStatic
@@ -33,6 +37,7 @@ object DeskPixelOverlayRenderer {
 
         val minecraft = Minecraft.getInstance()
         val level = minecraft.level ?: run {
+            trackedDesks.forEach(DeskDisplayTextureCache::release)
             trackedDesks.clear()
             return
         }
@@ -48,6 +53,7 @@ object DeskPixelOverlayRenderer {
         while (iterator.hasNext()) {
             val desk = iterator.next()
             if (desk.isRemoved || desk.level !== level || !hasPixelDisplay(desk)) {
+                DeskDisplayTextureCache.release(desk)
                 iterator.remove()
                 continue
             }
