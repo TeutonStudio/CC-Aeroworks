@@ -14,7 +14,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload
 import net.minecraft.server.level.ServerPlayer
 import net.neoforged.neoforge.network.handling.IPayloadContext
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 
 enum class DisplayPointerAction(val eventName: String) {
     TAP("tap"),
@@ -59,7 +58,8 @@ data class DisplayPointerActionPayload(
                 }
             }
 
-        private val lastAcceptedTick = ConcurrentHashMap<RateKey, Long>()
+        private const val RATE_LIMIT_TTL_TICKS = 1L
+        private val lastAcceptedTick = PlayerSessionState<RateKey, Long>(RateKey::player, RATE_LIMIT_TTL_TICKS)
 
         @JvmStatic
         fun handle(payload: DisplayPointerActionPayload, context: IPayloadContext) {
@@ -120,7 +120,7 @@ data class DisplayPointerActionPayload(
 
             val tick = level.gameTime
             val key = RateKey(player.uuid, payload.pos.asLong(), payload.socket, payload.action)
-            if (lastAcceptedTick.put(key, tick) == tick) {
+            if (lastAcceptedTick.put(key, tick, tick) == tick) {
                 TouchInputDiagnostics.warn("server", "rejected $descriptor: duplicate action in server tick $tick")
                 return
             }
@@ -130,6 +130,18 @@ data class DisplayPointerActionPayload(
                 "accepted $descriptor -> pixel=${touch.x},${touch.y}/${touch.width}x${touch.height} reachableMembers=$reachableMembers"
             )
             DeskDisplayInputDispatcher.dispatch(desk, touch, payload.action)
+        }
+
+        internal fun clearPlayerState(playerId: UUID) {
+            lastAcceptedTick.removePlayer(playerId)
+        }
+
+        internal fun expirePlayerState(tick: Long) {
+            lastAcceptedTick.expire(tick)
+        }
+
+        internal fun clearAllPlayerState() {
+            lastAcceptedTick.clear()
         }
 
         private fun format(value: Double): String = "%.5f".format(java.util.Locale.ROOT, value)

@@ -5,13 +5,13 @@ import com.mred231.aeroworks.content.controls.ConsoleSocket
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
+import de.teutonstudio.ccaeroworks.network.PlayerSessionState
 import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.level.Level
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Keeps the server-authoritative desk session used by ComputerControlDesk sub-pages and a
@@ -30,7 +30,8 @@ object ControlDeskUiSwitchState {
         DETAIL
     }
 
-    private val sessions = ConcurrentHashMap<UUID, Session>()
+    private const val SESSION_TTL_TICKS = 6_000L
+    private val sessions = PlayerSessionState<UUID, Session>({ it }, SESSION_TTL_TICKS)
 
     @Volatile
     private var clientComputerAvailable: Boolean = false
@@ -55,7 +56,7 @@ object ControlDeskUiSwitchState {
         }
 
         val player = event.entity as? ServerPlayer ?: return
-        sessions[player.uuid] = Session(event.level.dimension(), event.pos.immutable())
+        sessions.put(player.uuid, Session(event.level.dimension(), event.pos.immutable()), event.level.gameTime)
     }
 
     @JvmStatic
@@ -143,7 +144,7 @@ object ControlDeskUiSwitchState {
     fun switchToComputer(player: ServerPlayer, anchorPos: BlockPos): Boolean {
         val owner = validateAnchorAndResolveOwner(player, anchorPos) ?: return false
         val level = player.serverLevel()
-        sessions[player.uuid] = Session(level.dimension(), anchorPos.immutable())
+        sessions.put(player.uuid, Session(level.dimension(), anchorPos.immutable()), level.gameTime)
         val direct = level.getBlockEntity(anchorPos) as? ComputerControlDeskBlockEntity
         return if (direct != null) direct.openTerminal(player, direct = true) else owner.openTerminal(player)
     }
@@ -185,8 +186,8 @@ object ControlDeskUiSwitchState {
     }
 
     private fun validSession(player: ServerPlayer): Session? {
-        val session = sessions[player.uuid] ?: return null
         val level = player.serverLevel()
+        val session = sessions.touch(player.uuid, level.gameTime) ?: return null
         if (session.dimension != level.dimension()) {
             sessions.remove(player.uuid)
             return null
@@ -201,5 +202,17 @@ object ControlDeskUiSwitchState {
             snapshot.members.none { player.distanceToSqr(it.pos.center) <= maxDistanceSqr }
         ) return null
         return session
+    }
+
+    internal fun clearPlayerSession(playerId: UUID) {
+        sessions.remove(playerId)
+    }
+
+    internal fun expireSessions(tick: Long) {
+        sessions.expire(tick)
+    }
+
+    internal fun clearAllSessions() {
+        sessions.clear()
     }
 }

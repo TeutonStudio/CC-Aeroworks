@@ -11,6 +11,7 @@ import de.teutonstudio.ccaeroworks.config.CCServerConfig
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockSkinUpdater
 import de.teutonstudio.ccaeroworks.network.CCPayloads
+import de.teutonstudio.ccaeroworks.network.ServerSessionLifecycle
 import de.teutonstudio.ccaeroworks.registry.CCBlockEntities
 import de.teutonstudio.ccaeroworks.registry.CCBlocks
 import de.teutonstudio.ccaeroworks.registry.CCDataComponents
@@ -52,6 +53,7 @@ class CCAeroworks(modEventBus: IEventBus, modContainer: ModContainer) {
         NeoForge.EVENT_BUS.register(ComputerConsoleInteractionHandler)
         NeoForge.EVENT_BUS.register(TelemetryComputerRuntimes)
         NeoForge.EVENT_BUS.register(GpsSourceTracker)
+        NeoForge.EVENT_BUS.register(ServerSessionLifecycle)
         if (FMLEnvironment.dist == Dist.CLIENT) CCAeroworksClient.register(modEventBus)
         LOGGER.info("[CC-Aeroworks] Initializing")
     }

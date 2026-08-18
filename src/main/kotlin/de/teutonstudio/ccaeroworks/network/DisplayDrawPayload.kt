@@ -17,7 +17,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload
 import net.minecraft.server.level.ServerPlayer
 import net.neoforged.neoforge.network.handling.IPayloadContext
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 import kotlin.math.hypot
 
@@ -129,7 +128,7 @@ data class DisplayDrawPayload(
                 }
             }
 
-        private val gestures = ConcurrentHashMap<GestureKey, GestureState>()
+        private val gestures = PlayerSessionState<GestureKey, GestureState>(GestureKey::player, STALE_GESTURE_TICKS)
 
         @JvmStatic
         fun handle(payload: DisplayDrawPayload, context: IPayloadContext) {
@@ -169,8 +168,6 @@ data class DisplayDrawPayload(
 
             val level = player.serverLevel()
             val tick = level.gameTime
-            gestures.entries.removeIf { tick - it.value.lastTick > STALE_GESTURE_TICKS }
-
             if (!level.hasChunkAt(payload.pos)) {
                 TouchInputDiagnostics.warn("server", "rejected draw $descriptor: target chunk is not loaded")
                 return
@@ -215,12 +212,12 @@ data class DisplayDrawPayload(
 
             val key = GestureKey(player.uuid, payload.pos.asLong(), payload.socket, payload.gestureId)
             if (payload.sequence == 0) {
-                if (gestures.containsKey(key)) {
+                if (gestures.get(key) != null) {
                     TouchInputDiagnostics.warn("server", "rejected draw $descriptor: duplicate gesture start")
                     return
                 }
-                val state = GestureState(current.touch, current, 0, tick)
-                gestures[key] = state
+                val state = GestureState(current.touch, current, 0)
+                gestures.put(key, state, tick)
                 val input = DeskDisplayInput(
                     action = "draw",
                     touch = current.touch,
@@ -245,7 +242,7 @@ data class DisplayDrawPayload(
                 return
             }
 
-            val state = gestures[key]
+            val state = gestures.touch(key, tick)
             if (state == null) {
                 TouchInputDiagnostics.warn("server", "rejected draw $descriptor: gesture has no accepted start")
                 return
@@ -264,7 +261,7 @@ data class DisplayDrawPayload(
                 add(state.lastSample.toDeskSample())
                 resolved.forEach { add(it.toDeskSample()) }
             }
-            gestures[key] = GestureState(state.startTouch, current, payload.sequence, tick)
+            gestures.put(key, GestureState(state.startTouch, current, payload.sequence), tick)
 
             val input = DeskDisplayInput(
                 action = "draw",
@@ -287,6 +284,18 @@ data class DisplayDrawPayload(
             )
             DeskDisplayInputDispatcher.dispatch(desk, input)
             if (payload.isEnd) gestures.remove(key)
+        }
+
+        internal fun clearPlayerState(playerId: UUID) {
+            gestures.removePlayer(playerId)
+        }
+
+        internal fun expirePlayerState(tick: Long) {
+            gestures.expire(tick)
+        }
+
+        internal fun clearAllPlayerState() {
+            gestures.clear()
         }
 
         private fun normalizeSample(sample: DisplayDrawSamplePayload): DisplayDrawSamplePayload? {
@@ -322,8 +331,7 @@ data class DisplayDrawPayload(
         private data class GestureState(
             val startTouch: DeskDisplayTouch,
             val lastSample: ResolvedDrawSample,
-            val lastSequence: Int,
-            val lastTick: Long
+            val lastSequence: Int
         )
 
         private data class ResolvedDrawSample(
