@@ -64,7 +64,13 @@ require("+Wire" in computer and "+Group" in computer and "MutateChannelGroupPayl
 require("USER GROUPS" in channel_widget and "ChannelRow.UserGroup" in channel_widget and "ChannelRow.Binding" in channel_widget, "Channels tree must render user groups/bindings")
 require("collapsedGroupIds" in channel_widget, "Channels hierarchy must remain collapsible")
 require("ChannelRow.Connection" in channel_widget, "DBW sink rows must remain visible")
-require("collapsedKinds" in source_widget and "InformationSourceKind.entries" in source_widget, "Information Sources must remain grouped/collapsible")
+require(
+    "collapsedKinds" in source_widget and
+    "InformationSourceKinds.CORE" in source_widget and
+    "SourceRow.Section" in source_widget and
+    "if (kind in collapsedKinds) return@forEach" in source_widget,
+    "Information Sources must remain grouped/collapsible"
+)
 
 require("TelemetryRuntime.describeSources(owner)" in source_builder, "Display Link sources must come from TelemetryRuntime")
 require("PeripheralNetworkBuilder.build(owner)" in source_builder, "storage must come from peripheral graph")
