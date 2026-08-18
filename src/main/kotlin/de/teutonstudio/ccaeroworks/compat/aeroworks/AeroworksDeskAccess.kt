@@ -60,25 +60,10 @@ object AeroworksDeskAccess {
             return null
         }
 
-        val encoded = pixels.encode()
-        TouchInputDiagnostics.info(
-            "pixels",
-            "writing desk=$pos socket=$socket raster=${pixels.width}x${pixels.height} encodedChars=${encoded.length}"
-        )
-        desk.setModuleName(socket, "", Component.literal(encoded))
-
-        val readBack = display(desk, socket)
-        if (readBack?.pixels == null) {
-            TouchInputDiagnostics.warn(
-                "pixels",
-                "write completed but readback is not in pixel mode desk=$pos socket=$socket storedNameLength=${desk.module(socket)?.customName()?.string?.length ?: 0}"
-            )
-        } else {
-            TouchInputDiagnostics.info(
-                "pixels",
-                "readback confirmed desk=$pos socket=$socket mode=pixels raster=${readBack.pixels.width}x${readBack.pixels.height}"
-            )
-        }
+        // setModuleName is the authoritative write. Do not immediately decode the same Base64 raster
+        // again merely as a diagnostic readback: drawStroke can call this every client tick and the
+        // redundant decode doubles the mutable-raster work while adding no correctness guarantee.
+        desk.setModuleName(socket, "", Component.literal(pixels.encode()))
         return current.copy(text = "", pixels = pixels)
     }
 }

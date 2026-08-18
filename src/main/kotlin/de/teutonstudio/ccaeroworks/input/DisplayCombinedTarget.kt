@@ -19,6 +19,10 @@ data class DisplayCombinedTarget(
     var baselinePending: Boolean = true
     var watchdogTicks: Int = 0
 
+    val pointerMotion: DisplayPointerMotion = DisplayPointerMotion()
+    val drawPath: DisplayDrawPathBuffer = DisplayDrawPathBuffer()
+    var pointerMotionSampleNanos: Long = System.nanoTime()
+
     var drawActive: Boolean = false
     var drawGestureId: Long = 0L
     var drawSequence: Int = 0

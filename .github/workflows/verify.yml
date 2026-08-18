@@ -74,6 +74,9 @@ jobs:
       - name: Validate display combined input
         run: python3 tools/verify-display-combined-input.py
 
+      - name: Validate display draw direction
+        run: python3 tools/verify-display-draw-direction.py
+
       - name: Validate display PPB contract
         run: python3 tools/verify-display-ppb.py
 

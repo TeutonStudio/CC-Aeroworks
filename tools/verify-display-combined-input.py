@@ -58,7 +58,7 @@ require(
     "display pointer channel declarations missing",
 )
 require(
-    "fun isCombinedOnly(module: MountedModule): Boolean = isDisplayPointerModule(module)" in source and
+    'fun isCombinedOnly(module: MountedModule): Boolean = isDisplayPointerModule(module)' in source and
     "forceCombined(invoker, module, column, index)" in combined_ui,
     "display x/y must remain Combined-only",
 )
@@ -77,9 +77,6 @@ require(
     "Combined sessions must follow Aeroworks lifecycle",
 )
 
-# Regression guard: this three-source capture is what fixed the previously non-functional touch
-# path. Draw may evolve behind it, but raw interception + NeoForge fallback + direct GLFW polling
-# must all stay present and share one button state.
 require(
     "@Mixin(MouseHandler::class)" in mouse_guard and
     'method = ["onPress(JIII)V"]' in mouse_guard and
@@ -108,8 +105,6 @@ require(
     "active display controller must preserve capture fallbacks while sampling draw movement",
 )
 
-# LEFT remains the proven single tap. RIGHT now starts/ends a draw gesture instead of emitting one
-# hold packet. Legacy HOLD stays in the wire enum only to preserve existing ordinals.
 require(
     "if (!leftDown)" in raw_mouse and
     "source=$source left false->true tapEdge=true" in raw_mouse and
@@ -127,8 +122,9 @@ require(
 )
 require(
     "drawActive" in target and "drawGestureId" in target and "drawSequence" in target and
-    "drawLastSentU" in target and "drawLastSentV" in target and "drawDirty" in target,
-    "display target must retain draw gesture sampling state",
+    "drawLastSentU" in target and "drawLastSentV" in target and "drawDirty" in target and
+    "drawPath" in target,
+    "display target must retain draw gesture and sub-tick path state",
 )
 require(
     '"mouse-gate"' in raw_mouse and '"button-sample"' in raw_mouse and
@@ -137,22 +133,23 @@ require(
     "tap/draw physical path must remain visible in TouchTrace and send payloads directly",
 )
 
-# Draw network stream is ordered and server authoritative. The client sends normalized points;
-# server resolves pixels and derives delta from the last accepted event, exactly so Lua does not
-# have to maintain previous-event state merely to draw a segment.
+# Draw remains ordered and server-authoritative, but each tick packet may now contain a bounded
+# high-frequency path. The final top-level delta retains its previous event-to-event semantics.
 require(
     "DisplayDrawPayload.TYPE" in payloads and 'CCAeroworks.id("display_draw")' in draw and
-    "val gestureId: Long" in draw and "val sequence: Int" in draw and "val isEnd: Boolean" in draw,
-    "draw payload must be registered with gesture ordering and explicit end state",
+    "val gestureId: Long" in draw and "val sequence: Int" in draw and "val isEnd: Boolean" in draw and
+    "MAX_BATCH_SAMPLES: Int = 16" in draw and "val samples: List<DisplayDrawSamplePayload>" in draw,
+    "draw payload must keep ordering/end state and bounded batched samples",
 )
 require(
     "DeskDisplayGeometry.touch" in draw and
     "payload.sequence != state.lastSequence + 1" in draw and
-    "current.x - state.lastTouch.x" in draw and
-    "current.y - state.lastTouch.y" in draw and
+    "current.touch.x - state.lastSample.touch.x" in draw and
+    "current.touch.y - state.lastSample.touch.y" in draw and
     "startX = state.startTouch.x" in draw and
-    "startY = state.startTouch.y" in draw,
-    "server must resolve draw pixels and provide delta relative to the immediately previous event",
+    "startY = state.startTouch.y" in draw and
+    "add(state.lastSample.toDeskSample())" in draw,
+    "server must resolve batched pixels, preserve final delta semantics and prepend the previous endpoint",
 )
 require(
     "SableInteractionGeometry.withinReach" in draw and "SableInteractionGeometry.mayInteract" in draw and
@@ -162,44 +159,47 @@ require(
 require(
     'val action: String' in display_input and 'get() = action == "draw"' in display_input and
     "gestureId" in display_input and "sequence" in display_input and
-    "startX" in display_input and "deltaX" in display_input and "isEnd" in display_input,
-    "dispatcher input model must expose semantic draw metadata",
+    "startX" in display_input and "deltaX" in display_input and "isEnd" in display_input and
+    "DeskDisplayStrokeSample" in display_input and "luaSamples" in display_input,
+    "dispatcher input model must expose semantic draw and resolved stroke metadata",
 )
 require(
     "ControlDeskPeripheralState.queueDisplayInput(desk, input)" in dispatcher and
     "input.deltaX ?: 0" in dispatcher and "input.deltaY ?: 0" in dispatcher and
-    "input.isEnd" in dispatcher and
+    "input.isEnd" in dispatcher and "input.luaSamples()" in dispatcher and
     'if (input.action == DisplayPointerAction.TAP.eventName)' in dispatcher,
-    "embedded dispatch must append draw metadata while preserving tap compatibility",
+    "embedded dispatch must append stroke metadata while preserving tap compatibility",
 )
 require(
     "input.deltaX ?: 0" in peripheral and "input.deltaY ?: 0" in peripheral and
-    'if (input.action == "tap")' in peripheral,
-    "external ComputerCraft events must expose draw deltas without turning draw into monitor_touch",
+    "input.luaSamples()" in peripheral and 'if (input.action == "tap")' in peripheral,
+    "external ComputerCraft events must expose draw path data without turning draw into monitor_touch",
 )
 
-# Existing action ordinals remain intact for compatibility, but new combined input exposes tap/draw.
 require(
     'DOUBLE_TAP("double_tap"),\n    HOLD("hold")' in pointer,
     "legacy pointer-action ordinals must remain stable",
 )
 require(
     'event.action == "draw"' in handler_runtime and "handler.onDraw or handler.onPointer" in handler_runtime and
-    "event[24] == true" in handler_runtime and
+    "event[24] == true" in handler_runtime and "event[28]" in handler_runtime and
     "function touchdisplay.isDraw(event)" in touchdisplay and
     "function touchdisplay.drawDelta(event)" in touchdisplay and
+    "function touchdisplay.drawSamples(event)" in touchdisplay and
+    "function touchdisplay.drawStroke(event)" in touchdisplay and
     "function touchdisplay.drawEnded(event)" in touchdisplay and
     '"onDraw"' in script_catalog,
-    "ComputerCraft handler/runtime/catalog must expose draw gestures",
+    "ComputerCraft handler/runtime/catalog must expose batched draw gestures",
 )
 require(
     "onDraw = function(event)" in touch_test and
-    "drawLine(event, x - dx, y - dy, x, y)" in touch_test and
+    "touchdisplay.drawStroke(event)" in touch_test and
+    "touchdisplay.drawSamples(event)" in touch_test and
+    "touchdisplay.setPixelBatch(event, valid, true)" in touch_test and
     "touchdisplay.drawEnded(event)" in touch_test,
-    "manual regression handler must exercise per-event draw deltas and explicit end",
+    "manual regression handler must exercise native batched strokes, effective samples and explicit end state",
 )
 
-# Display-pointer reach is special on Sable: plot coordinates are not rendered world coordinates.
 require(
     "Sable.HELPER.distanceSquaredWithSubLevels" in sable_geometry and
     "Sable.HELPER.projectOutOfSubLevel" in sable_geometry,
@@ -262,4 +262,4 @@ require(
     "Combined icon missing",
 )
 require("python3 tools/verify-display-combined-input.py" in workflow, "workflow must enforce display Combined contract")
-print("Validated resilient raw/event/poll display capture with left tap and ordered right-button draw gestures.")
+print("Validated resilient raw/event/poll display capture with left tap and native batched right-button draw strokes.")

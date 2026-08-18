@@ -2,6 +2,11 @@ package de.teutonstudio.ccaeroworks.display
 
 import java.util.Base64
 
+data class DeskDisplayPixelPatch(
+    val pixels: DeskDisplayPixels,
+    val changed: Int
+)
+
 class DeskDisplayPixels private constructor(
     val width: Int,
     val height: Int,
@@ -19,19 +24,32 @@ class DeskDisplayPixels private constructor(
         return packedBits[index ushr 3].toInt() and mask != 0
     }
 
-    fun withPixel(x: Int, y: Int, enabled: Boolean): DeskDisplayPixels {
-        require(x in 0 until width && y in 0 until height)
-        val index = y * width + x
-        val byteIndex = index ushr 3
-        val mask = 1 shl (index and 7)
+    fun withPixel(x: Int, y: Int, enabled: Boolean): DeskDisplayPixels =
+        withPixels(listOf(x to y), enabled).pixels
+
+    /**
+     * Apply many zero-based pixel coordinates through one packed-raster copy. Duplicate or already
+     * matching points are harmless and do not inflate [DeskDisplayPixelPatch.changed].
+     */
+    fun withPixels(points: Iterable<Pair<Int, Int>>, enabled: Boolean): DeskDisplayPixelPatch {
         val next = packedBits.copyOf()
-        val current = next[byteIndex].toInt() and 0xFF
-        next[byteIndex] = if (enabled) {
-            (current or mask).toByte()
-        } else {
-            (current and mask.inv()).toByte()
+        var changed = 0
+        for ((x, y) in points) {
+            require(x in 0 until width && y in 0 until height)
+            val index = y * width + x
+            val byteIndex = index ushr 3
+            val mask = 1 shl (index and 7)
+            val current = next[byteIndex].toInt() and 0xFF
+            val currentlyEnabled = current and mask != 0
+            if (currentlyEnabled == enabled) continue
+            next[byteIndex] = if (enabled) {
+                (current or mask).toByte()
+            } else {
+                (current and mask.inv()).toByte()
+            }
+            changed++
         }
-        return DeskDisplayPixels(width, height, next)
+        return DeskDisplayPixelPatch(DeskDisplayPixels(width, height, next), changed)
     }
 
     fun rows(): List<String> = List(height) { y ->

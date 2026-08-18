@@ -3,6 +3,7 @@ package de.teutonstudio.ccaeroworks.input
 import com.mred231.aeroworks.content.controls.ConsoleControlClient
 import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
 import de.teutonstudio.ccaeroworks.network.DisplayDrawPayload
+import de.teutonstudio.ccaeroworks.network.DisplayDrawSamplePayload
 import de.teutonstudio.ccaeroworks.network.DisplayPointerAction
 import de.teutonstudio.ccaeroworks.network.DisplayPointerActionPayload
 import net.minecraft.client.Minecraft
@@ -12,13 +13,9 @@ import org.lwjgl.glfw.GLFW
 /**
  * Shared primary-button state for an active Combined display session.
  *
- * The raw MouseHandler mixin remains the earliest interception point and blocks vanilla actions,
- * but touch detection no longer depends on that callback alone. The active display controller also
- * polls the physical GLFW state. Raw callbacks, NeoForge fallback edges and polling all feed the
- * same edge state, so a press can be observed through several paths without producing duplicates.
- *
- * Display semantics intentionally follow the configured interaction model:
- * RIGHT -> draw gesture, LEFT -> tap.
+ * Button ownership remains protected by raw/event/poll capture, but draw motion itself is sampled at
+ * the higher-frequency player-turn callback. Those points are buffered locally and sent as one
+ * bounded batch per client tick instead of discarding the path between 20 Hz packets.
  */
 object DisplayPrimaryMouseCapture {
     private var sessionTarget: DisplayCombinedTarget? = null
@@ -28,11 +25,6 @@ object DisplayPrimaryMouseCapture {
     private var rightOwnedByDisplay: Boolean = false
     private var nextGestureId: Long = 1L
 
-    /**
-     * Synchronise the edge detector when DISPLAY acquires Combined ownership.
-     * Buttons already held before acquisition are remembered as down but not owned by the display,
-     * preventing both phantom touch actions and swallowed gameplay releases.
-     */
     @JvmStatic
     fun beginSession(active: DisplayCombinedTarget, minecraft: Minecraft = Minecraft.getInstance()) {
         sessionTarget = active
@@ -64,9 +56,6 @@ object DisplayPrimaryMouseCapture {
         rightOwnedByDisplay = false
     }
 
-    /**
-     * Earliest raw callback. Returns true when Minecraft must not process the primary button.
-     */
     @JvmStatic
     fun capture(windowPointer: Long, button: Int, action: Int): Boolean {
         if (!isPrimary(button)) return false
@@ -90,10 +79,6 @@ object DisplayPrimaryMouseCapture {
         return applyEdge(active, button, action, "raw")
     }
 
-    /**
-     * NeoForge fallback when the raw mixin did not consume the callback. It deliberately shares the
-     * raw/polled edge state, therefore it cannot duplicate an action already observed elsewhere.
-     */
     @JvmStatic
     fun captureFallback(button: Int, action: Int): Boolean {
         if (!isPrimary(button)) return false
@@ -106,10 +91,6 @@ object DisplayPrimaryMouseCapture {
         return applyEdge(active, button, action, "event")
     }
 
-    /**
-     * Independent physical-state fallback. This is the decisive safety net for environments where
-     * another integration prevents the expected MouseHandler/NeoForge callback from reaching us.
-     */
     @JvmStatic
     fun poll(minecraft: Minecraft, active: DisplayCombinedTarget) {
         if (sessionTarget !== active) ensureSession(active, minecraft)
@@ -140,26 +121,22 @@ object DisplayPrimaryMouseCapture {
         }
     }
 
-    /** Mark a moved pointer for the next 20 Hz draw sample without sending render-frame packets. */
+    /** Record one high-frequency virtual-finger point for the next bounded network batch. */
     @JvmStatic
     fun observePointer(active: DisplayCombinedTarget) {
         if (!active.drawActive) return
-        if (active.u != active.drawLastSentU || active.v != active.drawLastSentV) active.drawDirty = true
+        if (active.drawPath.isEmpty() && active.u == active.drawLastSentU && active.v == active.drawLastSentV) return
+
+        active.drawPath.record(currentPathSample(active))
+        active.drawDirty = !active.drawPath.isEmpty()
     }
 
-    /** Send at most one moved draw sample per client tick. */
+    /** Send at most one packet per client tick, containing up to 16 path-preserving sub-samples. */
     @JvmStatic
     fun flushDrawSample(active: DisplayCombinedTarget) {
-        if (!active.drawActive || !active.drawDirty) return
-        if (active.u == active.drawLastSentU && active.v == active.drawLastSentV) {
-            active.drawDirty = false
-            return
-        }
+        if (!active.drawActive || !active.drawDirty || active.drawPath.isEmpty()) return
         active.drawSequence += 1
         sendDraw(active, isEnd = false, stage = "sample")
-        active.drawLastSentU = active.u
-        active.drawLastSentV = active.v
-        active.drawDirty = false
     }
 
     private fun ensureSession(active: DisplayCombinedTarget, minecraft: Minecraft) {
@@ -257,6 +234,7 @@ object DisplayPrimaryMouseCapture {
         active.drawSequence = 0
         active.drawLastSentU = active.u
         active.drawLastSentV = active.v
+        active.drawPath.clear()
         active.drawDirty = false
         sendDraw(active, isEnd = false, stage = "start")
     }
@@ -273,6 +251,7 @@ object DisplayPrimaryMouseCapture {
         active.drawSequence = 0
         active.drawLastSentU = 0.0
         active.drawLastSentV = 0.0
+        active.drawPath.clear()
         active.drawDirty = false
     }
 
@@ -297,9 +276,22 @@ object DisplayPrimaryMouseCapture {
     }
 
     private fun sendDraw(active: DisplayCombinedTarget, isEnd: Boolean, stage: String) {
+        val buffered = active.drawPath.drain()
+        val pathSamples = if (buffered.isEmpty()) listOf(currentPathSample(active)) else buffered
+        val samples = pathSamples.map { sample ->
+            DisplayDrawSamplePayload(
+                u = sample.u,
+                v = sample.v,
+                directionU = sample.directionU,
+                directionV = sample.directionV,
+                speed = sample.speed
+            )
+        }
+        val latest = samples.last()
+
         TouchInputDiagnostics.info(
             "client",
-            "send draw stage=$stage desk=${active.pos.toShortString()} socket=${active.socket} gesture=${active.drawGestureId} seq=${active.drawSequence} u=${active.u} v=${active.v} previousU=${active.drawLastSentU} previousV=${active.drawLastSentV} end=$isEnd held=${active.heldBindings}"
+            "send draw stage=$stage desk=${active.pos.toShortString()} socket=${active.socket} gesture=${active.drawGestureId} seq=${active.drawSequence} u=${latest.u} v=${latest.v} previousU=${active.drawLastSentU} previousV=${active.drawLastSentV} direction=${latest.directionU},${latest.directionV} speed=${latest.speed} samples=${samples.size} end=$isEnd held=${active.heldBindings}"
         )
         PacketDistributor.sendToServer(
             DisplayDrawPayload(
@@ -307,10 +299,26 @@ object DisplayPrimaryMouseCapture {
                 socket = active.socket,
                 gestureId = active.drawGestureId,
                 sequence = active.drawSequence,
-                u = active.u,
-                v = active.v,
+                u = latest.u,
+                v = latest.v,
+                directionU = latest.directionU,
+                directionV = latest.directionV,
+                speed = latest.speed,
+                samples = samples,
                 isEnd = isEnd
             )
         )
+        active.drawLastSentU = latest.u
+        active.drawLastSentV = latest.v
+        active.drawDirty = false
     }
+
+    private fun currentPathSample(active: DisplayCombinedTarget): DisplayPointerPathSample =
+        DisplayPointerPathSample(
+            u = active.u,
+            v = active.v,
+            directionU = active.pointerMotion.directionU,
+            directionV = active.pointerMotion.directionV,
+            speed = active.pointerMotion.speed
+        )
 }

@@ -50,12 +50,15 @@ clearDisplays()
 getDisplaySize(socket)
 getDisplayPixel(socket, x, y)
 setDisplayPixel(socket, x, y, enabled)
+setDisplayPixelBatch(socket, points, enabled?)
 setDisplayPixels(socket, rows)
 clearDisplayPixels(socket)
 getDisplayBinding(socket)
 setDisplayTouchScript(socket, path)
 clearDisplayBinding(socket)
 ```
+
+`setDisplayPixelBatch(socket, points, enabled?)` erwartet eine Liste aus `{x=..., y=...}` mit 1-basierten Displaykoordinaten. Alle Punkte werden in einer einzigen Kopie des gepackten Rasters angewendet; das Display wird höchstens einmal persistiert. Der Rückgabewert ist die Anzahl tatsächlich geänderter Pixel.
 
 `left`, `right` und `big` entsprechen den nullbasierten Socket-Indizes `0`, `1` und `2`.
 
@@ -95,7 +98,7 @@ Der Graph lädt keine Chunks nach. Konflikte, teilweise geladene Pultreihen, zu 
 
 ### Eingebettetes Desk-Handle
 
-Ein Handle aus `peripherals.find("ControlDesk")` besitzt die üblichen Modul-, Input- und Displaymethoden sowie:
+Ein Handle aus `peripherals.find("ControlDesk")` besitzt die üblichen Modul-, Input- und Displaymethoden einschließlich `setDisplayPixelBatch` sowie:
 
 ```text
 getPeripherals()
@@ -200,10 +203,13 @@ getSize(event)
 clear(event)
 getPixel(event, x, y)
 setPixel(event, x, y, enabled)
+setPixelBatch(event, points, enabled?)
 setPixels(event, rows)
 setText(event, text)
 setNumber(event, value, zeroPad?)
 ```
+
+`setPixelBatch` ist der bevorzugte Weg für mehrere punktuelle Rasteränderungen. Im Gegensatz zu `setPixels` muss das vollständige Raster nicht durch Lua übertragen werden.
 
 `touchdisplay` erbt diese Methoden und ergänzt:
 
@@ -213,9 +219,33 @@ isDraw(event)
 position(event)
 drawStart(event)
 drawDelta(event)
+drawDirection(event)
+drawSpeed(event)
+drawSamples(event)
+drawStroke(event)
 drawEnded(event)
 drawIdentity(event)
 normalizedPosition(event)
+```
+
+`drawDelta(event)` bleibt die serverseitig aufgelöste Pixelverschiebung zwischen den Endpunkten zweier akzeptierter Draw-Events. `drawDirection(event)` liefert den normierten lokalen Bewegungsvektor des virtuellen Fingers in Display-U/V. `drawSpeed(event)` liefert die geglättete Geschwindigkeit in normierten Displayeinheiten **pro Sekunde**.
+
+`drawSamples(event)` liefert den serverseitig aufgelösten Sub-Tick-Pfad des aktuellen Events. Ein normales Tick-Paket enthält bis zu 16 hochfrequente Client-Samples; bei nicht-ersten Events steht der vorherige akzeptierte Endpunkt als erstes Sample davor. Falls diese Tabelle fehlt, leer ist oder bei einem bewegten Folgeevent nur den aktuellen Punkt enthält, rekonstruiert der Helper mindestens `previous -> current` aus `deltaX/deltaY`.
+
+`drawStroke(event)` ist die bevorzugte Freihand-Zeichenfunktion. Sie interpoliert benachbarte Samples als kubische Hermite-Kurven, rasterisiert die Kurve kontinuierlich, entfernt doppelte Pixel und übergibt die resultierenden Punkte anschließend an einen einzigen nativen `setDisplayPixelBatch(...)`-Aufruf.
+
+Beispiel:
+
+```lua
+local touch = require("touchdisplay")
+
+return {
+    onDraw = function(event)
+        local _, sequence = touch.drawIdentity(event)
+        if sequence == 0 then touch.clear(event) end
+        touch.drawStroke(event)
+    end
+}
 ```
 
 `isDoubleTap` und `isHold` bleiben nur für Legacy-Ereignisproduzenten erhalten. Die aktuelle kombinierte Display-Eingabe erzeugt `tap` und `draw`. Details stehen in `display-touch.md`.
@@ -254,4 +284,4 @@ cc_aeroworks_dock_changed
 cc_aeroworks_remote_telemetry_changed
 ```
 
-Die fachlichen Dokumente beschreiben die jeweiligen Argumentverträge. Das Ingame-Handbuch führt dieselben Ereignisfamilien zentral auf.
+Für die beiden `*_display_input`-Ereignisse bleiben alle bisherigen Argumentpositionen bis einschließlich `isEnd` unverändert. Danach folgen `directionU`, `directionV`, `speed` und als letztes Argument die serverseitig aufgelöste `samples`-Tabelle. Die fachlichen Details stehen in `display-touch.md`.

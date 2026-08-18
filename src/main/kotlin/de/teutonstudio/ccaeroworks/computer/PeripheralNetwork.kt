@@ -709,6 +709,14 @@ internal class DeskLuaHandle(
     )
 
     @LuaFunction(mainThread = true)
+    fun setDisplayPixelBatch(arguments: IArguments): Int = AeroworksDeskService.setDisplayPixelBatch(
+        runtime.desk(address),
+        arguments.get(0),
+        de.teutonstudio.ccaeroworks.compat.computercraft.DisplayPixelBatchArguments.parse(arguments, 1),
+        arguments.optBoolean(2).orElse(true)
+    )
+
+    @LuaFunction(mainThread = true)
     fun setDisplayPixels(arguments: IArguments): List<String> {
         val table = ObjectLuaTable(arguments.getTable(1))
         val rows = (1..table.length()).map(table::getString)

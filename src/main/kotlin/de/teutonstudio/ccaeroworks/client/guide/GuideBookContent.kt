@@ -107,12 +107,14 @@ object GuideBookContent {
             GuideEntry.Code(listOf(
                 "local touch = require(\"touchdisplay\")", "local handler = {}", "function handler.onTap(event)",
                 "  local x, y = touch.position(event)", "end", "function handler.onDraw(event)",
-                "  local dx, dy = touch.drawDelta(event)", "end", "return handler"
+                "  local dx, dy = touch.drawDelta(event)", "  local du, dv = touch.drawDirection(event)",
+                "  local speed = touch.drawSpeed(event)", "  touch.drawStroke(event)", "end", "return handler"
             )),
             GuideEntry.Heading("Raw embedded event"),
             GuideEntry.Code(listOf(
                 "cc_aeroworks_console_display_input", "action = tap | draw",
-                "draw: gestureId, sequence, startX/startY,", "      deltaX/deltaY, isEnd"
+                "draw: gestureId, sequence, startX/startY,", "      deltaX/deltaY, isEnd,",
+                "      directionU/directionV, speed, samples"
             ))
         )),
         GuideSection(GuideSectionId.EVENTS, tech("events"), tech("CC-Aeroworks event reference"), listOf(

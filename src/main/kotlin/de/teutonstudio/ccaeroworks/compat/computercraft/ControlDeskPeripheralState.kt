@@ -23,11 +23,6 @@ object ControlDeskPeripheralState {
         active.remove(peripheral)
     }
 
-    /**
-     * Combined control samples already run on the server thread, so publish their CC event
-     * immediately instead of waiting for the next 20 Hz snapshot diff. The snapshot cache is
-     * patched when it exists so the fallback poll does not emit the same change twice.
-     */
     fun queueImmediateInput(
         desk: ConsoleBlockEntity,
         socket: Int,
@@ -75,7 +70,7 @@ object ControlDeskPeripheralState {
                 queuedComputers++
                 TouchInputDiagnostics.info(
                     "peripheral",
-                    "queue ${CCAeroworks.DESK_DISPLAY_INPUT_EVENT} attachment=${computer.attachmentName} desk=${desk.blockPos.toShortString()} socket=${touch.socket} action=${input.action} handler='$handlerPath' pixel=${touch.x},${touch.y} gesture=${input.gestureId} seq=${input.sequence} delta=${input.deltaX},${input.deltaY} end=${input.isEnd}"
+                    "queue ${CCAeroworks.DESK_DISPLAY_INPUT_EVENT} attachment=${computer.attachmentName} desk=${desk.blockPos.toShortString()} socket=${touch.socket} action=${input.action} handler='$handlerPath' pixel=${touch.x},${touch.y} gesture=${input.gestureId} seq=${input.sequence} delta=${input.deltaX},${input.deltaY} direction=${input.directionU},${input.directionV} speed=${input.speed} samples=${input.samples.size} end=${input.isEnd}"
                 )
                 computer.queueEvent(
                     CCAeroworks.DESK_DISPLAY_INPUT_EVENT,
@@ -97,7 +92,11 @@ object ControlDeskPeripheralState {
                     input.startY ?: touch.y,
                     input.deltaX ?: 0,
                     input.deltaY ?: 0,
-                    input.isEnd
+                    input.isEnd,
+                    input.directionU ?: 0.0,
+                    input.directionV ?: 0.0,
+                    input.speed ?: 0.0,
+                    input.luaSamples()
                 )
                 if (input.action == "tap") {
                     queueCompatibleTouch(computer, touch)
@@ -136,7 +135,6 @@ object ControlDeskPeripheralState {
             touch.u,
             touch.v
         )
-        // CC:Tweaked monitor_touch remains intentionally unchanged for compatibility.
         computer.queueEvent(
             "monitor_touch",
             computer.attachmentName,

@@ -1,114 +1,150 @@
 # Touch-Eingaben auf großen Pultanzeigen
 
-Die große Pultanzeige und die große Radaranzeige verwenden ausschließlich den kombinierten Display-Eingabemodus. Ein normaler Leerhand-Rechtsklick wird nicht mehr als programmierbarer Touch interpretiert.
+Die große Pultanzeige und die große Radaranzeige verwenden den kombinierten Display-Eingabemodus. Während die konfigurierte Display-Bedienungstaste gehalten wird, bewegt die Maus einen virtuellen Finger auf der Displayfläche. Linksklick erzeugt `tap`, Rechtsklick startet eine `draw`-Geste und Loslassen beendet sie mit `isEnd = true`.
 
-## Bedienung
+Die primären Maustasten werden weiterhin über Raw-`MouseHandler`, NeoForge-Fallback und direktes GLFW-Polling abgesichert. Die Bewegung des virtuellen Fingers wird dagegen höherfrequent im Player-Turn-Pfad erfasst und erst anschließend tickweise zum Server gebündelt.
 
-1. Im Minecraft-Menü `Steuerung` unter `Sonstiges/Misc` die eigene Tastenbelegung `Display-Bedienung` / `Display interaction` belegen.
-2. Das große Display oder große Radar mit dem Fadenkreuz ansehen.
-3. Die Taste gedrückt halten.
-4. Die Kamera wird eingefroren und ein halbtransparenter 3D-Zeiger erscheint orthogonal auf der Displayfläche.
-5. Die Maus verschiebt den Zeiger über die Displayfläche.
-6. Rechtsklick startet eine `draw`-Geste. Bewegung bei gehaltener rechter Maustaste erzeugt geordnete Draw-Samples; Loslassen erzeugt das abschließende Draw-Event mit `isEnd = true`.
-7. Linksklick erzeugt einen einzelnen `tap`.
-8. Beim Loslassen der Display-Bedienungstaste endet die Sitzung sofort; eine noch aktive Draw-Geste wird nach Möglichkeit sauber beendet.
+## Draw-Datenmodell
 
-Während die Display-Bedienungstaste gehalten wird, besitzen die beiden primären Maustasten Vorrang vor der normalen kombinierten Binding-Verarbeitung und vor Vanilla-Aktionen. Die funktionierende Eingabeerfassung bleibt absichtlich dreifach abgesichert: früher Raw-`MouseHandler`-Intercept, NeoForge-`MouseButton.Pre`-Fallback und direktes `GLFW.glfwGetMouseButton(...)`-Polling teilen denselben Buttonzustand. Draw baut erst hinter dieser Erfassung auf, damit die Touchfähigkeit nicht wieder vom Erfolg eines einzelnen Callbacks abhängt.
+Die bisherigen Top-Level-Felder bleiben erhalten:
 
-Der Zeiger bleibt auf die normierte Displayfläche `0..1` begrenzt. Das erste Maus-Sample beim Aktivieren wird verworfen, damit die Bewegung zum Anvisieren des Displays nicht als Zeigerbewegung übernommen wird. Wird das Display entfernt, der Spieler zu weit entfernt, ein Menü geöffnet oder der Fokus verloren, endet die Sitzung ebenfalls.
-
-Die Zeigergeschwindigkeit kann über `displayPointerSensitivity` in `cc_aeroworks-client.toml` angepasst werden.
-
-## Tap und Draw
-
-`tap` ist zustandslos und enthält Displayidentität sowie die serverseitig aufgelöste aktuelle Pixelposition.
-
-`draw` ist eine geordnete Geste. Jedes Draw-Event enthält zusätzlich:
-
-- `gestureId`: stabile Kennung der aktuellen Geste;
+- `gestureId`: stabile Kennung der Geste;
 - `sequence`: `0` beim Start, danach streng aufsteigend;
-- `startX`, `startY`: serverseitig aufgelöste Startkoordinate der Geste;
-- `deltaX`, `deltaY`: Differenz der aktuellen Pixelkoordinate zum **unmittelbar vorherigen akzeptierten Draw-Event**;
-- `isEnd`: `true` ausschließlich beim abschließenden Event.
+- `startX`, `startY`: serverseitig aufgelöster Startpunkt;
+- `x`, `y`: aktueller Endpunkt des Events;
+- `deltaX`, `deltaY`: Differenz zwischen aktuellem Endpunkt und Endpunkt des vorherigen akzeptierten Events;
+- `directionU`, `directionV`: normierte aktuelle Bewegungsrichtung des virtuellen Fingers in Display-U/V;
+- `speed`: Betrag der geglätteten Display-Velocity in normierten Displayeinheiten pro Sekunde;
+- `isEnd`: Abschlussmarkierung der Geste.
 
-Die vorhandenen `x`/`y` bleiben die aktuelle Position. Ein Handler kann daher ohne eigenen vorherigen Eventzustand direkt das Segment `x-deltaX, y-deltaY -> x,y` zeichnen. Das Delta zum Startpunkt wird absichtlich nicht separat übertragen, weil es jederzeit aus aktueller Position und `startX/startY` berechnet werden kann.
+`deltaX/deltaY` und `directionU/directionV` beschreiben absichtlich verschiedene Dinge. Das Delta ist der grobe serverseitige Event-zu-Event-Vektor in Pixeln. Die Direction entsteht aus der höherfrequenten tatsächlichen Fingerbewegung und beschreibt die lokale Bewegungsrichtung.
 
-Die Clientseite sendet während einer aktiven Draw-Geste höchstens ein Bewegungssample pro Clienttick. Der Server hält pro Geste den zuletzt akzeptierten Punkt, prüft die Reihenfolge und berechnet daraus das Delta in der tatsächlich aktuellen Displayauflösung. Verwaiste Gesten werden nach kurzer Zeit verworfen.
+Die Velocity wird leicht exponentiell geglättet: 65 % neues Sample und 35 % vorherige Velocity. Erst danach wird sie normiert. Nullbewegung beendet die Glättungsserie, behält aber die zuletzt veröffentlichte Richtung und Geschwindigkeit für ein direkt folgendes Release-Event.
 
-## TouchTrace-Diagnose
+## Sub-Tick-Pfad
 
-Der Diagnose-Branch protokolliert den vollständigen Touch-Pfad absichtlich auf `INFO`/`WARN`. Dafür muss `runClient` **nicht** im Debug-Modus gestartet werden. Alle relevanten Zeilen tragen den stabilen Präfix:
+Eine schöne Kurve lässt sich nicht aus einem einzelnen 20-Hz-Endpunkt rekonstruieren. Deshalb sammelt der Client während einer aktiven Draw-Geste die höherfrequenten Pointerpositionen in einem begrenzten Pfadpuffer.
+
+Pro Clienttick wird weiterhin höchstens **ein Draw-Paket** gesendet. Dieses enthält jedoch bis zu **16 Sub-Tick-Samples**. Falls bei sehr hoher Bildrate mehr Punkte anfallen, entfernt der Client bevorzugt geometrisch unwichtige Innenpunkte und erhält Endpunkte sowie markante Kurvenänderungen.
+
+Jedes Sample enthält:
 
 ```text
-[TouchTrace]
+x/y werden erst serverseitig bestimmt
+u/v
+normalized directionU/directionV
+speed in U/V pro Sekunde
 ```
 
-Die Stufen bedeuten:
+Der Server validiert jedes Sample einzeln und löst `u/v` gegen die aktuell konfigurierte Displayauflösung in Pixelkoordinaten auf. Bei jedem nicht-ersten Event wird der vorherige akzeptierte Endpunkt vor den neuen Batch gestellt. Dadurch enthält `event.samples` normalerweise die vollständige Teilstrecke, die das aktuelle Event zeichnen soll, ohne dass ein Lua-Handler den letzten Punkt global speichern muss.
 
-- `[button-sample]`: physische LEFT/RIGHT-Flanken aus Raw/Event/Poll;
-- `[client]`: Display-Sitzung, Tap-Versand und Draw-Start/Sample/Ende;
-- `[server]`: Paketempfang, Sicherheits-/Reichweitenprüfung, Sequenzprüfung und Pixelauflösung;
-- `[dispatch]`: Multiblock-Auflösung, gespeichertes Display-Binding und Event-Weiterleitung;
-- `[peripheral]`: Weiterleitung an normale/verkabelte ComputerCraft-Computer;
-- `[catalog]`: Scan und Auflösung der auf dem eingebetteten Computer vorhandenen Lua-Skriptdateien;
-- `[binding]`: Lesen, Setzen oder ungültiges Zurückfallen einer Skriptbindung;
-- `[lua]`: `loadfile`, Handler-Aufbau, Callback-Auswahl, Callback-Erfolg oder Lua-Fehler;
-- `[pixels]`: tatsächlicher Raster-Write in das Displaymodul und unmittelbarer Readback.
+`touchdisplay.drawSamples(event)` besitzt zusätzlich einen defensiven Fallback: Fehlt die Sample-Tabelle, ist sie leer oder enthält sie bei einem bewegten Folgeevent nur den aktuellen Punkt, wird aus `x/y` und `deltaX/deltaY` mindestens das Segment `previous -> current` rekonstruiert. Ein Datenverlust im optionalen Sub-Tick-Pfad darf damit nicht mehr still zu einem einzelnen Punkt werden.
 
-Für eine Reproduktion genügt es, die Skriptquelle einzustellen, die Display-Bedienungstaste zu halten, einmal links zu tippen und rechts gedrückt eine Linie zu ziehen. Ein vollständiger Draw-Lauf zeigt `drawEdge=true`, `send draw stage=start`, optionale Samples, anschließend `send draw stage=end` und dieselbe `gestureId` mit steigender `sequence` bis Lua und Pixel-Write.
+## Lua-API
 
-## CC:Tweaked-Ereignisse
+`touchdisplay` stellt für Draw unter anderem bereit:
 
-### Direkt angeschlossener `ControlDesk`
+```lua
+local touch = require("touchdisplay")
 
-Jede Displayaktion erzeugt weiterhin zuerst die bisherigen Felder:
+local dx, dy = touch.drawDelta(event)
+local du, dv = touch.drawDirection(event)
+local speed = touch.drawSpeed(event)
+local samples = touch.drawSamples(event)
+local changedPixels = touch.drawStroke(event)
+```
+
+`drawSamples(event)` liefert die serverseitig aufgelöste Sample-Tabelle. Ein Eintrag besitzt:
+
+```lua
+{
+    x = 42,
+    y = 31,
+    u = 0.2625,
+    v = 0.2768,
+    directionU = 0.81,
+    directionV = 0.58,
+    speed = 0.74
+}
+```
+
+`drawStroke(event)` ist die bevorzugte High-Level-Zeichenfunktion. Sie verbindet benachbarte Samples mit kubischen Hermite-Kurven. Die Tangenten stammen aus `directionU/directionV`; falls an einem Punkt keine Richtung vorliegt, wird der lokale Verbindungsvektor als Fallback verwendet.
+
+Die Hermite-Tangentenlänge wird an die Entfernung der beiden Samplepunkte gekoppelt. Dadurch bestimmt die gemessene Mausbewegungsrichtung die Kurvenform, ohne dass eine hohe Geschwindigkeit unkontrollierte Überschwinger erzeugt.
+
+## Nativer Pixel-Batch
+
+Das frühere Testskript rief für jeden einzelnen Rasterpunkt `setPixel()` auf. Jeder dieser Aufrufe konnte das vollständige Displayraster kopieren, serialisieren und erneut speichern. Die erste Stroke-Fassung vermied zwar die Einzelwrites, zog dafür aber das vollständige Raster über `getDisplay()` nach Lua, baute dort alle Zeilen neu auf und sendete sie über `setDisplayPixels()` zurück.
+
+Die aktuelle Fassung verwendet stattdessen:
+
+```lua
+display.setPixelBatch(event, points, enabled?)
+```
+
+beziehungsweise auf dem Desk direkt:
+
+```lua
+desk.setDisplayPixelBatch(socket, points, enabled?)
+```
+
+Dabei ist `points` eine Liste aus `{x=..., y=...}`. Kotlin lädt das vorhandene gepackte Raster, kopiert das Bytearray genau einmal, wendet alle Punkte auf diese Kopie an und persistiert nur dann einmal, wenn sich tatsächlich mindestens ein Pixel geändert hat.
+
+Damit gilt pro Draw-Event grob:
+
+```text
+Sub-Tick-Samples
+    -> Hermite-Kurve
+    -> kontinuierliche Rasterisierung
+    -> Pixel deduplizieren
+    -> ein nativer Packed-Raster-Patch
+    -> höchstens ein persistierter Raster-Write
+```
+
+## Ereignisargumente
+
+### Direkt angeschlossener ControlDesk
+
+Alle bisherigen Positionen bleiben bestehen. Nach `speed` wird die neue Sample-Tabelle angehängt:
 
 ```lua
 local _, peripheralName, socket, socketName, moduleId, action, x, y, width, height,
       handlerPath, u, v,
-      gestureId, sequence, startX, startY, deltaX, deltaY, isEnd =
+      gestureId, sequence, startX, startY, deltaX, deltaY, isEnd,
+      directionU, directionV, speed, samples =
   os.pullEvent("cc_aeroworks_desk_display_input")
 ```
 
-Die aktuelle kombinierte Mausbedienung erzeugt `action = "tap"` oder `action = "draw"`. Die alten Protokollwerte `"hold"` und `"double_tap"` bleiben intern aus Kompatibilitätsgründen reserviert, werden von der neuen Mausbedienung aber nicht mehr erzeugt.
-
-Ein normaler `tap` erzeugt aus Kompatibilitätsgründen zusätzlich weiterhin:
-
-```lua
-local _, peripheralName, x, y = os.pullEvent("monitor_touch")
-```
-
-und:
-
-```lua
-local _, peripheralName, socket, socketName, moduleId, x, y, width, height =
-  os.pullEvent("cc_aeroworks_desk_touch")
-```
-
-`draw` erzeugt diese alten Touch-Ereignisse ausdrücklich nicht. Damit bleibt `monitor_touch` ein einfacher Tap-Kompatibilitätspfad und eine Draw-Geste wird nicht versehentlich doppelt verarbeitet.
-
 ### Eingebetteter Computer
-
-Der eingebettete Computer erhält jede Displayaktion über:
 
 ```lua
 local _, deskId, deskIndex, socket, socketName, moduleId, action, x, y, width, height,
       handlerPath, u, v, deskX, deskY, deskZ,
-      gestureId, sequence, startX, startY, deltaX, deltaY, isEnd =
+      gestureId, sequence, startX, startY, deltaX, deltaY, isEnd,
+      directionU, directionV, speed, samples =
   os.pullEvent("cc_aeroworks_console_display_input")
 ```
 
-Für `tap` wird zusätzlich das kompatible Ereignis geliefert:
+Der automatische Display-Handler wandelt das letzte Argument in `event.samples` um.
+
+## Empfohlenes Draw-Skript
+
+Für normales Freihandzeichnen genügt jetzt:
 
 ```lua
-local _, deskId, deskIndex, socket, socketName, moduleId, x, y, width, height =
-  os.pullEvent("cc_aeroworks_console_touch")
+local touch = require("touchdisplay")
+
+return {
+    onDraw = function(event)
+        local _, sequence = touch.drawIdentity(event)
+        if sequence == 0 then touch.clear(event) end
+        touch.drawStroke(event)
+    end
+}
 ```
 
-Automatische Display-Handler können `onTap`, `onDraw` oder als allgemeinen Fallback `onPointer` bereitstellen. Die alten `onHold`/`onDoubleTap`-Pfade bleiben nur für Legacy-Ereignisse erhalten. Das Modul `touchdisplay` stellt unter anderem `isTap(event)`, `isDraw(event)`, `drawStart(event)`, `drawDelta(event)`, `drawIdentity(event)` und `drawEnded(event)` bereit.
+Das Skript benötigt keinen eigenen vorherigen Punkt und keine eigene Kurveninterpolation.
 
-## Koordinaten und Sicherheit
+## Sicherheit
 
-Die Clientseite überträgt normierte Zeigerkoordinaten. Der Server prüft Desk, Socket, Controllerzugriff, Interaktionsreichweite und Koordinatenbereich und berechnet erst danach die aktuell konfigurierte 1-basierte Displayzelle. Für Draw wird auch das Delta erst aus zwei serverseitig aufgelösten Pixelpunkten berechnet.
-
-Die große Pultanzeige und die große Radaranzeige verwenden damit dieselbe Geometrie und dieselbe dynamische Serverauflösung. Änderungen an `display.large.width` und `display.large.height` benötigen keine fest verdrahteten Clientwerte.
+Der Client überträgt nur normierte Displaykoordinaten und Bewegungsmetadaten. Der Server prüft weiterhin Zielblock, Socket, Controllerzugriff, Sable-/Welt-Reichweite, Gestenreihenfolge und Wertebereiche. Alle Pixelkoordinaten werden erst serverseitig aus der tatsächlich aktuellen Displayauflösung berechnet. Ein Paket darf höchstens 16 Samples enthalten; verwaiste Gesten werden nach kurzer Zeit verworfen. Der native Pixel-Batch begrenzt zusätzlich die Anzahl der Punkte pro Lua-Aufruf.

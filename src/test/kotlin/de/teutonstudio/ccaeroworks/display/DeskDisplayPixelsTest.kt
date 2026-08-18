@@ -27,6 +27,28 @@ class DeskDisplayPixelsTest {
     }
 
     @Test
+    fun batchedPatchCopiesOnceAndCountsOnlyActualChanges() {
+        val original = DeskDisplayPixels.blank(8, 4).withPixel(1, 1, true)
+
+        val patch = original.withPixels(
+            listOf(
+                1 to 1, // already enabled
+                2 to 1,
+                2 to 1, // duplicate must not count twice
+                7 to 3
+            ),
+            true
+        )
+
+        assertEquals(2, patch.changed)
+        assertTrue(patch.pixels.get(1, 1))
+        assertTrue(patch.pixels.get(2, 1))
+        assertTrue(patch.pixels.get(7, 3))
+        assertFalse(original.get(2, 1))
+        assertFalse(original.get(7, 3))
+    }
+
+    @Test
     fun legacyOrWrongSizedRasterIsRecognizedButNotDecodedAsCurrentPixels() {
         val legacy = "@cca_pixels_1:" + "0".repeat(55)
         assertTrue(DeskDisplayPixels.isEncoded(legacy))

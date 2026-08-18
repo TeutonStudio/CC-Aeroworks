@@ -65,9 +65,6 @@ object DisplayCombinedInputController {
     fun onMouseButton(event: InputEvent.MouseButton.Pre) {
         val minecraft = Minecraft.getInstance()
 
-        // Fallback only: the raw MouseHandler mixin normally sees primary display buttons first.
-        // This path shares DisplayPrimaryMouseCapture's edge state with both raw capture and direct
-        // GLFW polling, so it cannot duplicate an action already observed through another route.
         if (target != null &&
             (event.button == GLFW.GLFW_MOUSE_BUTTON_LEFT || event.button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) &&
             DisplayPrimaryMouseCapture.captureFallback(event.button, event.action)
@@ -86,9 +83,8 @@ object DisplayCombinedInputController {
     }
 
     /**
-     * The tick path retires lost releases, samples physical primary mouse buttons independently of
-     * NeoForge's mouse event routing, flushes at most one moved draw sample, and runs a low-frequency
-     * world watchdog. Target acquisition remains edge-driven and never happens here.
+     * Physical button state and network output remain tick-bounded, while the higher-frequency turn
+     * callback below records every virtual-finger movement into a bounded path buffer.
      */
     @SubscribeEvent
     fun onClientTick(event: ClientTickEvent.Post) {
@@ -108,8 +104,6 @@ object DisplayCombinedInputController {
             return
         }
 
-        // This is the critical fallback: touch remains functional even if another integration
-        // prevents MouseHandler/NeoForge button callbacks from reaching CC-Aeroworks.
         DisplayPrimaryMouseCapture.poll(minecraft, active)
         DisplayPrimaryMouseCapture.flushDrawSample(active)
 
@@ -159,15 +153,25 @@ object DisplayCombinedInputController {
         }
 
         val sensitivity = CCClientConfig.displayPointerSensitivity.get()
-        if (active.xActive() && deltaX != 0.0) {
-            active.u = (active.u + deltaX * sensitivity).coerceIn(0.0, 1.0)
-        }
-        if (active.yActive() && deltaY != 0.0) {
-            active.v = (active.v - deltaY * sensitivity).coerceIn(0.0, 1.0)
-        }
+        val requestedU = if (active.xActive()) deltaX * sensitivity else 0.0
+        val requestedV = if (active.yActive()) -deltaY * sensitivity else 0.0
+        val previousU = active.u
+        val previousV = active.v
 
-        // Preserve the proven raw/event/poll button capture and only layer draw sampling behind it.
-        // Polling here sees the newest pointer position for move-and-click gestures.
+        if (requestedU != 0.0) active.u = (active.u + requestedU).coerceIn(0.0, 1.0)
+        if (requestedV != 0.0) active.v = (active.v + requestedV).coerceIn(0.0, 1.0)
+
+        // Use the movement that actually reached the clamped virtual finger. Attempted movement
+        // farther beyond a display edge must not create a fictitious tangent or speed.
+        val movementU = active.u - previousU
+        val movementV = active.v - previousV
+        val nowNanos = System.nanoTime()
+        val elapsedSeconds = (nowNanos - active.pointerMotionSampleNanos).coerceAtLeast(1L) / 1_000_000_000.0
+        active.pointerMotionSampleNanos = nowNanos
+        active.pointerMotion.observe(movementU, movementV, elapsedSeconds)
+
+        // Poll after movement so a click edge starts at the newest pointer position. If drawing is
+        // already active, observePointer records this high-frequency point for the next tick batch.
         DisplayPrimaryMouseCapture.poll(minecraft, active)
         DisplayPrimaryMouseCapture.observePointer(active)
     }
@@ -317,7 +321,7 @@ object DisplayCombinedInputController {
         active?.let {
             TouchInputDiagnostics.info(
                 "client",
-                "display session stopped desk=${it.pos.toShortString()} socket=${it.socket} u=${it.u} v=${it.v} held=${it.heldBindings} drawActive=${it.drawActive} gesture=${it.drawGestureId} seq=${it.drawSequence}"
+                "display session stopped desk=${it.pos.toShortString()} socket=${it.socket} u=${it.u} v=${it.v} direction=${it.pointerMotion.directionU},${it.pointerMotion.directionV} speed=${it.pointerMotion.speed} pendingSamples=${it.drawPath.size} held=${it.heldBindings} drawActive=${it.drawActive} gesture=${it.drawGestureId} seq=${it.drawSequence}"
             )
         }
         DisplayPrimaryMouseCapture.endSession(active)
@@ -329,8 +333,6 @@ object DisplayCombinedInputController {
         if (target != null || suppressedBindings.isNotEmpty()) {
             TouchInputDiagnostics.info("client", "display input state reset")
         }
-        // Logout/clone may already have lost the play connection, so retire local draw state without
-        // attempting a final network packet. Server draw state has its own short timeout.
         DisplayPrimaryMouseCapture.endSession(target, sendDrawEnd = false)
         target = null
         suppressedBindings.clear()

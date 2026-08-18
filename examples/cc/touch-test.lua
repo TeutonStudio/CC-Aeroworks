@@ -5,13 +5,17 @@
 --   right mouse button -> draw while held, end on release
 --   left mouse button  -> tap
 --
--- Tap clears the display and draws a plus. Draw clears only on gesture start, then connects each
--- server-resolved event segment using deltaX/deltaY from the previous event. This deliberately
--- exercises start coordinates, per-event deltas, ordering and the explicit end flag.
+-- Draw uses touchdisplay.drawStroke(event): the server-resolved sub-tick sample batch is
+-- Hermite-interpolated and persisted through one native packed-raster patch.
+--
+-- Diagnostics are intentionally throttled. Printing every 20 Hz draw sample makes the regression
+-- test itself part of the scheduling problem it is trying to measure, a surprisingly human design.
 
 local touchdisplay = require("touchdisplay")
 
 local STATE_KEY = "__cc_aeroworks_touch_test_state"
+local LOG_EVERY = 10
+
 local state = rawget(_G, STATE_KEY)
 if type(state) ~= "table" then
   state = {}
@@ -29,89 +33,105 @@ local function countersFor(event)
   local key = sourceKey(event)
   local counters = state[key]
   if type(counters) ~= "table" then
-    counters = { total = 0, tap = 0, draw = 0, other = 0 }
+    counters = {
+      total = 0,
+      tap = 0,
+      draw = 0,
+      other = 0,
+      lastGesture = nil,
+      lastSequence = nil,
+      gaps = 0,
+    }
     state[key] = counters
   end
   return counters
 end
 
-local function setPixel(event, x, y)
+local function drawPlus(event, x, y)
+  local points = {
+    { x = x, y = y },
+    { x = x - 1, y = y },
+    { x = x + 1, y = y },
+    { x = x, y = y - 1 },
+    { x = x, y = y + 1 },
+  }
   local width = tonumber(event.width) or 0
   local height = tonumber(event.height) or 0
-  x = math.floor(tonumber(x) or 0)
-  y = math.floor(tonumber(y) or 0)
-  if x < 1 or y < 1 or x > width or y > height then return end
-  touchdisplay.setPixel(event, x, y, true)
-end
-
-local function drawPlus(event, x, y)
-  setPixel(event, x, y)
-  setPixel(event, x - 1, y)
-  setPixel(event, x + 1, y)
-  setPixel(event, x, y - 1)
-  setPixel(event, x, y + 1)
-end
-
-local function drawLine(event, x0, y0, x1, y1)
-  x0, y0 = math.floor(x0), math.floor(y0)
-  x1, y1 = math.floor(x1), math.floor(y1)
-  local dx = math.abs(x1 - x0)
-  local sx = x0 < x1 and 1 or -1
-  local dy = -math.abs(y1 - y0)
-  local sy = y0 < y1 and 1 or -1
-  local err = dx + dy
-
-  while true do
-    setPixel(event, x0, y0)
-    if x0 == x1 and y0 == y1 then break end
-    local e2 = 2 * err
-    if e2 >= dy then
-      err = err + dy
-      x0 = x0 + sx
-    end
-    if e2 <= dx then
-      err = err + dx
-      y0 = y0 + sy
+  local valid = {}
+  for _, point in ipairs(points) do
+    if point.x >= 1 and point.y >= 1 and point.x <= width and point.y <= height then
+      valid[#valid + 1] = point
     end
   end
+  if #valid > 0 then touchdisplay.setPixelBatch(event, valid, true) end
 end
 
-local function report(event)
+local function reportDraw(event, changed, counters)
+  local x, y = touchdisplay.position(event)
+  local sx, sy = touchdisplay.drawStart(event)
+  local dx, dy = touchdisplay.drawDelta(event)
+  local directionU, directionV = touchdisplay.drawDirection(event)
+  local speed = touchdisplay.drawSpeed(event)
+  local effectiveSamples = touchdisplay.drawSamples(event)
+  local rawSamples = type(event.samples) == "table" and #event.samples or 0
+  local gestureId, sequence = touchdisplay.drawIdentity(event)
+  local numericSequence = tonumber(sequence) or -1
+  local gestureKey = tostring(gestureId)
+
+  local gap = false
+  local expected = nil
+  if counters.lastGesture == gestureKey and counters.lastSequence ~= nil and numericSequence > counters.lastSequence + 1 then
+    gap = true
+    expected = counters.lastSequence + 1
+    counters.gaps = counters.gaps + 1
+  end
+
+  if counters.lastGesture ~= gestureKey then
+    counters.lastGesture = gestureKey
+    counters.lastSequence = nil
+  end
+  counters.lastSequence = numericSequence
+
+  if gap then
+    printError(string.format(
+      "[touch-test] SEQ GAP id=%s expected=%d got=%d missing=%d",
+      gestureKey, expected, numericSequence, numericSequence - expected
+    ))
+  end
+
+  local ended = touchdisplay.drawEnded(event)
+  local shouldLog = numericSequence == 0 or ended or gap or (numericSequence >= 0 and numericSequence % LOG_EVERY == 0)
+  if not shouldLog then return end
+
+  print(string.format(
+    "[touch-test] DRAW id=%s seq=%d start=%d,%d current=%d,%d delta=%d,%d dir=%.3f,%.3f speed=%.4f/s raw=%d effective=%d changed=%d gaps=%d end=%s total=%d",
+    gestureKey, numericSequence, tonumber(sx) or -1, tonumber(sy) or -1,
+    tonumber(x) or -1, tonumber(y) or -1, tonumber(dx) or 0, tonumber(dy) or 0,
+    tonumber(directionU) or 0, tonumber(directionV) or 0, tonumber(speed) or 0,
+    rawSamples, #effectiveSamples, tonumber(changed) or 0, counters.gaps,
+    tostring(ended), counters.total
+  ))
+end
+
+local function report(event, changed)
   local counters = countersFor(event)
   local action = tostring(event.action or "pointer")
   counters.total = counters.total + 1
-  if counters[action] ~= nil then
-    counters[action] = counters[action] + 1
-  else
-    counters.other = counters.other + 1
-  end
+  if counters[action] ~= nil then counters[action] = counters[action] + 1 else counters.other = counters.other + 1 end
 
-  local x, y, width, height = touchdisplay.position(event)
   if touchdisplay.isDraw(event) then
-    local sx, sy = touchdisplay.drawStart(event)
-    local dx, dy = touchdisplay.drawDelta(event)
-    local gestureId, sequence = touchdisplay.drawIdentity(event)
-    print(string.format(
-      "[touch-test] DRAW id=%s seq=%s start=%d,%d current=%d,%d delta=%d,%d end=%s total=%d",
-      tostring(gestureId), tostring(sequence), tonumber(sx) or -1, tonumber(sy) or -1,
-      tonumber(x) or -1, tonumber(y) or -1, tonumber(dx) or 0, tonumber(dy) or 0,
-      tostring(touchdisplay.drawEnded(event)), counters.total
-    ))
+    reportDraw(event, changed, counters)
     return
   end
 
+  local x, y, width, height = touchdisplay.position(event)
   local u, v = touchdisplay.normalizedPosition(event)
   print(string.format(
     "[touch-test] TAP pixel=%d,%d / %dx%d u=%s v=%s total=%d tap=%d draw=%d",
-    tonumber(x) or -1,
-    tonumber(y) or -1,
-    tonumber(width) or -1,
-    tonumber(height) or -1,
+    tonumber(x) or -1, tonumber(y) or -1, tonumber(width) or -1, tonumber(height) or -1,
     type(u) == "number" and string.format("%.4f", u) or "?",
     type(v) == "number" and string.format("%.4f", v) or "?",
-    counters.total,
-    counters.tap,
-    counters.draw
+    counters.total, counters.tap, counters.draw
   ))
 end
 
@@ -121,22 +141,20 @@ return {
     touchdisplay.clear(event)
     local x, y = touchdisplay.position(event)
     drawPlus(event, x, y)
-    report(event)
+    report(event, 0)
   end,
 
   onDraw = function(event)
     assert(touchdisplay.isDraw(event), "onDraw received a non-draw event")
-    local x, y = touchdisplay.position(event)
-    local dx, dy = touchdisplay.drawDelta(event)
     local _, sequence = touchdisplay.drawIdentity(event)
 
     if tonumber(sequence) == 0 then touchdisplay.clear(event) end
-    drawLine(event, x - dx, y - dy, x, y)
-    if touchdisplay.drawEnded(event) then drawPlus(event, x, y) end
-    report(event)
+
+    local changed = touchdisplay.drawStroke(event)
+    report(event, changed)
   end,
 
   onPointer = function(event)
-    report(event)
+    report(event, 0)
   end,
 }

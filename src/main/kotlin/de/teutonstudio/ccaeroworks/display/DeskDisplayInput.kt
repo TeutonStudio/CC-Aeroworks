@@ -1,12 +1,32 @@
 package de.teutonstudio.ccaeroworks.display
 
+data class DeskDisplayStrokeSample(
+    val x: Int,
+    val y: Int,
+    val u: Double,
+    val v: Double,
+    val directionU: Double,
+    val directionV: Double,
+    val speed: Double
+) {
+    fun toLuaMap(): Map<String, Any> = linkedMapOf(
+        "x" to x,
+        "y" to y,
+        "u" to u,
+        "v" to v,
+        "directionU" to directionU,
+        "directionV" to directionV,
+        "speed" to speed
+    )
+}
+
 /**
  * Server-resolved display input delivered to ComputerCraft.
  *
- * Tap inputs use the current touch only. Draw inputs additionally carry the gesture start point,
- * per-event delta from the previously accepted draw sample, a stable gesture id and sequence, and
- * an explicit end marker. Keeping delta server-resolved means Lua handlers do not need to remember
- * the previous event just to draw a continuous segment.
+ * Draw inputs keep the backwards-compatible top-level point/delta fields and additionally expose a
+ * bounded, server-resolved stroke path. For non-start events [samples] begins with the previous
+ * accepted endpoint, so Lua can rasterize the complete current segment without keeping hidden
+ * cross-event state.
  */
 data class DeskDisplayInput(
     val action: String,
@@ -17,8 +37,14 @@ data class DeskDisplayInput(
     val startY: Int? = null,
     val deltaX: Int? = null,
     val deltaY: Int? = null,
+    val directionU: Double? = null,
+    val directionV: Double? = null,
+    val speed: Double? = null,
+    val samples: List<DeskDisplayStrokeSample> = emptyList(),
     val isEnd: Boolean = false
 ) {
     val isDraw: Boolean
         get() = action == "draw"
+
+    fun luaSamples(): List<Map<String, Any>> = samples.map(DeskDisplayStrokeSample::toLuaMap)
 }

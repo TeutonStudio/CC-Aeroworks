@@ -16,6 +16,8 @@ data class DeskInputSnapshot(
 )
 
 object AeroworksDeskService {
+    const val MAX_PIXEL_BATCH_POINTS: Int = 65_536
+
     fun getSockets(desk: ConsoleBlockEntity): List<Map<String, Any>> =
         DeskSockets.entries(desk.socketCount())
 
@@ -127,6 +129,37 @@ object AeroworksDeskService {
         validatePixel(pixels, x, y)
         AeroworksDeskAccess.setDisplayPixels(desk, socket, pixels.withPixel(x - 1, y - 1, enabled))
         return enabled
+    }
+
+    /**
+     * Apply many 1-based Lua pixel coordinates through one packed-raster mutation and at most one
+     * persisted module update. Returns the number of pixels whose value actually changed.
+     */
+    @Throws(LuaException::class)
+    fun setDisplayPixelBatch(
+        desk: ConsoleBlockEntity,
+        rawSocket: Any?,
+        points: List<Pair<Int, Int>>,
+        enabled: Boolean
+    ): Int {
+        if (points.size > MAX_PIXEL_BATCH_POINTS) {
+            throw LuaException("pixel batch exceeds $MAX_PIXEL_BATCH_POINTS points")
+        }
+        val socket = parseSocket(desk, rawSocket)
+        val display = requiredDisplay(desk, socket)
+        val pixels = display.pixels ?: DeskDisplayPixels.blank(display.type)
+        val zeroBased = ArrayList<Pair<Int, Int>>(points.size)
+        points.forEach { (x, y) ->
+            validatePixel(pixels, x, y)
+            zeroBased += (x - 1) to (y - 1)
+        }
+        if (zeroBased.isEmpty()) return 0
+
+        val patch = pixels.withPixels(zeroBased, enabled)
+        if (patch.changed > 0) {
+            AeroworksDeskAccess.setDisplayPixels(desk, socket, patch.pixels)
+        }
+        return patch.changed
     }
 
     @Throws(LuaException::class)

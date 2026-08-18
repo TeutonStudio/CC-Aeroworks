@@ -1,0 +1,73 @@
+package de.teutonstudio.ccaeroworks.input
+
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
+import kotlin.math.hypot
+
+class DisplayPointerMotionTest {
+    @Test
+    fun `normalizes first non-zero display velocity`() {
+        val motion = DisplayPointerMotion()
+
+        motion.observe(0.03, 0.04, 0.01)
+
+        assertEquals(0.6, motion.directionU, 1.0e-12)
+        assertEquals(0.8, motion.directionV, 1.0e-12)
+        assertEquals(5.0, motion.speed, 1.0e-12)
+    }
+
+    @Test
+    fun `speed is independent from sampling interval`() {
+        val slowSampling = DisplayPointerMotion()
+        val fastSampling = DisplayPointerMotion()
+
+        slowSampling.observe(0.02, 0.0, 0.02)
+        fastSampling.observe(0.005, 0.0, 0.005)
+
+        assertEquals(1.0, slowSampling.speed, 1.0e-12)
+        assertEquals(1.0, fastSampling.speed, 1.0e-12)
+    }
+
+    @Test
+    fun `lightly smooths consecutive velocity before normalizing direction`() {
+        val motion = DisplayPointerMotion()
+        motion.observe(0.01, 0.0, 0.01)
+
+        motion.observe(0.0, 0.01, 0.01)
+
+        val magnitude = hypot(0.35, 0.65)
+        assertEquals(0.35 / magnitude, motion.directionU, 1.0e-12)
+        assertEquals(0.65 / magnitude, motion.directionV, 1.0e-12)
+        assertEquals(magnitude, motion.speed, 1.0e-12)
+    }
+
+    @Test
+    fun `zero motion preserves release direction but breaks smoothing history`() {
+        val motion = DisplayPointerMotion()
+        motion.observe(0.01, 0.0, 0.01)
+        val previousSpeed = motion.speed
+
+        motion.observe(0.0, 0.0, 0.01)
+
+        assertEquals(1.0, motion.directionU, 1.0e-12)
+        assertEquals(0.0, motion.directionV, 1.0e-12)
+        assertEquals(previousSpeed, motion.speed, 1.0e-12)
+
+        motion.observe(-0.0025, 0.0, 0.01)
+        assertEquals(-1.0, motion.directionU, 1.0e-12)
+        assertEquals(0.0, motion.directionV, 1.0e-12)
+        assertEquals(0.25, motion.speed, 1.0e-12)
+    }
+
+    @Test
+    fun `reset clears direction history`() {
+        val motion = DisplayPointerMotion()
+        motion.observe(0.0, -0.02, 0.01)
+
+        motion.reset()
+
+        assertEquals(0.0, motion.directionU, 0.0)
+        assertEquals(0.0, motion.directionV, 0.0)
+        assertEquals(0.0, motion.speed, 0.0)
+    }
+}

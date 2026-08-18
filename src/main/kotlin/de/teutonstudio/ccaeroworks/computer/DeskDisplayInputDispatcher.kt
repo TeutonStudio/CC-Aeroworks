@@ -22,7 +22,7 @@ object DeskDisplayInputDispatcher {
         val touch = input.touch
         val deskPos = desk.blockPos.toShortString()
         val gesture = if (input.isDraw) {
-            " gesture=${input.gestureId} seq=${input.sequence} start=${input.startX},${input.startY} delta=${input.deltaX},${input.deltaY} end=${input.isEnd}"
+            " gesture=${input.gestureId} seq=${input.sequence} start=${input.startX},${input.startY} delta=${input.deltaX},${input.deltaY} direction=${input.directionU},${input.directionV} speed=${input.speed} samples=${input.samples.size} end=${input.isEnd}"
         } else ""
         TouchInputDiagnostics.info(
             "dispatch",
@@ -93,7 +93,11 @@ object DeskDisplayInputDispatcher {
             input.startY ?: touch.y,
             input.deltaX ?: 0,
             input.deltaY ?: 0,
-            input.isEnd
+            input.isEnd,
+            input.directionU ?: 0.0,
+            input.directionV ?: 0.0,
+            input.speed ?: 0.0,
+            input.luaSamples()
         )
         TouchInputDiagnostics.info(
             "dispatch",

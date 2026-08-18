@@ -4,17 +4,15 @@
 -- cc_aeroworks_console_display_input with the selected handler path; this hook consumes that
 -- metadata before returning the raw event to normal CraftOS programs. Raw events therefore remain
 -- observable while a selected handler is also executed automatically.
+--
+-- Draw is a hot path. A handler is loaded once per draw gesture instead of once per sample, and
+-- ordinary middle-of-gesture samples never bridge INFO diagnostics back onto Minecraft's main
+-- thread. Start/end/error diagnostics remain available without starving CC:Tweaked's event queue.
 
 if rawget(_G, "__cc_aeroworks_display_handlers_installed") then return end
 rawset(_G, "__cc_aeroworks_display_handlers_installed", true)
 
 local nativePullEventRaw = os.pullEventRaw
-
--- CraftOS runs /rom/autorun files through shell.run(). The shell gives each program a private
--- environment containing require/package, while BIOS globals deliberately do not expose require.
--- Keep that shell environment alive for handlers loaded later from the event hook. Without this,
--- loadfile(path) uses the BIOS global environment and every discovered handler containing
--- require("display") or require("touchdisplay") fails before its callback can run.
 local handlerBaseEnvironment = _ENV
 local handlerGlobalEnvironment = _G
 local handlerRequire = require
@@ -27,6 +25,7 @@ do
 end
 
 local telemetryProxies = setmetatable({}, { __mode = "k" })
+local drawHandlers = {}
 local lastSignature = nil
 local lastEpoch = -1
 
@@ -38,8 +37,6 @@ local function report(message)
     end
 end
 
--- Mirror handler-runtime diagnostics into the normal Minecraft/server latest.log. The peripheral
--- method logs at INFO on purpose, so this works without launching runClient with debug logging.
 local function bridgeTouchLog(event, message)
     if type(event) ~= "table" then return false end
     local socket = event.socketName or event.socket
@@ -67,7 +64,14 @@ end
 
 local function reportEvent(event, message)
     report(message)
+    -- Errors are exceptional and should always remain visible in latest.log.
     bridgeTouchLog(event, message)
+end
+
+local function shouldBridgeRoutine(event)
+    if type(event) ~= "table" then return false end
+    if event.action ~= "draw" then return true end
+    return tonumber(event.sequence) == 0 or event.isEnd == true
 end
 
 local function diagnosticBegin(path, event, phase, scope)
@@ -175,7 +179,9 @@ local function loadHandler(path, event)
         return nil
     end
 
-    bridgeTouchLog(event, "loading handler path='" .. path .. "'")
+    if shouldBridgeRoutine(event) then
+        bridgeTouchLog(event, "loading handler path='" .. path .. "'")
+    end
     local chunk, loadError = loadfile(path, nil, createHandlerEnvironment())
     if chunk == nil then
         reportEvent(event, "display handler " .. path .. ": loadfile failed: " .. tostring(loadError))
@@ -189,22 +195,55 @@ local function loadHandler(path, event)
         reportEvent(event, "display handler " .. path .. ": top-level execution failed: " .. tostring(handler))
         return nil
     end
-
     if type(handler) ~= "table" then
         reportEvent(event, "display handler " .. path .. " must return a table, got " .. type(handler))
         return nil
     end
+
     recordTouchHandlers(path, event, handler)
-    bridgeTouchLog(event, string.format(
-        "handler loaded path='%s' callbacks tap=%s draw=%s hold=%s doubleTap=%s pointer=%s",
-        path,
-        tostring(type(handler.onTap) == "function"),
-        tostring(type(handler.onDraw) == "function"),
-        tostring(type(handler.onHold) == "function"),
-        tostring(type(handler.onDoubleTap) == "function"),
-        tostring(type(handler.onPointer) == "function")
-    ))
+    if shouldBridgeRoutine(event) then
+        bridgeTouchLog(event, string.format(
+            "handler loaded path='%s' callbacks tap=%s draw=%s hold=%s doubleTap=%s pointer=%s",
+            path,
+            tostring(type(handler.onTap) == "function"),
+            tostring(type(handler.onDraw) == "function"),
+            tostring(type(handler.onHold) == "function"),
+            tostring(type(handler.onDoubleTap) == "function"),
+            tostring(type(handler.onPointer) == "function")
+        ))
+    end
     return handler
+end
+
+local function drawHandlerKey(path, event)
+    return table.concat({
+        tostring(event.deskId or event.attachment or "desk"),
+        tostring(event.socket or event.socketName or "socket"),
+        tostring(path)
+    }, "\0")
+end
+
+local function handlerFor(path, event)
+    if event.action ~= "draw" then return loadHandler(path, event), nil end
+
+    local key = drawHandlerKey(path, event)
+    local gesture = tostring(event.gestureId or "")
+    local cached = drawHandlers[key]
+    local mustReload = tonumber(event.sequence) == 0 or
+        type(cached) ~= "table" or
+        cached.gesture ~= gesture or
+        type(cached.handler) ~= "table"
+
+    if mustReload then
+        local handler = loadHandler(path, event)
+        if not handler then
+            drawHandlers[key] = nil
+            return nil, key
+        end
+        cached = { gesture = gesture, handler = handler }
+        drawHandlers[key] = cached
+    end
+    return cached.handler, key
 end
 
 local function dispatch(handler, event)
@@ -229,65 +268,48 @@ local function dispatch(handler, event)
 
     if type(callback) ~= "function" then
         reportEvent(event, "display handler " .. tostring(event.handler) .. ": no callback for action " .. tostring(event.action))
-        return
+        return false
     end
+
     local action = tostring(event.action or "pointer")
-    local drawSuffix = ""
-    if action == "draw" then
-        drawSuffix = string.format(
-            " gesture=%s seq=%s start=%s,%s delta=%s,%s end=%s",
-            tostring(event.gestureId),
-            tostring(event.sequence),
-            tostring(event.startX),
-            tostring(event.startY),
-            tostring(event.deltaX),
-            tostring(event.deltaY),
-            tostring(event.isEnd)
-        )
+    if shouldBridgeRoutine(event) then
+        local drawSuffix = ""
+        if action == "draw" then
+            drawSuffix = string.format(
+                " gesture=%s seq=%s start=%s,%s delta=%s,%s direction=%s,%s speed=%s samples=%s end=%s",
+                tostring(event.gestureId), tostring(event.sequence), tostring(event.startX), tostring(event.startY),
+                tostring(event.deltaX), tostring(event.deltaY), tostring(event.directionU), tostring(event.directionV),
+                tostring(event.speed), tostring(type(event.samples) == "table" and #event.samples or 0), tostring(event.isEnd)
+            )
+        end
+        bridgeTouchLog(event, string.format(
+            "dispatch action=%s callback=%s pixel=%s,%s size=%sx%s u=%s v=%s%s",
+            action, tostring(callbackName), tostring(event.x), tostring(event.y), tostring(event.width),
+            tostring(event.height), tostring(event.u), tostring(event.v), drawSuffix
+        ))
     end
-    bridgeTouchLog(event, string.format(
-        "dispatch action=%s callback=%s pixel=%s,%s size=%sx%s u=%s v=%s%s",
-        action,
-        tostring(callbackName),
-        tostring(event.x),
-        tostring(event.y),
-        tostring(event.width),
-        tostring(event.height),
-        tostring(event.u),
-        tostring(event.v),
-        drawSuffix
-    ))
+
     local started = diagnosticBegin(event.handler, event, "event", "legacy:" .. action)
     local ok, err = pcall(callback, event)
     diagnosticFinish(started)
     if not ok then
         reportEvent(event, "display handler " .. tostring(event.handler) .. ": callback failed: " .. tostring(err))
-        return
+        return false
     end
-    bridgeTouchLog(event, "callback completed successfully action=" .. action .. " callback=" .. tostring(callbackName))
+
+    if shouldBridgeRoutine(event) then
+        bridgeTouchLog(event, "callback completed successfully action=" .. action .. " callback=" .. tostring(callbackName))
+    end
+    return true
 end
 
 local function signatureFor(event)
     return table.concat({
-        tostring(event[2]),
-        tostring(event[3]),
-        tostring(event[4]),
-        tostring(event[7]),
-        tostring(event[8]),
-        tostring(event[9]),
-        tostring(event[12]),
-        tostring(event[13]),
-        tostring(event[14]),
-        tostring(event[15]),
-        tostring(event[16]),
-        tostring(event[17]),
-        tostring(event[18]),
-        tostring(event[19]),
-        tostring(event[20]),
-        tostring(event[21]),
-        tostring(event[22]),
-        tostring(event[23]),
-        tostring(event[24])
+        tostring(event[2]), tostring(event[3]), tostring(event[4]), tostring(event[7]), tostring(event[8]),
+        tostring(event[9]), tostring(event[12]), tostring(event[13]), tostring(event[14]), tostring(event[15]),
+        tostring(event[16]), tostring(event[17]), tostring(event[18]), tostring(event[19]), tostring(event[20]),
+        tostring(event[21]), tostring(event[22]), tostring(event[23]), tostring(event[24]), tostring(event[25]),
+        tostring(event[26]), tostring(event[27])
     }, "\0")
 end
 
@@ -304,60 +326,37 @@ local function dispatchConsoleEvent(event)
     if event[1] ~= "cc_aeroworks_console_display_input" then return end
     local handlerPath = event[12]
 
-    -- Preserve the old explicit router example if somebody deliberately runs it. Without this,
-    -- both the automatic hook and that compatibility program would invoke the same callback.
     local running = type(shell) == "table" and type(shell.getRunningProgram) == "function"
         and shell.getRunningProgram() or ""
     if type(running) == "string" and running:match("display%-binding%-router%.lua$") then return end
-
     if not shouldDispatch(event) then return end
+
     local descriptor = {
-        deskId = event[2],
-        deskIndex = event[3],
-        socket = event[4],
-        socketName = event[5],
-        moduleId = event[6],
-        action = event[7],
-        x = event[8],
-        y = event[9],
-        width = event[10],
-        height = event[11],
-        handler = handlerPath,
-        u = event[13],
-        v = event[14],
-        deskX = event[15],
-        deskY = event[16],
-        deskZ = event[17],
-        gestureId = event[18],
-        sequence = event[19],
-        startX = event[20],
-        startY = event[21],
-        deltaX = event[22],
-        deltaY = event[23],
-        isEnd = event[24] == true
+        deskId = event[2], deskIndex = event[3], socket = event[4], socketName = event[5], moduleId = event[6],
+        action = event[7], x = event[8], y = event[9], width = event[10], height = event[11], handler = handlerPath,
+        u = event[13], v = event[14], deskX = event[15], deskY = event[16], deskZ = event[17],
+        gestureId = event[18], sequence = event[19], startX = event[20], startY = event[21],
+        deltaX = event[22], deltaY = event[23], isEnd = event[24] == true,
+        directionU = event[25], directionV = event[26], speed = event[27],
+        samples = type(event[28]) == "table" and event[28] or nil
     }
-    bridgeTouchLog(descriptor, string.format(
-        "console event received action=%s handler='%s' pixel=%s,%s size=%sx%s gesture=%s seq=%s delta=%s,%s end=%s",
-        tostring(descriptor.action),
-        tostring(handlerPath),
-        tostring(descriptor.x),
-        tostring(descriptor.y),
-        tostring(descriptor.width),
-        tostring(descriptor.height),
-        tostring(descriptor.gestureId),
-        tostring(descriptor.sequence),
-        tostring(descriptor.deltaX),
-        tostring(descriptor.deltaY),
-        tostring(descriptor.isEnd)
-    ))
-    local handler = loadHandler(handlerPath, descriptor)
+
+    if shouldBridgeRoutine(descriptor) then
+        bridgeTouchLog(descriptor, string.format(
+            "console event received action=%s handler='%s' pixel=%s,%s size=%sx%s gesture=%s seq=%s samples=%s end=%s",
+            tostring(descriptor.action), tostring(handlerPath), tostring(descriptor.x), tostring(descriptor.y),
+            tostring(descriptor.width), tostring(descriptor.height), tostring(descriptor.gestureId),
+            tostring(descriptor.sequence), tostring(type(descriptor.samples) == "table" and #descriptor.samples or 0),
+            tostring(descriptor.isEnd)
+        ))
+    end
+
+    local handler, drawKey = handlerFor(handlerPath, descriptor)
     if not handler then return end
     dispatch(handler, descriptor)
+    if drawKey and descriptor.isEnd then drawHandlers[drawKey] = nil end
 end
 
--- Pull without a native filter and re-apply the filter here. This ensures a display action is still
--- observed while the foreground program waits for an unrelated filtered event such as "timer".
--- "terminate" is always returned so os.pullEvent keeps its normal termination semantics.
 os.pullEventRaw = function(filter)
     while true do
         local event = table.pack(nativePullEventRaw())

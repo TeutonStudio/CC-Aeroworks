@@ -63,6 +63,14 @@ function display.setPixel(event, x, y, enabled)
     return desk.setDisplayPixel(socket, x, y, enabled ~= false)
 end
 
+-- Native packed-raster patch. Unlike setPixels this does not round-trip the complete raster through
+-- Lua, and unlike repeated setPixel calls it persists the display at most once for the whole batch.
+function display.setPixelBatch(event, points, enabled)
+    if type(points) ~= "table" then error("pixel point table expected", 2) end
+    local desk, socket = target(event)
+    return desk.setDisplayPixelBatch(socket, points, enabled ~= false)
+end
+
 function display.setPixels(event, rows)
     local desk, socket = target(event)
     return desk.setDisplayPixels(socket, rows)
