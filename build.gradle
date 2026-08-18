@@ -36,7 +36,10 @@ repositories {
     maven {
         name = 'CreateMaven'
         url = 'https://maven.createmod.net'
-        content { includeGroup('net.createmod.ponder') }
+        content {
+            includeGroup('net.createmod.ponder')
+            includeGroup('dev.engine-room.flywheel')
+        }
     }
     maven {
         name = 'BlameJared'
@@ -133,9 +136,15 @@ configurations {
 dependencies {
     implementation("thedarkcolour:kotlinforforge-neoforge:${kotlin_for_forge_version}")
     compileOnly("io.github.llamalad7:mixinextras-neoforge:0.5.0")
+    // Create embeds Flywheel at runtime, but a local fileTree dependency does not expose nested
+    // JAR classes to Kotlin compilation. Keep the exact Create 6.0.10 Flywheel API explicit here.
+    compileOnly("dev.engine-room.flywheel:flywheel-neoforge-${minecraft_version}:${flywheel_version}")
     // Sable 2.0.1 embeds Companion 1.6.0 with jarJar. The nested JAR is available
     // at runtime, but it is not part of the Kotlin compile classpath of local mod JARs.
     compileOnly("dev.ryanhcode.sable-companion:sable-companion-common-${minecraft_version}:1.6.0")
+    // Drive By Wire is optional at runtime, but its isolated compatibility backend is compiled
+    // with the main source set and therefore needs the supported 0.2.9 API on the compile classpath.
+    compileOnly("curse.maven:drive-by-wire-with-sable-1520378:${drive_by_wire_curse_file_id}")
     implementation fileTree(
         dir: modDependencyDirectory,
         include: ['*.jar'],
