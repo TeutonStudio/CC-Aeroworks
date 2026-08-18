@@ -120,17 +120,37 @@ class GuideBookScreen(
             16
         }
         is GuideEntry.Api -> renderApiReference(graphics, entry.referenceId, x, y, width)
+        is GuideEntry.ApiSubset -> renderApiReference(graphics, entry.referenceId, x, y, width, entry.methods.toSet())
+        GuideEntry.ApiScopes -> renderApiScopes(graphics, x, y, width)
+        GuideEntry.ApiTypeLegend -> renderApiTypeLegend(graphics, x, y, width)
         is GuideEntry.Code -> renderCode(graphics, entry.lines, x, y, width)
         GuideEntry.PixelEditor -> pixelEditorPanel.render(graphics, font, x, y, width, mouseX, mouseY) + 7
     }
 
-    private fun renderApiReference(graphics: GuiGraphics, referenceId: String, x: Int, y: Int, width: Int): Int {
+    private fun renderApiReference(
+        graphics: GuiGraphics,
+        referenceId: String,
+        x: Int,
+        y: Int,
+        width: Int,
+        methodFilter: Set<String>? = null
+    ): Int {
         val reference = ApiReferenceCatalog.find(referenceId)
+        val methods = if (methodFilter == null) {
+            reference.methods
+        } else {
+            reference.methods.filter { methodName(it) in methodFilter }
+        }
+        val accent = reference.accent.color
         val moduleRows = if (reference.moduleName == null) 0 else 1
-        val height = 31 + moduleRows * 11 + reference.methods.size * 11
+        val methodWidth = (width - 23).coerceAtLeast(40)
+        val methodHeight = methods.sumOf { apiMethodHeight(it, methodWidth) }
+        val height = 34 + moduleRows * 11 + methodHeight
+
         graphics.fill(x, y, x + width, y + height, API_BG)
-        graphics.renderOutline(x, y, width, height, BORDER_DARK)
-        graphics.drawString(font, reference.name, x + 8, y + 6, CYAN, false)
+        graphics.renderOutline(x, y, width, height, accent)
+        graphics.fill(x, y, x + 3, y + height, accent)
+        graphics.drawString(font, reference.name, x + 8, y + 6, accent, false)
         if (reference.preferred) {
             val marker = "PREFERRED"
             graphics.drawString(font, marker, x + width - font.width(marker) - 8, y + 6, GOLD, false)
@@ -143,14 +163,101 @@ class GuideBookScreen(
             MUTED,
             false
         )
-        var lineY = y + 28
+
+        var lineY = y + 29
         reference.moduleName?.let { module ->
-            graphics.drawString(font, "require(\"$module\")", x + 8, lineY, NOTE_TEXT, false)
+            graphics.drawString(font, "require(\"$module\")", x + 8, lineY, accent, false)
             lineY += 11
         }
-        reference.methods.forEach { method ->
-            graphics.drawString(font, font.plainSubstrByWidth(method, width - 16), x + 8, lineY, TEXT, false)
-            lineY += 11
+        methods.forEach { method ->
+            lineY += renderApiMethod(graphics, method, x + 8, lineY, methodWidth, accent)
+        }
+        return height + 7
+    }
+
+    private fun renderApiMethod(
+        graphics: GuiGraphics,
+        method: String,
+        x: Int,
+        y: Int,
+        width: Int,
+        accent: Int
+    ): Int {
+        val lines = font.split(Component.literal(method), width - 5)
+        val height = lines.size * 10 + 2
+        graphics.fill(x, y + 1, x + 2, y + height - 2, accent)
+        lines.forEachIndexed { index, line ->
+            graphics.drawString(font, line, x + 5, y + index * 10, TEXT, false)
+        }
+        return height
+    }
+
+    private fun apiMethodHeight(method: String, width: Int): Int =
+        font.split(Component.literal(method), width - 5).size * 10 + 2
+
+    private fun methodName(method: String): String = method.substringBefore('(').trim()
+
+    private fun renderApiScopes(graphics: GuiGraphics, x: Int, y: Int, width: Int): Int {
+        val rows = ApiReferenceCatalog.scopes
+        val headerHeight = 14
+        val rowHeight = 18
+        val height = headerHeight + rows.size * rowHeight + 1
+        val splitX = x + min(87, (width * 2) / 5)
+
+        graphics.fill(x, y, x + width, y + height, API_BG)
+        graphics.renderOutline(x, y, width, height, BORDER_DARK)
+        graphics.drawString(font, "SCOPE", x + 8, y + 4, MUTED, false)
+        graphics.drawString(font, "ACCESS", splitX + 7, y + 4, MUTED, false)
+        graphics.fill(splitX, y, splitX + 1, y + height, BORDER_DARK)
+        graphics.fill(x, y + headerHeight, x + width, y + headerHeight + 1, BORDER_DARK)
+
+        rows.forEachIndexed { index, scope ->
+            val rowY = y + headerHeight + 1 + index * rowHeight
+            graphics.fill(x + 3, rowY + 3, x + 6, rowY + rowHeight - 3, scope.color)
+            graphics.drawString(font, scope.name, x + 10, rowY + 5, scope.color, false)
+            graphics.drawString(
+                font,
+                font.plainSubstrByWidth(scope.meaning, x + width - splitX - 13),
+                splitX + 7,
+                rowY + 5,
+                TEXT,
+                false
+            )
+            if (index < rows.lastIndex) {
+                graphics.fill(x, rowY + rowHeight - 1, x + width, rowY + rowHeight, BORDER_DARK)
+            }
+        }
+        return height + 7
+    }
+
+    private fun renderApiTypeLegend(graphics: GuiGraphics, x: Int, y: Int, width: Int): Int {
+        val rows = ApiReferenceCatalog.typeLegend
+        val headerHeight = 14
+        val rowHeight = 18
+        val height = headerHeight + rows.size * rowHeight + 1
+        val splitX = x + min(82, (width * 2) / 5)
+
+        graphics.fill(x, y, x + width, y + height, API_BG)
+        graphics.renderOutline(x, y, width, height, BORDER_DARK)
+        graphics.drawString(font, "TYPE", x + 8, y + 4, MUTED, false)
+        graphics.drawString(font, "MEANING", splitX + 7, y + 4, MUTED, false)
+        graphics.fill(splitX, y, splitX + 1, y + height, BORDER_DARK)
+        graphics.fill(x, y + headerHeight, x + width, y + headerHeight + 1, BORDER_DARK)
+
+        rows.forEachIndexed { index, (type, meaning) ->
+            val rowY = y + headerHeight + 1 + index * rowHeight
+            graphics.drawString(font, type, x + 8, rowY + 5, CYAN, false)
+            graphics.drawString(
+                font,
+                font.plainSubstrByWidth(meaning, x + width - splitX - 13),
+                splitX + 7,
+                rowY + 5,
+                TEXT,
+                false
+            )
+            if (index < rows.lastIndex) {
+                graphics.fill(x, rowY + rowHeight - 1, x + width, rowY + rowHeight, BORDER_DARK)
+            }
         }
         return height + 7
     }

@@ -10,6 +10,9 @@ sealed interface GuideEntry {
     data class InputHint(val key: String) : GuideEntry
     data class Heading(val text: String) : GuideEntry
     data class Api(val referenceId: String) : GuideEntry
+    data class ApiSubset(val referenceId: String, val methods: List<String>) : GuideEntry
+    data object ApiScopes : GuideEntry
+    data object ApiTypeLegend : GuideEntry
     data class Code(val lines: List<String>) : GuideEntry
     data object PixelEditor : GuideEntry
 }
@@ -37,13 +40,9 @@ object GuideBookContent {
             GuideEntry.InputHint("guide.cc_aeroworks.start.controls"),
             GuideEntry.Note("guide.cc_aeroworks.start.note"),
             GuideEntry.Heading("API scopes"),
-            GuideEntry.Code(listOf(
-                "LOCAL DESK  peripheral.find(\"ControlDesk\")",
-                "EMBEDDED    ComputerControlDesk only",
-                "GLOBAL      injected CraftOS API",
-                "MODULE      require(\"cc_aeroworks....\")",
-                "OPTIONAL    requires integration mod"
-            ))
+            GuideEntry.ApiScopes,
+            GuideEntry.Heading("Lua type notation"),
+            GuideEntry.ApiTypeLegend
         )),
         GuideSection(GuideSectionId.COMPUTERS, tr("guide.cc_aeroworks.tab.computers"), tr("guide.cc_aeroworks.computers.title"), listOf(
             GuideEntry.Text("guide.cc_aeroworks.computers.text"),
@@ -63,10 +62,16 @@ object GuideBookContent {
         )),
         GuideSection(GuideSectionId.MODULES, tr("guide.cc_aeroworks.tab.modules"), tr("guide.cc_aeroworks.modules.title"), listOf(
             GuideEntry.Text("guide.cc_aeroworks.modules.text"),
+            GuideEntry.Heading("Typed desk module access"),
+            GuideEntry.ApiSubset("desk_handle", listOf(
+                "getSockets", "getModules", "getModule", "getInputs", "getDisplays", "getPeripherals"
+            )),
             GuideEntry.Code(listOf(
-                "desk.getSockets()       -- left, right, big", "desk.getModules()", "desk.getModule(\"big\")",
-                "desk.getInputs()", "desk.getDisplays()", "desk.getPeripherals()   -- embedded handle only"
-            )), GuideEntry.Note("guide.cc_aeroworks.modules.note")
+                "local modules = desk.getModules()",
+                "local big = desk.getModule(\"big\")",
+                "local localPeripherals = desk.getPeripherals()"
+            )),
+            GuideEntry.Note("guide.cc_aeroworks.modules.note")
         )),
         GuideSection(GuideSectionId.CONTROLS, tr("guide.cc_aeroworks.tab.controls"), tr("guide.cc_aeroworks.controls.title"), listOf(
             GuideEntry.Text("guide.cc_aeroworks.controls.text"), GuideEntry.InputHint("guide.cc_aeroworks.controls.input"),
@@ -77,7 +82,7 @@ object GuideBookContent {
                 "channels.setWire(\"/groups/flight/gear\", 15)", "channels.releaseAll()"
             )),
             GuideEntry.Heading("Native control authority"), GuideEntry.Api("controls"),
-            GuideEntry.Heading("Low-level wire outputs"), GuideEntry.Api("wires"),
+            GuideEntry.Heading("Drive By Wire outputs"), GuideEntry.Api("wires"),
             GuideEntry.Note("guide.cc_aeroworks.controls.note")
         )),
         GuideSection(GuideSectionId.TELEMETRY, tech("telemetry"), tech("Telemetry & information sources"), listOf(
