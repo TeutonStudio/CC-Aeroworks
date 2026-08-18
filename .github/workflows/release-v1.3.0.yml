@@ -20,7 +20,7 @@ concurrency:
 jobs:
   publish:
     name: Publish verified v1.3.0 artifact
-    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'release/v1.3.0-publish-trigger' }}
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.number == 46 }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -32,6 +32,14 @@ jobs:
       GH_TOKEN: ${{ github.token }}
 
     steps:
+      - name: Report publication start
+        shell: bash
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          body=$(printf '### v1.3.0 protected publication\n\nStatus: **started**\nRelease target: `%s`\nSource evidence run: `%s`\nExpected JAR SHA-256: `%s`' "${RELEASE_TARGET}" "${SOURCE_RUN_ID}" "${EXPECTED_JAR_SHA256}")
+          gh issue comment "${PR_NUMBER}" --repo "${GITHUB_REPOSITORY}" --body "${body}"
+
       - name: Stop if v1.3.0 already exists
         id: existing
         shell: bash
