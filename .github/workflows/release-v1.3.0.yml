@@ -14,7 +14,6 @@ on:
 
 permissions:
   contents: write
-  issues: write
 
 concurrency:
   group: publish-v1.3.0
@@ -32,12 +31,6 @@ jobs:
       GH_TOKEN: ${{ github.token }}
 
     steps:
-      - name: Report release start
-        shell: bash
-        run: |
-          body=$(printf '### v1.3.0 release workflow\n\nStatus: **started**\n\nTarget commit: `%s`\nWorkflow commit: `%s`' "${RELEASE_TARGET}" "${GITHUB_SHA}")
-          gh issue comment 43 --repo "${GITHUB_REPOSITORY}" --body "${body}"
-
       - name: Check out exact v1.3.0 source commit
         uses: actions/checkout@v6
         with:
@@ -195,18 +188,3 @@ jobs:
             build/libs/**
             build/release-neoforge.mods.toml
             build/release-notes-v1.3.0.md
-
-      - name: Report release result
-        if: always()
-        shell: bash
-        env:
-          JOB_STATUS: ${{ job.status }}
-        run: |
-          set -euo pipefail
-          if gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
-            release_url="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${RELEASE_TAG}"
-            body=$(printf '### v1.3.0 release workflow\n\nStatus: **published**\n\nRelease: %s\nTarget commit: `%s`\nWorkflow job status: `%s`' "${release_url}" "${RELEASE_TARGET}" "${JOB_STATUS}")
-          else
-            body=$(printf '### v1.3.0 release workflow\n\nStatus: **not published**\n\nTarget commit: `%s`\nWorkflow job status: `%s`\n\nA build, test, dependency, metadata, server-smoke, or publication step failed before the release could be created.' "${RELEASE_TARGET}" "${JOB_STATUS}")
-          fi
-          gh issue comment 43 --repo "${GITHUB_REPOSITORY}" --body "${body}"
