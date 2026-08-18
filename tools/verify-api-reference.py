@@ -96,6 +96,21 @@ def verify_rom_modules(catalog: str) -> None:
     require(not missing_touch, "API catalog is missing touchdisplay.lua methods: " + ", ".join(missing_touch))
 
 
+def verify_typed_manual(catalog: str, guide: str) -> None:
+    signatures = re.findall(r'"([A-Za-z_][A-Za-z0-9_]*\([^"\n]*\)\s*->\s*[^"\n]+)"', catalog)
+    require(signatures, "API catalog contains no typed method signatures")
+    require(all("->" in signature for signature in signatures), "Typed API signatures must declare their return type")
+    require(": string" in catalog and ": integer" in catalog and ": boolean" in catalog,
+            "API catalog must document common argument types")
+    require("ApiAccent" in catalog, "API references must retain per-module color accents")
+    require("GuideEntry.ApiScopes" in guide, "Guide start page must render the API scope table")
+    require("GuideEntry.ApiTypeLegend" in guide, "Guide start page must render the Lua type legend")
+    require("GuideEntry.ApiSubset(\"desk_handle\"" in guide,
+            "Module guide must retain its typed Desk handle subset")
+    require("DRIVE BY WIRE CABLE" in catalog and "MOD REQUIRED FOR OUTPUT" in catalog,
+            "Wire API must explain its Drive By Wire dependency")
+
+
 def main() -> int:
     catalog = CATALOG.read_text(encoding="utf-8")
     guide = GUIDE.read_text(encoding="utf-8")
@@ -107,7 +122,7 @@ def main() -> int:
     missing_ids = sorted(REQUIRED_REFERENCES - ids)
     require(not missing_ids, "Missing API references: " + ", ".join(missing_ids))
 
-    guide_refs = set(re.findall(r'GuideEntry\.Api\("([a-z0-9_]+)"\)', guide))
+    guide_refs = set(re.findall(r'GuideEntry\.(?:Api|ApiSubset)\("([a-z0-9_]+)"', guide))
     unknown_refs = sorted(guide_refs - ids)
     require(not unknown_refs, "Guide references unknown API entries: " + ", ".join(unknown_refs))
 
@@ -116,6 +131,7 @@ def main() -> int:
 
     verify_public_surfaces(catalog)
     verify_rom_modules(catalog)
+    verify_typed_manual(catalog, guide)
 
     require("aeroworks.get" not in guide, "Guide still contains the removed global aeroworks.* API")
     require('GuideEntry.Api("channels")' in guide, "Guide does not expose the preferred channels API")
@@ -130,8 +146,8 @@ def main() -> int:
     require('cc_aeroworks.ui' not in catalog, "Unpublished cc_aeroworks.ui must not appear in the public catalog")
 
     print(
-        "Validated Kotlin and ROM Lua method coverage, API scopes/modules, legacy API removal, optional "
-        "integration gating and tap/draw display diagnostics."
+        "Validated Kotlin and ROM Lua method coverage, typed argument/return documentation, API scopes/modules, "
+        "legacy API removal, optional integration gating and tap/draw display diagnostics."
     )
     return 0
 
