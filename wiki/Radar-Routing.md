@@ -88,13 +88,15 @@ desk.clearDisplayBinding("big")
 
 `getRadarSources()` liefert pro Ingress eine stabile ID für die aktuelle Multiblockstruktur, Pultindex, Pult-ID, Position, Status und, falls bekannt, die Radarposition.
 
-Große normale Desk Displays verwenden dieselbe Binding-Schicht für optionale Touch-Handler:
+Große normale Desk Displays verwenden dieselbe Binding-Schicht für Touch-/Draw-Handler. Der gewünschte Skriptpfad wird über die serverseitig ermittelte Skriptauswahl gebunden; programmatisch bleibt außerdem `setDisplayTouchScript` verfügbar:
 
 ```lua
 desk.setDisplayTouchScript("big", "/ui/main.lua")
 ```
 
-Der Handlerpfad wird als zusätzliches letztes Argument der bestehenden `cc_aeroworks_console_display_input`- beziehungsweise `cc_aeroworks_desk_display_input`-Events geliefert. Das Beispiel `examples/cc/display-binding-router.lua` zeigt einen zentralen Router, der Handlerdateien cached und `tap`/`double_tap` verteilt. Die bisherigen Touch- und `monitor_touch`-Events bleiben kompatibel erhalten.
+Eingebettete Computer benötigen keinen separaten Router-Prozess. Die mitgelieferte CraftOS-Autorun-Runtime verarbeitet `cc_aeroworks_console_display_input`, löst das gebundene Skript automatisch auf und ruft dessen `onTap`, `onDraw`, Legacy-`onDoubleTap` oder `onPointer`-Handler auf. Handler werden in einer Shell-kompatiblen Umgebung mit normalem `require`/`package` geladen; Draw-Handler werden pro Geste wiederverwendet und nach deren Ende verworfen, sodass Skriptänderungen nicht dauerhaft von einem alten Chunk verdeckt werden. Externe Computer erhalten weiterhin die normalen Desk-/`monitor_touch`-Kompatibilitätsereignisse, führen aber keine owner-lokalen Skriptpfade automatisch aus.
+
+Für Touch-/Draw-Beispiele siehe `examples/cc/touch-test.lua` sowie `docs/display-touch.md`.
 
 ## Trennen
 
