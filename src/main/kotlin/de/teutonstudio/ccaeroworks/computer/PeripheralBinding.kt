@@ -25,7 +25,7 @@ internal class PeripheralBinding(
 
     private val methods: Map<String, PeripheralMethod> =
         ServerContext.get(system.getLevel().server).peripheralMethods().getSelfMethods(node.target)
-    private val mounts = linkedSetOf<String>()
+    private val mounts = PeripheralMountRegistry()
     private var attached = false
     private var contextWrapper: GuardedLuaContext? = null
 
@@ -34,12 +34,19 @@ internal class PeripheralBinding(
     @Synchronized
     fun attach() {
         if (attached) return
+        // IPeripheral.attach() is allowed to use IComputerAccess immediately, including mount().
+        // Therefore the binding must be considered attached during the callback. If the callback
+        // fails later, unwind every resource it may already have acquired before exposing failure.
         attached = true
         try {
             node.target.attach(this)
         } catch (throwable: Throwable) {
             runCatching { node.target.detach(this) }
+                .exceptionOrNull()
+                ?.let(throwable::addSuppressed)
+            cleanupMounts(throwable)
             attached = false
+            contextWrapper = null
             throw throwable
         }
     }
@@ -71,15 +78,19 @@ internal class PeripheralBinding(
 
     @Synchronized
     fun close() {
-        if (!attached) return
-        try {
-            node.target.detach(this)
-        } finally {
-            mounts.toList().forEach { location -> runCatching { system.unmount(location) } }
-            mounts.clear()
-            attached = false
+        if (!attached && mounts.isEmpty()) {
             contextWrapper = null
+            return
         }
+
+        var failure: Throwable? = null
+        if (attached) {
+            failure = runCatching { node.target.detach(this) }.exceptionOrNull()
+        }
+        failure = cleanupMounts(failure)
+        attached = false
+        contextWrapper = null
+        if (failure != null) throw failure
     }
 
     override fun checkValid(): Boolean = synchronized(this) { attached }
@@ -134,6 +145,19 @@ internal class PeripheralBinding(
     override fun getMainThreadMonitor(): WorkMonitor {
         checkAttached()
         return system.getMainThreadMonitor()
+    }
+
+    private fun cleanupMounts(primary: Throwable?): Throwable? {
+        var failure = primary
+        mounts.drain().forEach { location ->
+            val unmountFailure = runCatching { system.unmount(location) }.exceptionOrNull() ?: return@forEach
+            if (failure == null) {
+                failure = unmountFailure
+            } else if (failure !== unmountFailure) {
+                failure.addSuppressed(unmountFailure)
+            }
+        }
+        return failure
     }
 
     @Synchronized
