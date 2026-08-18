@@ -130,7 +130,10 @@ data class DisplayDrawPayload(
                 }
             }
 
-        private val gestures = PlayerSessionState<GestureKey, GestureState>(GestureKey::player, STALE_GESTURE_TICKS)
+        private val gestures = SingleGestureSessionState<GestureKey, GestureData>(
+            GestureKey::player,
+            STALE_GESTURE_TICKS
+        )
         private val ingressBudget = PlayerTickBudget(
             maxPacketsPerTick = MAX_PACKETS_PER_PLAYER_TICK,
             maxUnitsPerTick = MAX_SAMPLES_PER_PLAYER_TICK
@@ -225,13 +228,16 @@ data class DisplayDrawPayload(
             // identifies which logical stroke owns that slot, rather than multiplying session keys.
             val key = GestureKey(player.uuid, payload.pos.asLong(), payload.socket)
             if (payload.sequence == 0) {
-                val previous = gestures.get(key)
-                if (previous?.gestureId == payload.gestureId) {
+                val started = gestures.start(
+                    key,
+                    payload.gestureId,
+                    GestureData(current.touch, current),
+                    tick
+                )
+                if (!started) {
                     TouchInputDiagnostics.warn("server", "rejected draw $descriptor: duplicate gesture start")
                     return
                 }
-                val state = GestureState(payload.gestureId, current.touch, current, 0)
-                gestures.put(key, state, tick)
                 val input = DeskDisplayInput(
                     action = "draw",
                     touch = current.touch,
@@ -256,22 +262,33 @@ data class DisplayDrawPayload(
                 return
             }
 
-            val state = gestures.get(key)
-            if (state == null) {
-                TouchInputDiagnostics.warn("server", "rejected draw $descriptor: gesture has no accepted start")
-                return
+            val advance = gestures.advance(
+                key = key,
+                gestureId = payload.gestureId,
+                sequence = payload.sequence,
+                tick = tick
+            ) { previous ->
+                previous.copy(lastSample = current)
             }
-            if (state.gestureId != payload.gestureId) {
-                TouchInputDiagnostics.warn("server", "rejected draw $descriptor: gesture id no longer owns this display slot")
-                return
+            when (advance.status) {
+                SingleGestureSessionState.AdvanceStatus.MISSING_START -> {
+                    TouchInputDiagnostics.warn("server", "rejected draw $descriptor: gesture has no accepted start")
+                    return
+                }
+                SingleGestureSessionState.AdvanceStatus.STALE_GESTURE -> {
+                    TouchInputDiagnostics.warn("server", "rejected draw $descriptor: gesture id no longer owns this display slot")
+                    return
+                }
+                SingleGestureSessionState.AdvanceStatus.OUT_OF_SEQUENCE -> {
+                    TouchInputDiagnostics.warn(
+                        "server",
+                        "rejected draw $descriptor: expected sequence ${advance.expectedSequence}"
+                    )
+                    return
+                }
+                SingleGestureSessionState.AdvanceStatus.ACCEPTED -> Unit
             }
-            if (payload.sequence != state.lastSequence + 1) {
-                TouchInputDiagnostics.warn(
-                    "server",
-                    "rejected draw $descriptor: expected sequence ${state.lastSequence + 1}"
-                )
-                return
-            }
+            val state = requireNotNull(advance.previous)
 
             val deltaX = current.touch.x - state.lastSample.touch.x
             val deltaY = current.touch.y - state.lastSample.touch.y
@@ -279,11 +296,6 @@ data class DisplayDrawPayload(
                 add(state.lastSample.toDeskSample())
                 resolved.forEach { add(it.toDeskSample()) }
             }
-            gestures.put(
-                key,
-                state.copy(lastSample = current, lastSequence = payload.sequence),
-                tick
-            )
 
             val input = DeskDisplayInput(
                 action = "draw",
@@ -351,11 +363,9 @@ data class DisplayDrawPayload(
             val socket: Int
         )
 
-        private data class GestureState(
-            val gestureId: Long,
+        private data class GestureData(
             val startTouch: DeskDisplayTouch,
-            val lastSample: ResolvedDrawSample,
-            val lastSequence: Int
+            val lastSample: ResolvedDrawSample
         )
 
         private data class ResolvedDrawSample(
