@@ -158,6 +158,9 @@ def main() -> int:
         exit_code = 130
     finally:
         record["finishedAt"] = dt.datetime.now(dt.timezone.utc).isoformat()
+        # A normal profile includes Gradle clean, which removes build/ after the initial directory
+        # creation above. Recreate the result directory here so failures are always recorded.
+        result_path.parent.mkdir(parents=True, exist_ok=True)
         result_path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
         print(f"Integration result: {result_path}")
         print(f"Status: {record['status']}")
