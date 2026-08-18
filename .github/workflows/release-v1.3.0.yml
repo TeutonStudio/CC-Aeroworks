@@ -1,11 +1,12 @@
 name: Publish v1.3.0
 
 on:
-  push:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
     branches:
       - master
     paths:
-      - ".github/release/v1.3.0.publish"
+      - ".github/release/v1.3.0.trigger"
 
 permissions:
   contents: write
@@ -14,11 +15,12 @@ permissions:
 
 concurrency:
   group: publish-v1.3.0
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   publish:
     name: Publish verified v1.3.0 artifact
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'release/v1.3.0-publish-trigger' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -30,19 +32,6 @@ jobs:
       GH_TOKEN: ${{ github.token }}
 
     steps:
-      - name: Check out release publication trigger
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Verify publication trigger
-        shell: bash
-        run: |
-          set -euo pipefail
-          grep -Fx "release_target=${RELEASE_TARGET}" .github/release/v1.3.0.publish
-          grep -Fx "source_run=${SOURCE_RUN_ID}" .github/release/v1.3.0.publish
-          grep -Fx "jar_sha256=${EXPECTED_JAR_SHA256}" .github/release/v1.3.0.publish
-
       - name: Stop if v1.3.0 already exists
         id: existing
         shell: bash
@@ -138,6 +127,7 @@ jobs:
         shell: bash
         env:
           JOB_STATUS: ${{ job.status }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
           if gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
@@ -145,5 +135,5 @@ jobs:
           else
             state="not published"
           fi
-          body=$(printf '### v1.3.0 push publication\n\nStatus: **%s**\nWorkflow job: **%s**\nRelease target: `%s`\nSource evidence run: `%s`\nExpected JAR SHA-256: `%s`' "${state}" "${JOB_STATUS}" "${RELEASE_TARGET}" "${SOURCE_RUN_ID}" "${EXPECTED_JAR_SHA256}")
-          gh issue comment 45 --repo "${GITHUB_REPOSITORY}" --body "${body}"
+          body=$(printf '### v1.3.0 protected publication\n\nStatus: **%s**\nWorkflow job: **%s**\nRelease target: `%s`\nSource evidence run: `%s`\nExpected JAR SHA-256: `%s`' "${state}" "${JOB_STATUS}" "${RELEASE_TARGET}" "${SOURCE_RUN_ID}" "${EXPECTED_JAR_SHA256}")
+          gh issue comment "${PR_NUMBER}" --repo "${GITHUB_REPOSITORY}" --body "${body}"
