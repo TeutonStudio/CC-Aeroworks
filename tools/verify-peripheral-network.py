@@ -83,6 +83,8 @@ def main() -> int:
         "system.mount(",
         "system.unmount(",
         "system.queueEvent(",
+        "getAvailablePeripherals",
+        "getMainThreadMonitor",
         "cleanupMounts(throwable)",
         "mounts.drain()",
         "throwable::addSuppressed",
@@ -98,7 +100,6 @@ def main() -> int:
         "binding.attach()",
         'system.queueEvent("peripheral", node.address)',
         'system.queueEvent("peripheral_detach", node.address)',
-        "getAvailablePeripherals",
         "GRAPH_REFRESH_INTERVAL = 5L",
         "handles.isEmpty() -> null",
         "handles.size == 1 -> handles.values.first()",
@@ -114,7 +115,8 @@ def main() -> int:
     ))
 
     require("PeripheralNetworkRuntimes.tick(this)" in computer, "Computer tick does not refresh the peripheral graph")
-    require("PeripheralNetwork.kt" not in "\n".join((builder, graph, runtime, binding, handles)),
+    removed_monolith = "PeripheralNetwork" + ".kt"
+    require(removed_monolith not in "\n".join((builder, graph, runtime, binding, handles)),
             "Refactored peripheral runtime still references the removed monolith")
     require("cc_aeroworks_peripheral_attached" in read("src/main/kotlin/de/teutonstudio/ccaeroworks/CCAeroworks.kt"), "Attach event constant is missing")
     require("cc_aeroworks_peripheral_detached" in read("src/main/kotlin/de/teutonstudio/ccaeroworks/CCAeroworks.kt"), "Detach event constant is missing")
