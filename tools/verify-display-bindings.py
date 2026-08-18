@@ -151,8 +151,12 @@ require("handlerBaseEnvironment = _ENV" in handler_runtime and
 require("_G = handlerGlobalEnvironment" in handler_runtime and
         "loadfile(path, nil, createHandlerEnvironment())" in handler_runtime,
         "selected handlers must load with shell require/package while retaining computer globals")
-require("local chunk, loadError = loadfile(path)" not in handler_runtime and "local cache" not in handler_runtime,
-        "selected display handlers must not fall back to the BIOS environment or a stale cache")
+require("local chunk, loadError = loadfile(path)" not in handler_runtime and
+        "local cache =" not in handler_runtime and
+        "local cache=" not in handler_runtime,
+        "selected display handlers must not fall back to the BIOS environment or a global stale handler cache")
+require("local drawHandlers = {}" in handler_runtime and "cached.gesture ~= gesture" in handler_runtime,
+        "draw may retain only gesture-scoped handler state")
 require('event[1] == filter or event[1] == "terminate"' in handler_runtime,
         "event hook must preserve filtered pullEvent and termination semantics")
 require("lastSignature" in handler_runtime and "lastEpoch" in handler_runtime,
