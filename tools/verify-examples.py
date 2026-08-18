@@ -10,6 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE_ROOT = ROOT / "examples/cc"
 ROOT_README = ROOT / "README.md"
+LANGUAGE_READMES = (ROOT / "README_GER.md", ROOT / "README_ENG.md")
 EXAMPLE_README = EXAMPLE_ROOT / "README.md"
 
 REQUIRED_QUICKSTARTS = {
@@ -67,11 +68,20 @@ def verify_example_index() -> None:
         fail("Lua examples missing from examples/cc/README.md: " + ", ".join(undocumented))
 
 
-def verify_root_readme() -> None:
-    readme = ROOT_README.read_text(encoding="utf-8")
-    if "```lua" in readme.lower():
-        fail("README.md must link executable Lua examples instead of embedding Lua code blocks")
+def verify_readmes() -> None:
+    index = ROOT_README.read_text(encoding="utf-8")
+    if "README_GER.md" not in index or "README_ENG.md" not in index:
+        fail("README.md must be the language index for README_GER.md and README_ENG.md")
+    if index.index("README_GER.md") > index.index("README_ENG.md"):
+        fail("README.md must list German before English")
+    if "```lua" in index.lower():
+        fail("README.md must remain a lightweight language index")
 
+    for path in LANGUAGE_READMES:
+        if not path.exists():
+            fail(f"Missing language README: {path.name}")
+
+    documentation = "\n".join(path.read_text(encoding="utf-8") for path in LANGUAGE_READMES)
     required_links = {
         "examples/cc/README.md",
         "examples/cc/local-desk.lua",
@@ -83,13 +93,13 @@ def verify_root_readme() -> None:
         "examples/cc/pixel-test.lua",
         "examples/cc/touch-test.lua",
     }
-    missing = sorted(link for link in required_links if link not in readme)
+    missing = sorted(link for link in required_links if link not in documentation)
     if missing:
-        fail("README.md is missing example links: " + ", ".join(missing))
+        fail("Language READMEs are missing example links: " + ", ".join(missing))
 
 
 def verify_removed_and_deprecated_content() -> None:
-    documents = [ROOT_README, EXAMPLE_README]
+    documents = [ROOT_README, *LANGUAGE_READMES, EXAMPLE_README]
     documents.extend(sorted(EXAMPLE_ROOT.glob("*.lua")))
 
     for path in documents:
@@ -104,9 +114,9 @@ def verify_removed_and_deprecated_content() -> None:
 
 def main() -> int:
     verify_example_index()
-    verify_root_readme()
-    verify_links(ROOT_README)
-    verify_links(EXAMPLE_README)
+    verify_readmes()
+    for path in (ROOT_README, *LANGUAGE_READMES, EXAMPLE_README):
+        verify_links(path)
     verify_removed_and_deprecated_content()
     print("Example documentation verification passed")
     return 0
