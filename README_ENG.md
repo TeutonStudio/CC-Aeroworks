@@ -30,7 +30,7 @@ The embedded computer exposes the `peripherals` API. Common entry points include
 
 Example: [`examples/cc/network-basics.lua`](examples/cc/network-basics.lua)
 
-The previous global `aeroworks` API and old network-wide `getDesk...`/`setDeskDisplay...` facades are no longer part of the public contract.
+The previous global `aeroworks` API and the old network-wide desk/display facades are no longer part of the public contract.
 
 ## Control APIs
 
