@@ -1,3 +1,3 @@
 release_target=4573750b12223f5180775a7dd2313cc131421eb4
 release_tag=v1.3.0
-attempt=3
+attempt=4
