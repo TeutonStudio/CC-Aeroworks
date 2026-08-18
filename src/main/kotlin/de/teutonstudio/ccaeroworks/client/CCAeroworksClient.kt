@@ -6,6 +6,7 @@ import com.mred231.aeroworks.foundation.input.InputSource
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.client.creative.AeroworksCreativeSections
 import de.teutonstudio.ccaeroworks.client.display.DeskDisplayModels
+import de.teutonstudio.ccaeroworks.client.display.DeskDisplayTextureCache
 import de.teutonstudio.ccaeroworks.client.display.DeskPixelOverlayRenderer
 import de.teutonstudio.ccaeroworks.client.display.DisplayPointerRenderer
 import de.teutonstudio.ccaeroworks.client.ponder.CCAeroworksPonderPlugin
@@ -37,6 +38,7 @@ object CCAeroworksClient {
         modBus.addListener(::registerRenderers)
         modBus.addListener<ModelEvent.RegisterAdditional>(ConsoleMultiblockModels::registerAdditional)
         modBus.addListener<ModelEvent.ModifyBakingResult>(::modifyBakingResult)
+        NeoForge.EVENT_BUS.addListener(DeskDisplayTextureCache::clientTick)
         NeoForge.EVENT_BUS.addListener(DeskPixelOverlayRenderer::renderLevel)
         NeoForge.EVENT_BUS.addListener(DisplayPointerRenderer::renderLevel)
         NeoForge.EVENT_BUS.register(CombinedLeverController)
