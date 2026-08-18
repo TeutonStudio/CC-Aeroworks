@@ -27,7 +27,9 @@ def require_before(source: str, first: str, second: str, message: str) -> None:
 
 def main() -> int:
     api = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerConsoleLuaApi.kt")
-    graph = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralNetwork.kt")
+    builder = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralNetworkBuilder.kt")
+    runtime = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralNetworkRuntime.kt")
+    binding = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralBinding.kt")
     tree = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralTree.kt")
     command = read("src/main/resources/data/computercraft/lua/rom/programs/cc_aeroworks_peripherals.lua")
     autorun = read("src/main/resources/data/computercraft/lua/rom/autorun/cc_aeroworks_peripherals.lua")
@@ -43,24 +45,26 @@ def main() -> int:
         require(token in tree, f"Peripheral tree metadata is missing {token}")
 
     for direction in ("NORTH", "SOUTH", "EAST", "WEST", "UP", "DOWN"):
-        require(f"Direction.{direction}" in graph, f"Canonical scan order is missing {direction}")
+        require(f"Direction.{direction}" in builder, f"Canonical scan order is missing {direction}")
 
-    require("binding.updateNode(node)" in graph, "Stable bindings are not refreshed with current graph metadata")
-    require("private var attached = false" in graph, "Peripheral bindings still begin attached before runtime publication")
-    require("fun attach()" in graph, "Peripheral binding does not have an explicit attach phase")
-    require("bindings[node.address] = binding" in graph, "New binding is not inserted before attach")
+    require("binding.updateNode(node)" in runtime, "Stable bindings are not refreshed with current graph metadata")
+    require("private var attached = false" in binding, "Peripheral bindings still begin attached before runtime publication")
+    require("fun attach()" in binding, "Peripheral binding does not have an explicit attach phase")
+    require("bindings[node.address] = binding" in runtime, "New binding is not inserted before attach")
     require_before(
-        graph,
+        runtime,
         "graph = next",
         "binding.attach()",
         "The new graph must be published before peripheral attach callbacks",
     )
     require_before(
-        graph,
+        runtime,
         "bindings[node.address] = binding",
         "binding.attach()",
         "The binding directory must contain a new peripheral before its attach callback",
     )
+    require("cleanupMounts(throwable)" in binding,
+            "Failed peripheral attach callbacks must unwind mounts before becoming detached")
 
     require('rawget(_G, "peripherals")' in autorun, "Autorun does not detect the embedded peripherals API")
     require('shell.setAlias("peripherals", "cc_aeroworks_peripherals")' in autorun, "Embedded computer does not alias the peripherals command")
@@ -75,7 +79,7 @@ def main() -> int:
 
     print(
         "Validated getTree serialization, side-keyed child devices, embedded-only shell aliasing, "
-        "two-phase attachment publication, stable binding metadata and the runtime acceptance contract."
+        "split two-phase attachment publication, stable binding metadata and cleanup contracts."
     )
     return 0
 
