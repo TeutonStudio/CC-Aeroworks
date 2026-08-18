@@ -60,6 +60,9 @@ jobs:
       - name: Validate release stabilization layout
         run: python3 tools/verify-release-layout.py
 
+      - name: Validate dependency manifest
+        run: python3 tools/verify-dependency-manifest.py
+
       - name: Validate guide and Ponder resources
         run: python3 tools/verify-guide.py
 
@@ -131,9 +134,6 @@ jobs:
 
       - name: Compile Gradle bootstrap
         run: javac --release 21 gradle/wrapper/GradleBootstrap.java
-
-      - name: Validate dependency manifest through Gradle
-        run: ./gradlew verifyDependencyManifest --no-daemon --stacktrace
 
   full-build:
     name: Protected full build
