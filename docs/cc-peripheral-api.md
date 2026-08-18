@@ -94,6 +94,32 @@ local allModems = peripherals.findAll("endermodem")
 local tree = peripherals.getTree()
 ```
 
+### Metadaten physischer Peripheral-Handles
+
+Ein physisches Handle aus `peripherals.find`, `peripherals.findAll`, `peripherals.wrap` oder einem Desk-Unterbaum delegiert die normalen Methoden direkt an das gefundene CC:Tweaked-Peripheral. Zusätzlich stellt CC-Aeroworks `getPeripheralInfo()` bereit, sofern das Ziel nicht bereits selbst eine Methode mit diesem Namen besitzt. Besitzt das Ziel eine eigene `getPeripheralInfo`-Methode, bleibt diese unverändert maßgeblich.
+
+```lua
+local modem = peripherals.find("endermodem")
+if modem then
+    local info = modem.getPeripheralInfo()
+    print(info.address, info.type, info.side)
+end
+```
+
+Die von CC-Aeroworks ergänzte Metadatentabelle enthält:
+
+| Feld | Bedeutung |
+|---|---|
+| `address` | kanonische Netzwerkadresse des Peripherals |
+| `type` | primärer Peripheral-Typ |
+| `types` | alle erkannten Typnamen/Aliase |
+| `deskId` | stabile ID des zugehörigen ControlDesk |
+| `deskAddress` | kanonische `x,y,z`-Adresse des Pults |
+| `deskPosition` | Tabelle mit `x`, `y`, `z` und `dimension` des Pults |
+| `position` | Tabelle mit `x`, `y`, `z` und `dimension` des Peripherals |
+| `side` | Pultseite, an der das Peripheral entdeckt wurde |
+| `loaded` | `true`, solange das Handle zur aktuell geladenen Topologie gehört |
+
 Der Graph lädt keine Chunks nach. Konflikte, teilweise geladene Pultreihen, zu große Netze oder falsche Eigentümerschaft werden als Lua-Fehler abgelehnt.
 
 ### Eingebettetes Desk-Handle
