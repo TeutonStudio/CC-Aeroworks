@@ -58,7 +58,7 @@ Adds optional Create: Radars integration and radar display modules to CC-Aerowor
     side="BOTH"
 [[dependencies.${mod_id}]]
     modId="sable"
-    type="optional"
+    type="required"
     versionRange="[2.0.1,)"
     ordering="AFTER"
     side="BOTH"
