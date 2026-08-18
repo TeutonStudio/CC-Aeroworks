@@ -37,7 +37,6 @@ dispatcher = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/DeskDisp
 peripheral_state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ControlDeskPeripheralState.kt")
 display_module = read("src/main/resources/data/computercraft/lua/rom/modules/main/display.lua")
 handler_runtime = read("src/main/resources/data/computercraft/lua/rom/autorun/cc_aeroworks_display_handlers.lua")
-router_example = read("examples/cc/display-binding-router.lua")
 mixins = read("src/main/resources/cc_aeroworks.mixins.json")
 radar_mixins = read("src/main/resources/cc_aeroworks_radarcompat.mixins.json")
 workflow = read(".github/workflows/verify.yml")
@@ -183,12 +182,13 @@ require(dispatcher.count("owner.queueComputerEventWhenReady(") >= 2,
 require("computer.queueEvent(" not in dispatcher,
         "display dispatcher must not directly queue events which CC:Tweaked drops while off")
 
-# The explicit compatibility router must execute the same display/touchdisplay modules correctly.
-require("handlerRequire = require" in router_example and
-        "loadfile(path, nil, createHandlerEnvironment())" in router_example,
-        "display binding router example must load handlers with the shell module environment")
-require("local cache" not in router_example,
-        "display binding router example must not retain stale handler chunks")
+# The automatic ROM runtime is the only handler router. The old standalone compatibility example
+# was intentionally removed so there is no second, stale execution path to maintain.
+require(not (ROOT / "examples/cc/display-binding-router.lua").exists(),
+        "removed standalone display binding router example must not return")
+require("loadfile(path, nil, createHandlerEnvironment())" in handler_runtime and
+        "handlerRequire = require" in handler_runtime,
+        "automatic display runtime must own shell-compatible handler loading")
 
 # Existing programmatic configuration and compatibility events remain available.
 for method in ("getDisplayBinding", "setDisplayTouchScript", "clearDisplayBinding"):
@@ -199,8 +199,6 @@ require("handlerPath" in dispatcher and "handlerPath" in peripheral_state,
         "display input events must expose the optional Lua handler path")
 require("CONSOLE_TOUCH_EVENT" in dispatcher, "legacy embedded touch event must remain available")
 require('"monitor_touch"' in peripheral_state, "CC:Tweaked monitor_touch compatibility must remain available")
-require((ROOT / "examples/cc/display-binding-router.lua").is_file(),
-        "display binding Lua router example is missing")
 
 require("python3 tools/verify-display-bindings.py" in workflow,
         "workflow must enforce the display binding architecture")
