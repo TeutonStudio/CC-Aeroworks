@@ -128,7 +128,7 @@ object ApiReferenceCatalog {
                 "wrap(side: string) -> handle|nil"
             ),
             source = ApiSourceContract(
-                "src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralNetwork.kt", "DeskLuaHandle"
+                "src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralLuaHandles.kt", "DeskLuaHandle"
             )
         ),
         ApiReference(
