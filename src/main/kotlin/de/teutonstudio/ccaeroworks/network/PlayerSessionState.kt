@@ -4,10 +4,12 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Bounded server-side state owned by one player per key.
+ * TTL-bounded server-side state owned by one player per key.
  *
  * Callers create or refresh entries with [put]/[touch], explicitly remove them when the player's
  * lifecycle ends, and use [expire] as a fallback if a lifecycle event or terminal packet is lost.
+ * Domain-specific callers remain responsible for limiting how many distinct keys one player may
+ * create when that matters for their protocol.
  */
 internal class PlayerSessionState<K, V>(
     private val playerForKey: (K) -> UUID,
