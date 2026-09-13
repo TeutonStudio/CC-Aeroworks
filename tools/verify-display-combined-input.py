@@ -54,9 +54,16 @@ require(
     "interactive displays must keep real Aeroworks x/y",
 )
 require(
-    '"cc_aeroworks:three_digit_display" to listOf(X_CHANNEL, Y_CHANNEL)' in source and
-    '"cc_aeroworks:large_radar_display" to listOf(X_CHANNEL, Y_CHANNEL)' in source,
-    "display pointer channel declarations missing",
+    "filterIsInstance<ControlChannel.Axis>()" in source and
+    "fun channels(module: MountedModule): List<String> = axisChannelIds(module.channels())" in source and
+    "channel.horizontalHud()" in source and
+    "supportedChannels" not in source,
+    "Combined input must discover native analog axes and their mouse direction dynamically",
+)
+require(
+    '"cc_aeroworks:three_digit_display"' in source and
+    '"cc_aeroworks:large_radar_display"' in source,
+    "display pointer module classification missing",
 )
 require(
     'fun isCombinedOnly(module: MountedModule): Boolean = isDisplayPointerModule(module)' in source and

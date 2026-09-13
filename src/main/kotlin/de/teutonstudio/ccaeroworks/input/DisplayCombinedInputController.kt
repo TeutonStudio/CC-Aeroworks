@@ -256,7 +256,7 @@ object DisplayCombinedInputController {
         CombinedInputSource.channels(module).forEach { channel ->
             if (!CombinedInputSource.isCombined(module, channel)) return@forEach
             val configured = CombinedInputSource.activationBinding(module, channel).takeIf(String::isNotBlank)
-            when (CombinedInputSource.mouseAxis(channel)) {
+            when (CombinedInputSource.mouseAxis(module, channel)) {
                 CombinedInputSource.MouseAxis.X -> xBinding = configured
                 CombinedInputSource.MouseAxis.Y -> yBinding = configured
             }

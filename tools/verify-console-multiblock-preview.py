@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import math
+import struct
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,6 +20,32 @@ mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ConsoleSc
 accessor = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ConsoleScreenAccessor.kt")
 mixins = read("src/main/resources/cc_aeroworks.mixins.json")
 workflow = read(".github/workflows/verify.yml")
+models = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/ConsoleMultiblockModels.kt")
+variants = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerControlDeskBlock.kt")
+
+
+def png_size(path: str) -> tuple[int, int]:
+    data = (ROOT / path).read_bytes()
+    require(data[:8] == b"\x89PNG\r\n\x1a\n", f"{path} must be a PNG")
+    return struct.unpack(">II", data[16:24])
+
+
+require(
+    'STAND("control_stand", "computer_control_stand", true)' in variants and
+    'COPYCAT_STAND("copycat_control_stand", "computer_copycat_control_stand", true)' in variants,
+    "stand geometry family classification missing",
+)
+require(
+    "computer_control_stand_multiblock" in models and
+    "advanced_computer_control_stand_multiblock" in models and
+    "if (variant.standGeometry)" in models,
+    "block, item and preview models must select overlays by geometry family",
+)
+for texture in (
+    "src/main/resources/assets/cc_aeroworks/textures/block/computer_control_stand_multiblock.png",
+    "src/main/resources/assets/cc_aeroworks/textures/block/advanced_computer_control_stand_multiblock.png",
+):
+    require(png_size(texture) == (128, 128), f"{texture} must follow the native 128x128 stand UV")
 
 require(
     'method = ["renderConsolePreview(Lnet/minecraft/client/gui/GuiGraphics;)V"]' in mixin,

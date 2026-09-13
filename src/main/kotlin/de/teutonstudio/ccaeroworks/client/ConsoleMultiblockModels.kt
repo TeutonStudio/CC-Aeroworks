@@ -41,10 +41,18 @@ object ConsoleMultiblockModels {
     private val ADVANCED_SKIN_MODEL = ModelResourceLocation.standalone(
         CCAeroworks.id("block/multiblock_skin_advanced")
     )
+    private val COMPUTER_STAND_SKIN_MODEL = ModelResourceLocation.standalone(
+        CCAeroworks.id("block/multiblock_skin_computer_stand")
+    )
+    private val ADVANCED_STAND_SKIN_MODEL = ModelResourceLocation.standalone(
+        CCAeroworks.id("block/multiblock_skin_advanced_stand")
+    )
 
     fun registerAdditional(event: ModelEvent.RegisterAdditional) {
         event.register(COMPUTER_SKIN_MODEL)
         event.register(ADVANCED_SKIN_MODEL)
+        event.register(COMPUTER_STAND_SKIN_MODEL)
+        event.register(ADVANCED_STAND_SKIN_MODEL)
     }
 
     fun modifyBakingResult(event: ModelEvent.ModifyBakingResult) {
@@ -73,8 +81,22 @@ object ConsoleMultiblockModels {
                 CCAeroworks.id("block/advanced_computer_control_desk_multiblock")
             )
         )
+        val computerStandSprite = event.textureGetter.apply(
+            Material(
+                TextureAtlas.LOCATION_BLOCKS,
+                CCAeroworks.id("block/computer_control_stand_multiblock")
+            )
+        )
+        val advancedStandSprite = event.textureGetter.apply(
+            Material(
+                TextureAtlas.LOCATION_BLOCKS,
+                CCAeroworks.id("block/advanced_computer_control_stand_multiblock")
+            )
+        )
 
         baseBlocks.forEach { (variant, baseBlock) ->
+            val normalOverlay = if (variant.standGeometry) computerStandSprite else computerSprite
+            val advancedOverlay = if (variant.standGeometry) advancedStandSprite else advancedSprite
             val targetBlocks = listOf(
                 baseBlock,
                 CCBlocks.computerConsole(variant, ComputerFamily.NORMAL).get(),
@@ -96,13 +118,13 @@ object ConsoleMultiblockModels {
                         ConsoleMultiblockSkin.DEFAULT -> if (isBaseBlock) originalModel else {
                             InheritedConsoleModel(originalModel, baseState)
                         }
-                        ConsoleMultiblockSkin.COMPUTER -> OverlayConsoleModel(originalModel, baseState, computerSprite)
-                        ConsoleMultiblockSkin.ADVANCED -> OverlayConsoleModel(originalModel, baseState, advancedSprite)
+                        ConsoleMultiblockSkin.COMPUTER -> OverlayConsoleModel(originalModel, baseState, normalOverlay)
+                        ConsoleMultiblockSkin.ADVANCED -> OverlayConsoleModel(originalModel, baseState, advancedOverlay)
                     }
                 }
             }
 
-            inheritItemModels(event, originalModels, variant, baseBlock, computerSprite, advancedSprite)
+            inheritItemModels(event, originalModels, variant, baseBlock, normalOverlay, advancedOverlay)
         }
     }
 

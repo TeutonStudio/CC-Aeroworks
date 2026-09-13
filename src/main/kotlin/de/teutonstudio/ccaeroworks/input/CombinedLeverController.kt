@@ -197,7 +197,7 @@ object CombinedLeverController {
     private fun consumeMouseDelta(deltaX: Double, deltaY: Double) {
         val active = target ?: return
         active.axes.forEach { axis ->
-            val mouseAxis = CombinedInputSource.mouseAxis(axis.channel)
+            val mouseAxis = axis.mouseAxis
             val delta = when (mouseAxis) {
                 CombinedInputSource.MouseAxis.X -> deltaX
                 CombinedInputSource.MouseAxis.Y -> deltaY
@@ -220,7 +220,12 @@ object CombinedLeverController {
         val module = desk.module(candidate.socket) ?: return null
         val axes = candidate.channels.map { channel ->
             val value = module.value(channel).coerceIn(-15, 15)
-            CombinedAxisTarget(channel, LeverAccumulator(value), value)
+            CombinedAxisTarget(
+                channel,
+                CombinedInputSource.mouseAxis(module, channel),
+                LeverAccumulator(value),
+                value
+            )
         }
         if (axes.isEmpty()) return null
 

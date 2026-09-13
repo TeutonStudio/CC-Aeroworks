@@ -124,7 +124,7 @@ abstract class ModuleScreenCombinedInputMixin {
         if (!invoker.ccaeroworks_analogDriven(column) ||
             module.analogSourceFor(column.channel().id()) != CombinedInputSource.ID
         ) return
-        val axisSuffix = when (CombinedInputSource.mouseAxis(column.channel().id())) {
+        val axisSuffix = when (CombinedInputSource.mouseAxis(module, column.channel().id())) {
             CombinedInputSource.MouseAxis.X -> "x"
             CombinedInputSource.MouseAxis.Y -> "y"
         }

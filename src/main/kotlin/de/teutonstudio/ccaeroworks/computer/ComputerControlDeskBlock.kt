@@ -34,11 +34,15 @@ import net.minecraft.world.level.block.state.properties.Property
 import net.minecraft.world.level.storage.loot.LootParams
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams
 
-enum class ComputerConsoleVariant(val aeroworksPath: String, val itemPath: String) {
-    DESK("control_desk", "computer_control_desk"),
-    COPYCAT_DESK("copycat_control_desk", "computer_copycat_control_desk"),
-    STAND("control_stand", "computer_control_stand"),
-    COPYCAT_STAND("copycat_control_stand", "computer_copycat_control_stand")
+enum class ComputerConsoleVariant(
+    val aeroworksPath: String,
+    val itemPath: String,
+    val standGeometry: Boolean
+) {
+    DESK("control_desk", "computer_control_desk", false),
+    COPYCAT_DESK("copycat_control_desk", "computer_copycat_control_desk", false),
+    STAND("control_stand", "computer_control_stand", true),
+    COPYCAT_STAND("copycat_control_stand", "computer_copycat_control_stand", true)
 }
 
 class ComputerControlDeskBlock(

@@ -1,51 +1,41 @@
 package de.teutonstudio.ccaeroworks.input
 
+import com.mred231.aeroworks.content.controls.channel.ControlChannel
 import com.mred231.aeroworks.content.controls.module.ModuleType
 import com.mred231.aeroworks.content.controls.module.ModuleTypes
 import com.mred231.aeroworks.content.controls.module.MountedModule
 
 object CombinedInputSource {
     const val ID: String = "cc_aeroworks.combined"
-    const val LEVER_CHANNEL: String = "lever"
-    const val X_CHANNEL: String = "x"
-    const val Y_CHANNEL: String = "y"
-
     private val displayPointerModules: Set<String> = setOf(
         "cc_aeroworks:three_digit_display",
         "cc_aeroworks:large_radar_display"
     )
 
     /**
-     * Every continuous Aeroworks control is available in Combined mode. Binary button modules are
-     * intentionally absent because mouse motion has no continuous axis to map onto their press
-     * channels. The two large CC-Aeroworks displays expose real X/Y channels and are Combined-only.
+     * MountedModule assembles child-module channels and prefixes their IDs with the complete module
+     * path. Selecting Axis records here therefore covers pedals, copper variants and composed
+     * modules without losing the ID Aeroworks uses for configuration and network updates. Binary
+     * button channels remain absent because mouse motion has no continuous value to map onto them.
      */
-    private val supportedChannels: Map<String, List<String>> = mapOf(
-        "aeroworks:lever" to listOf(LEVER_CHANNEL),
-        "aeroworks:joystick" to listOf(X_CHANNEL, Y_CHANNEL),
-        "aeroworks:wheel" to listOf("wheel"),
-        "aeroworks:yoke" to listOf("turn", "pitch"),
-        "aeroworks:throttle_quadrant" to listOf("red", "amber", "green", "blue"),
-        "cc_aeroworks:three_digit_display" to listOf(X_CHANNEL, Y_CHANNEL),
-        "cc_aeroworks:large_radar_display" to listOf(X_CHANNEL, Y_CHANNEL)
-    )
+    fun axisChannelIds(channels: Iterable<ControlChannel>): List<String> = channels
+        .filterIsInstance<ControlChannel.Axis>()
+        .map(ControlChannel.Axis::id)
 
-    private val horizontalChannels: Set<String> = setOf(
-        X_CHANNEL,
-        "wheel",
-        "turn"
-    )
+    fun mouseAxis(channel: ControlChannel.Axis): MouseAxis =
+        if (channel.horizontalHud()) MouseAxis.X else MouseAxis.Y
 
-    fun mouseAxis(channel: String): MouseAxis =
-        if (channel in horizontalChannels) MouseAxis.X else MouseAxis.Y
-
-    fun channelsFor(moduleId: String): List<String> = supportedChannels[moduleId].orEmpty()
+    fun mouseAxis(module: MountedModule, channelId: String): MouseAxis = module.channels()
+        .filterIsInstance<ControlChannel.Axis>()
+        .firstOrNull { it.id() == channelId }
+        ?.let(::mouseAxis)
+        ?: MouseAxis.Y
 
     fun moduleId(module: MountedModule): String = ModuleTypes.idOf(module.type()).toString()
 
     fun moduleId(moduleType: ModuleType): String = ModuleTypes.idOf(moduleType).toString()
 
-    fun channels(module: MountedModule): List<String> = channelsFor(moduleId(module))
+    fun channels(module: MountedModule): List<String> = axisChannelIds(module.channels())
 
     fun supports(module: MountedModule): Boolean = channels(module).isNotEmpty()
 

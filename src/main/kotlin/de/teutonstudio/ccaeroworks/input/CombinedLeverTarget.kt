@@ -21,6 +21,7 @@ data class CombinedLeverTarget(
 
 data class CombinedAxisTarget(
     val channel: String,
+    val mouseAxis: CombinedInputSource.MouseAxis,
     val accumulator: LeverAccumulator,
     var sentValue: Int,
     var pendingValue: Int? = null
