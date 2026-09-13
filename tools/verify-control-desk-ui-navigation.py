@@ -35,6 +35,13 @@ require("ControlDeskNavigationButtons.navigationButtons" in module and "ControlD
 require("rememberClientControls(menu.contentHolder)" in module and "rememberClientOverview(console)" in overview, "return context must preserve detail/overview")
 require("HoverTintIconButton" in aero_buttons and "private const val UI_INSET = 8" in aero_buttons, "navigation icons must use native Aeroworks button geometry")
 require("private const val BUTTON_GAP = 2" in aero_buttons and "computer.x + computer.width + BUTTON_GAP" in aero_buttons, "API action must sit directly to the right of Computer")
+require(
+    "filterIsInstance<AbstractWidget>()" in aero_buttons and
+    "widget.y == anchor.y" in aero_buttons and
+    "widget.x < uiLeft + RIGHT_ACTIONS_OFFSET" in aero_buttons and
+    "maxOf(uiLeft + UI_INSET, nativeLeftEdge" in aero_buttons,
+    "Computer/API buttons must start after the optional native Orientation button",
+)
 require("withCallback<HoverTintIconButton>(callback)" in aero_buttons, "Catnip callback typing regression")
 require("private val API_ICON" in aero_buttons and "GuideBookScreen(screen, GuideSectionId.NETWORK_API)" in aero_buttons, "API button must open the named Network/API guide section")
 require("Component.translatable(\"guide.cc_aeroworks.tab.network\")" in aero_buttons, "API button must use the localized Network/API tooltip")

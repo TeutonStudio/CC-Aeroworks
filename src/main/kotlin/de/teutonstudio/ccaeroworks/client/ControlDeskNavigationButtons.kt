@@ -5,6 +5,7 @@ import de.teutonstudio.ccaeroworks.client.guide.GuideSectionId
 import net.createmod.catnip.gui.element.ScreenElement
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
+import net.minecraft.client.gui.components.AbstractWidget
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 
@@ -18,6 +19,7 @@ import net.minecraft.network.chat.Component
 object ControlDeskNavigationButtons {
     private const val UI_INSET = 8
     private const val BUTTON_GAP = 2
+    private const val RIGHT_ACTIONS_OFFSET = 198
     private const val AEROWORKS_HOVER_TINT = 0x80FF80
 
     private val COMPUTER_ICON = ScreenElement { graphics: GuiGraphics, x: Int, y: Int ->
@@ -47,15 +49,23 @@ object ControlDeskNavigationButtons {
         uiLeft: Int,
         computerCallback: Runnable?
     ): List<HoverTintIconButton> {
-        // Y and chrome still follow Aeroworks' native bottom-row button. X does not: Delete/Done
-        // are right-aligned and must remain exactly where Aeroworks put them.
+        // Y and chrome still follow Aeroworks' native bottom row. Reserve every native widget on
+        // the left side of that row before placing our actions: ModuleScreen conditionally adds its
+        // Orientation button at leftPos + 9 for both desk- and stand-mounted modules. Delete/Done
+        // begin at +198 and remain right-aligned.
         val anchor = screen.children()
             .filterIsInstance<HoverTintIconButton>()
             .maxByOrNull { it.x }
             ?: return emptyList()
 
         val buttons = mutableListOf<HoverTintIconButton>()
-        var nextX = uiLeft + UI_INSET
+        val nativeLeftEdge = screen.children()
+            .filterIsInstance<AbstractWidget>()
+            .filter { widget ->
+                widget.y == anchor.y && widget.x < uiLeft + RIGHT_ACTIONS_OFFSET
+            }
+            .maxOfOrNull { it.x + it.width + BUTTON_GAP }
+        var nextX = maxOf(uiLeft + UI_INSET, nativeLeftEdge ?: Int.MIN_VALUE)
 
         if (computerCallback != null) {
             val computer = createButton(
