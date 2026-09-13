@@ -41,11 +41,13 @@ require(
     "if (variant.standGeometry)" in models,
     "block, item and preview models must select overlays by geometry family",
 )
-for texture in (
-    "src/main/resources/assets/cc_aeroworks/textures/block/computer_control_stand_multiblock.png",
-    "src/main/resources/assets/cc_aeroworks/textures/block/advanced_computer_control_stand_multiblock.png",
-):
-    require(png_size(texture) == (128, 128), f"{texture} must follow the native 128x128 stand UV")
+for texture, expected_size in {
+    "src/main/resources/assets/cc_aeroworks/textures/block/computer_control_desk_multiblock.png": (64, 64),
+    "src/main/resources/assets/cc_aeroworks/textures/block/advanced_computer_control_desk_multiblock.png": (64, 64),
+    "src/main/resources/assets/cc_aeroworks/textures/block/computer_control_stand_multiblock.png": (128, 128),
+    "src/main/resources/assets/cc_aeroworks/textures/block/advanced_computer_control_stand_multiblock.png": (128, 128),
+}.items():
+    require(png_size(texture) == expected_size, f"{texture} must follow its native console UV")
 
 require(
     'method = ["renderConsolePreview(Lnet/minecraft/client/gui/GuiGraphics;)V"]' in mixin,
