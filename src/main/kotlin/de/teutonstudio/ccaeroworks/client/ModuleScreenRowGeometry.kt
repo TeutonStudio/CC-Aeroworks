@@ -1,9 +1,9 @@
 package de.teutonstudio.ccaeroworks.client
 
-import com.mred231.aeroworks.content.controls.ModuleColumn
+import com.mred231.aeroworks.content.controls.module.ModuleColumn
 
 /**
- * Aeroworks 1.3.0 ModuleScreen list geometry, mirrored from its verified bytecode layout.
+ * Aeroworks 1.5.0 ModuleScreen list geometry, mirrored from its verified bytecode layout.
  *
  * This is deliberately outside the Mixin package tree. Sponge Mixin reserves every class under
  * de.teutonstudio.ccaeroworks.mixin.* for mixin processing and rejects ordinary helper classes

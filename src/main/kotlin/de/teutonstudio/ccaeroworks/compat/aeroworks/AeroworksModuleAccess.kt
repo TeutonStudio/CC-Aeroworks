@@ -1,7 +1,7 @@
 package de.teutonstudio.ccaeroworks.compat.aeroworks
 
-import com.mred231.aeroworks.content.controls.MountedModule
-import com.mred231.aeroworks.content.controls.ModuleTypes
+import com.mred231.aeroworks.content.controls.module.MountedModule
+import com.mred231.aeroworks.content.controls.module.ModuleTypes
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 import net.minecraft.resources.ResourceLocation
 

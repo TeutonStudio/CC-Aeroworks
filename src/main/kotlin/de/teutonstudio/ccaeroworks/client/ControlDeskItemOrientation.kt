@@ -3,6 +3,7 @@ package de.teutonstudio.ccaeroworks.client
 import com.mojang.blaze3d.vertex.PoseStack
 import com.mojang.math.Axis
 import de.teutonstudio.ccaeroworks.CCAeroworks
+import de.teutonstudio.ccaeroworks.computer.ComputerConsoleVariant
 import net.minecraft.client.resources.model.BakedModel
 import net.minecraft.client.resources.model.ModelResourceLocation
 import net.minecraft.world.item.ItemDisplayContext
@@ -10,15 +11,15 @@ import net.neoforged.neoforge.client.event.ModelEvent
 import net.neoforged.neoforge.client.model.BakedModelWrapper
 
 object ControlDeskItemOrientation {
-    private val COMPUTER_ITEM_MODEL = ModelResourceLocation.inventory(
-        CCAeroworks.id("computer_control_desk")
-    )
-    private val ADVANCED_ITEM_MODEL = ModelResourceLocation.inventory(
-        CCAeroworks.id("advanced_computer_control_desk")
-    )
+    private val COMPUTER_ITEM_MODELS = ComputerConsoleVariant.entries.flatMap { variant ->
+        listOf(
+            ModelResourceLocation.inventory(CCAeroworks.id(variant.itemPath)),
+            ModelResourceLocation.inventory(CCAeroworks.id("advanced_${variant.itemPath}"))
+        )
+    }
 
     fun modifyBakingResult(event: ModelEvent.ModifyBakingResult) {
-        listOf(COMPUTER_ITEM_MODEL, ADVANCED_ITEM_MODEL).forEach { location ->
+        COMPUTER_ITEM_MODELS.forEach { location ->
             val model = event.models[location] ?: return@forEach
             event.models[location] = VerticallyRotatedItemModel(model)
         }

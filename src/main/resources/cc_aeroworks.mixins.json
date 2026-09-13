@@ -14,7 +14,6 @@
     "ComputerControlDeskWireChannelsMixin",
     "ConsoleBlockSkinMixin",
     "ConsoleDeskBlockConnectionMixin",
-    "ConsoleBlockEntityInvoker",
     "ConsoleBlockEntityControlOverrideMixin",
     "ConsoleBlockEntityDeskIdMixin",
     "ConsoleBlockEntityDisplayBindingMixin",

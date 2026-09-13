@@ -4,9 +4,9 @@ import com.mojang.blaze3d.platform.Lighting
 import com.mojang.blaze3d.vertex.PoseStack
 import com.mojang.blaze3d.vertex.VertexConsumer
 import com.mojang.math.Axis
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
-import com.mred231.aeroworks.content.controls.ModulePartRender
-import com.mred231.aeroworks.content.controls.ModulePartials
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.module.ModulePartRender
+import com.mred231.aeroworks.content.controls.module.ModulePartials
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockSnapshot
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState

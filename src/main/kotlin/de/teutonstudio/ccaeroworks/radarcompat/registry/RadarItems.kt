@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.radarcompat.registry
 
-import com.mred231.aeroworks.content.controls.ModuleItem
+import com.mred231.aeroworks.content.controls.module.ModuleItem
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import net.minecraft.world.item.Item
 import net.neoforged.bus.api.IEventBus

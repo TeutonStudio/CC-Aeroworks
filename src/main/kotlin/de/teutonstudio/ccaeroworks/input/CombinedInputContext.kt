@@ -1,11 +1,9 @@
 package de.teutonstudio.ccaeroworks.input
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.compat.sable.SableInteractionGeometry
-import de.teutonstudio.ccaeroworks.mixin.ConsoleBlockEntityInvoker
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockSnapshot
-import java.util.function.Predicate
 import net.minecraft.client.Minecraft
 import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceKey
@@ -73,11 +71,8 @@ object CombinedInputContext {
 
         val from = player.eyePosition
         val to = from.add(player.getViewVector(1.0f).scale(player.blockInteractionRange()))
-        val mount = (desk as ConsoleBlockEntityInvoker).ccaeroworks_nearestMount(from, to, Predicate { spot ->
-            if (!spot.occupied()) return@Predicate false
-            val target = spot.target()
-            target.subPath() == null && localCandidates.any { it.socket == target.socket() }
-        }) ?: return null
+        val mount = desk.nearestMountedModule(from, to) ?: return null
+        if (mount.subPath() != null) return null
         return localCandidates.firstOrNull { it.socket == mount.socket() }
     }
 

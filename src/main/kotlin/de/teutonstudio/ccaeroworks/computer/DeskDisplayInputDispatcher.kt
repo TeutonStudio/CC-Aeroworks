@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.computer
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.computercraft.ControlDeskPeripheralState
 import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics

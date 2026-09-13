@@ -1,7 +1,7 @@
 package de.teutonstudio.ccaeroworks.client
 
-import com.mred231.aeroworks.content.controls.ConsoleVisual
-import com.mred231.aeroworks.content.controls.ModulePartials
+import com.mred231.aeroworks.content.controls.console.ConsoleVisual
+import com.mred231.aeroworks.content.controls.module.ModulePartials
 import com.mred231.aeroworks.foundation.input.InputSource
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.client.creative.AeroworksCreativeSections

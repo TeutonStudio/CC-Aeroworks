@@ -1,15 +1,26 @@
 package de.teutonstudio.ccaeroworks.compat.aeroworks
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
-import com.mred231.aeroworks.content.controls.MountedModule
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.module.MountedModule
 import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
 import de.teutonstudio.ccaeroworks.display.DeskDisplayFormatter
 import de.teutonstudio.ccaeroworks.display.DeskDisplayPixels
 import de.teutonstudio.ccaeroworks.display.DeskDisplayState
+import de.teutonstudio.ccaeroworks.display.DeskDisplayType
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 import net.minecraft.network.chat.Component
+import java.util.WeakHashMap
 
 object AeroworksDeskAccess {
+    private data class CachedDisplay(
+        val module: MountedModule,
+        val stored: String,
+        val type: DeskDisplayType,
+        val state: DeskDisplayState
+    )
+
+    private val displayCache = WeakHashMap<ConsoleBlockEntity, MutableMap<Int, CachedDisplay>>()
+
     @JvmStatic
     fun module(desk: ConsoleBlockEntity, socket: Int): MountedModule? =
         if (socket in 0 until desk.socketCount()) desk.module(socket) else null
@@ -19,6 +30,11 @@ object AeroworksDeskAccess {
         val module = module(desk, socket) ?: return null
         val type = CCModuleTypes.displayType(module.type()) ?: return null
         val stored = module.customName()?.string.orEmpty()
+        synchronized(displayCache) {
+            displayCache[desk]?.get(socket)?.takeIf {
+                it.module === module && it.stored == stored && it.type == type
+            }?.let { return it.state }
+        }
         val decoded = DeskDisplayPixels.decode(type, stored)
         val encodedRaster = DeskDisplayPixels.isEncoded(stored)
         // A PPB change invalidates the old raster dimensions. Keep that state in pixel mode and
@@ -26,7 +42,12 @@ object AeroworksDeskAccess {
         // serialized payload as ordinary seven-segment text.
         val pixels = decoded ?: if (encodedRaster) DeskDisplayPixels.blank(type) else null
         val text = if (pixels == null) DeskDisplayFormatter.normalizeText(stored, type.width) else ""
-        return DeskDisplayState(socket, type, text, pixels)
+        return DeskDisplayState(socket, type, text, pixels).also { state ->
+            synchronized(displayCache) {
+                displayCache.getOrPut(desk) { hashMapOf() }[socket] =
+                    CachedDisplay(module, stored, type, state)
+            }
+        }
     }
 
     @JvmStatic
@@ -41,6 +62,7 @@ object AeroworksDeskAccess {
         val current = display(desk, socket) ?: return null
         val normalized = DeskDisplayFormatter.normalizeText(text, current.type.width)
         desk.setModuleName(socket, "", if (normalized.isEmpty()) null else Component.literal(normalized))
+        invalidate(desk, socket)
         return current.copy(text = normalized, pixels = null)
     }
 
@@ -64,6 +86,14 @@ object AeroworksDeskAccess {
         // again merely as a diagnostic readback: drawStroke can call this every client tick and the
         // redundant decode doubles the mutable-raster work while adding no correctness guarantee.
         desk.setModuleName(socket, "", Component.literal(pixels.encode()))
+        invalidate(desk, socket)
         return current.copy(text = "", pixels = pixels)
+    }
+
+    @JvmStatic
+    fun invalidate(desk: ConsoleBlockEntity, socket: Int? = null) {
+        synchronized(displayCache) {
+            if (socket == null) displayCache.remove(desk) else displayCache[desk]?.remove(socket)
+        }
     }
 }

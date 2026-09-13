@@ -1,9 +1,9 @@
 package de.teutonstudio.ccaeroworks.mixin.client
 
-import com.mred231.aeroworks.content.controls.ModuleColumn
-import com.mred231.aeroworks.content.controls.ModuleScreen
-import com.mred231.aeroworks.content.controls.ModuleSetting
-import com.mred231.aeroworks.content.controls.MountedModule
+import com.mred231.aeroworks.content.controls.module.ModuleColumn
+import com.mred231.aeroworks.content.controls.module.ModuleScreen
+import com.mred231.aeroworks.content.controls.module.ModuleSetting
+import com.mred231.aeroworks.content.controls.module.MountedModule
 import org.spongepowered.asm.mixin.Mixin
 import org.spongepowered.asm.mixin.gen.Invoker
 

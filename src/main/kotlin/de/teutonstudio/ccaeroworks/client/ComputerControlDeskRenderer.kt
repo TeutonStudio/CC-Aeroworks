@@ -1,8 +1,8 @@
 package de.teutonstudio.ccaeroworks.client
 
 import com.mojang.blaze3d.vertex.PoseStack
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
-import com.mred231.aeroworks.content.controls.ConsoleRenderer
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleRenderer
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.client.display.DeskDisplayRenderer
 import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity

@@ -1,6 +1,6 @@
 # Docking-Telemetrie mit Create: Simulated und Sable
 
-Wenn Create: Simulated 1.3.0 vorhanden ist, kann ein `simulated:docking_connector` als Create-Display-Link-Telemetrie-Endpunkt verwendet werden. Dadurch kann ein eigenständiges Sable-Modul seine Messwerte lokal sammeln und beim Andocken an einen ComputerControlDesk weiterreichen.
+Wenn Create: Simulated 1.3.2 vorhanden ist, kann ein `simulated:docking_connector` als Create-Display-Link-Telemetrie-Endpunkt verwendet werden. Dadurch kann ein eigenständiges Sable-Modul seine Messwerte lokal sammeln und beim Andocken an einen ComputerControlDesk weiterreichen.
 
 Simulated bleibt eine optionale Abhängigkeit. CC-Aeroworks lädt keine Simulated-Klasse direkt im Kern, sondern aktiviert den Adapter nur, wenn `simulated` vorhanden ist.
 

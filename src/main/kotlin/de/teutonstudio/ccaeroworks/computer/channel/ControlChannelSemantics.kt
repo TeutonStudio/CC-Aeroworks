@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.computer.channel
 
-import com.mred231.aeroworks.content.controls.MountedModule
+import com.mred231.aeroworks.content.controls.module.MountedModule
 import de.teutonstudio.ccaeroworks.input.CombinedInputSource
 
 enum class ControlChannelKind {

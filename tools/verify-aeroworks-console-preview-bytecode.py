@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
-"""Pin the Aeroworks 1.3.0 ConsoleScreen preview method used by our client Mixin."""
+"""Pin the Aeroworks ConsoleScreen preview method used by our client Mixin."""
 from __future__ import annotations
+import hashlib
+import json
 import subprocess
 import tempfile
 import urllib.request
 from pathlib import Path
 
-VERSION = "1.3.0"
-FILE_NAME = "aeroworks-1.3.0.jar"
-DOWNLOAD_URL = "https://cdn.modrinth.com/data/P26k79kP/versions/EYVmBa7H/aeroworks-1.3.0.jar"
-EXPECTED_MIN_BYTES = 650_000
-EXPECTED_MAX_BYTES = 700_000
-CONSOLE_SCREEN = "com.mred231.aeroworks.content.controls.ConsoleScreen"
+ROOT = Path(__file__).resolve().parents[1]
+MANIFEST = json.loads((ROOT / "libs/dependencies.json").read_text())
+DEPENDENCY = next(item for item in MANIFEST["dependencies"] if item["modId"] == "aeroworks")
+VERSION = DEPENDENCY["version"]
+FILE_NAME = DEPENDENCY["filenameExamples"][0]
+DOWNLOAD_URL = DEPENDENCY["downloadUrl"]
+EXPECTED_SHA256 = DEPENDENCY["sha256"]
+CONSOLE_SCREEN = "com.mred231.aeroworks.content.controls.console.ConsoleScreen"
 
 
 def require(condition: bool, message: str) -> None:
@@ -27,10 +31,7 @@ def download(path: Path) -> None:
     with urllib.request.urlopen(request, timeout=60) as response:
         require(response.status == 200, f"Aeroworks download returned HTTP {response.status}")
         path.write_bytes(response.read())
-    require(
-        EXPECTED_MIN_BYTES <= path.stat().st_size <= EXPECTED_MAX_BYTES,
-        f"Unexpected {FILE_NAME} size {path.stat().st_size}",
-    )
+    require(hashlib.sha256(path.read_bytes()).hexdigest() == EXPECTED_SHA256, f"Unexpected SHA-256 for {FILE_NAME}")
 
 
 def javap(jar: Path, class_name: str) -> str:
@@ -59,9 +60,9 @@ def main() -> int:
             "float 30.0f",
             "float 225.0f",
             "Method net/createmod/catnip/render/CachedBuffers.block:",
-            "Method com/mred231/aeroworks/content/controls/ModulePartRender.flatten:",
-            "Method com/mred231/aeroworks/content/controls/ModulePartRender.displayValues:",
-            "Method com/mred231/aeroworks/content/controls/ModulePartRender.apply:",
+            "Method com/mred231/aeroworks/content/controls/module/ModulePartRender.flatten:",
+            "Method com/mred231/aeroworks/content/controls/module/ModulePartRender.displayValues:",
+            "Method com/mred231/aeroworks/content/controls/module/ModulePartRender.apply:",
             "Method com/mojang/blaze3d/platform/Lighting.setupFor3DItems:()V",
             "Method net/minecraft/client/renderer/MultiBufferSource$BufferSource.endBatch:()V",
             "Field windowLeft:I",

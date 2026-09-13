@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.telemetry
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import com.simibubi.create.api.behaviour.display.DisplayTarget
 import com.simibubi.create.content.redstone.displayLink.DisplayLinkContext
 import com.simibubi.create.content.redstone.displayLink.target.DisplayTargetStats

@@ -40,7 +40,7 @@ object DisplayScriptCatalog {
     private data class Cached(val tick: Long, val entries: List<DisplayScriptDescriptor>)
     private val cache = WeakHashMap<ComputerControlDeskBlockEntity, Cached>()
 
-    fun ownerFor(desk: com.mred231.aeroworks.content.controls.ConsoleBlockEntity): ComputerControlDeskBlockEntity? {
+    fun ownerFor(desk: com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity): ComputerControlDeskBlockEntity? {
         if (desk is ComputerControlDeskBlockEntity) return desk
         val level = desk.level ?: return null
         val snapshot = ConsoleMultiblockManager.resolve(level, desk.blockPos)

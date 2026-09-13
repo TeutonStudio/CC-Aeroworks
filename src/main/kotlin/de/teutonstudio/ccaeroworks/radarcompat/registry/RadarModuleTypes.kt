@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.radarcompat.registry
 
-import com.mred231.aeroworks.content.controls.ModuleType
+import com.mred231.aeroworks.content.controls.module.ModuleType
 import de.teutonstudio.ccaeroworks.radarcompat.display.RadarDisplayType
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 

@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.computer.control
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import dan200.computercraft.api.lua.LuaException
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskService

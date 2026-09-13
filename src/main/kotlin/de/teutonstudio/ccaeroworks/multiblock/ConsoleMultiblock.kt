@@ -1,12 +1,15 @@
 package de.teutonstudio.ccaeroworks.multiblock
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleBlock
+import com.mred231.aeroworks.content.controls.console.ConsoleDeskBlock
 import dan200.computercraft.shared.ModRegistry
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskIdentityAccess
 import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlock
 import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
 import de.teutonstudio.ccaeroworks.registry.CCItems
+import de.teutonstudio.ccaeroworks.registry.CCDataComponents
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.component.DataComponentType
@@ -22,6 +25,7 @@ import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.level.block.state.properties.BooleanProperty
+import net.minecraft.world.level.block.state.properties.Property
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.event.level.BlockEvent
 import net.neoforged.neoforge.event.level.ChunkEvent
@@ -94,6 +98,7 @@ object ConsoleMultiblockResolver {
 
         val facing = startState.getValue(BlockStateProperties.HORIZONTAL_FACING)
         val ceiling = booleanPropertyValue(startState, "ceiling")
+        val standGeometry = (startState.block as ConsoleDeskBlock).standGeometry()
         val left = facing.counterClockWise
         val right = facing.clockWise
         val positions = mutableListOf(start.immutable())
@@ -109,12 +114,12 @@ object ConsoleMultiblockResolver {
                     break
                 }
                 val state = level.getBlockState(cursor)
-                if (!compatible(state, facing, ceiling)) break
+                if (!compatible(state, facing, ceiling, standGeometry)) break
                 found += cursor.immutable()
                 cursor = cursor.relative(direction)
             }
             if (found.size + positions.size >= MAX_MEMBERS && level.isLoaded(cursor) &&
-                compatible(level.getBlockState(cursor), facing, ceiling)
+                compatible(level.getBlockState(cursor), facing, ceiling, standGeometry)
             ) {
                 tooLarge = true
             }
@@ -159,17 +164,19 @@ object ConsoleMultiblockResolver {
     }
 
     fun compatible(state: BlockState, facing: Direction): Boolean =
-        compatible(state, facing, null)
+        compatible(state, facing, null, null)
 
     private fun compatible(
         state: BlockState,
         facing: Direction,
-        ceiling: Boolean?
+        ceiling: Boolean?,
+        standGeometry: Boolean?
     ): Boolean =
         AeroworksTypes.isControlDesk(state.block) &&
             state.hasProperty(BlockStateProperties.HORIZONTAL_FACING) &&
             state.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing &&
-            (ceiling == null || booleanPropertyValue(state, "ceiling") == ceiling)
+            (ceiling == null || booleanPropertyValue(state, "ceiling") == ceiling) &&
+            (standGeometry == null || (state.block as ConsoleDeskBlock).standGeometry() == standGeometry)
 
     private fun booleanPropertyValue(state: BlockState, name: String): Boolean? {
         val property = state.properties
@@ -181,21 +188,19 @@ object ConsoleMultiblockResolver {
 }
 
 object ConsoleMultiblockManager {
-    private data class Cached(val generation: Long, val snapshot: ConsoleMultiblockSnapshot)
+    private data class Cached(val snapshot: ConsoleMultiblockSnapshot)
 
     private val caches = WeakHashMap<Level, MutableMap<BlockPos, Cached>>()
-    private val generations = WeakHashMap<Level, Long>()
     private val revision = AtomicLong()
 
     @Synchronized
     fun resolve(level: Level, pos: BlockPos): ConsoleMultiblockSnapshot {
-        val generation = generations[level] ?: 0L
         val levelCache = caches.getOrPut(level) { hashMapOf() }
         val key = pos.immutable()
-        levelCache[key]?.takeIf { it.generation == generation }?.let { return it.snapshot }
+        levelCache[key]?.let { return it.snapshot }
 
         val snapshot = ConsoleMultiblockResolver.resolve(level, pos, revision.incrementAndGet())
-        val cached = Cached(generation, snapshot)
+        val cached = Cached(snapshot)
         snapshot.members.forEach { levelCache[it.pos] = cached }
         if (snapshot.members.isEmpty()) levelCache[key] = cached
         return snapshot
@@ -203,15 +208,42 @@ object ConsoleMultiblockManager {
 
     @Synchronized
     fun invalidate(level: Level) {
-        generations[level] = (generations[level] ?: 0L) + 1L
         caches[level]?.clear()
+    }
+
+    @Synchronized
+    fun invalidate(level: Level, pos: BlockPos) {
+        val levelCache = caches[level] ?: return
+        val affected = levelCache.values.filterTo(hashSetOf()) { cached ->
+            cached.snapshot.members.any { member ->
+                member.pos.y == pos.y &&
+                    kotlin.math.abs(member.pos.x - pos.x) + kotlin.math.abs(member.pos.z - pos.z) <= 1
+            } || cached.snapshot.members.isEmpty() && levelCache[pos] === cached
+        }
+        if (affected.isNotEmpty()) levelCache.entries.removeIf { it.value in affected }
+        levelCache.remove(pos)
+    }
+
+    @Synchronized
+    private fun invalidateChunk(level: Level, chunkX: Int, chunkZ: Int) {
+        val levelCache = caches[level] ?: return
+        val minX = chunkX shl 4
+        val minZ = chunkZ shl 4
+        val maxX = minX + 15
+        val maxZ = minZ + 15
+        levelCache.entries.removeIf { (key, cached) ->
+            key.x in (minX - 1)..(maxX + 1) && key.z in (minZ - 1)..(maxZ + 1) ||
+                cached.snapshot.members.any { member ->
+                    member.pos.x in (minX - 1)..(maxX + 1) && member.pos.z in (minZ - 1)..(maxZ + 1)
+                }
+        }
     }
 
     @SubscribeEvent
     fun onPlace(event: BlockEvent.EntityPlaceEvent) {
         val level = event.level as? Level ?: return
         if (!AeroworksTypes.isControlDesk(event.placedBlock.block)) return
-        invalidate(level)
+        invalidate(level, event.pos)
 
         val serverLevel = level as? ServerLevel ?: return
         if (event.placedBlock.block is ComputerControlDeskBlock) return
@@ -228,23 +260,25 @@ object ConsoleMultiblockManager {
     @SubscribeEvent
     fun onBreak(event: BlockEvent.BreakEvent) {
         val level = event.level as? Level ?: return
-        if (AeroworksTypes.isControlDesk(event.state.block)) invalidate(level)
+        if (AeroworksTypes.isControlDesk(event.state.block)) invalidate(level, event.pos)
     }
 
     @SubscribeEvent
     fun onNeighbourNotify(event: BlockEvent.NeighborNotifyEvent) {
         val level = event.level as? Level ?: return
-        if (AeroworksTypes.isControlDesk(event.state.block)) invalidate(level)
+        if (AeroworksTypes.isControlDesk(event.state.block)) invalidate(level, event.pos)
     }
 
     @SubscribeEvent
     fun onChunkLoad(event: ChunkEvent.Load) {
-        (event.level as? Level)?.let(::invalidate)
+        val level = event.level as? Level ?: return
+        invalidateChunk(level, event.chunk.pos.x, event.chunk.pos.z)
     }
 
     @SubscribeEvent
     fun onChunkUnload(event: ChunkEvent.Unload) {
-        (event.level as? Level)?.let(::invalidate)
+        val level = event.level as? Level ?: return
+        invalidateChunk(level, event.chunk.pos.x, event.chunk.pos.z)
     }
 
     @SubscribeEvent
@@ -252,7 +286,6 @@ object ConsoleMultiblockManager {
         val level = event.level as? Level ?: return
         synchronized(this) {
             caches.remove(level)
-            generations.remove(level)
         }
     }
 
@@ -261,7 +294,7 @@ object ConsoleMultiblockManager {
         placedPos: BlockPos,
         player: Player
     ) {
-        invalidate(level)
+        invalidate(level, placedPos)
         val network = resolve(level, placedPos)
         if (network.state != ConsoleNetworkState.CONFLICT) return
 
@@ -280,7 +313,7 @@ object ConsoleMultiblockManager {
             }
 
         if (ejected == 0) return
-        invalidate(level)
+        invalidate(level, preferredComputer.blockPos)
         resolve(level, preferredComputer.blockPos)
         player.displayClientMessage(
             Component.translatable("message.cc_aeroworks.computer_ejected"),
@@ -296,23 +329,17 @@ object ConsoleMultiblockManager {
         if (level.getBlockEntity(pos) !== desk) return false
 
         val savedDesk = desk.saveWithFullMetadata(level.registryAccess())
-        val combinedStack = ItemStack(
-            if (desk.isAdvanced) CCItems.ADVANCED_COMPUTER_CONTROL_DESK.get()
-            else CCItems.COMPUTER_CONTROL_DESK.get()
-        )
+        val consoleBlock = desk.blockState.block as ComputerControlDeskBlock
+        val combinedStack = ItemStack(CCItems.computerConsole(consoleBlock.variant, consoleBlock.family))
         desk.writeToItem(combinedStack)
         val computerStack = standaloneComputer(combinedStack, desk.isAdvanced)
 
-        var replacement = AeroworksTypes.vanillaControlDeskBlock().defaultBlockState()
+        var replacement = AeroworksTypes.controlDeskBlock(consoleBlock.variant.aeroworksPath).defaultBlockState()
         val currentState = desk.blockState
-        if (replacement.hasProperty(BlockStateProperties.HORIZONTAL_FACING) &&
-            currentState.hasProperty(BlockStateProperties.HORIZONTAL_FACING)
-        ) {
-            replacement = replacement.setValue(
-                BlockStateProperties.HORIZONTAL_FACING,
-                currentState.getValue(BlockStateProperties.HORIZONTAL_FACING)
-            )
-        }
+        replacement = copyProperty(currentState, replacement, ConsoleBlock.FACING)
+        replacement = copyProperty(currentState, replacement, ConsoleBlock.CEILING)
+        replacement = copyProperty(currentState, replacement, ConsoleDeskBlock.OPEN_EAST)
+        replacement = copyProperty(currentState, replacement, ConsoleDeskBlock.OPEN_WEST)
 
         if (!level.setBlock(pos, replacement, Block.UPDATE_ALL)) return false
         val replacementEntity = level.getBlockEntity(pos) as? ConsoleBlockEntity
@@ -334,7 +361,19 @@ object ConsoleMultiblockManager {
         copyComponent(source, result, ModRegistry.DataComponents.STORAGE_CAPACITY.get())
         copyComponent(source, result, ModRegistry.DataComponents.TERMINAL_SIZE.get())
         copyComponent(source, result, DataComponents.CUSTOM_NAME)
+        copyComponent(source, result, CCDataComponents.WIRE_CHANNELS.get())
+        copyComponent(source, result, CCDataComponents.CHANNEL_GROUPS.get())
         return result
+    }
+
+    private fun <T : Comparable<T>> copyProperty(
+        source: BlockState,
+        target: BlockState,
+        property: Property<T>
+    ): BlockState = if (source.hasProperty(property) && target.hasProperty(property)) {
+        target.setValue(property, source.getValue(property))
+    } else {
+        target
     }
 
     private fun <T> copyComponent(

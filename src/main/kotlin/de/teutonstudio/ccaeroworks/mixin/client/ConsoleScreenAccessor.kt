@@ -1,7 +1,7 @@
 package de.teutonstudio.ccaeroworks.mixin.client
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
-import com.mred231.aeroworks.content.controls.ConsoleScreen
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleScreen
 import org.spongepowered.asm.mixin.Mixin
 import org.spongepowered.asm.mixin.gen.Accessor
 

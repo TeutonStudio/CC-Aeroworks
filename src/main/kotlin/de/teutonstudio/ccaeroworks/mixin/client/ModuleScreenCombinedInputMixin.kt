@@ -1,9 +1,9 @@
 package de.teutonstudio.ccaeroworks.mixin.client
 
-import com.mred231.aeroworks.content.controls.ModuleColumn
-import com.mred231.aeroworks.content.controls.ModuleMenu
-import com.mred231.aeroworks.content.controls.ModuleScreen
-import com.mred231.aeroworks.content.controls.ModuleSetting
+import com.mred231.aeroworks.content.controls.module.ModuleColumn
+import com.mred231.aeroworks.content.controls.module.ModuleMenu
+import com.mred231.aeroworks.content.controls.module.ModuleScreen
+import com.mred231.aeroworks.content.controls.module.ModuleSetting
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.client.ModuleScreenRowGeometry
 import de.teutonstudio.ccaeroworks.input.CombinedInputSource
@@ -89,7 +89,7 @@ abstract class ModuleScreenCombinedInputMixin {
     }
 
     @Inject(
-        method = ["analogText(Lcom/mred231/aeroworks/content/controls/ModuleColumn;ZI)Ljava/lang/String;"],
+        method = ["analogText(Lcom/mred231/aeroworks/content/controls/module/ModuleColumn;ZI)Ljava/lang/String;"],
         at = [At("HEAD")],
         cancellable = true
     )
@@ -191,7 +191,7 @@ abstract class ModuleScreenCombinedInputMixin {
     @Unique
     private fun forceCombined(
         invoker: ModuleScreenInvoker,
-        module: com.mred231.aeroworks.content.controls.MountedModule,
+        module: com.mred231.aeroworks.content.controls.module.MountedModule,
         column: ModuleColumn,
         index: Int
     ) {

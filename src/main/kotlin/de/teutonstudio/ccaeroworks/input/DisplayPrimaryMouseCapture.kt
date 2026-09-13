@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.input
 
-import com.mred231.aeroworks.content.controls.ConsoleControlClient
+import com.mred231.aeroworks.content.controls.console.ConsoleControlClient
 import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
 import de.teutonstudio.ccaeroworks.network.DisplayDrawPayload
 import de.teutonstudio.ccaeroworks.network.DisplayDrawSamplePayload

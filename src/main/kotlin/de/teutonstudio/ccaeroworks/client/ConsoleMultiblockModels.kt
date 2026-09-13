@@ -3,9 +3,11 @@ package de.teutonstudio.ccaeroworks.client
 import com.mojang.blaze3d.vertex.PoseStack
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
+import de.teutonstudio.ccaeroworks.computer.ComputerConsoleVariant
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockSkin
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockSkinState
 import de.teutonstudio.ccaeroworks.registry.CCBlocks
+import dan200.computercraft.shared.computer.core.ComputerFamily
 import net.minecraft.client.renderer.RenderType
 import net.minecraft.client.renderer.block.BlockModelShaper
 import net.minecraft.client.renderer.block.model.BakedQuad
@@ -46,8 +48,10 @@ object ConsoleMultiblockModels {
     }
 
     fun modifyBakingResult(event: ModelEvent.ModifyBakingResult) {
-        val normalDesk = try {
-            AeroworksTypes.vanillaControlDeskBlock()
+        val baseBlocks = try {
+            ComputerConsoleVariant.entries.associateWith {
+                AeroworksTypes.controlDeskBlock(it.aeroworksPath)
+            }
         } catch (error: IllegalStateException) {
             CCAeroworks.LOGGER.error(
                 "[CC-Aeroworks] Could not locate the Aeroworks control desk model",
@@ -70,57 +74,47 @@ object ConsoleMultiblockModels {
             )
         )
 
-        val targetBlocks = listOf<Block>(
-            normalDesk,
-            CCBlocks.COMPUTER_CONTROL_DESK.get(),
-            CCBlocks.ADVANCED_COMPUTER_CONTROL_DESK.get()
-        )
+        baseBlocks.forEach { (variant, baseBlock) ->
+            val targetBlocks = listOf(
+                baseBlock,
+                CCBlocks.computerConsole(variant, ComputerFamily.NORMAL).get(),
+                CCBlocks.computerConsole(variant, ComputerFamily.ADVANCED).get()
+            )
+            targetBlocks.forEach blockLoop@{ block ->
+                val isBaseBlock = block === baseBlock
+                block.stateDefinition.possibleStates.forEach stateLoop@{ targetState ->
+                    if (!targetState.hasProperty(ConsoleMultiblockSkinState.SKIN)) return@stateLoop
 
-        targetBlocks.forEach blockLoop@{ block ->
-            val isNormalDesk = block === normalDesk
-            block.stateDefinition.possibleStates.forEach stateLoop@{ targetState ->
-                if (!targetState.hasProperty(ConsoleMultiblockSkinState.SKIN)) return@stateLoop
+                    val baseState = copyConsoleShape(targetState, baseBlock.defaultBlockState())
+                    val baseLocation = BlockModelShaper.stateToModelLocation(baseState)
+                    val originalModel = originalModels[baseLocation] ?: return@stateLoop
+                    val targetLocation = BlockModelShaper.stateToModelLocation(targetState)
 
-                val normalState = copyConsoleShape(targetState, normalDesk.defaultBlockState())
-                val normalLocation = BlockModelShaper.stateToModelLocation(normalState)
-                val originalModel = originalModels[normalLocation] ?: return@stateLoop
-                val targetLocation = BlockModelShaper.stateToModelLocation(targetState)
-
-                event.models[targetLocation] = when (
-                    targetState.getValue(ConsoleMultiblockSkinState.SKIN)
-                ) {
-                    ConsoleMultiblockSkin.DEFAULT -> if (isNormalDesk) {
-                        originalModel
-                    } else {
-                        InheritedConsoleModel(originalModel, normalState)
+                    event.models[targetLocation] = when (
+                        targetState.getValue(ConsoleMultiblockSkinState.SKIN)
+                    ) {
+                        ConsoleMultiblockSkin.DEFAULT -> if (isBaseBlock) originalModel else {
+                            InheritedConsoleModel(originalModel, baseState)
+                        }
+                        ConsoleMultiblockSkin.COMPUTER -> OverlayConsoleModel(originalModel, baseState, computerSprite)
+                        ConsoleMultiblockSkin.ADVANCED -> OverlayConsoleModel(originalModel, baseState, advancedSprite)
                     }
-
-                    ConsoleMultiblockSkin.COMPUTER -> OverlayConsoleModel(
-                        originalModel,
-                        normalState,
-                        computerSprite
-                    )
-
-                    ConsoleMultiblockSkin.ADVANCED -> OverlayConsoleModel(
-                        originalModel,
-                        normalState,
-                        advancedSprite
-                    )
                 }
             }
-        }
 
-        inheritItemModels(event, originalModels, normalDesk, computerSprite, advancedSprite)
+            inheritItemModels(event, originalModels, variant, baseBlock, computerSprite, advancedSprite)
+        }
     }
 
     private fun inheritItemModels(
         event: ModelEvent.ModifyBakingResult,
         originalModels: Map<ModelResourceLocation, BakedModel>,
-        normalDesk: Block,
+        variant: ComputerConsoleVariant,
+        baseBlock: Block,
         computerSprite: TextureAtlasSprite,
         advancedSprite: TextureAtlasSprite
     ) {
-        val normalState = normalDesk.defaultBlockState()
+        val normalState = baseBlock.defaultBlockState()
         val normalBlockLocation = BlockModelShaper.stateToModelLocation(normalState)
         val normalBlockModel = originalModels[normalBlockLocation] ?: run {
             CCAeroworks.LOGGER.error(
@@ -130,7 +124,7 @@ object ConsoleMultiblockModels {
         }
 
         val normalItemLocation = ModelResourceLocation.inventory(
-            BuiltInRegistries.ITEM.getKey(normalDesk.asItem())
+            BuiltInRegistries.ITEM.getKey(baseBlock.asItem())
         )
         val normalItemModel = originalModels[normalItemLocation] ?: run {
             CCAeroworks.LOGGER.error(
@@ -140,7 +134,7 @@ object ConsoleMultiblockModels {
         }
 
         event.models[
-            ModelResourceLocation.inventory(CCAeroworks.id("computer_control_desk"))
+            ModelResourceLocation.inventory(CCAeroworks.id(variant.itemPath))
         ] = ControlDeskItemModel(
             normalBlockModel,
             normalState,
@@ -148,7 +142,7 @@ object ConsoleMultiblockModels {
             computerSprite
         )
         event.models[
-            ModelResourceLocation.inventory(CCAeroworks.id("advanced_computer_control_desk"))
+            ModelResourceLocation.inventory(CCAeroworks.id("advanced_${variant.itemPath}"))
         ] = ControlDeskItemModel(
             normalBlockModel,
             normalState,

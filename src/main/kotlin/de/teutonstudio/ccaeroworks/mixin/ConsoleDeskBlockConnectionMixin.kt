@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.mixin
 
-import com.mred231.aeroworks.content.controls.ConsoleDeskBlock
+import com.mred231.aeroworks.content.controls.console.ConsoleDeskBlock
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleDeskConnections
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction

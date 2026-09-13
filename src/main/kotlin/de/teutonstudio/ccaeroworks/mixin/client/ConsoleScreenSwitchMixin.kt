@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.mixin.client
 
-import com.mred231.aeroworks.content.controls.ConsoleScreen
+import com.mred231.aeroworks.content.controls.console.ConsoleScreen
 import de.teutonstudio.ccaeroworks.client.ControlDeskNavigationButtons
 import de.teutonstudio.ccaeroworks.computer.ControlDeskUiSwitchState
 import de.teutonstudio.ccaeroworks.network.SwitchControlDeskUiPayload

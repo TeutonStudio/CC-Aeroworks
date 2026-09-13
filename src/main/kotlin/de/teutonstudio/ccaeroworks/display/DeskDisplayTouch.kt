@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.display
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import net.minecraft.world.phys.Vec3
 
 data class DeskDisplayTouch(

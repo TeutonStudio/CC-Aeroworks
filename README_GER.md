@@ -16,7 +16,7 @@ CC-Aeroworks verbindet **Create: Aeroworks Control Desks** mit **CC:Tweaked** un
 
 ## Pultnetzwerke
 
-Gleich ausgerichtete Steuerungspulte verbinden sich unmittelbar links und rechts zu einem linearen Netzwerk. Unterstützt werden normale Aeroworks-Steuerungspulte sowie normale und erweiterte Computer-Steuerungspulte aus CC-Aeroworks.
+Gleich ausgerichtete Steuerungspulte verbinden sich unmittelbar links und rechts zu einem linearen Netzwerk. Desk und Copycat Desk dürfen sich untereinander mischen; Control Stand und Copycat Stand bilden eine separate Geometriefamilie. Alle vier Aeroworks-Ausführungen sind als normales und erweitertes Computerpult verfügbar.
 
 Jedes Pult bleibt ein eigenes Peripheral vom Typ `ControlDesk`. Es besitzt seine eigene Position, stabile Desk-ID, Module, Displays und angrenzenden Geräte. Die Netzwerkauflösung lädt keine Chunks nach und ist auf 64 vollständig geladene Pulte begrenzt.
 
@@ -26,7 +26,7 @@ Beispiel: [`examples/cc/local-desk.lua`](examples/cc/local-desk.lua)
 
 ## Computer-Steuerungspulte
 
-Ein Aeroworks-Steuerungspult kann mit einem normalen oder erweiterten CC:Tweaked-Computer kombiniert werden. Das Rezept erhält sowohl Aeroworks-Moduldaten als auch CC:Tweaked-Computerkomponenten.
+Desk, Copycat Desk, Control Stand und Copycat Stand können jeweils mit einem normalen oder erweiterten CC:Tweaked-Computer kombiniert werden. Das Rezept erhält Aeroworks-Moduldaten, Copycat-Material und CC:Tweaked-Computerkomponenten.
 
 Der eingebettete Computer darf an jeder Position der Pultreihe stehen. Pro gültigem Netzwerk existiert höchstens ein eingebetteter Computer. Wird versehentlich ein zweites Computerpult platziert, bleibt dort ein normales Aeroworks-Pult zurück und der zusätzliche Computer wird mitsamt seinen Daten ausgeworfen.
 
@@ -202,10 +202,10 @@ Die ausführliche externe Referenz liegt unter [`docs/cc-peripheral-api.md`](doc
 - Java 21
 - Kotlin 2.2.20 / KotlinForForge NeoForge 5.11.0
 - Create 6.0.10 mit Ponder API 1.0.82
-- Aeronautics/Aeroworks 1.3.0
+- Aeronautics 1.3.2 / Aeroworks 1.5.0
 - CC:Tweaked API-Baseline 1.119.0
 - Sable 2.0.1
-- Create: Simulated 1.3.0 optional
+- Create: Simulated 1.3.2 optional
 - Create: Radars 0.4.4-1.21.1 optional
 - Create Big Cannons 5.11.7 optional
 - Ritchie's Projectile Library 2.1.2 für die unterstützte Radar-Laufzeit

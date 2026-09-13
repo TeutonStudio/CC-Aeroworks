@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.client.ponder;
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity;
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity;
 import com.simibubi.create.foundation.ponder.CreateSceneBuilder;
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess;
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes;

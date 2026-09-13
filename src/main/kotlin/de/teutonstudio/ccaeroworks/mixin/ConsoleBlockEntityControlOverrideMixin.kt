@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.mixin
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.computer.control.ControlOverrideManager
 import de.teutonstudio.ccaeroworks.computer.control.ControlWriteContext
 import org.spongepowered.asm.mixin.Mixin

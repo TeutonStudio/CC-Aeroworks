@@ -16,7 +16,7 @@ import de.teutonstudio.ccaeroworks.network.MutateWireChannelPayload
 import de.teutonstudio.ccaeroworks.network.RequestInformationSourceSnapshotPayload
 import de.teutonstudio.ccaeroworks.network.RequestWireChannelSnapshotPayload
 import de.teutonstudio.ccaeroworks.network.WireChannelMutation
-import de.teutonstudio.ccaeroworks.registry.CCItems
+import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlock
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.components.EditBox
@@ -24,6 +24,7 @@ import net.minecraft.client.gui.components.Renderable
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
 import net.minecraft.network.chat.Component
 import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.item.BlockItem
 import net.neoforged.neoforge.network.PacketDistributor
 import org.lwjgl.glfw.GLFW
 import org.spongepowered.asm.mixin.Mixin
@@ -53,7 +54,7 @@ abstract class AbstractComputerScreenSwitchMixin(menu: AbstractComputerMenu, inv
     @Inject(method = ["init()V"], at = [At("TAIL")])
     private fun ccaeroworks_addDeskTabs(callback: CallbackInfo) {
         val item = menu.displayStack.item
-        if (item !== CCItems.COMPUTER_CONTROL_DESK.get() && item !== CCItems.ADVANCED_COMPUTER_CONTROL_DESK.get()) return
+        if ((item as? BlockItem)?.block !is ComputerControlDeskBlock) return
         val accessor = this as AbstractComputerScreenAccessor
         val family = accessor.ccaeroworks_getFamily(); val canReturnToControls = ControlDeskUiSwitchState.clientCanReturnToControls(); var extensionIndex = 0
         if (canReturnToControls) {

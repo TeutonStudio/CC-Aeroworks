@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.radarcompat.compat.aeroworks
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
 import de.teutonstudio.ccaeroworks.radarcompat.access.RadarDeskStateAccess
 import de.teutonstudio.ccaeroworks.radarcompat.display.RadarDisplayBindings

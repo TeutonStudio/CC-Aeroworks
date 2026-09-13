@@ -1,7 +1,7 @@
 package de.teutonstudio.ccaeroworks.mixin.compat;
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity;
-import com.mred231.aeroworks.content.controls.MountedModule;
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity;
+import com.mred231.aeroworks.content.controls.module.MountedModule;
 import de.teutonstudio.ccaeroworks.compat.drivebywire.NativeDriveByWireChannel;
 import de.teutonstudio.ccaeroworks.compat.drivebywire.NativeDriveByWireChannels;
 import de.teutonstudio.ccaeroworks.computer.channel.ControlChannelSemantics;
@@ -35,7 +35,7 @@ public abstract class DriveByWireSignalFilterMixin {
         if (!(level.getBlockEntity(source) instanceof final ConsoleBlockEntity desk)) {
             return;
         }
-        final NativeDriveByWireChannel parsed = NativeDriveByWireChannels.INSTANCE.parse(channel);
+        final NativeDriveByWireChannel parsed = NativeDriveByWireChannels.INSTANCE.parse(desk, channel);
         if (parsed == null || parsed.getSocket() < 0 || parsed.getSocket() >= desk.socketCount()) {
             return;
         }

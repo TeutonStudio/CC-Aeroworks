@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.display
 
-import com.mred231.aeroworks.content.controls.ModuleType
+import com.mred231.aeroworks.content.controls.module.ModuleType
 import java.util.concurrent.CopyOnWriteArrayList
 
 /** Optional integrations can mark module types as using the large interactive display surface. */

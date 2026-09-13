@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.radarcompat.createradar
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.neoforged.fml.ModList

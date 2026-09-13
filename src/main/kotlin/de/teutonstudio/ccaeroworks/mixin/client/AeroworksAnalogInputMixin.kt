@@ -8,8 +8,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo
 
 @Mixin(
     targets = [
-        "com.mred231.aeroworks.content.controls.ConsoleControlClient",
-        "com.mred231.aeroworks.content.joystick.JoystickControlClient"
+        "com.mred231.aeroworks.content.controls.console.ConsoleControlClient"
     ],
     remap = false
 )

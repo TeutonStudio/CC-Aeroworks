@@ -11,7 +11,7 @@ import net.minecraft.network.chat.Component
 /**
  * Adds CC-Aeroworks actions on the left side of Aeroworks' native bottom action row.
  *
- * Aeroworks 1.3.0 right-aligns its own destructive/confirm actions (Delete/Done). Our actions
+ * Aeroworks 1.5.0 right-aligns its own destructive/confirm actions (Delete/Done). Our actions
  * therefore use the screen's left content edge and never move or derive their X position from
  * those native right-aligned actions. Computer is optional; API documentation is always present.
  */

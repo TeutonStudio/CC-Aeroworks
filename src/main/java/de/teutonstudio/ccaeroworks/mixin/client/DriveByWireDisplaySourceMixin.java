@@ -1,7 +1,7 @@
 package de.teutonstudio.ccaeroworks.mixin.client;
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity;
-import com.mred231.aeroworks.content.controls.MountedModule;
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity;
+import com.mred231.aeroworks.content.controls.module.MountedModule;
 import de.teutonstudio.ccaeroworks.computer.channel.ControlChannelKind;
 import de.teutonstudio.ccaeroworks.computer.channel.ControlChannelSemantics;
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager;

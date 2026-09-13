@@ -5,6 +5,14 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
 class DeskSocketsTest {
+    @Test
+    fun `additional Aeroworks sockets use stable generated names`() {
+        assertEquals("socket_3", DeskSockets.name(3))
+        assertEquals(3, DeskSockets.index("socket_3"))
+        assertEquals(12, DeskSockets.index("SOCKET_12"))
+        assertNull(DeskSockets.index("socket_2"))
+        assertNull(DeskSockets.index("socket_-1"))
+    }
     @Test fun `maps named Aeroworks sockets in stable order`() {
         assertEquals("left", DeskSockets.name(0))
         assertEquals("right", DeskSockets.name(1))
@@ -13,9 +21,9 @@ class DeskSocketsTest {
         assertEquals(2, DeskSockets.index("big"))
     }
 
-    @Test fun `keeps unknown sockets observable without accepting invented names`() {
+    @Test fun `keeps additional sockets observable and addressable`() {
         assertEquals("socket_5", DeskSockets.name(5))
-        assertNull(DeskSockets.index("socket_5"))
+        assertEquals(5, DeskSockets.index("socket_5"))
         assertNull(DeskSockets.index("center"))
     }
 

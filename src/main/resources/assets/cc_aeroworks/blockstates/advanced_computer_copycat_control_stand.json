@@ -1,0 +1,5 @@
+{
+  "multipart": [
+    { "apply": { "model": "cc_aeroworks:block/advanced_computer_copycat_control_stand" } }
+  ]
+}

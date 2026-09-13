@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.compat.computercraft
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import java.util.concurrent.CopyOnWriteArrayList
 
 object ControlDeskPeripheralFactory {

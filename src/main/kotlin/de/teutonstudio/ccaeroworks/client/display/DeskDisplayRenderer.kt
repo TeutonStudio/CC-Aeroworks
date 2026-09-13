@@ -2,8 +2,8 @@ package de.teutonstudio.ccaeroworks.client.display
 
 import com.mojang.blaze3d.vertex.PoseStack
 import com.mojang.blaze3d.vertex.VertexConsumer
-import com.mred231.aeroworks.content.controls.ConsoleBlock
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleBlock
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess
 import de.teutonstudio.ccaeroworks.config.CCServerConfig
 import de.teutonstudio.ccaeroworks.display.DeskDisplayType

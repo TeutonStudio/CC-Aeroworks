@@ -1,8 +1,8 @@
 package de.teutonstudio.ccaeroworks.mixin.client
 
-import com.mred231.aeroworks.content.controls.ConsoleBlock
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
-import com.mred231.aeroworks.content.controls.ConsoleVisual
+import com.mred231.aeroworks.content.controls.console.ConsoleBlock
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleVisual
 import de.teutonstudio.ccaeroworks.client.display.DeskDisplayModels
 import de.teutonstudio.ccaeroworks.client.display.DeskDisplayRenderer
 import de.teutonstudio.ccaeroworks.client.display.DeskPixelOverlayRenderer
@@ -36,7 +36,7 @@ abstract class ConsoleVisualMixin(
     private var displayKey: String = ""
 
     @Inject(
-        method = ["<init>(Ldev/engine_room/flywheel/api/visualization/VisualizationContext;Lcom/mred231/aeroworks/content/controls/ConsoleBlockEntity;F)V"],
+        method = ["<init>(Ldev/engine_room/flywheel/api/visualization/VisualizationContext;Lcom/mred231/aeroworks/content/controls/console/ConsoleBlockEntity;F)V"],
         at = [At("TAIL")]
     )
     private fun construct(

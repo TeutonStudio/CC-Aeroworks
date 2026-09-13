@@ -1,8 +1,8 @@
 package de.teutonstudio.ccaeroworks.radarcompat.client.render
 
 import com.mojang.blaze3d.vertex.PoseStack
-import com.mred231.aeroworks.content.controls.ConsoleBlock
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleBlock
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.radarcompat.compat.aeroworks.RadarDeskAccess
 import de.teutonstudio.ccaeroworks.radarcompat.createradar.RadarTrace

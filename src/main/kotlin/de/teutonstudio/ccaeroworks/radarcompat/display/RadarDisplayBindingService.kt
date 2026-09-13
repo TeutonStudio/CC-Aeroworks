@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.radarcompat.display
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import dan200.computercraft.api.lua.LuaException
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskService
 import de.teutonstudio.ccaeroworks.display.DisplayBinding

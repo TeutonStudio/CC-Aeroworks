@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.radarcompat.client.render
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.radarcompat.compat.aeroworks.RadarDeskAccess
 import de.teutonstudio.ccaeroworks.radarcompat.createradar.RadarTrace
 import de.teutonstudio.ccaeroworks.compat.sable.SableClientRenderPose

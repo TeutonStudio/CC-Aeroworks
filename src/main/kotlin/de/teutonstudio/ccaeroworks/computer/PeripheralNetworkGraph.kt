@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.computer
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import dan200.computercraft.api.peripheral.IPeripheral
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMember
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState

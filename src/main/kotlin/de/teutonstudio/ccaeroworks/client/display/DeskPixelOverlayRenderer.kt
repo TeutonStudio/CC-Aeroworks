@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.client.display
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess
 import de.teutonstudio.ccaeroworks.compat.sable.SableClientRenderPose
 import net.minecraft.client.Minecraft
@@ -28,6 +28,7 @@ object DeskPixelOverlayRenderer {
         } else {
             trackedDesks.remove(desk)
             DeskDisplayTextureCache.release(desk)
+            AeroworksDeskAccess.invalidate(desk)
         }
     }
 
@@ -37,7 +38,10 @@ object DeskPixelOverlayRenderer {
 
         val minecraft = Minecraft.getInstance()
         val level = minecraft.level ?: run {
-            trackedDesks.forEach(DeskDisplayTextureCache::release)
+            trackedDesks.forEach {
+                DeskDisplayTextureCache.release(it)
+                AeroworksDeskAccess.invalidate(it)
+            }
             trackedDesks.clear()
             return
         }
@@ -47,6 +51,8 @@ object DeskPixelOverlayRenderer {
         val partialTicks = event.partialTick.getGameTimeDeltaPartialTick(true)
         val poseStack = event.poseStack
         val buffers = minecraft.renderBuffers().bufferSource()
+        val maximumDistance = minecraft.options.renderDistance().get() * 16.0 + 32.0
+        val maximumDistanceSquared = maximumDistance * maximumDistance
         var renderedAny = false
 
         val iterator = trackedDesks.iterator()
@@ -54,13 +60,14 @@ object DeskPixelOverlayRenderer {
             val desk = iterator.next()
             if (desk.isRemoved || desk.level !== level || !hasPixelDisplay(desk)) {
                 DeskDisplayTextureCache.release(desk)
+                AeroworksDeskAccess.invalidate(desk)
                 iterator.remove()
                 continue
             }
 
             poseStack.pushPose()
             try {
-                SableClientRenderPose.apply(
+                val renderPose = SableClientRenderPose.apply(
                     poseStack,
                     desk,
                     desk.blockPos.x.toDouble(),
@@ -69,6 +76,7 @@ object DeskPixelOverlayRenderer {
                     camera,
                     partialTicks
                 )
+                if (renderPose.worldPosition.distanceToSqr(camera) > maximumDistanceSquared) continue
                 DeskDisplayRenderer.renderPixels(
                     desk,
                     poseStack,

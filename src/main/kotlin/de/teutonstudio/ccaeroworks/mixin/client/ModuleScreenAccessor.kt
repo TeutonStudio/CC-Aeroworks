@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.mixin.client
 
-import com.mred231.aeroworks.content.controls.ModuleScreen
+import com.mred231.aeroworks.content.controls.module.ModuleScreen
 import org.spongepowered.asm.mixin.Mixin
 import org.spongepowered.asm.mixin.gen.Accessor
 

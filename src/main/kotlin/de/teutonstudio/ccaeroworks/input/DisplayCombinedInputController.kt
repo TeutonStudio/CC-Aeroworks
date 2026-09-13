@@ -1,8 +1,8 @@
 package de.teutonstudio.ccaeroworks.input
 
 import com.mojang.blaze3d.platform.InputConstants
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
-import com.mred231.aeroworks.content.controls.ConsoleControlClient
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleControlClient
 import de.teutonstudio.ccaeroworks.compat.sable.SableInteractionGeometry
 import de.teutonstudio.ccaeroworks.config.CCClientConfig
 import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics

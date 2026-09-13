@@ -11,9 +11,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo
 
 /**
  * Backports the corrected Sable render-space transform from Aeroworks 1.4.x to the
- * supported Aeroworks 1.3.0 runtime.
+ * supported Aeroworks 1.5.0 runtime.
  *
- * Aeroworks 1.3.0 multiplies the complete SubLevel render-pose matrix after the
+ * Aeroworks 1.5.0 multiplies the complete SubLevel render-pose matrix after the
  * camera translation. That also transforms the already camera-relative origin and
  * offsets placement ghosts/outlines on translated or rotated Sable SubLevels.
  *

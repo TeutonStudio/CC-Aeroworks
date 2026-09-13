@@ -211,7 +211,7 @@ def main() -> int:
         for dependency in manifest.get("dependencies", [])
         if isinstance(dependency, dict)
     }
-    require(dependencies.get("aeroworks", {}).get("version") == "1.3.0", "Aeroworks mod version is not pinned")
+    require(dependencies.get("aeroworks", {}).get("version") == "1.5.0", "Aeroworks mod version is not pinned")
     require(dependencies.get("create_radar", {}).get("version") == "0.4.9.4-1.21.1", "Create: Radars version is not pinned")
     require(dependencies.get("createbigcannons", {}).get("version") == "5.11.7", "CBC version is not pinned")
     require(dependencies.get("ritchiesprojectilelib", {}).get("version") == "2.1.2", "RPL version is not pinned")

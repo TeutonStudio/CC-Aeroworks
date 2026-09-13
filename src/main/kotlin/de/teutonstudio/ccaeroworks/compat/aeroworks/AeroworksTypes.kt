@@ -1,7 +1,9 @@
 package de.teutonstudio.ccaeroworks.compat.aeroworks
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
-import com.mred231.aeroworks.content.controls.ConsoleDeskBlock
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleDeskBlock
+import de.teutonstudio.ccaeroworks.computer.ComputerConsoleVariant
+import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlock
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.resources.ResourceLocation
@@ -26,8 +28,9 @@ object AeroworksTypes {
             ?: error("[CC-Aeroworks] Missing or incompatible block entity type $CONSOLE_BLOCK_ENTITY_ID")
     }
 
-    fun vanillaControlDeskBlock(): ConsoleDeskBlock {
-        val registered = BuiltInRegistries.BLOCK.get(CONTROL_DESK_ID)
+    fun controlDeskBlock(path: String): ConsoleDeskBlock {
+        val requested = ResourceLocation.fromNamespaceAndPath("aeroworks", path)
+        val registered = BuiltInRegistries.BLOCK.get(requested)
         if (registered is ConsoleDeskBlock && !isComputerControlDesk(registered)) {
             return registered
         }
@@ -35,10 +38,19 @@ object AeroworksTypes {
         return BuiltInRegistries.BLOCK
             .filterIsInstance<ConsoleDeskBlock>()
             .firstOrNull { block ->
-                BuiltInRegistries.BLOCK.getKey(block).namespace == "aeroworks" &&
+                    BuiltInRegistries.BLOCK.getKey(block) == requested &&
                     !isComputerControlDesk(block)
             }
-            ?: error("[CC-Aeroworks] Missing Aeroworks control desk block")
+            ?: error("[CC-Aeroworks] Missing Aeroworks console block $requested")
+    }
+
+    fun vanillaControlDeskBlock(): ConsoleDeskBlock = controlDeskBlock("control_desk")
+
+    fun variant(item: Item): ComputerConsoleVariant? {
+        val block = (item as? BlockItem)?.block ?: return null
+        if (!isVanillaControlDesk(block)) return null
+        val path = BuiltInRegistries.BLOCK.getKey(block).path
+        return ComputerConsoleVariant.entries.firstOrNull { it.aeroworksPath == path }
     }
 
     fun isVanillaControlDesk(block: Block): Boolean =
@@ -47,11 +59,7 @@ object AeroworksTypes {
     fun isVanillaControlDesk(item: Item): Boolean =
         item is BlockItem && isVanillaControlDesk(item.block)
 
-    fun isComputerControlDesk(block: Block): Boolean {
-        val id = BuiltInRegistries.BLOCK.getKey(block)
-        return id.namespace == CCAeroworks.MOD_ID &&
-            (id.path == "computer_control_desk" || id.path == "advanced_computer_control_desk")
-    }
+    fun isComputerControlDesk(block: Block): Boolean = block is ComputerControlDeskBlock
 
     fun isControlDesk(block: Block): Boolean = block is ConsoleDeskBlock
 }

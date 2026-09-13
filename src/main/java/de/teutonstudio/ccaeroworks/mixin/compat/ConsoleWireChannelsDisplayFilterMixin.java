@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.mixin.compat;
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity;
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity;
 import de.teutonstudio.ccaeroworks.compat.drivebywire.NativeDriveByWireChannels;
 import java.util.List;
 import org.spongepowered.asm.mixin.Mixin;
@@ -13,7 +13,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Pseudo
 @Mixin(targets = "com.mred231.aeroworks.compat.drivebywire.ConsoleWireChannels", remap = false, priority = 2000)
 public abstract class ConsoleWireChannelsDisplayFilterMixin {
-    @Inject(method = "channelsFor", at = @At("RETURN"), cancellable = true, require = 0)
+    @Inject(
+        method = "channelsFor(Lcom/mred231/aeroworks/content/controls/console/ConsoleBlockEntity;)Ljava/util/List;",
+        at = @At("RETURN"),
+        cancellable = true,
+        require = 1
+    )
     private static void ccaeroworks$filterDisplayPointerChannels(
         final ConsoleBlockEntity desk,
         final CallbackInfoReturnable<List<String>> cir

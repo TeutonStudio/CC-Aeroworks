@@ -21,8 +21,8 @@ gradlew.bat -Pmod_dependency_dir=C:\mods\cc-aeroworks verifyModDependencies
 | Mod | Mod-ID | Version | Status |
 |---|---|---:|---|
 | Create | `create` | 6.0.10 | erforderlich |
-| Create: Aeronautics | `aeronautics` | 1.3.0 | erforderlich |
-| Create: Aeroworks | `aeroworks` | 1.3.0 | erforderlich |
+| Create: Aeronautics | `aeronautics` | 1.3.2 | erforderlich |
+| Create: Aeroworks | `aeroworks` | 1.5.0 | erforderlich |
 | CC: Tweaked | `computercraft` | 1.119.0 | erforderlich |
 | Sable | `sable` | 2.0.1 | erforderlich |
 | Drive By Wire | `drive_by_wire` | 0.2.9 | optional |
@@ -34,7 +34,7 @@ gradlew.bat -Pmod_dependency_dir=C:\mods\cc-aeroworks verifyModDependencies
 Das offizielle Create-Aeronautics-Artefakt für diese Baseline heißt:
 
 ```text
-create-aeronautics-bundled-1.21.1-1.3.0.jar
+create-aeronautics-bundled-1.21.1-1.3.2.jar
 ```
 
 Create Aeronautics benötigt neben Create auch Sable zur Laufzeit. Sable ist daher für den Baseline-Client und -Server ein Pflichtartefakt.

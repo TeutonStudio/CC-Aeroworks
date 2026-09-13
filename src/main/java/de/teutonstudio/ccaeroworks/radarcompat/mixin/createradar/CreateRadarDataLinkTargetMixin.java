@@ -2,7 +2,7 @@ package de.teutonstudio.ccaeroworks.radarcompat.mixin.createradar;
 
 import com.llamalad7.mixinextras.expression.Expression;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity;
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity;
 import de.teutonstudio.ccaeroworks.radarcompat.compat.aeroworks.RadarDeskAccess;
 import de.teutonstudio.ccaeroworks.radarcompat.createradar.RadarTrace;
 import net.minecraft.world.level.block.entity.BlockEntity;

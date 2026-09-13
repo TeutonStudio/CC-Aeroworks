@@ -1,8 +1,8 @@
 package de.teutonstudio.ccaeroworks.input
 
-import com.mred231.aeroworks.content.controls.ModuleType
-import com.mred231.aeroworks.content.controls.ModuleTypes
-import com.mred231.aeroworks.content.controls.MountedModule
+import com.mred231.aeroworks.content.controls.module.ModuleType
+import com.mred231.aeroworks.content.controls.module.ModuleTypes
+import com.mred231.aeroworks.content.controls.module.MountedModule
 
 object CombinedInputSource {
     const val ID: String = "cc_aeroworks.combined"

@@ -15,28 +15,30 @@
     {
       "name": "Create: Aeronautics",
       "modId": "aeronautics",
-      "version": "1.3.0",
+      "version": "1.3.2",
       "required": true,
-      "filenamePattern": "(?i)^(?:create[-_ ]?)?aeronautics(?:[-_ ]?bundled)?[^/]*1\\.3\\.0[^/]*\\.jar$",
+      "filenamePattern": "(?i)^(?:create[-_ ]?)?aeronautics(?:[-_ ]?bundled)?[^/]*1\\.3\\.2[^/]*\\.jar$",
       "filenameExamples": [
-        "create-aeronautics-bundled-1.21.1-1.3.0.jar"
+        "create-aeronautics-bundled-1.21.1-1.3.2.jar"
       ],
-      "sha256": null,
+      "sha256": "a3f330d4757640f8715d991a43eedb826e4d0e51558d859c843ae6693bd35f1e",
+      "downloadUrl": "https://cdn.modrinth.com/data/oWaK0Q19/versions/44pLdPGg/create-aeronautics-bundled-1.21.1-1.3.2.jar",
       "source": "Official Create: Aeronautics distribution page",
-      "notes": "Required by the Create: Aeroworks 1.3.0 baseline. The official 1.3.0 release is distributed as a create-aeronautics-bundled JAR."
+      "notes": "Required by the Create: Aeroworks 1.5.0 baseline. The official 1.3.2 release is distributed as a create-aeronautics-bundled JAR."
     },
     {
       "name": "Create: Aeroworks",
       "modId": "aeroworks",
-      "version": "1.3.0",
+      "version": "1.5.0",
       "required": true,
-      "filenamePattern": "(?i)^aeroworks[^/]*1\\.3\\.0[^/]*\\.jar$",
+      "filenamePattern": "(?i)^aeroworks[^/]*1\\.5\\.0[^/]*\\.jar$",
       "filenameExamples": [
-        "aeroworks-1.3.0.jar"
+        "aeroworks-1.5.0.jar"
       ],
-      "sha256": null,
+      "sha256": "7e9745569a75eb613a9f75c9308aa2c806d3f0fab3a272d98647a13d3fa41641",
+      "downloadUrl": "https://cdn.modrinth.com/data/P26k79kP/versions/6kk7ruR3/aeroworks-1.5.0.jar",
       "source": "Official Create: Aeroworks distribution page",
-      "notes": "Targets the official Create: Aeroworks 1.3.0 mod release. Aeroworks modpack version numbers are not valid mod dependency versions."
+      "notes": "Targets the official Create: Aeroworks 1.5.0 mod release. Aeroworks modpack version numbers are not valid mod dependency versions."
     },
     {
       "name": "CC: Tweaked",

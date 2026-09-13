@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.mixin.client;
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity;
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity;
 import de.teutonstudio.ccaeroworks.client.DriveByWireDeskEndpoint;
 import de.teutonstudio.ccaeroworks.client.DriveByWireDeskSelection;
 import de.teutonstudio.ccaeroworks.client.DriveByWireDeskSelectionResolver;

@@ -1,8 +1,10 @@
 package de.teutonstudio.ccaeroworks.computer
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
-import com.mred231.aeroworks.content.controls.ConsoleDeskBlock
-import com.mred231.aeroworks.content.controls.ConsoleType
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleBlock
+import com.mred231.aeroworks.content.controls.console.ConsoleDeskBlock
+import com.mred231.aeroworks.content.controls.console.CopycatConsoleDeskBlock
+import com.mred231.aeroworks.content.controls.console.ConsoleType
 import dan200.computercraft.shared.ModRegistry
 import dan200.computercraft.shared.common.IBundledRedstoneBlock
 import dan200.computercraft.shared.computer.core.ComputerFamily
@@ -28,15 +30,23 @@ import net.minecraft.world.level.LevelReader
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
-import net.minecraft.world.level.block.state.properties.BlockStateProperties
+import net.minecraft.world.level.block.state.properties.Property
 import net.minecraft.world.level.storage.loot.LootParams
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams
+
+enum class ComputerConsoleVariant(val aeroworksPath: String, val itemPath: String) {
+    DESK("control_desk", "computer_control_desk"),
+    COPYCAT_DESK("copycat_control_desk", "computer_copycat_control_desk"),
+    STAND("control_stand", "computer_control_stand"),
+    COPYCAT_STAND("copycat_control_stand", "computer_copycat_control_stand")
+}
 
 class ComputerControlDeskBlock(
     properties: Properties,
     consoleType: ConsoleType,
-    val family: ComputerFamily
-) : ConsoleDeskBlock(properties, consoleType), IBundledRedstoneBlock {
+    val family: ComputerFamily,
+    val variant: ComputerConsoleVariant = ComputerConsoleVariant.DESK
+) : CopycatConsoleDeskBlock(properties, consoleType), IBundledRedstoneBlock {
     override fun getBlockEntityClass(): Class<ConsoleBlockEntity> = ConsoleBlockEntity::class.java
 
     override fun getBlockEntityType(): BlockEntityType<out ConsoleBlockEntity> =
@@ -61,7 +71,7 @@ class ComputerControlDeskBlock(
         serverLevel.server.execute {
             val placedDesk = serverLevel.getBlockEntity(pos) as? ComputerControlDeskBlockEntity
                 ?: return@execute
-            ConsoleMultiblockManager.invalidate(serverLevel)
+            ConsoleMultiblockManager.invalidate(serverLevel, pos)
             val network = ConsoleMultiblockManager.resolve(serverLevel, pos)
             if (network.state != ConsoleNetworkState.CONFLICT) return@execute
 
@@ -94,10 +104,7 @@ class ComputerControlDeskBlock(
         ?.bundledRedstoneOutput(side) ?: 0
 
     override fun getCloneItemStack(level: LevelReader, pos: BlockPos, state: BlockState): ItemStack {
-        val stack = ItemStack(
-            if (family == ComputerFamily.ADVANCED) CCItems.ADVANCED_COMPUTER_CONTROL_DESK.get()
-            else CCItems.COMPUTER_CONTROL_DESK.get()
-        )
+        val stack = ItemStack(CCItems.computerConsole(variant, family))
         (level.getBlockEntity(pos) as? ComputerControlDeskBlockEntity)?.writeToItem(stack)
         return stack
     }
@@ -118,10 +125,7 @@ class ComputerControlDeskBlock(
         val blockEntity = builder.getOptionalParameter(LootContextParams.BLOCK_ENTITY)
             as? ComputerControlDeskBlockEntity
             ?: return super.getDrops(state, builder)
-        val stack = ItemStack(
-            if (family == ComputerFamily.ADVANCED) CCItems.ADVANCED_COMPUTER_CONTROL_DESK.get()
-            else CCItems.COMPUTER_CONTROL_DESK.get()
-        )
+        val stack = ItemStack(CCItems.computerConsole(variant, family))
         blockEntity.writeToItem(stack)
         return listOf(stack)
     }
@@ -133,23 +137,16 @@ class ComputerControlDeskBlock(
         player: Player
     ) {
         val savedDesk = placedDesk.saveWithFullMetadata(level.registryAccess())
-        val combinedStack = ItemStack(
-            if (family == ComputerFamily.ADVANCED) CCItems.ADVANCED_COMPUTER_CONTROL_DESK.get()
-            else CCItems.COMPUTER_CONTROL_DESK.get()
-        )
+        val combinedStack = ItemStack(CCItems.computerConsole(variant, family))
         placedDesk.writeToItem(combinedStack)
         val computerStack = standaloneComputer(combinedStack)
 
-        var replacement = AeroworksTypes.vanillaControlDeskBlock().defaultBlockState()
+        var replacement = AeroworksTypes.controlDeskBlock(variant.aeroworksPath).defaultBlockState()
         val currentState = placedDesk.blockState
-        if (replacement.hasProperty(BlockStateProperties.HORIZONTAL_FACING) &&
-            currentState.hasProperty(BlockStateProperties.HORIZONTAL_FACING)
-        ) {
-            replacement = replacement.setValue(
-                BlockStateProperties.HORIZONTAL_FACING,
-                currentState.getValue(BlockStateProperties.HORIZONTAL_FACING)
-            )
-        }
+        replacement = copyProperty(currentState, replacement, ConsoleBlock.FACING)
+        replacement = copyProperty(currentState, replacement, ConsoleBlock.CEILING)
+        replacement = copyProperty(currentState, replacement, ConsoleDeskBlock.OPEN_EAST)
+        replacement = copyProperty(currentState, replacement, ConsoleDeskBlock.OPEN_WEST)
 
         if (!level.setBlock(pos, replacement, Block.UPDATE_ALL)) return
         val replacementEntity = level.getBlockEntity(pos) as? ConsoleBlockEntity
@@ -159,7 +156,7 @@ class ComputerControlDeskBlock(
 
         Block.popResource(level, pos.above(), computerStack)
         level.playSound(null, pos, SoundEvents.ITEM_PICKUP, SoundSource.BLOCKS, 0.6f, 0.9f)
-        ConsoleMultiblockManager.invalidate(level)
+        ConsoleMultiblockManager.invalidate(level, pos)
         player.displayClientMessage(
             Component.translatable("message.cc_aeroworks.computer_ejected"),
             true
@@ -175,7 +172,19 @@ class ComputerControlDeskBlock(
         copyComponent(source, result, ModRegistry.DataComponents.STORAGE_CAPACITY.get())
         copyComponent(source, result, ModRegistry.DataComponents.TERMINAL_SIZE.get())
         copyComponent(source, result, DataComponents.CUSTOM_NAME)
+        copyComponent(source, result, de.teutonstudio.ccaeroworks.registry.CCDataComponents.WIRE_CHANNELS.get())
+        copyComponent(source, result, de.teutonstudio.ccaeroworks.registry.CCDataComponents.CHANNEL_GROUPS.get())
         return result
+    }
+
+    private fun <T : Comparable<T>> copyProperty(
+        source: BlockState,
+        target: BlockState,
+        property: Property<T>
+    ): BlockState = if (source.hasProperty(property) && target.hasProperty(property)) {
+        target.setValue(property, source.getValue(property))
+    } else {
+        target
     }
 
     private fun <T> copyComponent(

@@ -1,11 +1,11 @@
 package de.teutonstudio.ccaeroworks.registry
 
 import com.mred231.aeroworks.AeroworksSocketTypes
-import com.mred231.aeroworks.content.controls.ModulePart
-import com.mred231.aeroworks.content.controls.ModuleType
-import com.mred231.aeroworks.content.controls.ModuleTypes
-import com.mred231.aeroworks.content.controls.SocketType
-import com.mred231.aeroworks.content.controls.SocketTypes
+import com.mred231.aeroworks.content.controls.module.ModulePart
+import com.mred231.aeroworks.content.controls.module.ModuleType
+import com.mred231.aeroworks.content.controls.module.ModuleTypes
+import com.mred231.aeroworks.content.controls.socket.SocketType
+import com.mred231.aeroworks.content.controls.socket.SocketTypes
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.display.DeskDisplayType
 import net.minecraft.resources.ResourceLocation
@@ -121,7 +121,7 @@ object CCModuleTypes {
             return
         }
 
-        // Defensive fallback for the 1.3.0 builder implementation if its mutator is not public.
+        // Defensive fallback for builder implementations whose mutator is not public.
         val field = generateSequence<Class<*>>(builderType) { it.superclass }
             .flatMap { it.declaredFields.asSequence() }
             .firstOrNull { field ->

@@ -1,7 +1,7 @@
 package de.teutonstudio.ccaeroworks.mixin
 
-import com.mred231.aeroworks.content.controls.ConsoleBlock
-import com.mred231.aeroworks.content.controls.ConsoleDeskBlock
+import com.mred231.aeroworks.content.controls.console.ConsoleBlock
+import com.mred231.aeroworks.content.controls.console.ConsoleDeskBlock
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockSkinState
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.state.BlockState

@@ -1,7 +1,7 @@
 package de.teutonstudio.ccaeroworks.client.display
 
 import com.mojang.blaze3d.platform.NativeImage
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.display.DeskDisplayPixels
 import net.minecraft.client.Minecraft
 import net.minecraft.client.renderer.texture.DynamicTexture

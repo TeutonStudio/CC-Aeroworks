@@ -94,9 +94,9 @@ object ConsoleMultiblockSkinUpdater {
         }
 
         try {
-            ConsoleMultiblockManager.invalidate(level)
+            ConsoleMultiblockManager.invalidate(level, origin)
             if (normalizeComputer && normalizeDuplicateComputer(level, origin)) {
-                ConsoleMultiblockManager.invalidate(level)
+                ConsoleMultiblockManager.invalidate(level, origin)
             }
 
             val starts = linkedSetOf<BlockPos>()
@@ -144,7 +144,7 @@ object ConsoleMultiblockSkinUpdater {
                 }
             }
 
-            ConsoleMultiblockManager.invalidate(level)
+            starts.forEach { ConsoleMultiblockManager.invalidate(level, it) }
         } finally {
             synchronized(refreshing) {
                 refreshing.remove(level)

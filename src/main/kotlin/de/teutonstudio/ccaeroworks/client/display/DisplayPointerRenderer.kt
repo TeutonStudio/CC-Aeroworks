@@ -1,7 +1,7 @@
 package de.teutonstudio.ccaeroworks.client.display
 
-import com.mred231.aeroworks.content.controls.ConsoleBlock
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleBlock
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.compat.sable.SableClientRenderPose
 import de.teutonstudio.ccaeroworks.display.DeskDisplayGeometry
 import de.teutonstudio.ccaeroworks.input.DisplayCombinedInputController

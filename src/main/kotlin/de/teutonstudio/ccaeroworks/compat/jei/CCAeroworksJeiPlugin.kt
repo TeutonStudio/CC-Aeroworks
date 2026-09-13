@@ -3,6 +3,7 @@ package de.teutonstudio.ccaeroworks.compat.jei
 import dan200.computercraft.shared.ModRegistry
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
+import de.teutonstudio.ccaeroworks.computer.ComputerConsoleVariant
 import de.teutonstudio.ccaeroworks.recipe.ComputerControlDeskRecipe
 import de.teutonstudio.ccaeroworks.registry.CCItems
 import mezz.jei.api.IModPlugin
@@ -40,16 +41,17 @@ private object ComputerControlDeskCraftingExtension : ICraftingCategoryExtension
         craftingGridHelper: ICraftingGridHelper,
         focuses: IFocusGroup
     ) {
-        val controlDesk = ItemStack(AeroworksTypes.vanillaControlDeskBlock())
         val normalComputer = ItemStack(ModRegistry.Items.COMPUTER_NORMAL.get())
         val advancedComputer = ItemStack(ModRegistry.Items.COMPUTER_ADVANCED.get())
-        val normalDesk = ItemStack(CCItems.COMPUTER_CONTROL_DESK.get())
-        val advancedDesk = ItemStack(CCItems.ADVANCED_COMPUTER_CONTROL_DESK.get())
+        val controlDesks = ComputerConsoleVariant.entries.map {
+            ItemStack(AeroworksTypes.controlDeskBlock(it.aeroworksPath))
+        }
+        val resultDesks = CCItems.computerConsoles().map(::ItemStack)
 
         val inputSlots = craftingGridHelper.createAndSetInputs(
             builder,
             listOf(
-                listOf(controlDesk),
+                controlDesks,
                 listOf(normalComputer, advancedComputer)
             ),
             0,
@@ -57,7 +59,7 @@ private object ComputerControlDeskCraftingExtension : ICraftingCategoryExtension
         )
         val outputSlot = craftingGridHelper.createAndSetOutputs(
             builder,
-            listOf(normalDesk, advancedDesk)
+            resultDesks
         )
 
         // Keep the displayed CC computer and result tier synchronized while JEI cycles variants.

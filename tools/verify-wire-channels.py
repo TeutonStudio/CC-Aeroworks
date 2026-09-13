@@ -11,7 +11,7 @@ def main()->int:
     public_wire=wire_api.split("class ComputerWireAdminLuaApi",1)[0]
     for method in("list","exists","get","set","pulse","reset","resetAll","getInfo","getBackend","isEnabled"):require(f"fun {method}" in public_wire,f"legacy wires API missing {method}")
     require("WireNetworkManager.trySetSignalAt" in backend and "WireNetworkManager.createConnection" in backend and "connectionTargets(sourcePos: BlockPos" in bank,"DBW backend/topology bridge missing")
-    require('CONSOLE_WIRE_CHANNELS = "com.mred231.aeroworks.compat.drivebywire.ConsoleWireChannels"' in native and 'getMethod("channelsFor", ConsoleBlockEntity::class.java)' in native and 'getMethod("parse", String::class.java)' in native,"native Aeroworks DBW identity bridge missing")
+    require('CONSOLE_WIRE_CHANNELS = "com.mred231.aeroworks.compat.drivebywire.ConsoleWireChannels"' in native and 'getMethod("channelsFor", ConsoleBlockEntity::class.java)' in native and 'getMethod("parse", ConsoleBlockEntity::class.java, String::class.java)' in native,"native Aeroworks DBW identity bridge missing")
     require("filterExposedIds" in native and "isDriveByWireExposed" in native and "MultiChannelWireSource" not in native,"native discovery must use shared semantics")
     require("(-value).coerceIn(0, 15)" in direction and "value.coerceIn(0, 15)" in direction and "sign = -1" in direction and "sign = 1" in direction,"signed axes must split to directional 0..15 outputs")
     require("DISPLAY_POINTER" in semantics and "getCurrentSignal" in signal and '@At("RETURN")' in signal and "cir.setReturnValue(0)" in signal and "filterExposedIds" in catalog,"display pointers must be isolated at discovery and final late DBW read")

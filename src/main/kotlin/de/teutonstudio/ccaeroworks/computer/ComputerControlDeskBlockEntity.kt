@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.computer
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import dan200.computercraft.api.ComputerCraftAPI
 import dan200.computercraft.core.computer.ComputerSide
 import dan200.computercraft.impl.BundledRedstone
@@ -199,10 +199,8 @@ class ComputerControlDeskBlockEntity(
         computer.turnOn()
         if (direct) directMenuOpeners += player.uuid
         powered = true
-        val displayStack = ItemStack(
-            if (isAdvanced) CCItems.ADVANCED_COMPUTER_CONTROL_DESK.get()
-            else CCItems.COMPUTER_CONTROL_DESK.get()
-        )
+        val consoleBlock = blockState.block as ComputerControlDeskBlock
+        val displayStack = ItemStack(CCItems.computerConsole(consoleBlock.variant, family))
         collectSafeComputerComponents(displayStack)
         PlatformHelper.get().openMenu(
             player,
@@ -325,10 +323,7 @@ class ComputerControlDeskBlockEntity(
     }
 
     override fun getName(): Component =
-        label?.let { Component.literal(it) } ?: Component.translatable(
-            if (isAdvanced) "block.cc_aeroworks.advanced_computer_control_desk"
-            else "block.cc_aeroworks.computer_control_desk"
-        )
+        label?.let { Component.literal(it) } ?: Component.translatable(blockState.block.descriptionId)
 
     override fun getDisplayName(): Component = name
 

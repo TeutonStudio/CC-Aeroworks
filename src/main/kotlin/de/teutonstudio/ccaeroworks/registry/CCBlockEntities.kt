@@ -24,7 +24,13 @@ object CCBlockEntities {
                         ComputerControlDeskBlockEntity(COMPUTER_CONTROL_DESK.get(), pos, state)
                     },
                     CCBlocks.COMPUTER_CONTROL_DESK.get(),
-                    CCBlocks.ADVANCED_COMPUTER_CONTROL_DESK.get()
+                    CCBlocks.ADVANCED_COMPUTER_CONTROL_DESK.get(),
+                    CCBlocks.COMPUTER_COPYCAT_CONTROL_DESK.get(),
+                    CCBlocks.ADVANCED_COMPUTER_COPYCAT_CONTROL_DESK.get(),
+                    CCBlocks.COMPUTER_CONTROL_STAND.get(),
+                    CCBlocks.ADVANCED_COMPUTER_CONTROL_STAND.get(),
+                    CCBlocks.COMPUTER_COPYCAT_CONTROL_STAND.get(),
+                    CCBlocks.ADVANCED_COMPUTER_COPYCAT_CONTROL_STAND.get()
                 ).build(null)
             }
         )

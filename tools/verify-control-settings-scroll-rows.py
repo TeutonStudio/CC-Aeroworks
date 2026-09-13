@@ -49,12 +49,12 @@ require("import de.teutonstudio.ccaeroworks.client.ModuleScreenRowGeometry" in c
 require("import de.teutonstudio.ccaeroworks.client.ModuleScreenRowGeometry" in bindings,
         "display-binding mixin must import the non-mixin geometry helper")
 
-# Aeroworks 1.3.0 bytecode contract used by all CC-Aeroworks row extensions.
-require("LIST_WIDTH: Int = 251" in geometry, "ModuleScreen list width must match Aeroworks 1.3.0")
-require("LIST_HEIGHT: Int = 108" in geometry, "ModuleScreen list height must match Aeroworks 1.3.0")
+# Aeroworks 1.5.0 bytecode contract used by all CC-Aeroworks row extensions.
+require("LIST_WIDTH: Int = 251" in geometry, "ModuleScreen list width must match Aeroworks 1.5.0")
+require("LIST_HEIGHT: Int = 108" in geometry, "ModuleScreen list height must match Aeroworks 1.5.0")
 require("SINGLE_HEIGHT: Int = 30" in geometry and "PAIR_HEIGHT: Int = 52" in geometry,
-        "native row heights must match Aeroworks 1.3.0")
-require("ROW_GAP: Int = 1" in geometry, "native row gap must match Aeroworks 1.3.0")
+        "native row heights must match Aeroworks 1.5.0")
+require("ROW_GAP: Int = 1" in geometry, "native row gap must match Aeroworks 1.5.0")
 require("fun nativeGroups" in geometry and "column.isButton()" in geometry and "!column.positive()" in geometry,
         "row geometry must mirror Aeroworks native group pairing")
 require("renderedScroll" in geometry and "extensionScreenTop" in geometry,

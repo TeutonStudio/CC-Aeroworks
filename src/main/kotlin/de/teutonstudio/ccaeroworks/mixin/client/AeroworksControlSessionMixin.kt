@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo
  * server/world invalidation and disconnect cleanup, so this does not depend on which key or event
  * happened to trigger the exit.
  */
-@Mixin(targets = ["com.mred231.aeroworks.content.controls.ConsoleControlClient"], remap = false)
+@Mixin(targets = ["com.mred231.aeroworks.content.controls.console.ConsoleControlClient"], remap = false)
 abstract class AeroworksControlSessionMixin {
     private companion object {
         @JvmStatic

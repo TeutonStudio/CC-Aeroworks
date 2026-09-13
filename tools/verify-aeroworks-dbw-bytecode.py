@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-"""Verify the exact Aeroworks 1.3.0 Drive By Wire channel integration contract."""
+"""Verify the exact Aeroworks Drive By Wire channel integration contract."""
 from __future__ import annotations
-import json, subprocess, tempfile, urllib.request, zipfile
+import hashlib, json, subprocess, tempfile, urllib.request, zipfile
 from pathlib import Path
 
-VERSION = "1.3.0"
-FILE_NAME = "aeroworks-1.3.0.jar"
-DOWNLOAD_URL = "https://cdn.modrinth.com/data/P26k79kP/versions/EYVmBa7H/aeroworks-1.3.0.jar"
-EXPECTED_MIN_BYTES = 650_000
-EXPECTED_MAX_BYTES = 700_000
+ROOT = Path(__file__).resolve().parents[1]
+MANIFEST = json.loads((ROOT / "libs/dependencies.json").read_text())
+DEPENDENCY = next(item for item in MANIFEST["dependencies"] if item["modId"] == "aeroworks")
+VERSION = DEPENDENCY["version"]
+FILE_NAME = DEPENDENCY["filenameExamples"][0]
+DOWNLOAD_URL = DEPENDENCY["downloadUrl"]
+EXPECTED_SHA256 = DEPENDENCY["sha256"]
 MIXIN_CONFIG = "aeroworks-drivebywire.mixins.json"
 DBW_CLIENT = "edn/stratodonut/drivebywire/client/ClientWireNetworkHandler"
 CONSOLE_WIRE_CHANNELS = "com.mred231.aeroworks.compat.drivebywire.ConsoleWireChannels"
@@ -21,7 +23,7 @@ def download(path: Path) -> None:
     with urllib.request.urlopen(request, timeout=60) as response:
         require(response.status == 200, f"Aeroworks download returned HTTP {response.status}")
         path.write_bytes(response.read())
-    require(EXPECTED_MIN_BYTES <= path.stat().st_size <= EXPECTED_MAX_BYTES, f"Unexpected {FILE_NAME} size {path.stat().st_size}")
+    require(hashlib.sha256(path.read_bytes()).hexdigest() == EXPECTED_SHA256, f"Unexpected SHA-256 for {FILE_NAME}")
 
 def javap(jar: Path, class_name: str) -> str:
     completed = subprocess.run(["javap", "-classpath", str(jar), "-p", "-s", "-c", class_name], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
@@ -58,10 +60,9 @@ def main() -> int:
 
         channels = javap(jar, CONSOLE_WIRE_CHANNELS)
         for signature in (
-            "channelFor(int, java.lang.String, int)",
-            "channelsFor(com.mred231.aeroworks.content.controls.ConsoleBlockEntity)",
-            "nextChannel(com.mred231.aeroworks.content.controls.ConsoleBlockEntity, java.lang.String, boolean)",
-            "parse(java.lang.String)",
+            "channelsFor(com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity)",
+            "nextChannel(com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity, java.lang.String, boolean)",
+            "parse(com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity, java.lang.String)",
         ):
             require(signature in channels, f"ConsoleWireChannels contract missing {signature}")
         for token in (

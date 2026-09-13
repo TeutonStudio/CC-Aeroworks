@@ -1,7 +1,7 @@
 package de.teutonstudio.ccaeroworks.display
 
-import com.mred231.aeroworks.content.controls.ConsoleBlock
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleBlock
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksModuleAccess
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskSockets
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes

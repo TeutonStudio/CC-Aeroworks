@@ -8,6 +8,12 @@ import net.minecraft.resources.ResourceLocation;
 public class CCAeroworksPonderPlugin implements PonderPlugin {
     private static final ResourceLocation COMPUTER_CONTROL_DESK = CCAeroworks.id("computer_control_desk");
     private static final ResourceLocation ADVANCED_COMPUTER_CONTROL_DESK = CCAeroworks.id("advanced_computer_control_desk");
+    private static final ResourceLocation COMPUTER_COPYCAT_CONTROL_DESK = CCAeroworks.id("computer_copycat_control_desk");
+    private static final ResourceLocation ADVANCED_COMPUTER_COPYCAT_CONTROL_DESK = CCAeroworks.id("advanced_computer_copycat_control_desk");
+    private static final ResourceLocation COMPUTER_CONTROL_STAND = CCAeroworks.id("computer_control_stand");
+    private static final ResourceLocation ADVANCED_COMPUTER_CONTROL_STAND = CCAeroworks.id("advanced_computer_control_stand");
+    private static final ResourceLocation COMPUTER_COPYCAT_CONTROL_STAND = CCAeroworks.id("computer_copycat_control_stand");
+    private static final ResourceLocation ADVANCED_COMPUTER_COPYCAT_CONTROL_STAND = CCAeroworks.id("advanced_computer_copycat_control_stand");
     private static final ResourceLocation TWO_DIGIT_DISPLAY = CCAeroworks.id("two_digit_display");
     private static final ResourceLocation THREE_DIGIT_DISPLAY = CCAeroworks.id("three_digit_display");
 
@@ -15,7 +21,11 @@ public class CCAeroworksPonderPlugin implements PonderPlugin {
 
     @Override
     public void registerScenes(PonderSceneRegistrationHelper<ResourceLocation> helper) {
-        helper.forComponents(COMPUTER_CONTROL_DESK, ADVANCED_COMPUTER_CONTROL_DESK)
+        helper.forComponents(
+                COMPUTER_CONTROL_DESK, ADVANCED_COMPUTER_CONTROL_DESK,
+                COMPUTER_COPYCAT_CONTROL_DESK, ADVANCED_COMPUTER_COPYCAT_CONTROL_DESK,
+                COMPUTER_CONTROL_STAND, ADVANCED_COMPUTER_CONTROL_STAND,
+                COMPUTER_COPYCAT_CONTROL_STAND, ADVANCED_COMPUTER_COPYCAT_CONTROL_STAND)
             .addStoryBoard("computer_control_desk", ComputerControlDeskScenes::network)
             .addStoryBoard("computer_control_desk", ComputerControlDeskScenes::peripheralSearch)
             .addStoryBoard("computer_control_desk", ComputerControlDeskScenes::diagnostics);

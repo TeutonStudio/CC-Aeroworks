@@ -16,7 +16,7 @@ CC-Aeroworks connects **Create: Aeroworks Control Desks** with **CC:Tweaked**, t
 
 ## Desk networks and peripherals
 
-Aligned desks connect directly left and right into one control-desk network. The network resolver never force-loads chunks and accepts at most 64 fully loaded desks. A valid network contains at most one embedded computer desk.
+Aligned consoles connect directly left and right. Desk and Copycat Desk variants may mix, while Control Stand and Copycat Stand form a separate geometry family. All four Aeroworks variants are available with normal and advanced embedded computers. The resolver never force-loads chunks and accepts at most 64 fully loaded consoles; a valid network contains at most one embedded computer.
 
 Each desk is addressed by its canonical `x,y,z` position. Adjacent CC:Tweaked peripherals are discovered automatically and delegated through normal CC:Tweaked attach/detach, event, mount, and main-thread semantics.
 
@@ -81,7 +81,7 @@ See [`docs/create-radars-integration.md`](docs/create-radars-integration.md).
 - Java 21
 - Kotlin 2.2.20 / KotlinForForge NeoForge 5.11.0
 - Create 6.0.10
-- Aeronautics/Aeroworks 1.3.0
+- Aeronautics 1.3.2 / Aeroworks 1.5.0
 - CC:Tweaked API baseline 1.119.0
 - Sable 2.0.1 required
 - Create: Simulated optional

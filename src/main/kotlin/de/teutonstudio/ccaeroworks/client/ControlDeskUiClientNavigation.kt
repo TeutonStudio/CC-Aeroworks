@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.client
 
-import com.mred231.aeroworks.content.controls.ConsoleScreenOpener
+import com.mred231.aeroworks.content.controls.console.ConsoleScreenOpener
 import de.teutonstudio.ccaeroworks.computer.ControlDeskUiSwitchState
 
 /**

@@ -1,7 +1,7 @@
 package de.teutonstudio.ccaeroworks.computer
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
-import com.mred231.aeroworks.content.controls.ConsoleSocket
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.socket.ConsoleSocket
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState

@@ -158,7 +158,7 @@ def main() -> int:
     german, english = verify_language_pair(LANG_DIR, "CC-Aeroworks")
     _, aeroworks_english = verify_language_pair(AEROWORKS_LANG_DIR, "Aeroworks")
     runtime_german, runtime_english = verify_language_pair(PONDER_RUNTIME_LANG_DIR, "Ponder runtime")
-    require(len(aeroworks_english) == AEROWORKS_1_3_0_LANGUAGE_KEY_COUNT, "Aeroworks language overrides must cover the complete 1.3.0 key set")
+    require(len(aeroworks_english) == AEROWORKS_1_3_0_LANGUAGE_KEY_COUNT, "Aeroworks language overrides must cover the maintained compatibility key set")
     guide_source = GUIDE_CONTENT.read_text(encoding="utf-8")
     guide_keys = set(re.findall(r'"(guide\.cc_aeroworks\.[a-z0-9_.]+)"', guide_source))
     require(guide_keys, "GuideBookContent.kt contains no translation keys")

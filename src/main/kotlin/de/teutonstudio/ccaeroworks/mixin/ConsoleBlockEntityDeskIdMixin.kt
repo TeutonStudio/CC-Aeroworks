@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.mixin
 
-import com.mred231.aeroworks.content.controls.ConsoleBlockEntity
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskIdentityAccess
 import de.teutonstudio.ccaeroworks.registry.CCDataComponents
 import net.minecraft.core.HolderLookup

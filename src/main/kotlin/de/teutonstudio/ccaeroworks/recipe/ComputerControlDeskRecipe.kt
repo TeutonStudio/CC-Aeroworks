@@ -2,6 +2,7 @@ package de.teutonstudio.ccaeroworks.recipe
 
 import dan200.computercraft.shared.ModRegistry
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
+import de.teutonstudio.ccaeroworks.computer.ComputerConsoleVariant
 import de.teutonstudio.ccaeroworks.registry.CCItems
 import de.teutonstudio.ccaeroworks.registry.CCRecipeSerializers
 import net.minecraft.core.HolderLookup
@@ -18,12 +19,11 @@ class ComputerControlDeskRecipe(category: CraftingBookCategory) : CustomRecipe(c
 
     override fun assemble(input: CraftingInput, registries: HolderLookup.Provider): ItemStack {
         val ingredients = findIngredients(input) ?: return ItemStack.EMPTY
-        val result = ItemStack(
-            when (ingredients.computerTier) {
-                ComputerTier.NORMAL -> CCItems.COMPUTER_CONTROL_DESK.get()
-                ComputerTier.ADVANCED -> CCItems.ADVANCED_COMPUTER_CONTROL_DESK.get()
-            }
-        )
+        val family = when (ingredients.computerTier) {
+            ComputerTier.NORMAL -> dan200.computercraft.shared.computer.core.ComputerFamily.NORMAL
+            ComputerTier.ADVANCED -> dan200.computercraft.shared.computer.core.ComputerFamily.ADVANCED
+        }
+        val result = ItemStack(CCItems.computerConsole(ingredients.variant, family))
 
         // Aeroworks' controller_contents and any future desk components are copied first.
         result.applyComponents(ingredients.desk.components)
@@ -41,6 +41,7 @@ class ComputerControlDeskRecipe(category: CraftingBookCategory) : CustomRecipe(c
         var desk = ItemStack.EMPTY
         var computer = ItemStack.EMPTY
         var computerTier: ComputerTier? = null
+        var variant: ComputerConsoleVariant? = null
 
         for (slot in 0 until input.size()) {
             val stack = input.getItem(slot)
@@ -50,6 +51,7 @@ class ComputerControlDeskRecipe(category: CraftingBookCategory) : CustomRecipe(c
                 AeroworksTypes.isVanillaControlDesk(stack.item) -> {
                     if (!desk.isEmpty) return null
                     desk = stack
+                    variant = AeroworksTypes.variant(stack.item) ?: return null
                 }
                 stack.`is`(ModRegistry.Items.COMPUTER_NORMAL.get()) -> {
                     if (!computer.isEmpty) return null
@@ -66,13 +68,15 @@ class ComputerControlDeskRecipe(category: CraftingBookCategory) : CustomRecipe(c
         }
 
         val tier = computerTier ?: return null
-        return if (!desk.isEmpty && !computer.isEmpty) Ingredients(desk, computer, tier) else null
+        val consoleVariant = variant ?: return null
+        return if (!desk.isEmpty && !computer.isEmpty) Ingredients(desk, computer, tier, consoleVariant) else null
     }
 
     private data class Ingredients(
         val desk: ItemStack,
         val computer: ItemStack,
-        val computerTier: ComputerTier
+        val computerTier: ComputerTier,
+        val variant: ComputerConsoleVariant
     )
 
     private enum class ComputerTier {
