@@ -79,11 +79,12 @@ See [`docs/create-radars-integration.md`](docs/create-radars-integration.md).
 - Minecraft 1.21.1
 - NeoForge 21.1.228+
 - Java 21
-- Kotlin 2.2.20 / KotlinForForge NeoForge 5.11.0
+- Kotlin 2.4.0 / KotlinForForge NeoForge 5.12.0
 - Create 6.0.10
 - Aeronautics 1.3.2 / Aeroworks 1.5.0
-- CC:Tweaked API baseline 1.119.0
-- Sable 2.0.1 required
+- CC:Tweaked API baseline 1.120.2
+- Sable 2.0.5 required
+- Drive By Wire 0.2.9-0.3.x optional
 - Create: Simulated optional
 - Create: Radars optional
 

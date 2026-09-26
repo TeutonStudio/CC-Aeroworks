@@ -228,4 +228,4 @@ Erwartung:
 
 ## MB-VERSIONS-01: CC:Tweaked
 
-Die Kernfälle mindestens mit CC:Tweaked 1.119.0 und 1.120.0 ausführen. Eine Version wird nur als unterstützt beworben, wenn ihr Profil vollständig `PASS` ist.
+Die Kernfälle mindestens mit CC:Tweaked 1.119.0 und 1.120.2 ausführen. Eine Version wird nur als unterstützt beworben, wenn ihr Profil vollständig `PASS` ist.

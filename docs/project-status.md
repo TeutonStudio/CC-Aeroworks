@@ -34,7 +34,7 @@
 - Crafting- und Persistenzprüfung,
 - Flywheel- und Fallback-Rendering,
 - Sable statisch und bewegt,
-- CC:Tweaked 1.119.0 und 1.120.0,
+- CC:Tweaked 1.119.0 und 1.120.2,
 - vollständige manuelle Basis- und Multiblockmatrix.
 
 Nicht ausgeführte Laufzeitprüfungen gelten weiterhin als `NOT RUN` oder `BLOCKED`, nicht als implizit bestanden.

@@ -29,7 +29,7 @@ Adds optional Create: Radars integration and radar display modules to CC-Aerowor
 [[dependencies.${mod_id}]]
     modId="kotlinforforge"
     type="required"
-    versionRange="[${kotlin_for_forge_version},6)"
+    versionRange="${kotlin_for_forge_version_range}"
     ordering="NONE"
     side="BOTH"
 [[dependencies.${mod_id}]]
@@ -78,7 +78,7 @@ Adds optional Create: Radars integration and radar display modules to CC-Aerowor
 [[dependencies.${mod_id}]]
     modId="drivebywire"
     type="optional"
-    versionRange="[0.2.9,0.3)"
+    versionRange="[0.2.9,0.4)"
     ordering="AFTER"
     side="BOTH"
 

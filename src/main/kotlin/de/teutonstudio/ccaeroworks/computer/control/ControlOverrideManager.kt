@@ -358,7 +358,7 @@ object ControlOverrideManager {
     ) {
         owner.getServerComputer()?.queueEvent(
             CCAeroworks.CONTROL_OVERRIDE_EVENT,
-            arrayOf(
+            arrayOf<Any?>(
                 action,
                 command.member.id,
                 command.member.index,
@@ -378,7 +378,7 @@ object ControlOverrideManager {
     ) {
         owner.getServerComputer()?.queueEvent(
             CCAeroworks.CONTROL_RELEASE_EVENT,
-            arrayOf(key.deskId.toString(), key.socket, DeskSockets.name(key.socket), key.channel, reason)
+            arrayOf<Any?>(key.deskId.toString(), key.socket, DeskSockets.name(key.socket), key.channel, reason)
         )
     }
 

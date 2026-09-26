@@ -54,14 +54,14 @@ Interaktive Fälle aus `docs/manual-test-plan.md` werden separat in einem versio
 
 ## Saubere Dependency-Sets
 
-Jedes Profil erhält ein eigenes Verzeichnis. Insbesondere dürfen CC:Tweaked 1.119.0 und 1.120.0 nie gemeinsam geladen werden.
+Jedes Profil erhält ein eigenes Verzeichnis. Insbesondere dürfen CC:Tweaked 1.119.0 und 1.120.2 nie gemeinsam geladen werden.
 
 Empfohlene Struktur:
 
 ```text
 test-mods/
-  base-cc-1.119/
-  cc-1.120/
+  base-cc-1.120/
+  cc-1.119/
   sable/
   full-server/
 ```

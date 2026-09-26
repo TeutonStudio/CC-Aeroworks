@@ -23,13 +23,13 @@ gradlew.bat -Pmod_dependency_dir=C:\mods\cc-aeroworks verifyModDependencies
 | Create | `create` | 6.0.10 | erforderlich |
 | Create: Aeronautics | `aeronautics` | 1.3.2 | erforderlich |
 | Create: Aeroworks | `aeroworks` | 1.5.0 | erforderlich |
-| CC: Tweaked | `computercraft` | 1.119.0 | erforderlich |
-| Sable | `sable` | 2.0.1 | erforderlich |
-| Drive By Wire | `drive_by_wire` | 0.2.9 | optional |
-| Create: Radars | `create_radar` | 0.4.4-1.21.1 | automatisch für Entwicklungsruns |
+| CC: Tweaked | `computercraft` | 1.120.2 | erforderlich |
+| Sable | `sable` | 2.0.5 | erforderlich |
+| Drive By Wire | `drivebywire` | 0.3.0 | optional; 0.2.9 bleibt unterstützt |
+| Create: Radars | `create_radar` | 0.4.9.4-1.21.1 | automatisch für Entwicklungsruns |
 | Create Big Cannons | `createbigcannons` | 5.11.7 | optional, automatisch für Entwicklungsruns |
 | Ritchie's Projectile Library | `ritchiesprojectilelib` | 2.1.2 | CBC-Laufzeitbibliothek, automatisch für Entwicklungsruns |
-| Just Enough Items | `jei` | 19.27.0.340 | Entwicklungswerkzeug, automatisch für Entwicklungsruns |
+| Just Enough Items | `jei` | 19.39.0.372 | Entwicklungswerkzeug, automatisch für Entwicklungsruns |
 
 Das offizielle Create-Aeronautics-Artefakt für diese Baseline heißt:
 
@@ -41,7 +41,7 @@ Create Aeronautics benötigt neben Create auch Sable zur Laufzeit. Sable ist dah
 
 Create: Radars benötigt in der verwendeten 1.21.1-Laufzeit Create Big Cannons. CBC benötigt wiederum Ritchie's Projectile Library. `runClient` und die übrigen lokalen Gradle-Runtime-Classpaths lösen deshalb alle drei Artefakte automatisch über CurseMaven als `localRuntime` auf. Versionen und CurseForge-Datei-IDs sind in `gradle.properties` festgelegt.
 
-JEI wird zusätzlich über das offizielle BlameJared-Maven als `localRuntime` geladen. Die festgelegte Version `19.27.0.340` ist mit der Projektbasis NeoForge `21.1.228` kompatibel und ermöglicht die manuelle Kontrolle der Crafting- und Create-Verarbeitungsrezepte im Entwicklungsclient. JEI ist kein Bestandteil der veröffentlichten CC-Aeroworks-Abhängigkeiten.
+JEI wird zusätzlich über das offizielle BlameJared-Maven als `localRuntime` geladen. `19.39.0.372` ist die höchste veröffentlichte Version vor der Anhebung der NeoForge-Mindestversion auf `21.1.238` und bleibt damit mit der Projektbasis NeoForge `21.1.228` kompatibel. JEI ermöglicht die manuelle Kontrolle der Crafting- und Create-Verarbeitungsrezepte im Entwicklungsclient und ist kein Bestandteil der veröffentlichten CC-Aeroworks-Abhängigkeiten.
 
 Manuell in `libs/` abgelegte offizielle JARs für Create: Radars, Create Big Cannons, Ritchie's Projectile Library oder JEI werden aus dem allgemeinen Datei-Classpath ausgeschlossen, damit ihre Mod-IDs nicht doppelt geladen werden. Die veröffentlichte CC-Aeroworks-Mod bettet keines dieser Artefakte ein.
 
@@ -61,10 +61,10 @@ Get-FileHash -Algorithm SHA256 .\libs\*.jar
 
 ## CC:Tweaked-Kompatibilitätstest
 
-CC:Tweaked 1.120.0 wird in einem **separaten** Abhängigkeitsverzeichnis getestet. Lege 1.119.0 und 1.120.0 niemals gleichzeitig in denselben Classpath.
+CC:Tweaked 1.119.0 wird als untere unterstützte Version in einem **separaten** Abhängigkeitsverzeichnis getestet. Lege 1.119.0 und 1.120.2 niemals gleichzeitig in denselben Classpath.
 
 ```bash
-./gradlew -Pmod_dependency_dir=libs-cc-1.120 clean test build
+./gradlew -Pmod_dependency_dir=libs-cc-1.119 clean test build
 ```
 
 ## Erwartete Befehle

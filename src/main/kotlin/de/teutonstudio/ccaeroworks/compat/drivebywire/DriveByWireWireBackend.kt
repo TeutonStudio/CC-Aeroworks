@@ -9,7 +9,7 @@ import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 
 /**
- * Optional Drive By Wire 0.2.9 backend.
+ * Optional Drive By Wire 0.2.9-0.3.x backend.
  *
  * This class is loaded reflectively only when the drivebywire mod is present, so the core
  * ComputerControlDesk remains loadable without the optional dependency.

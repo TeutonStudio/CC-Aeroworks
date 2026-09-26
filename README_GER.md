@@ -200,13 +200,14 @@ Die ausführliche externe Referenz liegt unter [`docs/cc-peripheral-api.md`](doc
 - Minecraft 1.21.1
 - NeoForge 21.1.228+
 - Java 21
-- Kotlin 2.2.20 / KotlinForForge NeoForge 5.11.0
+- Kotlin 2.4.0 / KotlinForForge NeoForge 5.12.0
 - Create 6.0.10 mit Ponder API 1.0.82
 - Aeronautics 1.3.2 / Aeroworks 1.5.0
-- CC:Tweaked API-Baseline 1.119.0
-- Sable 2.0.1
+- CC:Tweaked API-Baseline 1.120.2
+- Sable 2.0.5
+- Drive By Wire 0.2.9-0.3.x optional
 - Create: Simulated 1.3.2 optional
-- Create: Radars 0.4.4-1.21.1 optional
+- Create: Radars 0.4.9.4-1.21.1 optional
 - Create Big Cannons 5.11.7 optional
 - Ritchie's Projectile Library 2.1.2 für die unterstützte Radar-Laufzeit
 

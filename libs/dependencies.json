@@ -43,32 +43,44 @@
     {
       "name": "CC: Tweaked",
       "modId": "computercraft",
-      "version": "1.119.0",
+      "version": "1.120.2",
       "required": true,
-      "filenamePattern": "(?i)^(cc[-_ ]?tweaked|cc-tweaked)[^/]*1\\.119\\.0[^/]*\\.jar$",
-      "sha256": null,
+      "filenamePattern": "(?i)^(cc[-_ ]?tweaked|cc-tweaked)[^/]*1\\.120\\.2[^/]*\\.jar$",
+      "filenameExamples": [
+        "cc-tweaked-1.21.1-forge-1.120.2.jar"
+      ],
+      "sha256": "e8651fe24b384e925e563c9ad077644744474e2e7c0adb8e6d5b4757598dce9f",
+      "downloadUrl": "https://maven.squiddev.cc/cc/tweaked/cc-tweaked-1.21.1-forge/1.120.2/cc-tweaked-1.21.1-forge-1.120.2.jar",
       "source": "Official CC: Tweaked distribution page",
-      "notes": "Default compile and runtime API baseline. Test 1.120.0 separately, never beside 1.119.0 in the same dependency directory."
+      "notes": "Default compile and runtime API baseline. The published compatibility range still accepts 1.119.x and 1.120.x."
     },
     {
       "name": "Sable",
       "modId": "sable",
-      "version": "2.0.1",
+      "version": "2.0.5",
       "required": true,
-      "filenamePattern": "(?i)^sable[^/]*2\\.0\\.1[^/]*\\.jar$",
-      "sha256": null,
+      "filenamePattern": "(?i)^sable[^/]*2\\.0\\.5[^/]*\\.jar$",
+      "filenameExamples": [
+        "sable-neoforge-1.21.1-2.0.5.jar"
+      ],
+      "sha256": "c8710f85bc780bbf523e6726ceaaf76dd0b8c61479db497b382c6bb34317e7ab",
+      "downloadUrl": "https://cdn.modrinth.com/data/T9PomCSv/versions/U678xqle/sable-neoforge-1.21.1-2.0.5.jar",
       "source": "Official Sable distribution page",
       "notes": "Required runtime dependency of Create: Aeronautics and used by the static and moving ship compatibility tests."
     },
     {
       "name": "Drive By Wire",
-      "modId": "drive_by_wire",
-      "version": "0.2.9",
+      "modId": "drivebywire",
+      "version": "0.3.0",
       "required": false,
-      "filenamePattern": "(?i)^(drive[-_ ]?by[-_ ]?wire|drivebywire)[^/]*0\\.2\\.9[^/]*\\.jar$",
-      "sha256": null,
+      "filenamePattern": "(?i)^(drive[-_ ]?by[-_ ]?wire|drivebywire)[^/]*0\\.3\\.0[^/]*\\.jar$",
+      "filenameExamples": [
+        "drivebywire-0.3.0.jar"
+      ],
+      "sha256": "256600adcd4c811dba480752d76048a053760038ff0a45b37d5d3a0164145f8f",
+      "downloadUrl": "https://edge.forgecdn.net/files/8247/104/drivebywire-0.3.0.jar",
       "source": "Official Drive By Wire distribution page",
-      "notes": "Optional compatibility runtime."
+      "notes": "Optional compatibility runtime. CC-Aeroworks remains compatible with 0.2.9 and adds verified 0.3.x support."
     },
     {
       "name": "Create: Radars",
@@ -122,11 +134,11 @@
     {
       "name": "Just Enough Items",
       "modId": "jei",
-      "version": "19.27.0.340",
+      "version": "19.39.0.372",
       "required": false,
-      "filenamePattern": "(?i)^jei[-_ ]?1\\.21\\.1[-_ ]?neoforge[-_ ]?19\\.27\\.0\\.340\\.jar$",
+      "filenamePattern": "(?i)^jei[-_ ]?1\\.21\\.1[-_ ]?neoforge[-_ ]?19\\.39\\.0\\.372\\.jar$",
       "filenameExamples": [
-        "jei-1.21.1-neoforge-19.27.0.340.jar"
+        "jei-1.21.1-neoforge-19.39.0.372.jar"
       ],
       "sha256": null,
       "source": "Official Just Enough Items Maven repository",

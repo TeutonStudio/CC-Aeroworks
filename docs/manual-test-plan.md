@@ -24,7 +24,7 @@ Ein Fall ist nur `PASS`, wenn alle Schritte und Erwartungen erfüllt sind. Ein H
 
 ### `BUILD-CLIENT-01` Clientstart
 
-**Profile:** `BASE-CLIENT`, `CC-120`
+**Profile:** `BASE-CLIENT`, `CC-119`
 
 **Voraussetzungen:** Profilabhängigkeiten validiert; frisches Run-Verzeichnis.
 
@@ -62,7 +62,7 @@ Ein Fall ist nur `PASS`, wenn alle Schritte und Erwartungen erfüllt sind. Ein H
 
 ### `PERIPHERAL-DIRECT-01` Direkte Verbindung
 
-**Profile:** `BASE-CLIENT`, `CC-120`
+**Profile:** `BASE-CLIENT`, `CC-119`
 
 **Schritte:**
 
@@ -208,7 +208,7 @@ Ein Fall ist nur `PASS`, wenn alle Schritte und Erwartungen erfüllt sind. Ein H
 
 ### `DISPLAY-PIXEL-01` Größe und Koordinaten
 
-**Profile:** `BASE-CLIENT`, `CC-120`
+**Profile:** `BASE-CLIENT`, `CC-119`
 
 **Schritte:**
 
@@ -278,7 +278,7 @@ Ein Fall ist nur `PASS`, wenn alle Schritte und Erwartungen erfüllt sind. Ein H
 
 ### `EVENT-01` Einzelcomputer
 
-**Profile:** `BASE-SERVER`, `CC-120`
+**Profile:** `BASE-SERVER`, `CC-119`
 
 **Schritte:**
 
@@ -492,7 +492,7 @@ Ein Fall ist nur `PASS`, wenn alle Schritte und Erwartungen erfüllt sind. Ein H
 
 **Profile:** `DRIVEBYWIRE`, `FULL-SERVER`
 
-**Schritte:** Client und Server einmal ohne und einmal mit Drive By Wire 0.2.9 starten.
+**Schritte:** Client und Server einmal ohne Drive By Wire sowie mit 0.2.9 und 0.3.0 starten.
 
 **Erwartung:** Ohne Mod keine Abhängigkeitswarnung; mit Mod keine Classloading- oder Integrationsfehler.
 

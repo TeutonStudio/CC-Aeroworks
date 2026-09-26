@@ -51,6 +51,9 @@ jobs:
       - name: Verify exact Aeroworks Drive By Wire bytecode
         run: python3 tools/verify-aeroworks-dbw-bytecode.py
 
+      - name: Verify exact Drive By Wire runtime bytecode
+        run: python3 tools/verify-drivebywire-bytecode.py
+
       - name: Verify exact Aeroworks ConsoleScreen preview bytecode
         run: python3 tools/verify-aeroworks-console-preview-bytecode.py
 

@@ -400,7 +400,7 @@ class ComputerControlDeskBlockEntity(
         if (snapshot.revision != lastNetworkRevision) {
             computer.queueEvent(
                 CCAeroworks.CONSOLE_CHANGED_EVENT,
-                arrayOf(snapshot.state.name.lowercase(), snapshot.members.size, snapshot.revision)
+                arrayOf<Any?>(snapshot.state.name.lowercase(), snapshot.members.size, snapshot.revision)
             )
             lastNetworkRevision = snapshot.revision
             lastInputs = emptyMap()
@@ -425,7 +425,7 @@ class ComputerControlDeskBlockEntity(
                         if (oldValue != newValue) {
                             computer.queueEvent(
                                 CCAeroworks.CONSOLE_INPUT_EVENT,
-                                arrayOf(
+                                arrayOf<Any?>(
                                     member.id,
                                     member.index,
                                     socket,

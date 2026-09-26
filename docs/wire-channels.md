@@ -107,7 +107,7 @@ channels.releaseAll()
 
 ## Drive By Wire multiblock selection
 
-Drive By Wire 0.2.9 internally stores one physical selected source block. CC-Aeroworks keeps a separate logical selection session for an active ControlDesk multiblock. Clicking any real member selects the same logical desk network; scrolling traverses native channels from every member plus the ComputerControlDesk user-defined wire channels.
+Drive By Wire 0.2.9 and 0.3.x internally store one physical selected source block. CC-Aeroworks keeps a separate logical selection session for an active ControlDesk multiblock. Clicking any real member selects the same logical desk network; scrolling traverses native channels from every member plus the ComputerControlDesk user-defined wire channels.
 
 The logical selection remains anchored to the whole ControlDesk while the current physical endpoint is mirrored into DBW for its unchanged connection protocol. Native controls retain their real desk position as source; user-defined channels use the ComputerControlDesk owner position, matching `WireChannelBank` signal publication. Starting a logical selection still invokes DBW's native network sync, and clearing it goes through DBW's own `clearSource()` so its mirrored network/cooldown state cannot outlive the selection. The selected-source outline is the shared outer ControlDesk bounds.
 
