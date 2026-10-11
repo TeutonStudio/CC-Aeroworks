@@ -15,7 +15,7 @@ Unterstützt werden:
 - ComputerControlDesk,
 - Advanced ComputerControlDesk.
 
-Ein Pult ohne kleines oder großes RadarDisplay ist kein gültiger Monitorendpoint. Eine Verbindung wird nicht automatisch auf benachbarte Pulte oder ein komplettes Pultnetz verteilt. Jedes gewünschte RadarDisplay-Pult erhält seinen eigenen physischen Create:-Radars-Data-Link-Block.
+Ein Pult ohne kleines oder großes RadarDisplay ist kein gültiger Monitorendpoint. Eine Verbindung wird nicht automatisch auf benachbarte Pulte oder ein komplettes Pultnetz verteilt. Jeder unabhängige Radar-Ingress erhält einen physischen Create:-Radars-Data-Link-Block. Weitere RadarDisplays desselben Pultmultiblocks können diesen Ingress in der Modul-UI auswählen; sie benötigen dafür keinen eigenen Data Link.
 
 ## Herstellung
 
@@ -26,12 +26,14 @@ Der native Monitor wird als Herstellungskomponente verwendet. Im fertigen Aufbau
 
 ## Nativer Aufbau
 
-1. Ein Radar wird nach den Regeln von Create: Radars mit einem Network Filterer verbunden.
+1. Den Data-Link-Gegenstand zuerst auf dem Network Filterer und anschließend auf dem Radar verwenden. Ein lediglich am Radar platzierter Controller weist seiner Netzwerkgruppe keinen Radar zu.
 2. Der Spieler verwendet den Create:-Radars-Data-Link-Gegenstand auf dem Network Filterer. Das Item speichert nativ `SelectedFiltererPos`.
 3. Der Spieler verwendet dasselbe Item auf einer freien Seite des Pults, in dem ein RadarDisplay montiert ist.
 4. Create: Radars klassifiziert das Pult als `MONITOR`, prüft die Linkreichweite und bestehende Gruppenzuordnungen und platziert den physischen Data-Link-Block.
 5. Der Originalcode ruft `NetworkData.canAttachMonitor(...)`, `attachMonitor(...)` und `addDataLinkToGroup(...)` auf, zeigt seine normalen Meldungen und bereinigt den Itemzustand.
 6. Der Data-Link-Block bleibt sichtbar am Pult und ist Eigentümer der Verbindung.
+
+Die Verbindungen Controller → Radar und Controller → Pult sind getrennte Zuordnungen. Die Quellenwahl in der Pult-UI ersetzt keine davon. `Kein Radar zugeordnet` bedeutet, dass der Pultendpoint bereits registriert ist, aber seiner nativen Netzwerkgruppe die Radarposition fehlt. Die Quellenliste zeigt den aktuellen Status; die Auswahl folgt dem vom Server bestätigten Binding. Fehlende Verbindungen, nicht geladene oder gestoppte Radars und veraltete Daten werden auch auf den Anzeigen erklärt. Auf Sable-Schiffen verwendet die Quellenwahl die projizierte Spielerreichweite.
 
 Der Network Filterer muss nicht angrenzend zum Pult stehen. CC-Aeroworks sucht weder benachbarte Controller noch Radarblöcke.
 

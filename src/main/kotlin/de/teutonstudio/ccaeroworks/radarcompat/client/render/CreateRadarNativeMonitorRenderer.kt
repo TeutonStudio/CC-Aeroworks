@@ -71,21 +71,22 @@ object CreateRadarNativeMonitorRenderer {
             "D00_RENDER_ENTER",
             level,
             desk.blockPos,
-            10L,
+            10L
+        ) {
             "modLoaded=$modLoaded levelNull=${level == null} partialTicks=$partialTicks buffers=${buffers.javaClass.name} " +
                 "radarSurfaceCount=${RadarDeskAccess.radarSurfaces(desk).size}"
-        )
+        }
         if (!modLoaded) {
-            RadarTrace.periodic("D01_SKIP_MOD", level, desk.blockPos, 20L, "create_radar is not loaded")
+            RadarTrace.periodic("D01_SKIP_MOD", level, desk.blockPos, 20L) { "create_radar is not loaded" }
             return false
         }
         if (level == null) {
-            RadarTrace.event("D01_SKIP_LEVEL", null, desk.blockPos, "desk.level is null")
+            RadarTrace.event("D01_SKIP_LEVEL", null, desk.blockPos) { "desk.level is null" }
             return false
         }
 
         val native = resolveContract(level, desk.blockPos) ?: run {
-            RadarTrace.periodic("D02_SKIP_CONTRACT", level, desk.blockPos, 20L, "native reflection contract unavailable")
+            RadarTrace.periodic("D02_SKIP_CONTRACT", level, desk.blockPos, 20L) { "native reflection contract unavailable" }
             return false
         }
         val sockets = desk.sockets()
@@ -97,10 +98,11 @@ object CreateRadarNativeMonitorRenderer {
             "D03_SURFACE_ENUM",
             level,
             desk.blockPos,
-            10L,
+            10L
+        ) {
             "surfaces=${surfaces.map { "socket=${it.socket},type=${it.type},snapshot=${snapshotSummary(it.snapshot, gameTime)}" }} " +
                 "socketCount=${sockets.size}"
-        )
+        }
 
         for (surface in surfaces) {
             val snapshot = surface.snapshot
@@ -108,17 +110,19 @@ object CreateRadarNativeMonitorRenderer {
                 "D10_SURFACE",
                 level,
                 desk.blockPos,
-                5L,
+                5L
+            ) {
                 "socket=${surface.socket} type=${surface.type} snapshot=${snapshotSummary(snapshot, gameTime)}"
-            )
+            }
             if (snapshot == null) {
                 RadarTrace.periodic(
                     "D11_SKIP_NO_SNAPSHOT",
                     level,
                     desk.blockPos,
-                    10L,
+                    10L
+                ) {
                     "socket=${surface.socket}; RadarDeskStateAccess returned null snapshot"
-                )
+                }
                 continue
             }
 
@@ -129,17 +133,18 @@ object CreateRadarNativeMonitorRenderer {
                     "D12_SKIP_NOT_FRESH",
                     level,
                     desk.blockPos,
-                    5L,
+                    5L
+                ) {
                     "socket=${surface.socket} connected=${snapshot.connected} operational=${snapshot.operational} status=${snapshot.status} " +
                         "range=${snapshot.range} serverTick=${snapshot.updatedAt} clientReceipt=${snapshot.receivedAtClientTick} " +
                         "clientNow=$gameTime age=${gameTime - freshnessBase} threshold=${RadarDisplaySnapshot.STALE_AFTER_TICKS}"
-                )
+                }
                 continue
             }
 
             val radarPos = snapshot.radarPos
             if (radarPos == null) {
-                RadarTrace.periodic("D13_SKIP_RADAR_POS", level, desk.blockPos, 5L, "fresh snapshot unexpectedly has radarPos=null")
+                RadarTrace.periodic("D13_SKIP_RADAR_POS", level, desk.blockPos, 5L) { "fresh snapshot unexpectedly has radarPos=null" }
                 continue
             }
             val radar = level.getBlockEntity(radarPos)
@@ -148,16 +153,17 @@ object CreateRadarNativeMonitorRenderer {
                     "D14_SKIP_RADAR_BE",
                     level,
                     desk.blockPos,
-                    5L,
+                    5L
+                ) {
                     "client level has no BlockEntity at radarPos=$radarPos loaded=${level.isLoaded(radarPos)} blockState=${level.getBlockState(radarPos)}"
-                )
+                }
                 continue
             }
             if (!native.iradarClass.isInstance(radar)) {
                 val failure = IllegalStateException(
                     "Radar block entity at $radarPos is ${radar.javaClass.name}, expected ${native.iradarClass.name}"
                 )
-                RadarTrace.event("D15_SKIP_NOT_IRADAR", level, desk.blockPos, RadarTrace.throwable(failure))
+                RadarTrace.event("D15_SKIP_NOT_IRADAR", level, desk.blockPos) { RadarTrace.throwable(failure) }
                 reportFailure(failure, level, desk.blockPos)
                 continue
             }
@@ -165,21 +171,23 @@ object CreateRadarNativeMonitorRenderer {
                 "D15_CLIENT_RADAR",
                 level,
                 desk.blockPos,
-                10L,
+                10L
+            ) {
                 "radarPos=$radarPos class=${radar.javaClass.name} state=${level.getBlockState(radarPos)} " +
                     "range=${safeInvokeByName(radar, "getRange")} running=${safeInvokeByName(radar, "isRunning")} " +
                     "type=${safeInvokeByName(radar, "getRadarType")} angle=${safeInvokeByName(radar, "getGlobalAngle")} " +
                     "direction=${safeInvokeByName(radar, "getradarDirection")} relative=${safeInvokeByName(radar, "renderRelativeToMonitor")}"
-            )
+            }
 
             val socket = sockets.getOrNull(surface.socket)
             if (socket == null) {
                 RadarTrace.event(
                     "D16_SKIP_SOCKET",
                     level,
-                    desk.blockPos,
+                    desk.blockPos
+                ) {
                     "surface.socket=${surface.socket} but sockets.size=${sockets.size}"
-                )
+                }
                 continue
             }
             val facing = effectiveFacing(desk, surface.socket)
@@ -187,22 +195,23 @@ object CreateRadarNativeMonitorRenderer {
                 "D16_SOCKET_TRANSFORM",
                 level,
                 desk.blockPos,
-                10L,
+                10L
+            ) {
                 "socket=${surface.socket} type=${surface.type} offset=${socket.offset()} orientation=${socket.orientation()} " +
                     "deskRotation=${ConsoleBlock.rotationFor(desk.blockState)} effectiveFacing=$facing " +
                     "surfaceScale=${surfaceScale(surface.type)} surfaceY=$MODULE_SURFACE_Y nativeBackgroundDepth=$NATIVE_BACKGROUND_DEPTH"
-            )
+            }
 
             val virtual = virtualMonitor(native, desk, surface.socket, facing) ?: run {
-                RadarTrace.periodic("D17_SKIP_VIRTUAL", level, desk.blockPos, 5L, "virtual MonitorBlockEntity could not be created")
+                RadarTrace.periodic("D17_SKIP_VIRTUAL", level, desk.blockPos, 5L) { "virtual MonitorBlockEntity could not be created" }
                 continue
             }
             if (!hydrate(native, virtual, snapshot, desk)) {
-                RadarTrace.periodic("D18_SKIP_HYDRATE", level, desk.blockPos, 5L, "native MonitorBlockEntity.read(...) failed or had no level/radar")
+                RadarTrace.periodic("D18_SKIP_HYDRATE", level, desk.blockPos, 5L) { "native MonitorBlockEntity.read(...) failed or had no level/radar" }
                 continue
             }
             val renderer = nativeRenderer(native, virtual.monitor, desk) ?: run {
-                RadarTrace.periodic("D19_SKIP_RENDERER", level, desk.blockPos, 5L, "BlockEntityRenderDispatcher returned no compatible MonitorRenderer")
+                RadarTrace.periodic("D19_SKIP_RENDERER", level, desk.blockPos, 5L) { "BlockEntityRenderDispatcher returned no compatible MonitorRenderer" }
                 continue
             }
 
@@ -223,11 +232,12 @@ object CreateRadarNativeMonitorRenderer {
                     "D30_BEFORE_NATIVE_RENDER",
                     level,
                     desk.blockPos,
-                    5L,
+                    5L
+                ) {
                     "socket=${surface.socket} renderer=${renderer.javaClass.name} radar=${radar.javaClass.name} " +
                         "virtualMonitor=${virtual.monitor.javaClass.name} partialTicks=$partialTicks pose=${poseStack.last().pose()} " +
                         "normal=${poseStack.last().normal()} monitorDiagnostics=${nativeMonitorDiagnostics(native, virtual.monitor)}"
-                )
+                }
 
                 native.renderRadarDisplay.invoke(
                     renderer,
@@ -243,12 +253,13 @@ object CreateRadarNativeMonitorRenderer {
                     "D31_NATIVE_RENDER_OK",
                     level,
                     desk.blockPos,
-                    5L,
+                    5L
+                ) {
                     "MonitorRenderer.renderRadarDisplay returned normally for socket=${surface.socket}; renderedAny=true"
-                )
+                }
             } catch (throwable: Throwable) {
                 val cause = unwrap(throwable)
-                RadarTrace.event("D99_NATIVE_RENDER_EXCEPTION", level, desk.blockPos, RadarTrace.throwable(cause))
+                RadarTrace.event("D99_NATIVE_RENDER_EXCEPTION", level, desk.blockPos) { RadarTrace.throwable(cause) }
                 reportFailure(cause, level, desk.blockPos)
             } finally {
                 poseStack.popPose()
@@ -259,9 +270,10 @@ object CreateRadarNativeMonitorRenderer {
             "D40_RENDER_RETURN",
             level,
             desk.blockPos,
-            10L,
+            10L
+        ) {
             "returning renderedAny=$renderedAny surfaces=${surfaces.size}"
-        )
+        }
         return renderedAny
     }
 
@@ -302,9 +314,10 @@ object CreateRadarNativeMonitorRenderer {
                 "D20_VIRTUAL_REUSE",
                 level,
                 desk.blockPos,
-                20L,
+                20L
+            ) {
                 "socket=$socket monitorIdentity=${System.identityHashCode(existing.monitor)} facing=$facing state=${existing.monitor.blockState}"
-            )
+            }
             return existing
         }
 
@@ -319,14 +332,15 @@ object CreateRadarNativeMonitorRenderer {
             RadarTrace.event(
                 "D20_VIRTUAL_CREATE",
                 level,
-                desk.blockPos,
+                desk.blockPos
+            ) {
                 "socket=$socket monitorIdentity=${System.identityHashCode(monitor)} class=${monitor.javaClass.name} " +
                     "type=${monitor.type} state=$state facing=$facing levelSet=${monitor.level === level}"
-            )
+            }
             VirtualMonitor(monitor, facing).also { bySocket[socket] = it }
         } catch (throwable: Throwable) {
             val cause = unwrap(throwable)
-            RadarTrace.event("D99_VIRTUAL_CREATE_EXCEPTION", level, desk.blockPos, RadarTrace.throwable(cause))
+            RadarTrace.event("D99_VIRTUAL_CREATE_EXCEPTION", level, desk.blockPos) { RadarTrace.throwable(cause) }
             reportFailure(cause, level, desk.blockPos)
             null
         }
@@ -339,7 +353,7 @@ object CreateRadarNativeMonitorRenderer {
         desk: ConsoleBlockEntity
     ): Boolean {
         val level = virtual.monitor.level ?: run {
-            RadarTrace.event("D21_HYDRATE_NO_LEVEL", desk.level, desk.blockPos, "virtual monitor has no level")
+            RadarTrace.event("D21_HYDRATE_NO_LEVEL", desk.level, desk.blockPos) { "virtual monitor has no level" }
             return false
         }
         val contentKey = snapshot.nativeContentKey()
@@ -348,14 +362,15 @@ object CreateRadarNativeMonitorRenderer {
                 "D21_HYDRATE_REUSE",
                 level,
                 desk.blockPos,
-                10L,
+                10L
+            ) {
                 "contentKey=$contentKey unchanged; monitorDiagnostics=${nativeMonitorDiagnostics(native, virtual.monitor)}"
-            )
+            }
             return true
         }
 
         val radarPos = snapshot.radarPos ?: run {
-            RadarTrace.event("D21_HYDRATE_NO_RADAR", level, desk.blockPos, "snapshot.radarPos is null")
+            RadarTrace.event("D21_HYDRATE_NO_RADAR", level, desk.blockPos) { "snapshot.radarPos is null" }
             return false
         }
         val monitorTag = CompoundTag().apply {
@@ -370,9 +385,10 @@ object CreateRadarNativeMonitorRenderer {
         RadarTrace.event(
             "D22_HYDRATE_INPUT",
             level,
-            desk.blockPos,
+            desk.blockPos
+        ) {
             "contentKey=$contentKey previousKey=${virtual.contentKey} monitorTag=${RadarTrace.tag(monitorTag)}"
-        )
+        }
 
         return try {
             native.readClientState.invoke(
@@ -385,14 +401,15 @@ object CreateRadarNativeMonitorRenderer {
             RadarTrace.event(
                 "D23_HYDRATE_OK",
                 level,
-                desk.blockPos,
+                desk.blockPos
+            ) {
                 "native MonitorBlockEntity.read(..., clientPacket=true) returned normally; " +
                     "fields=${describeObjectFields(virtual.monitor)} diagnostics=${nativeMonitorDiagnostics(native, virtual.monitor)}"
-            )
+            }
             true
         } catch (throwable: Throwable) {
             val cause = unwrap(throwable)
-            RadarTrace.event("D99_HYDRATE_EXCEPTION", level, desk.blockPos, RadarTrace.throwable(cause))
+            RadarTrace.event("D99_HYDRATE_EXCEPTION", level, desk.blockPos) { RadarTrace.throwable(cause) }
             reportFailure(cause, level, desk.blockPos)
             false
         }
@@ -416,9 +433,10 @@ object CreateRadarNativeMonitorRenderer {
                 "D24_RENDERER_LOOKUP",
                 desk.level,
                 desk.blockPos,
-                20L,
+                20L
+            ) {
                 "monitorType=${monitor.type} rendererClass=${renderer.javaClass.name} expected=${native.monitorRendererClass.name}"
-            )
+            }
             if (!native.monitorRendererClass.isInstance(renderer)) {
                 throw IllegalStateException(
                     "Virtual monitor renderer is ${renderer.javaClass.name}, expected ${native.monitorRendererClass.name}"
@@ -427,7 +445,7 @@ object CreateRadarNativeMonitorRenderer {
             renderer
         } catch (throwable: Throwable) {
             val cause = unwrap(throwable)
-            RadarTrace.event("D99_RENDERER_LOOKUP_EXCEPTION", desk.level, desk.blockPos, RadarTrace.throwable(cause))
+            RadarTrace.event("D99_RENDERER_LOOKUP_EXCEPTION", desk.level, desk.blockPos) { RadarTrace.throwable(cause) }
             reportFailure(cause, desk.level, desk.blockPos)
             null
         }
@@ -439,9 +457,10 @@ object CreateRadarNativeMonitorRenderer {
                 "D02_CONTRACT_CACHED",
                 level,
                 deskPos,
-                100L,
+                100L
+            ) {
                 "using cached native contract monitor=${it.monitorClass.name} renderer=${it.monitorRendererClass.name} iradar=${it.iradarClass.name}"
-            )
+            }
             return it
         }
         if (contractResolutionAttempted) return null
@@ -450,9 +469,10 @@ object CreateRadarNativeMonitorRenderer {
         RadarTrace.event(
             "D02_CONTRACT_BEGIN",
             level,
-            deskPos,
+            deskPos
+        ) {
             "resolving Create: Radars native monitor reflection contract with loader=${CreateRadarNativeMonitorRenderer::class.java.classLoader}"
-        )
+        }
         return try {
             val loader = CreateRadarNativeMonitorRenderer::class.java.classLoader
             val monitorClass = Class.forName(MONITOR_CLASS, true, loader)
@@ -462,9 +482,10 @@ object CreateRadarNativeMonitorRenderer {
             RadarTrace.event(
                 "D02_CONTRACT_CLASSES",
                 level,
-                deskPos,
+                deskPos
+            ) {
                 "monitor=${monitorClass.name} monitorBlock=${monitorBlockClass.name} renderer=${monitorRendererClass.name} iradar=${iradarClass.name}"
-            )
+            }
 
             val monitorType = registryEntry(MOD_BLOCK_ENTITY_TYPES_CLASS, "MONITOR", loader) as? BlockEntityType<*>
                 ?: throw IllegalStateException("ModBlockEntityTypes.MONITOR did not resolve to BlockEntityType")
@@ -520,17 +541,18 @@ object CreateRadarNativeMonitorRenderer {
             RadarTrace.event(
                 "D02_CONTRACT_OK",
                 level,
-                deskPos,
+                deskPos
+            ) {
                 "monitorType=$monitorType monitorBlock=$monitorBlock facingProperty=${facingProperty.name} " +
                     "constructor=$constructor read=${methodSignature(read)} render=${methodSignature(render)} " +
                     "getRadar=${methodSignature(resolved.monitorGetRadar)} getTracks=${methodSignature(resolved.monitorGetTracks)} " +
                     "getSize=${methodSignature(resolved.monitorGetSize)} isLinked=${methodSignature(resolved.monitorIsLinked)} " +
                     "isController=${methodSignature(resolved.monitorIsController)} getShip=${methodSignature(resolved.monitorGetShip)}"
-            )
+            }
             resolved
         } catch (throwable: Throwable) {
             val cause = unwrap(throwable)
-            RadarTrace.event("D99_CONTRACT_EXCEPTION", level, deskPos, RadarTrace.throwable(cause))
+            RadarTrace.event("D99_CONTRACT_EXCEPTION", level, deskPos) { RadarTrace.throwable(cause) }
             reportFailure(cause, level, deskPos)
             null
         }
@@ -604,7 +626,7 @@ object CreateRadarNativeMonitorRenderer {
     private fun reportFailure(cause: Throwable, level: net.minecraft.world.level.Level?, deskPos: BlockPos?) {
         val signature = "${cause.javaClass.name}:${cause.message.orEmpty()}"
         if (signature != lastFailureSignature) {
-            RadarTrace.event("D99_FAILURE", level, deskPos, "${RadarTrace.throwable(cause)}")
+            RadarTrace.event("D99_FAILURE", level, deskPos) { "${RadarTrace.throwable(cause)}" }
         }
         if (signature == lastFailureSignature) return
         lastFailureSignature = signature

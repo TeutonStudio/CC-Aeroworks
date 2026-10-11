@@ -25,6 +25,12 @@ object CCServerConfig {
     val telemetryDockScanIntervalTicks: ModConfigSpec.IntValue
 
     @JvmField
+    val debugRadar: ModConfigSpec.BooleanValue
+
+    @JvmField
+    val debugDisplay: ModConfigSpec.BooleanValue
+
+    @JvmField
     val SPEC: ModConfigSpec
 
     init {
@@ -70,6 +76,17 @@ object CCServerConfig {
             .defineInRange("dockScanIntervalTicks", 40, 1, 1200)
         builder.pop()
 
+        builder
+            .comment("Optional runtime diagnostics. Enabled diagnostics are written to the normal INFO log.")
+            .push("debug")
+        debugRadar = builder
+            .comment("Enable verbose Radar diagnostics on the server and connected clients.")
+            .define("radar", false)
+        debugDisplay = builder
+            .comment("Enable display binding, touch and draw diagnostics on the server and connected clients.")
+            .define("display", false)
+        builder.pop()
+
         SPEC = builder.build()
     }
 
@@ -97,6 +114,18 @@ object CCServerConfig {
 
     @JvmStatic
     fun telemetryDockScanIntervalTicksValue(): Int = telemetryDockScanIntervalTicks.loadedOr(40)
+
+    @JvmStatic
+    fun debugRadarEnabled(): Boolean = debugRadar.loadedOr(false)
+
+    @JvmStatic
+    fun debugDisplayEnabled(): Boolean = debugDisplay.loadedOr(false)
+
+    private fun ModConfigSpec.BooleanValue.loadedOr(defaultValue: Boolean): Boolean = try {
+        get()
+    } catch (_: IllegalStateException) {
+        defaultValue
+    }
 
     private fun ModConfigSpec.IntValue.loadedOr(defaultValue: Int): Int = try {
         get()

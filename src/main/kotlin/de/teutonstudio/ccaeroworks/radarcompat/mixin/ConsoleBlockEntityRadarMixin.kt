@@ -38,9 +38,10 @@ abstract class ConsoleBlockEntityRadarMixin : RadarDeskStateAccess {
             "M00_DESK_TICK",
             desk.level,
             desk.blockPos,
-            20L,
+            20L
+        ) {
             "ConsoleBlockEntityRadarMixin tick hook alive; snapshot=${ccaeroworks_snapshotSummary(ccaeroworks_radarSnapshot)}"
-        )
+        }
         CreateRadarCompat.refreshDesk(desk)
     }
 
@@ -56,9 +57,10 @@ abstract class ConsoleBlockEntityRadarMixin : RadarDeskStateAccess {
         RadarTrace.event(
             "N10_SERVER_WRITE_ENTER",
             desk.level,
-            desk.blockPos,
+            desk.blockPos
+        ) {
             "clientPacket=true outerKeysBefore=${tag.allKeys.sorted()} snapshot=${ccaeroworks_snapshotSummary(ccaeroworks_radarSnapshot)}"
-        )
+        }
 
         ccaeroworks_radarSnapshot?.let {
             val payload = it.toTag()
@@ -66,17 +68,19 @@ abstract class ConsoleBlockEntityRadarMixin : RadarDeskStateAccess {
             RadarTrace.event(
                 "N11_SERVER_WRITE_PAYLOAD",
                 desk.level,
-                desk.blockPos,
+                desk.blockPos
+            ) {
                 "storedKey=$RADAR_NBT_KEY payload=${RadarTrace.tag(payload)} outerKeysAfter=${tag.allKeys.sorted()}"
-            )
+            }
         } ?: run {
             tag.remove(RADAR_NBT_KEY)
             RadarTrace.event(
                 "N11_SERVER_WRITE_NO_PAYLOAD",
                 desk.level,
-                desk.blockPos,
+                desk.blockPos
+            ) {
                 "snapshot=null removedKey=$RADAR_NBT_KEY outerKeysAfter=${tag.allKeys.sorted()}"
-            )
+            }
         }
     }
 
@@ -96,9 +100,10 @@ abstract class ConsoleBlockEntityRadarMixin : RadarDeskStateAccess {
         RadarTrace.event(
             "N20_CLIENT_READ_ENTER",
             desk.level,
-            desk.blockPos,
+            desk.blockPos
+        ) {
             "clientPacket=true clientTick=$clientTick outerKeys=${tag.allKeys.sorted()} hasRadarPayload=$hasPayload raw=${RadarTrace.tag(rawPayload)}"
-        )
+        }
 
         ccaeroworks_radarSnapshot = if (rawPayload != null) {
             RadarDisplaySnapshot.fromTag(rawPayload, clientTick)
@@ -107,17 +112,18 @@ abstract class ConsoleBlockEntityRadarMixin : RadarDeskStateAccess {
         }
 
         val decoded = ccaeroworks_radarSnapshot
-        val fresh = RadarDisplaySnapshot.isFresh(decoded, clientTick)
-        val freshnessAge = decoded?.let {
-            val base = it.receivedAtClientTick.takeIf { tick -> tick >= 0L } ?: it.updatedAt
-            clientTick - base
-        }
         RadarTrace.event(
             "N21_CLIENT_READ_DECODED",
             desk.level,
-            desk.blockPos,
+            desk.blockPos
+        ) {
+            val fresh = RadarDisplaySnapshot.isFresh(decoded, clientTick)
+            val freshnessAge = decoded?.let {
+                val base = it.receivedAtClientTick.takeIf { tick -> tick >= 0L } ?: it.updatedAt
+                clientTick - base
+            }
             "decoded=${ccaeroworks_snapshotSummary(decoded)} isFresh=$fresh freshnessAge=$freshnessAge nativeTracks=${RadarTrace.tag(decoded?.nativeTracks)}"
-        )
+        }
 
         ccaeroworks_logClientRadarSnapshot(desk, clientTick, decoded)
     }
@@ -137,6 +143,7 @@ abstract class ConsoleBlockEntityRadarMixin : RadarDeskStateAccess {
         clientTick: Long,
         snapshot: RadarDisplaySnapshot?
     ) {
+        if (!RadarTrace.isEnabled()) return
         val diagnostic = if (snapshot == null) {
             "NONE"
         } else {

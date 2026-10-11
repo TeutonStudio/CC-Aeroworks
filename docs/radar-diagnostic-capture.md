@@ -1,6 +1,6 @@
 # RadarDisplay diagnostic capture
 
-Dieser Ablauf ist absichtlich auf **einen** reproduzierbaren Spieltest zugeschnitten. Der Diagnose-Build schreibt sehr ausführliche Zeilen mit dem Präfix:
+Dieser Ablauf ist absichtlich auf **einen** reproduzierbaren Spieltest zugeschnitten. Ab Version 1.3.4 sind Radar-Diagnosen standardmäßig deaktiviert. Mit aktivierter Diagnose schreibt die Mod sehr ausführliche Zeilen mit dem Präfix:
 
 ```text
 [CCA-RADAR-TRACE]
@@ -18,7 +18,7 @@ Den Entwicklungsclient so starten, dass die Terminalausgabe zusätzlich gespeich
 
 ## Exakter Spielablauf
 
-1. Welt laden und mindestens drei Sekunden warten.
+1. In der wirksamen Serverkonfiguration (`config/cc_aeroworks-server.toml` oder einem vorhandenen Override unter `<welt>/serverconfig/cc_aeroworks-server.toml`) unter `[debug]` den Wert `radar = true` setzen und die Welt beziehungsweise den Server neu starten. Die Einstellung wird an verbundene Clients synchronisiert; `display` kann `false` bleiben. Welt laden und mindestens drei Sekunden warten.
 2. Ein Pult mit montiertem RadarDisplay aufstellen beziehungsweise den vorhandenen Aufbau laden, aber das Pult zunächst **nicht** verbinden.
 3. Sicherstellen, dass Radar und Network Filterer als Create:-Radars-Aufbau grundsätzlich funktionieren.
 4. Drei Sekunden warten. Dadurch wird der unverlinkte Ausgangszustand protokolliert.
@@ -31,7 +31,7 @@ Den Entwicklungsclient so starten, dass die Terminalausgabe zusätzlich gespeich
 11. Falls möglich einen Detection-Filter einmal aus- und wieder einschalten und jeweils zwei Sekunden warten.
 12. Den **physischen Data-Link-Block am Pult** abbauen.
 13. Mindestens drei Sekunden warten.
-14. Spiel normal beenden.
+14. Spiel normal beenden und `debug.radar` nach der Aufnahme wieder auf `false` setzen.
 
 Ein direkt angrenzender Network Filterer/Network Controller am Pult ist für diesen Referenzlauf nicht der Verbindungsmechanismus. Entscheidend ist der native physische Data-Link-Endpoint, weil `NetworkData.getFiltererForEndpoint(dimension, deskPos)` genau diesen Zustand abbildet.
 

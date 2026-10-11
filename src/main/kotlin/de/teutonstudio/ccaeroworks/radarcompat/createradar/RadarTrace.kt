@@ -1,15 +1,17 @@
 package de.teutonstudio.ccaeroworks.radarcompat.createradar
 
 import de.teutonstudio.ccaeroworks.CCAeroworks
+import de.teutonstudio.ccaeroworks.config.CCServerConfig
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.level.Level
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
+import java.util.function.Supplier
 
 /**
- * Temporary, deliberately verbose runtime tracing for the Create: Radars bridge.
+ * Opt-in verbose runtime tracing for the Create: Radars bridge.
  *
  * The trace is designed for one diagnostic play session. Every line carries the
  * same process-local session id, a monotonically increasing sequence number,
@@ -24,7 +26,11 @@ object RadarTrace {
     private val lastPeriodicTick = ConcurrentHashMap<String, Long>()
 
     @JvmStatic
-    fun event(stage: String, level: Level?, desk: BlockPos?, message: String) {
+    fun isEnabled(): Boolean = CCServerConfig.debugRadarEnabled()
+
+    @JvmStatic
+    fun event(stage: String, level: Level?, desk: BlockPos?, message: Supplier<String>) {
+        if (!isEnabled()) return
         val seq = sequence.incrementAndGet()
         val side = when {
             level == null -> "NO_LEVEL"
@@ -44,7 +50,7 @@ object RadarTrace {
             dimension,
             tick,
             desk,
-            message
+            message.get()
         )
     }
 
@@ -55,8 +61,9 @@ object RadarTrace {
         level: Level?,
         desk: BlockPos?,
         intervalTicks: Long,
-        message: String
+        message: Supplier<String>
     ) {
+        if (!isEnabled()) return
         val tick = level?.gameTime ?: -1L
         val side = if (level?.isClientSide == true) "C" else "S"
         val dimension = runCatching { level?.dimension()?.location()?.toString() }.getOrNull() ?: "-"

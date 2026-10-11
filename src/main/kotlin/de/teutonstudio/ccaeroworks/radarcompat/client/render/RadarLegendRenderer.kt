@@ -104,9 +104,10 @@ object RadarLegendRenderer {
                     "L10_LEGEND_RENDER",
                     level,
                     desk.blockPos,
-                    10L,
+                    10L
+                ) {
                     "socket=${surface.socket} counts=$counts syncedTracks=${snapshot.trackCount}"
-                )
+                }
             } catch (throwable: Throwable) {
                 reportFailure(unwrap(throwable), desk)
             } finally {
@@ -202,9 +203,10 @@ object RadarLegendRenderer {
                 RadarTrace.event(
                     "L00_LEGEND_CONTRACT_OK",
                     desk.level,
-                    desk.blockPos,
+                    desk.blockPos
+                ) {
                     "deserialize=${methodSignature(deserialize)} category=${methodSignature(category)}"
-                )
+                }
             }
         } catch (throwable: Throwable) {
             reportFailure(unwrap(throwable), desk)
@@ -216,7 +218,7 @@ object RadarLegendRenderer {
         val signature = "${cause.javaClass.name}:${cause.message.orEmpty()}"
         if (signature == lastFailureSignature) return
         lastFailureSignature = signature
-        RadarTrace.event("L99_LEGEND_FAILURE", desk.level, desk.blockPos, RadarTrace.throwable(cause))
+        RadarTrace.event("L99_LEGEND_FAILURE", desk.level, desk.blockPos) { RadarTrace.throwable(cause) }
         CCAeroworks.LOGGER.warn(
             "[CC-Aeroworks] Create: Radars contact legend rendering failed for desk {}",
             desk.blockPos,

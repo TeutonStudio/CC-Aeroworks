@@ -13,7 +13,7 @@ Ein Pult ohne kleines oder großes RadarDisplay wird vom Data Link nicht als Mon
 
 ## Verbindung einrichten
 
-1. Radar und Network Filterer nach den Regeln von Create: Radars verbinden.
+1. Mit dem Data-Link-Gegenstand den Network Filterer auswählen und danach den Radar verbinden. Bloßes Angrenzen des Controllers am Radar genügt nicht.
 2. Den Create:-Radars-Data-Link-Gegenstand auf dem Network Filterer verwenden.
 3. Dasselbe Item auf einer freien Seite eines Pults mit RadarDisplay verwenden.
 4. Create: Radars prüft die Reichweite und platziert den physischen Data-Link-Block am Pult.
@@ -24,6 +24,8 @@ Der Network Filterer muss nicht direkt neben dem Pult stehen. Für jede unabhän
 ## Radarquelle eines Displays auswählen
 
 Im Modulfenster eines RadarDisplays erscheint zusätzlich eine Quellenzeile. `local` bedeutet das bisherige Verhalten: Das Display verwendet den Snapshot des eigenen Pults. Weitere Einträge entsprechen RadarDisplay-Pulten im selben Multiblock.
+
+Die Liste zeigt Position und aktuellen Verbindungsstatus jeder Quelle. Die angezeigte Auswahl folgt der Serverbestätigung; dies funktioniert auch bei Pulten auf Sable-Schiffen. Ein anderes Display desselben Pultmultiblocks braucht keinen eigenen Data Link, wenn es einen bereits verbundenen Ingress auswählt.
 
 Die Auswahl wird pro Display-Socket gespeichert. Zwei RadarDisplays am selben Pult können daher unterschiedliche Ingresses anzeigen. Wird die Auswahl entfernt oder die alte Welt enthält noch keine Binding-Daten, bleibt automatisch `local` aktiv.
 
@@ -102,14 +104,16 @@ Für Touch-/Draw-Beispiele siehe `examples/cc/touch-test.lua` sowie `docs/displa
 
 Der physische Data-Link-Block ist Teil der Verbindung. Beim Abbau entfernt Create: Radars den Monitorendpoint aus `NetworkData`. Der betreffende Ingress leert seinen Snapshot im nächsten Fünf-Tick-Zyklus. Displays, die diesen Ingress ausgewählt haben, zeigen damit ebenfalls den getrennten Zustand, ohne automatisch auf eine andere Quelle umzuschalten.
 
-Das X erscheint außerdem bei fehlendem Radar, ungeladenem Radar-Chunk, gestopptem Radar, ungültiger Reichweite oder einem erkannten API-Fehler. Bei einer aktiven Verbindung zeigt die Oberfläche Hintergrund, Kreis, Sweep, Kontaktpunkte und gegebenenfalls die Zielmarkierung.
+Bei fehlender Verbindung, fehlender Radarzuordnung, ungeladenem oder gestopptem Radar, ungültiger Reichweite, veralteten Daten oder einem erkannten API-Fehler erscheint ein Statushinweis. Bei einer aktiven Verbindung zeigt die Oberfläche Hintergrund, Kreis, Sweep, Kontaktpunkte und gegebenenfalls die Zielmarkierung.
 
 ## Diagnose
 
-Bei Zustandswechseln enthält das Log eine Zeile mit Pultposition, Filtererposition, Radarposition, Linkstatus und Anzahl gefilterter Tracks. Ein aktiver Test mit Zielen sollte `status=ACTIVE` und `filteredTracks` größer als null zeigen.
+Nur mit `debug.radar = true` in der Serverconfig enthält das Log bei Zustandswechseln eine Zeile mit Pultposition, Filtererposition, Radarposition, Linkstatus und Anzahl gefilterter Tracks. Ein aktiver Test mit Zielen sollte `status=ACTIVE` und `filteredTracks` größer als null zeigen.
 
 Bei Routing-Problemen zuerst `desk.getRadarSources()` und `desk.getDisplayBinding(socket)` prüfen. Eine gespeicherte Quelle wird nur akzeptiert, solange ihr Ingress weiterhin Teil desselben geladenen Pultmultiblocks ist.
 
 ## Optionale Abhängigkeit
 
 Ohne Create: Radars startet CC-Aeroworks weiterhin. RadarDisplay-Rezepte und optionale Ponder-Inhalte werden nicht geladen; normale Displays, Computerpulte und Steuereinheiten bleiben verfügbar.
+
+`Kein Radar zugeordnet` bedeutet: Der Pultendpoint ist mit dem Controller verbunden, aber die native Netzwerkgruppe hat keinen Radar. Controller → Radar separat mit dem Data-Link-Gegenstand verbinden. Die Quellenwahl allein erzeugt diese Zuordnung nicht. Beide Diagnoseschalter sind standardmäßig aus; siehe [Konfiguration](../docs/configuration.md).

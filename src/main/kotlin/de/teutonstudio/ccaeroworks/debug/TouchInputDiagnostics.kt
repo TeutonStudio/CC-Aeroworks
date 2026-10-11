@@ -1,25 +1,28 @@
 package de.teutonstudio.ccaeroworks.debug
 
 import de.teutonstudio.ccaeroworks.CCAeroworks
+import de.teutonstudio.ccaeroworks.config.CCServerConfig
 
 /**
  * End-to-end diagnostics for the combined display touch path.
  *
- * Touch/draw traces are debug-only. They must never pollute the normal Minecraft latest.log or
- * compete with the ComputerCraft/server main-thread work which actually processes the stroke.
+ * Touch/draw traces are opt-in through debug.display. High-frequency stroke samples remain
+ * suppressed so diagnostics do not compete with the work which actually processes the stroke.
  */
 object TouchInputDiagnostics {
     const val PREFIX: String = "[TouchTrace]"
 
     @JvmStatic
     fun info(stage: String, message: String) {
+        if (!CCServerConfig.debugDisplayEnabled()) return
         if (isDrawHotPathNoise(stage, message)) return
-        CCAeroworks.LOGGER.debug("{}[{}] {}", PREFIX, stage, message)
+        CCAeroworks.LOGGER.info("{}[{}] {}", PREFIX, stage, message)
     }
 
     @JvmStatic
     fun warn(stage: String, message: String) {
-        CCAeroworks.LOGGER.debug("{}[{}][warn] {}", PREFIX, stage, message)
+        if (!CCServerConfig.debugDisplayEnabled()) return
+        CCAeroworks.LOGGER.info("{}[{}][warn] {}", PREFIX, stage, message)
     }
 
     private fun isDrawHotPathNoise(stage: String, message: String): Boolean = when (stage) {

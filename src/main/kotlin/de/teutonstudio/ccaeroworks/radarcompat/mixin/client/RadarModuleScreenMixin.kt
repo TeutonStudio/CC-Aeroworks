@@ -10,6 +10,7 @@ import de.teutonstudio.ccaeroworks.mixin.client.ModuleScreenAccessor
 import de.teutonstudio.ccaeroworks.mixin.client.ModuleScreenInvoker
 import de.teutonstudio.ccaeroworks.radarcompat.client.RadarSourceChoice
 import de.teutonstudio.ccaeroworks.radarcompat.client.RadarSourceSelectorOverlayOwner
+import de.teutonstudio.ccaeroworks.radarcompat.client.radarSourceChoices
 import de.teutonstudio.ccaeroworks.radarcompat.client.radarSourceKey
 import de.teutonstudio.ccaeroworks.radarcompat.client.radarSourceOption
 import de.teutonstudio.ccaeroworks.radarcompat.display.RadarDisplayBindings
@@ -57,16 +58,6 @@ abstract class RadarModuleScreenMixin(
         val screen = this as ModuleScreenAccessor
         ccaeroworks_radarNativeContentHeight = screen.ccaeroworks_getContentHeight()
         val selectedIngress = RadarDisplayBindings.source(DisplayBindings.get(desk, socket))?.ingressPos
-        val descriptors = RadarSourceRegistry.sources(desk)
-        val local = descriptors.firstOrNull { it.ingressPos == desk.blockPos }
-        val choices = mutableListOf(RadarSourceChoice(null, local))
-        descriptors.asSequence()
-  .filter { it.ingressPos != desk.blockPos }
-  .distinctBy { it.ingressPos }
-  .forEach { choices += RadarSourceChoice(it.ingressPos, it) }
-        if (selectedIngress != null && choices.none { it.ingressPos == selectedIngress }) {
-  choices += RadarSourceChoice(selectedIngress, null)
-        }
         val invoker = this as ModuleScreenInvoker
         ccaeroworks_radarDropdown = addRenderableWidget(
   SourceSelectorWidget(
@@ -81,13 +72,16 @@ abstract class RadarModuleScreenMixin(
       ModuleScreenRowGeometry.EXTENSION_ROW_HEIGHT,
       font,
       radarSourceKey(selectedIngress),
-      { _ -> choices.map(::radarSourceOption) },
+      { _ ->
+          val currentIngress = RadarDisplayBindings.source(DisplayBindings.get(desk, socket))?.ingressPos
+          radarSourceChoices(desk.blockPos, RadarSourceRegistry.sources(desk), currentIngress).map(::radarSourceOption)
+      },
       { choice ->
           PacketDistributor.sendToServer(
               SetRadarDisplaySourcePayload(desk.blockPos, socket, choice.ingressPos)
           )
       },
-      Component.literal("Radarquelle")
+      Component.translatable("radar_source.cc_aeroworks.label")
   )
         )
         screen.ccaeroworks_setContentHeight(
@@ -119,6 +113,23 @@ abstract class RadarModuleScreenMixin(
   listTop
         )
         dropdown.setRowPosition(invoker.ccaeroworks_rowLeft(), rowTop, visible, listTop, listBottom)
+    }
+
+    @Inject(method = ["render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V"], at = [At("HEAD")])
+    private fun ccaeroworks_syncRadarBindingSelection(
+        graphics: GuiGraphics,
+        mouseX: Int,
+        mouseY: Int,
+        partialTick: Float,
+        callback: CallbackInfo
+    ) {
+        val module = (this as ModuleScreenInvoker).ccaeroworks_module() ?: return
+        val holder = menu.contentHolder as? ConsoleSocket ?: return
+        if (!holder.valid()) return
+        val desk = holder.be()
+        val socket = (0 until desk.socketCount()).firstOrNull { desk.module(it) === module } ?: return
+        val selected = RadarDisplayBindings.source(DisplayBindings.get(desk, socket))?.ingressPos
+        ccaeroworks_radarDropdown?.setSelectedKey(radarSourceKey(selected))
     }
 
     @Inject(method = ["render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V"], at = [At("TAIL")])

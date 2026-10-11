@@ -128,8 +128,11 @@ require(bindings.count("DisplayScriptCatalogState.clear(") == 1,
 # Radar and script are presentations over one selector implementation.
 require("SourceSelectorWidget<String>" in bindings and "SourceSelectorWidget<RadarSourceChoice>" in radar_bindings,
         "radar and script bindings must share the generic SourceSelectorWidget across the package boundary")
-require("{ _ -> choices.map(::radarSourceOption) }" in radar_bindings,
-        "radar choices must feed the shared dropdown instead of creating one row per radar")
+require("radarSourceChoices(desk.blockPos, RadarSourceRegistry.sources(desk), currentIngress).map(::radarSourceOption)" in radar_bindings,
+        "radar choices must refresh the shared dropdown from current sources instead of creating one row per radar")
+require("ccaeroworks_syncRadarBindingSelection" in radar_bindings and
+        "setSelectedKey(radarSourceKey(selected))" in radar_bindings,
+        "radar selector must reflect the server-confirmed binding")
 require("mouseScrolled" in selector and "MAX_VISIBLE_OPTIONS = 5" in selector,
         "shared dropdown must have bounded independent scrolling")
 require("POPUP_ROW_HEIGHT = 30" in selector,

@@ -131,5 +131,19 @@
   "ponder.cc_aeroworks.radar_direct.text_2": "The Radar Display uses the group's DetectionConfig and selected target, not an unfiltered world scan.",
   "ponder.cc_aeroworks.radar_direct.text_3": "Background, sweep, filtered contacts and the selected target render on this endpoint only.",
   "ponder.cc_aeroworks.radar_direct.text_4": "Additional Radar Display desks need their own physical Data Link blocks, even in the same desk network.",
-  "ponder.cc_aeroworks.radar_direct.text_5": "Breaking the physical Data Link lets Create: Radars remove the endpoint and the display shows the disconnected X."
+  "ponder.cc_aeroworks.radar_direct.text_5": "Breaking the physical Data Link lets Create: Radars remove the endpoint and the display shows the disconnected X.",
+  "radar_source.cc_aeroworks.local": "Local radar input",
+  "radar_source.cc_aeroworks.desk": "Radar input: desk %s",
+  "radar_source.cc_aeroworks.unavailable": "Source unavailable",
+  "radar_source.cc_aeroworks.position_status": "%s, %s, %s · %s",
+  "radar_source.cc_aeroworks.label": "Radar source",
+  "radar_status.cc_aeroworks.not_linked": "No Data Link",
+  "radar_status.cc_aeroworks.radar_not_assigned": "No radar assigned",
+  "radar_status.cc_aeroworks.radar_not_loaded": "Radar not loaded",
+  "radar_status.cc_aeroworks.radar_stopped": "Radar stopped",
+  "radar_status.cc_aeroworks.invalid_range": "Invalid radar range",
+  "radar_status.cc_aeroworks.api_error": "Radar API error",
+  "radar_status.cc_aeroworks.active": "Active",
+  "radar_status.cc_aeroworks.waiting": "Waiting for radar data",
+  "radar_status.cc_aeroworks.stale": "Radar data expired"
 }

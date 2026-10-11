@@ -31,26 +31,29 @@ object RadarOverlayRenderer {
                 RadarTrace.event(
                     "R00_TRACK_ADD",
                     desk.level,
-                    desk.blockPos,
+                    desk.blockPos
+                ) {
                     "registered desk for native radar overlay; class=${desk.javaClass.name} trackedCount=${trackedDesks.size}"
-                )
+                }
             }
             RadarTrace.periodic(
                 "R00_TRACK_HEARTBEAT",
                 desk.level,
                 desk.blockPos,
-                20L,
+                20L
+            ) {
                 "track() is being called; hasRadarDisplay=true tracked=${desk in trackedDesks} trackedCount=${trackedDesks.size}"
-            )
+            }
         } else {
             val removed = trackedDesks.remove(desk)
             if (removed) {
                 RadarTrace.event(
                     "R00_TRACK_REMOVE",
                     desk.level,
-                    desk.blockPos,
+                    desk.blockPos
+                ) {
                     "RadarDisplay no longer mounted; removed from overlay set trackedCount=${trackedDesks.size}"
-                )
+                }
             }
         }
     }
@@ -65,9 +68,10 @@ object RadarOverlayRenderer {
                 RadarTrace.event(
                     "R01_OVERLAY_NO_LEVEL",
                     null,
-                    null,
+                    null
+                ) {
                     "Minecraft.level is null; clearing ${trackedDesks.size} tracked desks"
-                )
+                }
             }
             trackedDesks.clear()
             return
@@ -79,18 +83,20 @@ object RadarOverlayRenderer {
             "R01_OVERLAY_STAGE",
             level,
             null,
-            10L,
+            10L
+        ) {
             "AFTER_BLOCK_ENTITIES fired trackedCount=${trackedDesks.size} camera=$camera partialTicks=$partialTicks " +
                 "buffers=${minecraft.renderBuffers().bufferSource().javaClass.name}"
-        )
+        }
         if (trackedDesks.isEmpty()) {
             RadarTrace.periodic(
                 "R02_OVERLAY_EMPTY",
                 level,
                 null,
-                20L,
+                20L
+            ) {
                 "render stage is alive but no RadarDisplay desk is registered"
-            )
+            }
             return
         }
 
@@ -108,9 +114,10 @@ object RadarOverlayRenderer {
                 RadarTrace.event(
                     "R03_OVERLAY_EVICT",
                     level,
-                    desk.blockPos,
+                    desk.blockPos
+                ) {
                     "isRemoved=$removed sameLevel=${!wrongLevel} hasRadarDisplay=$hasRadarDisplay"
-                )
+                }
                 iterator.remove()
                 continue
             }
@@ -119,10 +126,11 @@ object RadarOverlayRenderer {
                 "R04_OVERLAY_DESK",
                 level,
                 desk.blockPos,
-                10L,
+                10L
+            ) {
                 "attempting native render radarSurfaces=${RadarDeskAccess.radarSurfaces(desk).size} " +
                     "deskBlockState=${desk.blockState} socketCount=${desk.socketCount()}"
-            )
+            }
 
             poseStack.pushPose()
             try {
@@ -139,9 +147,10 @@ object RadarOverlayRenderer {
                     "R05_RENDER_ANCHOR",
                     level,
                     desk.blockPos,
-                    10L,
+                    10L
+                ) {
                     "local=${desk.blockPos} world=${anchor.worldPosition} subLevel=${anchor.usedSubLevel} camera=$camera"
-                )
+                }
                 val rendered = CreateRadarNativeMonitorRenderer.render(
                     desk,
                     poseStack,
@@ -153,21 +162,24 @@ object RadarOverlayRenderer {
                 } else {
                     false
                 }
-                renderedAny = rendered || legendRendered || renderedAny
+                val statusRendered = RadarStatusRenderer.render(desk, poseStack, buffers)
+                renderedAny = rendered || legendRendered || statusRendered || renderedAny
                 RadarTrace.periodic(
                     "R08_NATIVE_RETURN",
                     level,
                     desk.blockPos,
-                    10L,
+                    10L
+                ) {
                     "native=$rendered legend=$legendRendered aggregateRenderedAny=$renderedAny"
-                )
+                }
             } catch (throwable: Throwable) {
                 RadarTrace.event(
                     "R98_OVERLAY_EXCEPTION",
                     level,
-                    desk.blockPos,
+                    desk.blockPos
+                ) {
                     "${RadarTrace.throwable(throwable)}"
-                )
+                }
                 throw throwable
             } finally {
                 poseStack.popPose()
@@ -179,18 +191,20 @@ object RadarOverlayRenderer {
                 "R09_END_BATCH",
                 level,
                 null,
-                10L,
+                10L
+            ) {
                 "native radar or large-display legend rendered; flushing BufferSource.endBatch()"
-            )
+            }
             buffers.endBatch()
         } else {
             RadarTrace.periodic(
                 "R09_NO_DRAW",
                 level,
                 null,
-                10L,
+                10L
+            ) {
                 "tracked desks exist but no native monitor surface reported a successful draw"
-            )
+            }
         }
     }
 }

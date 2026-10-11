@@ -131,5 +131,19 @@
   "ponder.cc_aeroworks.radar_direct.text_2": "Die Radaranzeige verwendet DetectionConfig und Zielauswahl der Gruppe statt eines ungefilterten Weltscans.",
   "ponder.cc_aeroworks.radar_direct.text_3": "Hintergrund, Sweep, gefilterte Kontakte und Zielmarkierung erscheinen nur auf diesem Endpoint.",
   "ponder.cc_aeroworks.radar_direct.text_4": "Weitere RadarDisplay-Pulte benötigen auch im selben Pultnetz jeweils einen eigenen physischen Data Link.",
-  "ponder.cc_aeroworks.radar_direct.text_5": "Beim Abbau des Data Links entfernt Create: Radars den Endpoint und das Display zeigt das Trennungs-X."
+  "ponder.cc_aeroworks.radar_direct.text_5": "Beim Abbau des Data Links entfernt Create: Radars den Endpoint und das Display zeigt das Trennungs-X.",
+  "radar_source.cc_aeroworks.local": "Lokaler Radareingang",
+  "radar_source.cc_aeroworks.desk": "Radareingang: Pult %s",
+  "radar_source.cc_aeroworks.unavailable": "Quelle nicht verfügbar",
+  "radar_source.cc_aeroworks.position_status": "%s, %s, %s · %s",
+  "radar_source.cc_aeroworks.label": "Radarquelle",
+  "radar_status.cc_aeroworks.not_linked": "Kein Data Link",
+  "radar_status.cc_aeroworks.radar_not_assigned": "Kein Radar zugeordnet",
+  "radar_status.cc_aeroworks.radar_not_loaded": "Radar nicht geladen",
+  "radar_status.cc_aeroworks.radar_stopped": "Radar angehalten",
+  "radar_status.cc_aeroworks.invalid_range": "Ungültige Reichweite",
+  "radar_status.cc_aeroworks.api_error": "Radar-API-Fehler",
+  "radar_status.cc_aeroworks.active": "Aktiv",
+  "radar_status.cc_aeroworks.waiting": "Warte auf Radardaten",
+  "radar_status.cc_aeroworks.stale": "Radardaten veraltet"
 }

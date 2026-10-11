@@ -18,22 +18,38 @@ internal fun radarSourceOption(choice: RadarSourceChoice): SourceSelectorOption<
     val descriptor = choice.descriptor
     val stack = networkControllerStack()
     val title = when {
-        descriptor != null && stack.item != Items.COMPASS -> stack.hoverName
-        descriptor != null -> Component.literal("Network Controller")
-        choice.ingressPos == null -> Component.literal("Lokales Netzwerk")
-        else -> Component.literal("Nicht verfügbare Radarquelle")
+        choice.ingressPos == null -> Component.translatable("radar_source.cc_aeroworks.local")
+        descriptor != null -> Component.translatable("radar_source.cc_aeroworks.desk", descriptor.memberIndex)
+        else -> Component.translatable("radar_source.cc_aeroworks.unavailable")
     }
-    val subtitle = when {
-        descriptor != null -> Component.literal("Netzwerk ${descriptor.id}")
-        choice.ingressPos == null -> Component.literal("Netzwerk lokal")
-        else -> Component.literal("Netzwerk ${choice.ingressPos.x},${choice.ingressPos.y},${choice.ingressPos.z}")
-    }
+    val position = descriptor?.ingressPos ?: choice.ingressPos
+    val status = descriptor?.status?.let {
+        Component.translatable("radar_status.cc_aeroworks.${it.name.lowercase(java.util.Locale.ROOT)}")
+    } ?: Component.translatable("radar_source.cc_aeroworks.unavailable")
+    val subtitle = if (position == null) status else Component.translatable(
+        "radar_source.cc_aeroworks.position_status", position.x, position.y, position.z, status
+    )
     return SourceSelectorOption(
         key = radarSourceKey(choice.ingressPos),
         value = choice,
         presentation = SourceSelectorPresentation(title, subtitle, SourceSelectorIcon.Item(stack)),
         selectable = descriptor != null || choice.ingressPos == null
     )
+}
+
+/** Keep unavailable stored selections visible instead of silently displaying another source. */
+internal fun radarSourceChoices(
+    deskPos: BlockPos,
+    descriptors: List<RadarSourceDescriptor>,
+    selectedIngress: BlockPos?
+): List<RadarSourceChoice> = buildList {
+    add(RadarSourceChoice(null, descriptors.firstOrNull { it.ingressPos == deskPos }))
+    descriptors.distinctBy { it.ingressPos }.filter { it.ingressPos != deskPos }.forEach {
+        add(RadarSourceChoice(it.ingressPos, it))
+    }
+    if (selectedIngress != null && none { it.ingressPos == selectedIngress }) {
+        add(RadarSourceChoice(selectedIngress, descriptors.firstOrNull { it.ingressPos == selectedIngress }))
+    }
 }
 
 private fun networkControllerStack(): ItemStack {

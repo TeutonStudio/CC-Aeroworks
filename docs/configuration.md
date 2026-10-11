@@ -17,7 +17,7 @@ Ein Linksklick auf das vorhandene Modussymbol schaltet bei Lever, Joystick und j
 
 ## Server und Displayauflösung
 
-Die Serverdatei heißt `cc_aeroworks-server.toml`. Sie liegt weltbezogen unter `<welt>/serverconfig/cc_aeroworks-server.toml` und wird an verbundene Clients synchronisiert.
+Die Serverdatei heißt `cc_aeroworks-server.toml` und wird an verbundene Clients synchronisiert. Mit der verwendeten NeoForge-Version wird sie standardmäßig unter `config/cc_aeroworks-server.toml` erzeugt. Eine vorhandene Datei unter `<welt>/serverconfig/cc_aeroworks-server.toml` hat als weltbezogener Override Vorrang. Für weltbezogene Einstellungen die Datei dorthin kopieren und die Welt beziehungsweise den Server neu starten.
 
 - `display.ppb`: Pixeldichte in **Parts per Block**; Standard `256`, Minimum `16`.
 
@@ -68,3 +68,22 @@ Diese Werte ändern weder Creates eigene Display-Link-Reichweite noch dessen Sou
 Aktuelle Telemetriewerte werden nicht in NBT geschrieben. Persistiert werden nur benutzerdefinierte Source- und Dock-Aliase; Messwerte werden nach Serverstart durch die Create-Display-Links wieder in den Runtime-Cache übertragen.
 
 Details: [`telemetry.md`](telemetry.md) und [`docking-telemetry.md`](docking-telemetry.md).
+
+## Optionale Radar- und Display-Diagnosen
+
+In der wirksamen Serverkonfiguration (`config/cc_aeroworks-server.toml` oder dem oben beschriebenen weltbezogenen Override) können die Diagnoseausgaben getrennt aktiviert werden:
+
+```toml
+[debug]
+radar = false
+display = false
+```
+
+- `debug.radar`: ausführliche Radar-Traces sowie Endpoint- und Client-Snapshot-Änderungen; Standard `false`.
+- `debug.display`: Diagnoseausgaben zu Display-Bindings, Touch-Eingaben und Zeichenaktionen; Standard `false`. Besonders häufige Zeichenereignisse bleiben gefiltert.
+
+Für eine Radar-Fehlersuche beispielsweise `radar = true` setzen und `display = false` lassen. Die Serverkonfiguration wird auch im Einzelspieler verwendet und an verbundene Clients synchronisiert. Aktivierte Diagnosen erscheinen auf INFO im normalen Log des jeweiligen Servers oder Clients; eine zusätzliche DEBUG-Logger-Konfiguration ist nicht erforderlich.
+
+Mit `false` werden diese Diagnosen auch bei global aktiviertem DEBUG nicht ausgegeben. Vor dem Laden der Serverkonfiguration sind beide Bereiche ebenfalls deaktiviert. Nach der Fehlersuche die betreffenden Werte wieder auf `false` setzen; wirksam werden die Änderungen beim Laden oder Neuladen der Serverkonfiguration, spätestens beim erneuten Start der Welt beziehungsweise des Servers.
+
+Echte Warnungen und Fehler, einmalige Initialisierungsmeldungen und Lua-seitige Display-Skriptdiagnosen bleiben davon unberührt.

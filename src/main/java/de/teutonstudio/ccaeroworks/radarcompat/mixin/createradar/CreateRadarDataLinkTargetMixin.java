@@ -49,7 +49,7 @@ public abstract class CreateRadarDataLinkTargetMixin {
             "DL_CLASSIFY",
             candidate == null ? null : candidate.getLevel(),
             candidate == null ? null : candidate.getBlockPos(),
-            "candidate=" + (candidate == null ? "null" : candidate.getClass().getName())
+            () -> "candidate=" + (candidate == null ? "null" : candidate.getClass().getName())
                 + " block=" + (state == null ? "null" : state.getBlock())
                 + " nativeMonitor=" + nativeMonitor
                 + " isConsoleDesk=" + isDesk

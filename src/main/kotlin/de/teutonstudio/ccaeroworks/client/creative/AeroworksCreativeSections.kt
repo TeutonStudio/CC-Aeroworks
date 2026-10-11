@@ -60,8 +60,11 @@ object AeroworksCreativeSections {
             val y = top + visibleRow * BANNER_HEIGHT
             val background = if (id == "aeroworks") 0xFF5A3A20.toInt() else 0xFF1F4B59.toInt()
             val border = if (id == "aeroworks") 0xFFFFC66D.toInt() else 0xFF79D7EE.toInt()
-            event.guiGraphics.fill(left, y, left + BANNER_WIDTH, y + BANNER_HEIGHT, background)
-            event.guiGraphics.fill(left, y, left + 3, y + BANNER_HEIGHT, border)
+            // The last pixel of each 18px slot row is its lower bevel. Keep it visible,
+            // just like the preceding row's bevel above the category banner.
+            val bottom = y + BANNER_HEIGHT - 1
+            event.guiGraphics.fill(left, y, left + BANNER_WIDTH, bottom, background)
+            event.guiGraphics.fill(left, y, left + 3, bottom, border)
             event.guiGraphics.drawString(
                 screen.minecraft!!.font,
                 Component.translatable("creative_section.cc_aeroworks.$id"),
