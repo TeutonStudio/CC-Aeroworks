@@ -85,7 +85,7 @@ object ControlDeskNavigationButtons {
             Component.translatable("guide.cc_aeroworks.tab.network"),
             Runnable {
                 Minecraft.getInstance().setScreen(
-                    GuideBookScreen(screen, GuideSectionId.NETWORK_API)
+                    GuideBookScreen(Minecraft.getInstance().screen ?: screen, GuideSectionId.NETWORK_API)
                 )
             }
         )

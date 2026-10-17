@@ -106,6 +106,6 @@ class ComputerControlLuaApi(
         }
     }
 
-    private fun owner(): ComputerControlDeskBlockEntity = access.owner()
+    private fun owner(): ConsoleComputer = access.owner()
         ?: throw LuaException("The ComputerControlDesk is no longer loaded")
 }

@@ -7,7 +7,7 @@ import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskService
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksModuleAccess
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskIdentityAccess
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskSockets
-import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
+import de.teutonstudio.ccaeroworks.computer.ConsoleComputer
 import de.teutonstudio.ccaeroworks.input.CombinedInputSource
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMember
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
@@ -72,7 +72,7 @@ object ControlOverrideManager {
     }
 
     @Synchronized
-    fun listChannels(owner: ComputerControlDeskBlockEntity): List<Map<String, Any>> {
+    fun listChannels(owner: ConsoleComputer): List<Map<String, Any>> {
         val (level, snapshot) = activeNetwork(owner)
         val levelStates = states[level].orEmpty()
         val result = arrayListOf<Map<String, Any>>()
@@ -113,7 +113,7 @@ object ControlOverrideManager {
 
     @Synchronized
     fun getState(
-        owner: ComputerControlDeskBlockEntity,
+        owner: ConsoleComputer,
         deskId: String,
         rawSocket: Any?,
         channel: String
@@ -145,7 +145,7 @@ object ControlOverrideManager {
 
     @Synchronized
     fun override(
-        owner: ComputerControlDeskBlockEntity,
+        owner: ConsoleComputer,
         command: ControlOverrideCommand
     ): Map<String, Any> {
         overrideBatch(owner, listOf(command))
@@ -154,7 +154,7 @@ object ControlOverrideManager {
 
     @Synchronized
     fun overrideBatch(
-        owner: ComputerControlDeskBlockEntity,
+        owner: ConsoleComputer,
         commands: List<ControlOverrideCommand>
     ): Int {
         if (commands.isEmpty()) return 0
@@ -215,7 +215,7 @@ object ControlOverrideManager {
 
     @Synchronized
     fun release(
-        owner: ComputerControlDeskBlockEntity,
+        owner: ConsoleComputer,
         deskId: String,
         rawSocket: Any?,
         channel: String,
@@ -235,7 +235,7 @@ object ControlOverrideManager {
     }
 
     @Synchronized
-    fun releaseAll(owner: ComputerControlDeskBlockEntity, reason: String = "released"): Int {
+    fun releaseAll(owner: ConsoleComputer, reason: String = "released"): Int {
         val ownerId = owner.deskId
         var removed = 0
         val targetLevel = owner.level as? ServerLevel
@@ -256,7 +256,7 @@ object ControlOverrideManager {
     }
 
     @Synchronized
-    fun tick(owner: ComputerControlDeskBlockEntity, powered: Boolean) {
+    fun tick(owner: ConsoleComputer, powered: Boolean) {
         val level = owner.level as? ServerLevel ?: return
         val levelStates = states[level] ?: return
         val ownerStates = levelStates.values.filter { it.ownerDeskId == owner.deskId }
@@ -301,7 +301,7 @@ object ControlOverrideManager {
         if (levelStates.isEmpty()) states.remove(level)
     }
 
-    private fun activeNetwork(owner: ComputerControlDeskBlockEntity): Pair<ServerLevel, ConsoleMultiblockSnapshot> {
+    private fun activeNetwork(owner: ConsoleComputer): Pair<ServerLevel, ConsoleMultiblockSnapshot> {
         val level = owner.level as? ServerLevel
             ?: throw LuaException("The ComputerControlDesk is not in a server level")
         val snapshot = ConsoleMultiblockManager.resolve(level, owner.blockPos)
@@ -351,7 +351,7 @@ object ControlOverrideManager {
     }
 
     private fun queueOverrideEvent(
-        owner: ComputerControlDeskBlockEntity,
+        owner: ConsoleComputer,
         action: String,
         command: ResolvedCommand,
         state: ControlOverrideState
@@ -372,7 +372,7 @@ object ControlOverrideManager {
     }
 
     private fun queueReleaseEvent(
-        owner: ComputerControlDeskBlockEntity,
+        owner: ConsoleComputer,
         key: ControlOverrideKey,
         reason: String
     ) {

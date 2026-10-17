@@ -93,6 +93,7 @@ object ApiReferenceCatalog {
                 "clearDisplayPixels(socket: string|integer) -> void",
                 "getDisplayBinding(socket: string|integer) -> table",
                 "setDisplayTouchScript(socket: string|integer, path: string) -> table",
+                "setControlScript(socket: string|integer, path: string) -> table",
                 "clearDisplayBinding(socket: string|integer) -> table"
             ),
             source = ApiSourceContract(

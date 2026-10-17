@@ -1,7 +1,8 @@
 package de.teutonstudio.ccaeroworks.display
 
+import de.teutonstudio.ccaeroworks.computer.ConsoleComputers
 import dan200.computercraft.api.filesystem.Mount
-import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
+import de.teutonstudio.ccaeroworks.computer.ConsoleComputer
 import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
@@ -9,7 +10,7 @@ import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.util.WeakHashMap
 
-/** Metadata for a Lua file which explicitly opts into one of the display APIs. */
+/** Metadata for a Lua script, including its optional display API capabilities. */
 data class DisplayScriptDescriptor(
     val path: String,
     val name: String,
@@ -25,7 +26,7 @@ data class DisplayScriptDescriptor(
 }
 
 /**
- * Server-authoritative catalog of display scripts on the embedded ComputerControlDesk.
+ * Server-authoritative catalog of Lua scripts on the embedded ComputerControlDesk.
  *
  * Only the computer's writable root mount is scanned. File contents never leave the server: the
  * client receives bounded metadata (path/name/capabilities) and selection is revalidated here.
@@ -38,18 +39,22 @@ object DisplayScriptCatalog {
     private const val CACHE_TICKS: Long = 20L
 
     private data class Cached(val tick: Long, val entries: List<DisplayScriptDescriptor>)
-    private val cache = WeakHashMap<ComputerControlDeskBlockEntity, Cached>()
+    private val cache = WeakHashMap<ConsoleComputer, Cached>()
 
-    fun ownerFor(desk: com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity): ComputerControlDeskBlockEntity? {
-        if (desk is ComputerControlDeskBlockEntity) return desk
+    fun ownerFor(desk: com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity): ConsoleComputer? {
+        ConsoleComputers.get(desk)?.let { return it }
         val level = desk.level ?: return null
         val snapshot = ConsoleMultiblockManager.resolve(level, desk.blockPos)
         if (snapshot.state != ConsoleNetworkState.ACTIVE) return null
         return snapshot.owner
     }
 
+    fun scan(owner: ConsoleComputer, force: Boolean = false): List<DisplayScriptDescriptor> =
+        scanControls(owner, force).filter { it.display }
+
+    /** Controls may execute ordinary Lua scripts without importing a display API. */
     @Synchronized
-    fun scan(owner: ComputerControlDeskBlockEntity, force: Boolean = false): List<DisplayScriptDescriptor> {
+    fun scanControls(owner: ConsoleComputer, force: Boolean = false): List<DisplayScriptDescriptor> {
         val tick = owner.level?.gameTime ?: 0L
         val existing = cache[owner]
         if (!force && existing != null && tick - existing.tick in 0..CACHE_TICKS) return existing.entries
@@ -81,7 +86,7 @@ object DisplayScriptCatalog {
     }
 
     fun find(
-        owner: ComputerControlDeskBlockEntity,
+        owner: ConsoleComputer,
         rawPath: String,
         type: DeskDisplayType
     ): DisplayScriptDescriptor? {
@@ -117,7 +122,7 @@ object DisplayScriptCatalog {
         return "/$normalized"
     }
 
-    private fun scanMount(mount: Mount): List<DisplayScriptDescriptor> {
+    internal fun scanMount(mount: Mount): List<DisplayScriptDescriptor> {
         val result = ArrayList<DisplayScriptDescriptor>()
 
         fun visit(directory: String, depth: Int) {
@@ -136,7 +141,6 @@ object DisplayScriptCatalog {
                 if (size <= 0L || size > MAX_FILE_SIZE) return@forEach
                 val source = readUtf8(mount, path, size) ?: return@forEach
                 val analysis = LuaRequireScanner.scan(source)
-                if (!analysis.display) return@forEach
                 result += DisplayScriptDescriptor(
                     path = "/$path",
                     name = child.substringBeforeLast('.'),

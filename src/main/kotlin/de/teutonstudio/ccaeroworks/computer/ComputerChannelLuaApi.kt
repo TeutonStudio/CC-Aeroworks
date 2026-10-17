@@ -88,7 +88,7 @@ class ComputerChannelLuaApi(
     @LuaFunction(mainThread = true)
     fun releaseAll(): Int = de.teutonstudio.ccaeroworks.computer.control.ControlOverrideManager.releaseAll(owner())
 
-    private fun owner(): ComputerControlDeskBlockEntity = access.owner()
+    private fun owner(): ConsoleComputer = access.owner()
         ?: throw LuaException("The ComputerControlDesk is no longer loaded")
 
     private inline fun <T> lua(block: () -> T): T = try {
@@ -150,6 +150,6 @@ class ComputerChannelAdminLuaApi(
         }
     )
 
-    private fun owner(): ComputerControlDeskBlockEntity = access.owner()
+    private fun owner(): ConsoleComputer = access.owner()
         ?: throw LuaException("The ComputerControlDesk is no longer loaded")
 }

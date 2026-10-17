@@ -32,6 +32,12 @@ public class ComputerControlDeskScenes {
         BlockPos middle = util.grid().at(2, 1, 2);
         BlockPos right = util.grid().at(3, 1, 2);
 
+        scene.overlay().showControls(util.vector().topOf(computer), Pointing.DOWN, 40)
+            .rightClick().whileSneaking().withItem(new ItemStack(dan200.computercraft.shared.ModRegistry.Items.COMPUTER_NORMAL.get()));
+
+        scene.idle(45);
+        PonderDeskSetup.installComputer(scene, computer, false);
+
         // Real mounted modules make the scene explain the desk itself instead of substituting
         // floating inventory icons for its state.
         PonderDeskSetup.mount(scene, middle, 0, new ItemStack(CCItems.TWO_DIGIT_DISPLAY.get()));
@@ -104,6 +110,7 @@ public class ComputerControlDeskScenes {
         scene.idle(10);
 
         BlockPos computer = util.grid().at(1, 1, 2);
+        PonderDeskSetup.installComputer(scene, computer, false);
         BlockPos middle = util.grid().at(2, 1, 2);
         BlockPos right = util.grid().at(3, 1, 2);
         BlockPos modem = middle.south();
@@ -180,15 +187,16 @@ public class ComputerControlDeskScenes {
         scene.idle(10);
 
         BlockPos computer = util.grid().at(1, 1, 2);
+        PonderDeskSetup.installComputer(scene, computer, false);
         BlockPos middle = util.grid().at(2, 1, 2);
         BlockPos right = util.grid().at(3, 1, 2);
         scene.world().showSection(util.select().fromTo(computer, right), Direction.DOWN);
         scene.idle(20);
 
-        BlockState duplicate = CCBlocks.COMPUTER_CONTROL_DESK.get()
-            .defaultBlockState()
-            .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH);
-        scene.world().setBlock(middle, duplicate, false);
+        // Both positions are ordinary consoles; the slot owns the computer, not a block variant.
+        scene.world().setBlock(middle, PonderDeskSetup.normalDesk(), false);
+        scene.overlay().showControls(util.vector().topOf(middle), Pointing.DOWN, 55)
+            .withItem(new ItemStack(dan200.computercraft.shared.ModRegistry.Items.COMPUTER_NORMAL.get()));
         scene.effects().indicateRedstone(middle);
         scene.overlay().showText(75)
             .attachKeyFrame()

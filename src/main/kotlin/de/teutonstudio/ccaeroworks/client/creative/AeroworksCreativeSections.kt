@@ -34,7 +34,6 @@ object AeroworksCreativeSections {
         }
         val aeroworksItems = registeredAeroworksItems.toMutableList()
         val bridgeItems = registeredBridgeItems.toMutableList()
-        CCItems.computerConsoles().forEach { appendMissing(bridgeItems, it.defaultInstance) }
         AeroworksCreativeExtensions.items().forEach { appendMissing(aeroworksItems, it) }
 
         val arranged = mutableListOf<ItemStack>()

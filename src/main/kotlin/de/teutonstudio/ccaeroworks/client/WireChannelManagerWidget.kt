@@ -36,6 +36,28 @@ internal class WireChannelManagerWidget(
         WireChannelSnapshotState.get().wire.channels.firstOrNull { it.id == selectedWireId }
     } else null
 
+    fun selectedConnectionChannelId(): String? = selectedTargetId.takeIf {
+        selectionKind == SelectionKind.TARGET || selectionKind == SelectionKind.WIRE || selectionKind == SelectionKind.BINDING
+    }
+
+    fun selectedConnectionLabel(): String {
+        val id = selectedConnectionChannelId() ?: return ""
+        val snapshot = WireChannelSnapshotState.get()
+        snapshot.controlGroups.forEach { group ->
+            group.channels.firstOrNull { it.id == id }?.let {
+                return "${group.label} · Desk ${group.deskIndex} · ${group.socketName} · ${it.name}"
+            }
+        }
+        return snapshot.wire.channels.firstOrNull { "wire:${it.id}" == id }?.name.orEmpty()
+    }
+
+    fun selectedConnections(): List<WireConnectionView> {
+        val id = selectedConnectionChannelId() ?: return emptyList()
+        val snapshot = WireChannelSnapshotState.get()
+        return snapshot.controlGroups.flatMap { it.channels }.firstOrNull { it.id == id }?.connections
+            ?: snapshot.wire.channels.firstOrNull { "wire:${it.id}" == id }?.targets.orEmpty()
+    }
+
     fun selectedTargetId(): String? = selectedTargetId
     fun selectedGroupId(): UUID? = selectedGroup
     fun selectedGroupForMutation(): UUID? = selectedGroup.takeIf { selectionKind == SelectionKind.GROUP }

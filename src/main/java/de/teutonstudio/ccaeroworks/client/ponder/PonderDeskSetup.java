@@ -25,6 +25,15 @@ public final class PonderDeskSetup {
             .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH);
     }
 
+    public static void installComputer(CreateSceneBuilder scene, BlockPos position, boolean advanced) {
+        scene.world().modifyBlockEntity(position, ConsoleBlockEntity.class, desk -> {
+            de.teutonstudio.ccaeroworks.computer.ConsoleComputers.INSTANCE.remove(desk);
+            de.teutonstudio.ccaeroworks.computer.ConsoleComputers.INSTANCE.install(desk,
+                new ItemStack(advanced ? dan200.computercraft.shared.ModRegistry.Items.COMPUTER_ADVANCED.get()
+                    : dan200.computercraft.shared.ModRegistry.Items.COMPUTER_NORMAL.get()));
+        });
+    }
+
     public static void mount(CreateSceneBuilder scene, BlockPos position, int socket, ItemStack stack) {
         scene.world().modifyBlockEntity(position, ConsoleBlockEntity.class,
             desk -> desk.mount(socket, stack.copy()));

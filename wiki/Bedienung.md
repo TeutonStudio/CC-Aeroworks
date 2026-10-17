@@ -6,21 +6,20 @@ CC-Aeroworks unterscheidet Terminalzugriff, Modulbedienung und Einstellungen bew
 
 | Aktion | Eingabe | Voraussetzung |
 |---|---|---|
-| Computerterminal öffnen | Schleichen + Rechtsklick | leere Haupthand, aktives Pultnetz mit einem eingebetteten Computer |
+| Modulübersicht und Computerslot öffnen | Schleichen + Rechtsklick | normale Steuereinheit, auch ohne Module |
+| Computerterminal öffnen | Computerknopf in der Übersicht | Computer im gemeinsamen Slot |
 | Steuerung bedienen | normaler Rechtsklick | montiertes Aeroworks-Modul direkt ansehen |
 | Steuerungseinstellungen öffnen | Schraubenschlüssel + Rechtsklick | horizontale Seite eines Steuerungspults anklicken |
 | Pult drehen | Schraubenschlüssel + Rechtsklick | Ober- oder Unterseite anklicken |
-| Ponder-Erklärung öffnen | W halten | Maus über Computerpult-, Display- oder Radaritem |
+| Ponder-Erklärung öffnen | W halten | Maus über normale Steuereinheit, Computer, Display oder Radaritem |
 
 ## Computer öffnen
 
-Bei einem gültigen Pultnetz mit genau einem eingebetteten Computer:
+1. Mit leerer Haupthand schleichen und eine Steuereinheit rechtsklicken.
+2. Einen normalen oder erweiterten CC:Tweaked-Computer im gemeinsamen Slot einsetzen. Spielerinventar und Shift-Klick sind verfügbar.
+3. Den Computerknopf anklicken, um das Terminal zu öffnen.
 
-1. Haupthand leeren.
-2. Schleichen.
-3. Ein beliebiges geladenes Pult des Netzwerks rechtsklicken.
-
-Das angeklickte Pult muss nicht selbst das Computer-Steuerungspult sein. Der Computer wird eingeschaltet und sein Terminal geöffnet. Seine Position links, mittig oder rechts verändert den Peripheral-Graphen nicht.
+Jede Steuereinheit der Reihe zeigt denselben Slot. Beim Abbau des Trägers wandert der Computer ins größere Reststück, bei Gleichstand nach links. Die letzte Steuereinheit droppt ihn zusätzlich zum Pult. Computer-ID und Dateien bleiben erhalten.
 
 Ein externer Computer verwendet stattdessen sein normales CC:Tweaked-Terminal. Jedes direkt oder über ein Wired Modem verbundene Pult erscheint dort als eigener lokaler `ControlDesk`-Adapter. Ein einzelner Adapter vertritt nicht automatisch den gesamten Multiblock.
 
@@ -46,18 +45,11 @@ Im Modus **Kombiniert** zeigt das mittlere Feld die Aktivierungstaste. Linksklic
 
 ## Ein eingebetteter Computer pro Netzwerk
 
-Für die globale `peripherals`-API wird genau ein Computer-Steuerungspult benötigt. Alle anderen Mitglieder dürfen normale Aeroworks-Steuerungspulte sein.
+Für die globale `peripherals`-API wird ein Computer im gemeinsamen Slot benötigt. Alle Mitglieder bleiben normale Aeroworks-Steuereinheiten.
 
-Externe Computer sind davon unabhängig. Sie können einzelne Desk-Adapter direkt oder über ein Wired-Modem-Netz verwenden. Die Ein-Computer-Regel betrifft ausschließlich eingebettete Computer-Steuerungspulte im selben Pultnetz.
+Externe Computer sind davon unabhängig und verwenden weiterhin lokale Desk-Adapter. Ein zweiter Computer lässt sich nicht per Shift-Klick einsetzen. Beim Zusammenführen belegter Reihen bleibt bevorzugt ein erweiterter Computer, danach der erste in Reihenfolge; weitere Computer werden mitsamt Daten ausgeworfen.
 
-Wird in Survival versehentlich ein zweites Computer-Steuerungspult an dieselbe vollständig geladene Reihe gesetzt:
-
-- das neu platzierte Pult wird zu einem normalen Aeroworks-Pult,
-- seine Aeroworks-Module und Einstellungen bleiben erhalten,
-- der zusätzliche normale oder erweiterte CC:Tweaked-Computer wird ausgeworfen,
-- Computer-ID, Label, Terminalgröße und Speicherkapazität bleiben erhalten.
-
-Im Creative-Modus wird die konfliktverursachende Platzierung abgebrochen, damit die Computer-ID nicht dupliziert wird.
+Alte Computerblöcke werden beim Laden, alte Computerpultitems beim Platzieren automatisch übernommen.
 
 ## Ponder
 

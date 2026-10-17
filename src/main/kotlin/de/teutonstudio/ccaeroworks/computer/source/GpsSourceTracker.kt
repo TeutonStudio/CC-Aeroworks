@@ -7,7 +7,7 @@ import dan200.computercraft.api.network.PacketReceiver
 import dan200.computercraft.api.network.PacketSender
 import dan200.computercraft.api.peripheral.PeripheralCapability
 import dan200.computercraft.shared.peripheral.modem.wireless.WirelessModemPeripheral
-import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
+import de.teutonstudio.ccaeroworks.computer.ConsoleComputer
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import net.minecraft.core.Direction
 import net.minecraft.server.level.ServerLevel
@@ -44,7 +44,7 @@ internal data class GpsSourceStatus(
  */
 object GpsSourceTracker {
     private data class Tracked(
-        var owner: ComputerControlDeskBlockEntity,
+        var owner: ConsoleComputer,
         var active: Probe? = null,
         var fix: GpsFix? = null,
         var lastProbeTick: Long = Long.MIN_VALUE,
@@ -54,7 +54,7 @@ object GpsSourceTracker {
     private val tracked = linkedMapOf<java.util.UUID, Tracked>()
 
     @Synchronized
-    fun request(owner: ComputerControlDeskBlockEntity) {
+    fun request(owner: ConsoleComputer) {
         val level = owner.level as? ServerLevel ?: return
         val now = level.gameTime
         val id = owner.deskId
@@ -100,7 +100,7 @@ object GpsSourceTracker {
     }
 
     @Synchronized
-    internal fun current(owner: ComputerControlDeskBlockEntity): GpsSourceStatus? {
+    internal fun current(owner: ConsoleComputer): GpsSourceStatus? {
         val level = owner.level as? ServerLevel ?: return null
         val state = tracked[owner.deskId]?.takeIf { it.owner === owner } ?: return null
         settle(state, level.gameTime)
@@ -156,7 +156,7 @@ object GpsSourceTracker {
         }
     }
 
-    private fun findWirelessModem(owner: ComputerControlDeskBlockEntity): WirelessModemPeripheral? {
+    private fun findWirelessModem(owner: ConsoleComputer): WirelessModemPeripheral? {
         val level = owner.level as? ServerLevel ?: return null
         val deskMembers = ConsoleMultiblockManager.resolve(level, owner.blockPos)
             .members

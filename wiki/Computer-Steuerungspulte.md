@@ -1,19 +1,19 @@
 # Computer-Steuerungspulte
 
-Computer-Steuerungspulte verbinden ein Aeroworks-Steuerungspult dauerhaft mit einem CC:Tweaked-Computer. Der Computer verwaltet keinen monolithischen Multiblock-Peripheral mehr. Stattdessen indexiert er jedes verbundene Pult als eigenen Adapter und fasst alle benachbarten Peripherals in einem gemeinsamen Graphen zusammen.
+Normale Aeroworks-Steuereinheiten besitzen einen gemeinsamen Computerslot pro verbundener Reihe. Der Computer verwaltet keinen monolithischen Multiblock-Peripheral mehr. Stattdessen indexiert er jedes verbundene Pult als eigenen Adapter und fasst alle benachbarten Peripherals in einem gemeinsamen Graphen zusammen.
 
 ## Varianten
 
 | Eingesetzter Computer | Ergebnis |
 |---|---|
-| Normaler CC:Tweaked-Computer | Computer-Steuerungspult |
-| Erweiterter CC:Tweaked-Computer | Erweitertes Computer-Steuerungspult |
+| Normaler CC:Tweaked-Computer | normaler Computer im gemeinsamen Slot |
+| Erweiterter CC:Tweaked-Computer | erweiterter Computer im gemeinsamen Slot |
 
 Die Computerfamilie bestimmt Terminal, Farbe und Kapazität. Beide Varianten verwenden dieselbe Netzwerk- und Ponder-Logik.
 
-## Crafting und Datenerhalt
+## Einsetzen und Datenerhalt
 
-Lege ein normales Aeroworks-Steuerungspult und einen normalen oder erweiterten CC:Tweaked-Computer gemeinsam in ein Craftingfeld. Zusätzliche Gegenstände machen das Rezept ungültig.
+Öffne mit Schleichen + Rechtsklick die Modulübersicht einer beliebigen Steuereinheit. Setze einen normalen oder erweiterten CC:Tweaked-Computer in den gemeinsamen Slot ein. Spielerinventar und Shift-Klick stehen direkt in der Übersicht zur Verfügung. Das frühere Kombinationsrezept entfällt; alte Blöcke werden beim Laden und alte Items beim Platzieren verlustfrei übernommen.
 
 Erhalten bleiben:
 
@@ -27,17 +27,18 @@ Erhalten bleiben:
 
 | Aktion | Eingabe |
 |---|---|
-| Terminal öffnen | Schleichen + Rechtsklick mit leerer Haupthand auf ein geladenes Pult des Netzwerks |
+| Übersicht und Slot öffnen | Schleichen + Rechtsklick auf eine Steuereinheit |
+| Terminal öffnen | Computerknopf in der Übersicht |
 | Montierte Steuerung bedienen | normaler Rechtsklick auf das Modul |
 | Steuerungseinstellungen öffnen | Create-Schraubenschlüssel + Rechtsklick auf eine horizontale Pultseite |
 | Pult drehen | Schraubenschlüssel auf Ober- oder Unterseite |
-| Ponder öffnen | W über einem Computerpultitem halten |
+| Ponder öffnen | W über einem normalen Pult oder Computer halten |
 
 Weitere Details stehen unter [[Bedienung]].
 
 ## Pultnetz
 
-Unmittelbar links und rechts angrenzende, gleich ausgerichtete Pulte bilden eine lineare Reihe. Unterstützt werden normale Pulte sowie normale und erweiterte Computerpulte.
+Unmittelbar links und rechts angrenzende, gleich ausgerichtete Pulte bilden eine lineare Reihe. Unterstützt werden Desk, Copycat Desk, Control Stand und Copycat Stand.
 
 Jedes Mitglied behält:
 
@@ -120,9 +121,11 @@ Der lokale Adapter greift nur auf dieses Pult zu. Netzwerkweite `getDesk...`-Met
 
 ## Genau ein eingebetteter Computer
 
-Ein Pultnetz darf höchstens ein eingebettetes Computer-Steuerungspult enthalten. Mehrere externe Computer an einem Wired-Modem-Netz bleiben davon unberührt.
+Ein Pultnetz darf höchstens einen eingesetzten Computer enthalten. Mehrere externe Computer an einem Wired-Modem-Netz bleiben davon unberührt.
 
-Wird ein weiteres Computerpult normal platziert, bleibt an dieser Stelle ein normales Aeroworks-Pult zurück und der zusätzliche Computer wird mit ID, Label, Terminalgröße und Speicherkapazität ausgeworfen. Konflikte aus Altwelten, Befehlen oder Strukturwerkzeugen bleiben diagnostizierbar und sperren den globalen Graphzugriff.
+Ein zweiter Computer kann nicht per Shift-Klick eingesetzt werden. Beim Zusammenführen belegter Reihen bleibt bevorzugt ein erweiterter Computer, danach der erste in Reihenfolge; weitere Computer werden mitsamt Daten ausgeworfen.
+
+Beim Abbau des Trägers wandert der Computer ins größere verbleibende Reststück, bei Gleichstand nach links in der bisherigen Reihenordnung. Die letzte Steuereinheit droppt den Computer zusätzlich. Der Transfer verändert keine Module, Desk-IDs oder lokalen Einstellungen der verbleibenden Steuereinheiten. Chunkentladen verschiebt und droppt keinen Computer.
 
 ## Peripheral-Ereignisse
 
@@ -142,7 +145,7 @@ Lokale Pulteingaben an einem normalen `ControlDesk` verwenden weiterhin `cc_aero
 
 ## Ponder-Erklärungen
 
-Die Computerpultitems besitzen drei getrennte Storyboards:
+Normale Steuereinheiten und CC:Tweaked-Computer besitzen drei getrennte Storyboards:
 
 1. Pultadapter-Netzwerk und beliebige Computerposition,
 2. netzwerkweite Peripheral-Suche mit eindeutiger Rückgabe,

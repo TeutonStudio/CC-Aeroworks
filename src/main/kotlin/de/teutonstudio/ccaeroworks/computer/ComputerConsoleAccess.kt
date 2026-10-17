@@ -6,11 +6,11 @@ import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.telemetry.TelemetryLuaApi
 import java.lang.ref.WeakReference
 
-class ComputerConsoleAccess(owner: ComputerControlDeskBlockEntity) {
+class ComputerConsoleAccess(owner: ConsoleComputer) {
     private val owner = WeakReference(owner)
 
-    fun owner(): ComputerControlDeskBlockEntity? =
-        owner.get()?.takeIf { !it.isRemoved && it.level != null }
+    fun owner(): ConsoleComputer? =
+        owner.get()?.takeIf { !it.isRemoved && it.level != null && ConsoleComputers.get(it.host) === it }
 }
 
 object CCComputerComponents {

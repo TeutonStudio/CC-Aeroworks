@@ -56,7 +56,7 @@ class ComputerWireLuaApi(
     @LuaFunction(mainThread = true)
     fun isEnabled(): Boolean = owner().wireBank.isOutputEnabled()
 
-    private fun owner(): ComputerControlDeskBlockEntity = access.owner()
+    private fun owner(): ConsoleComputer = access.owner()
         ?: throw LuaException("The ComputerControlDesk is no longer loaded")
 
     private inline fun <T> lua(block: () -> T): T = try {
@@ -101,7 +101,7 @@ class ComputerWireAdminLuaApi(
         "name" to definition.name
     )
 
-    private fun owner(): ComputerControlDeskBlockEntity = access.owner()
+    private fun owner(): ConsoleComputer = access.owner()
         ?: throw LuaException("The ComputerControlDesk is no longer loaded")
 
     private inline fun <T> lua(block: () -> T): T = try {

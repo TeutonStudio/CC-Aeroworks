@@ -102,6 +102,12 @@ jobs:
       - name: Validate display source bindings
         run: python3 tools/verify-display-bindings.py
 
+      - name: Test control script execution
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4
+          lua5.4 src/test/lua/control_handlers_test.lua
+
       - name: Validate display script information sources
         run: python3 tools/verify-display-script-information-sources.py
 
@@ -203,6 +209,9 @@ jobs:
           python3 tools/run-integration-profile.py BASE-SERVER \
             --dependency-dir "${MOD_DEPENDENCY_DIR}" \
             --server-smoke
+
+      - name: Run console computer inventory and lifecycle GameTests
+        run: ./gradlew runGameTestServer -Pmod_dependency_dir="${MOD_DEPENDENCY_DIR}"
 
       - name: Upload verification evidence
         if: ${{ always() }}

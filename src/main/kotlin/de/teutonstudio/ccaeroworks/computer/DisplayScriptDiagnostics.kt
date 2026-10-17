@@ -21,14 +21,14 @@ data class DisplayScriptRuntimeObservation(
 )
 
 object DisplayScriptDiagnosticsRegistry {
-    private val runtimes = WeakHashMap<ComputerControlDeskBlockEntity, DisplayScriptDiagnosticsRuntime>()
+    private val runtimes = WeakHashMap<ConsoleComputer, DisplayScriptDiagnosticsRuntime>()
 
     @Synchronized
-    fun forOwner(owner: ComputerControlDeskBlockEntity): DisplayScriptDiagnosticsRuntime =
+    fun forOwner(owner: ConsoleComputer): DisplayScriptDiagnosticsRuntime =
         runtimes.getOrPut(owner) { DisplayScriptDiagnosticsRuntime() }
 
     @Synchronized
-    fun snapshot(owner: ComputerControlDeskBlockEntity): List<DisplayScriptRuntimeObservation> =
+    fun snapshot(owner: ConsoleComputer): List<DisplayScriptRuntimeObservation> =
         runtimes[owner]?.snapshot().orEmpty()
 }
 

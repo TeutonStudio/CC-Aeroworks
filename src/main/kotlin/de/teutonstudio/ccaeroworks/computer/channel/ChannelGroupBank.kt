@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.computer.channel
 
-import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
+import de.teutonstudio.ccaeroworks.computer.ConsoleComputer
 import java.util.UUID
 
 data class ChannelGroupBinding(
@@ -16,7 +16,7 @@ data class ChannelGroupDefinition(
 
 /** Persistent logical wiring. Bindings reference stable channel ids and survive missing hardware. */
 class ChannelGroupBank(
-    private val owner: ComputerControlDeskBlockEntity
+    private val owner: ConsoleComputer
 ) {
     private val groups = mutableListOf<ChannelGroupDefinition>()
 

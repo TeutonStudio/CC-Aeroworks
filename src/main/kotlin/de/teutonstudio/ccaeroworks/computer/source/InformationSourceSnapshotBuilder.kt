@@ -1,7 +1,7 @@
 package de.teutonstudio.ccaeroworks.computer.source
 
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskSockets
-import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
+import de.teutonstudio.ccaeroworks.computer.ConsoleComputer
 import de.teutonstudio.ccaeroworks.computer.DisplayScriptDiagnosticsRegistry
 import de.teutonstudio.ccaeroworks.computer.PeripheralNetworkBuilder
 import de.teutonstudio.ccaeroworks.display.DisplayBinding
@@ -16,7 +16,7 @@ import kotlin.math.roundToInt
 
 /** Server-only projection of existing authoritative I/O owners into compact GUI metadata. */
 object InformationSourceSnapshotBuilder {
-    fun build(owner: ComputerControlDeskBlockEntity): InformationSourceSnapshot {
+    fun build(owner: ConsoleComputer): InformationSourceSnapshot {
         val sources = arrayListOf<InformationSourceView>()
         addDisplayLinks(owner, sources)
         addStorage(owner, sources)
@@ -28,8 +28,8 @@ object InformationSourceSnapshotBuilder {
         )
     }
 
-    private fun addDisplayLinks(owner: ComputerControlDeskBlockEntity, result: MutableList<InformationSourceView>) {
-        runCatching { TelemetryRuntime.describeSources(owner) }.getOrDefault(emptyMap()).forEach { (id, raw) ->
+    private fun addDisplayLinks(owner: ConsoleComputer, result: MutableList<InformationSourceView>) {
+        runCatching { TelemetryRuntime.describeSources(owner.host) }.getOrDefault(emptyMap()).forEach { (id, raw) ->
             val info = raw as? Map<*, *> ?: return@forEach
             val pos = position(info["sourcePosition"]) ?: return@forEach
             val linkPos = position(info["linkPosition"])
@@ -57,7 +57,7 @@ object InformationSourceSnapshotBuilder {
         }
     }
 
-    private fun addStorage(owner: ComputerControlDeskBlockEntity, result: MutableList<InformationSourceView>) {
+    private fun addStorage(owner: ConsoleComputer, result: MutableList<InformationSourceView>) {
         val graph = runCatching { PeripheralNetworkBuilder.build(owner) }.getOrNull() ?: return
         graph.peripherals
             .asSequence()
@@ -77,7 +77,7 @@ object InformationSourceSnapshotBuilder {
             }
     }
 
-    private fun addGps(owner: ComputerControlDeskBlockEntity, result: MutableList<InformationSourceView>) {
+    private fun addGps(owner: ConsoleComputer, result: MutableList<InformationSourceView>) {
         GpsSourceTracker.request(owner)
         val source = GpsSourceTracker.current(owner) ?: return
         val fix = source.fix
@@ -111,12 +111,12 @@ object InformationSourceSnapshotBuilder {
         val socketName: String
     )
 
-    private fun buildDisplayScripts(owner: ComputerControlDeskBlockEntity): List<DisplayScriptInformationView> {
+    private fun buildDisplayScripts(owner: ConsoleComputer): List<DisplayScriptInformationView> {
         val catalog = runCatching { DisplayScriptCatalog.scan(owner) }.getOrDefault(emptyList())
         val descriptors = catalog.associateBy { it.path }
         val bindings = displayScriptBindings(owner)
         val runtime = DisplayScriptDiagnosticsRegistry.snapshot(owner)
-        val telemetry = runCatching { TelemetryRuntime.describeSources(owner) }.getOrDefault(emptyMap())
+        val telemetry = runCatching { TelemetryRuntime.describeSources(owner.host) }.getOrDefault(emptyMap())
         val paths = linkedSetOf<String>()
         paths += descriptors.keys
         paths += bindings.map(ScriptBindingRef::path)
@@ -171,7 +171,7 @@ object InformationSourceSnapshotBuilder {
         }.sortedBy(DisplayScriptInformationView::path)
     }
 
-    private fun displayScriptBindings(owner: ComputerControlDeskBlockEntity): List<ScriptBindingRef> {
+    private fun displayScriptBindings(owner: ConsoleComputer): List<ScriptBindingRef> {
         val level = owner.level ?: return emptyList()
         val network = ConsoleMultiblockManager.resolve(level, owner.blockPos)
         if (network.state != ConsoleNetworkState.ACTIVE || network.owner !== owner) return emptyList()

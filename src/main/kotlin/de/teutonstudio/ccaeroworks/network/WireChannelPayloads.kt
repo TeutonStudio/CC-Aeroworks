@@ -202,7 +202,7 @@ data class WireChannelSnapshotPayload(val snapshot: WireChannelManagerSnapshot) 
     }
 }
 
-private fun sendSnapshot(player: ServerPlayer) {
+internal fun sendSnapshot(player: ServerPlayer) {
     val owner = ControlDeskUiSwitchState.activeComputerDesk(player) ?: return
     val registry = runCatching { ChannelRegistry.snapshot(owner) }.getOrNull()
     val snapshot = WireChannelManagerSnapshot(

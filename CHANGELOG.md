@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.0 — 2026-10-18
+
+- Computers now use a shared inventory slot on normal control desks. Existing computer desks migrate automatically; removing desks preserves computer data during transfer and drops the computer separately when the last desk is removed.
+
+- Normal control modules can bind Lua scripts in their settings and trigger them on input changes, including releases and signed axis values. See [control scripts](docs/control-scripts.md).
+- Channels now offers a direct coordinate and target-face editor alongside the Cable workflow, including loading and removing existing targets and respecting cable consumption.
+- Fixed Aeroworks channel cycling cancelling the logical multiblock handler, which caused a target click to restore the first channel after scrolling.
+
 ## 1.3.4 — 2026-10-11
 
 - Radar and display diagnostics are disabled by default, including when the logger allows DEBUG output.

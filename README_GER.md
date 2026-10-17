@@ -1,10 +1,10 @@
 # CC-Aeroworks
 
-CC-Aeroworks verbindet **Create: Aeroworks Control Desks** mit **CC:Tweaked** und macht aus einer Reihe von Steuerungspulten ein programmierbares Cockpit-Netzwerk. Die Mod ergänzt Computer-Steuerungspulte, adressierbare Desk-Peripherals, eine netzwerkweite Lua-API, programmierbare Displays, Touch-/Draw-Eingabe, Create-Telemetrie, steuerbare Kanäle und optionale Create:-Radars-Anzeigen.
+CC-Aeroworks verbindet **Create: Aeroworks Control Desks** mit **CC:Tweaked** und macht aus einer Reihe von Steuerungspulten ein programmierbares Cockpit-Netzwerk. Die Mod ergänzt gemeinsame Computerslots in normalen Steuereinheiten, adressierbare Desk-Peripherals, eine netzwerkweite Lua-API, programmierbare Displays, Touch-/Draw-Eingabe, Create-Telemetrie, steuerbare Kanäle und optionale Create:-Radars-Anzeigen.
 
 ## Kernfunktionen
 
-- lineare Netzwerke aus normalen Aeroworks-Pulten und Computer-Steuerungspulten;
+- lineare Netzwerke aus normalen Aeroworks-Pulten mit einem gemeinsamen Computerslot;
 - normaler oder erweiterter CC:Tweaked-Computer direkt im Pult;
 - jedes Pult bleibt ein eigenes `ControlDesk`-Peripheral mit eigener Position, Modulen und Displays;
 - globale APIs für eingebettete Computer: `peripherals`, `channels`, `controls`, `wires` und `telemetry`;
@@ -16,7 +16,7 @@ CC-Aeroworks verbindet **Create: Aeroworks Control Desks** mit **CC:Tweaked** un
 
 ## Pultnetzwerke
 
-Gleich ausgerichtete Steuerungspulte verbinden sich unmittelbar links und rechts zu einem linearen Netzwerk. Desk und Copycat Desk dürfen sich untereinander mischen; Control Stand und Copycat Stand bilden eine separate Geometriefamilie. Alle vier Aeroworks-Ausführungen sind als normales und erweitertes Computerpult verfügbar.
+Gleich ausgerichtete Steuerungspulte verbinden sich unmittelbar links und rechts zu einem linearen Netzwerk. Desk und Copycat Desk dürfen sich untereinander mischen; Control Stand und Copycat Stand bilden eine separate Geometriefamilie. Alle vier Aeroworks-Ausführungen unterstützen den gemeinsamen Slot für normale und erweiterte Computer.
 
 Jedes Pult bleibt ein eigenes Peripheral vom Typ `ControlDesk`. Es besitzt seine eigene Position, stabile Desk-ID, Module, Displays und angrenzenden Geräte. Die Netzwerkauflösung lädt keine Chunks nach und ist auf 64 vollständig geladene Pulte begrenzt.
 
@@ -24,13 +24,13 @@ Ein externer CC:Tweaked-Computer oder ein Wired Modem arbeitet mit dem direkt an
 
 Beispiel: [`examples/cc/local-desk.lua`](examples/cc/local-desk.lua)
 
-## Computer-Steuerungspulte
+## Computer in Steuereinheiten
 
-Desk, Copycat Desk, Control Stand und Copycat Stand können jeweils mit einem normalen oder erweiterten CC:Tweaked-Computer kombiniert werden. Das Rezept erhält Aeroworks-Moduldaten, Copycat-Material und CC:Tweaked-Computerkomponenten.
+Schleichen + Rechtsklick öffnet die Modulübersicht jeder normalen Steuereinheit, auch ohne Module. Sie enthält das Spielerinventar und einen gemeinsamen Computerslot für die gesamte Reihe. Setze einen normalen oder erweiterten CC:Tweaked-Computer ein; der Computerknopf öffnet anschließend das Terminal. Einsetzen und Entnehmen unterstützen Shift-Klick. Ein normaler Rechtsklick bedient weiterhin montierte Steuerobjekte.
 
-Der eingebettete Computer darf an jeder Position der Pultreihe stehen. Pro gültigem Netzwerk existiert höchstens ein eingebetteter Computer. Wird versehentlich ein zweites Computerpult platziert, bleibt dort ein normales Aeroworks-Pult zurück und der zusätzliche Computer wird mitsamt seinen Daten ausgeworfen.
+Pro Reihe gibt es höchstens einen Computer. Beim Abbau seines Trägers wandert er in das größere verbleibende Reststück, bei Gleichstand nach links. Die letzte Steuereinheit droppt den Computer zusätzlich zum Pult. Computer-ID, Dateien, Label, Terminalgröße, Kapazität sowie Wire-Kanäle und Kanalgruppen bleiben erhalten. Pultmodule, Materialien und Desk-IDs bleiben an ihren jeweiligen Steuereinheiten.
 
-Mit Schleichen und Rechtsklick bei leerer Haupthand lässt sich das eingebettete Terminal von jedem geladenen Mitglied des gültigen Pultnetzes öffnen. Ein normaler Rechtsklick bedient montierte Steuerobjekte; ein Create-Schraubenschlüssel auf einer horizontalen Pultseite öffnet die Steuerungseinstellungen.
+Das bisherige Kombinationsrezept entfällt. Alte Computerpulte werden beim Laden, alte Computerpultitems beim Platzieren automatisch übernommen. Beim Verbinden belegter Reihen bleibt bevorzugt ein erweiterter Computer, danach der erste in Reihenfolge; zusätzliche Computer werden mitsamt Daten ausgeworfen.
 
 ## Lua- und Peripheral-API
 

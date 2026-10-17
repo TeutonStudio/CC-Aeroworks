@@ -104,7 +104,8 @@ object DisplayBindings {
         return when (binding) {
             DisplayBinding.Default -> true
             is DisplayBinding.LuaHandler ->
-                CCModuleTypes.displayType(module.type()) == DeskDisplayType.THREE_DIGIT &&
+                (CCModuleTypes.displayType(module.type()) == DeskDisplayType.THREE_DIGIT ||
+                    ControlScriptBindings.supports(module)) &&
                     binding.path.isNotBlank() &&
                     binding.path.length <= MAX_HANDLER_PATH_LENGTH
             is DisplayBinding.Extension -> DisplayBindingExtensions.supports(desk, socket, binding)

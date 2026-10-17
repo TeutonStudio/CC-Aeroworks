@@ -3,6 +3,7 @@ package de.teutonstudio.ccaeroworks.network
 import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.sable.SableInteractionGeometry
+import de.teutonstudio.ccaeroworks.display.ControlScriptBindings
 import de.teutonstudio.ccaeroworks.display.DeskDisplayType
 import de.teutonstudio.ccaeroworks.display.DisplayScriptCatalog
 import de.teutonstudio.ccaeroworks.display.DisplayScriptCatalogState
@@ -45,10 +46,12 @@ data class RequestDisplayScriptCatalogPayload(
             val player = context.player() as? ServerPlayer ?: return
             val desk = validateDesk(player, payload.pos, payload.socket) ?: return
             val module = desk.module(payload.socket) ?: return
-            val displayType = CCModuleTypes.displayType(module.type()) ?: return
+            val displayType = CCModuleTypes.displayType(module.type())
+            val control = ControlScriptBindings.supports(module)
+            if (displayType == null && !control) return
             val owner = DisplayScriptCatalog.ownerFor(desk) ?: return
-            val entries = DisplayScriptCatalog.scan(owner, force = true)
-                .filter { it.supports(displayType) }
+            val entries = if (control) DisplayScriptCatalog.scanControls(owner, force = true)
+            else DisplayScriptCatalog.scan(owner, force = true).filter { it.supports(displayType!!) }
             PacketDistributor.sendToPlayer(
                 player,
                 DisplayScriptCatalogPayload(payload.pos, payload.socket, entries)

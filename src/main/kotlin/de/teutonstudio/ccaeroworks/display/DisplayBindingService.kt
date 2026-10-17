@@ -20,6 +20,9 @@ object DisplayBindingService {
     @Throws(LuaException::class)
     fun setTouchScript(desk: ConsoleBlockEntity, rawSocket: Any?, path: String): Map<String, Any> {
         val socket = AeroworksDeskService.parseSocket(desk, rawSocket)
+        if (desk.module(socket)?.let { de.teutonstudio.ccaeroworks.registry.CCModuleTypes.displayType(it.type()) } != DeskDisplayType.THREE_DIGIT) {
+            throw LuaException("Touch scripts are supported only by the large Desk Display")
+        }
         val normalized = path.trim()
         TouchInputDiagnostics.info(
             "binding",
@@ -41,6 +44,23 @@ object DisplayBindingService {
             "set accepted desk=${desk.blockPos.toShortString()} socket=$socket path='$normalized' readback=${DisplayBindings.describe(stored)}"
         )
         return DisplayBindings.describe(binding)
+    }
+
+    @Throws(LuaException::class)
+    fun setControlScript(desk: ConsoleBlockEntity, rawSocket: Any?, path: String): Map<String, Any> {
+        val socket = AeroworksDeskService.parseSocket(desk, rawSocket)
+        val module = desk.module(socket) ?: throw LuaException("Socket $socket is empty")
+        if (!ControlScriptBindings.supports(module)) throw LuaException("Socket $socket is not a control module")
+        if (path.isBlank()) return clearBinding(desk, rawSocket)
+        val normalized = DisplayScriptCatalog.normalizePath(path) ?: throw LuaException("Invalid control script path")
+        val owner = DisplayScriptCatalog.ownerFor(desk) ?: throw LuaException("No embedded computer in this console")
+        if (DisplayScriptCatalog.scanControls(owner, force = true).none { it.path == normalized }) {
+            throw LuaException("Control script '$normalized' was not found")
+        }
+        if (!DisplayBindings.set(desk, socket, DisplayBinding.LuaHandler(normalized))) {
+            throw LuaException("Cannot bind control script to socket $socket")
+        }
+        return DisplayBindings.describe(DisplayBindings.get(desk, socket))
     }
 
     @Throws(LuaException::class)

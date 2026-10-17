@@ -1,7 +1,7 @@
 package de.teutonstudio.ccaeroworks.telemetry
 
 import de.teutonstudio.ccaeroworks.CCAeroworks
-import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
+import de.teutonstudio.ccaeroworks.computer.ConsoleComputer
 import dev.ryanhcode.sable.Sable
 import net.minecraft.core.BlockPos
 import net.minecraft.core.registries.BuiltInRegistries
@@ -71,10 +71,10 @@ internal object SimulatedDockDiscovery {
     fun available(): Boolean =
         ModList.get().isLoaded("simulated") && ModList.get().isLoaded("sable") && SimulatedDockAccess.available()
 
-    fun discover(owner: ComputerControlDeskBlockEntity): List<DockSnapshot> {
+    fun discover(owner: ConsoleComputer): List<DockSnapshot> {
         if (!available()) return emptyList()
         val level = owner.level as? ServerLevel ?: return emptyList()
-        val subLevel = runCatching { Sable.HELPER.getContaining(owner) }.getOrNull() ?: return emptyList()
+        val subLevel = runCatching { Sable.HELPER.getContaining(owner.host) }.getOrNull() ?: return emptyList()
         val localSubLevelId = subLevel.uniqueId.toString()
         val found = linkedMapOf<BlockPos, BlockEntity>()
 

@@ -2,7 +2,7 @@ package de.teutonstudio.ccaeroworks.computer.channel
 
 import dan200.computercraft.api.lua.LuaException
 import de.teutonstudio.ccaeroworks.compat.drivebywire.NativeDriveByWireChannels
-import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
+import de.teutonstudio.ccaeroworks.computer.ConsoleComputer
 import de.teutonstudio.ccaeroworks.computer.control.ControlOverrideCommand
 import de.teutonstudio.ccaeroworks.computer.control.ControlOverrideManager
 import de.teutonstudio.ccaeroworks.computer.wire.WireConnectionView
@@ -69,7 +69,7 @@ data class ChannelRegistrySnapshot(
 
 /** One canonical logical view over physical controls, virtual wire channels and user aliases. */
 object ChannelRegistry {
-    fun snapshot(owner: ComputerControlDeskBlockEntity): ChannelRegistrySnapshot {
+    fun snapshot(owner: ConsoleComputer): ChannelRegistrySnapshot {
         val level = owner.level ?: throw LuaException("The ComputerControlDesk is no longer loaded")
         val network = ConsoleMultiblockManager.resolve(level, owner.blockPos)
         val members = network.members.associateBy { it.id }
@@ -148,18 +148,18 @@ object ChannelRegistry {
         return ChannelRegistrySnapshot(modules, wires, groups, wireSnapshot.backend, wireSnapshot.enabled)
     }
 
-    fun findById(owner: ComputerControlDeskBlockEntity, id: String): ChannelDescriptor? =
+    fun findById(owner: ConsoleComputer, id: String): ChannelDescriptor? =
         snapshot(owner).channels.firstOrNull { it.id == id }
 
-    fun resolve(owner: ComputerControlDeskBlockEntity, raw: String): ChannelDescriptor {
+    fun resolve(owner: ConsoleComputer, raw: String): ChannelDescriptor {
         val snapshot = snapshot(owner)
         return resolve(snapshot, owner, raw)
             ?: throw LuaException("Unknown or unavailable channel '$raw'")
     }
 
-    fun read(owner: ComputerControlDeskBlockEntity, raw: String): Int = resolve(owner, raw).value
+    fun read(owner: ConsoleComputer, raw: String): Int = resolve(owner, raw).value
 
-    fun stat(owner: ComputerControlDeskBlockEntity, raw: String): Map<String, Any> {
+    fun stat(owner: ConsoleComputer, raw: String): Map<String, Any> {
         val snapshot = snapshot(owner)
         groupBinding(snapshot, owner, raw)?.let { (group, binding) ->
             val target = snapshot.channels.firstOrNull { it.id == binding.targetId }
@@ -174,7 +174,7 @@ object ChannelRegistry {
         return describe(resolve(snapshot, owner, raw) ?: throw LuaException("Unknown channel '$raw'"))
     }
 
-    fun ls(owner: ComputerControlDeskBlockEntity, rawPath: String): List<Map<String, Any>> {
+    fun ls(owner: ConsoleComputer, rawPath: String): List<Map<String, Any>> {
         val snapshot = snapshot(owner)
         val path = normalizePath(rawPath)
         return when {
@@ -239,25 +239,25 @@ object ChannelRegistry {
         }
     }
 
-    fun setWire(owner: ComputerControlDeskBlockEntity, raw: String, value: Int) {
+    fun setWire(owner: ConsoleComputer, raw: String, value: Int) {
         val channel = resolve(owner, raw)
         if (channel.kind != ChannelKind.WIRE) throw LuaException("Channel '$raw' is not a wire channel")
         owner.wireBank.setValue(channel.wireName ?: throw LuaException("Wire channel is unavailable"), value)
     }
 
-    fun pulseWire(owner: ComputerControlDeskBlockEntity, raw: String, ticks: Int, value: Int) {
+    fun pulseWire(owner: ConsoleComputer, raw: String, ticks: Int, value: Int) {
         val channel = resolve(owner, raw)
         if (channel.kind != ChannelKind.WIRE) throw LuaException("Channel '$raw' is not a wire channel")
         owner.wireBank.pulse(channel.wireName ?: throw LuaException("Wire channel is unavailable"), ticks, value)
     }
 
-    fun resetWire(owner: ComputerControlDeskBlockEntity, raw: String) {
+    fun resetWire(owner: ConsoleComputer, raw: String) {
         val channel = resolve(owner, raw)
         if (channel.kind != ChannelKind.WIRE) throw LuaException("Channel '$raw' is not a wire channel")
         owner.wireBank.reset(channel.wireName ?: throw LuaException("Wire channel is unavailable"))
     }
 
-    fun override(owner: ComputerControlDeskBlockEntity, raw: String, value: Int): Map<String, Any> {
+    fun override(owner: ConsoleComputer, raw: String, value: Int): Map<String, Any> {
         requireSignal(value)
         val descriptor = resolve(owner, raw)
         val target = descriptor.controlTarget ?: throw LuaException("Channel '$raw' is not a control channel")
@@ -267,7 +267,7 @@ object ChannelRegistry {
         )
     }
 
-    fun overrideBatch(owner: ComputerControlDeskBlockEntity, commands: List<Pair<String, Int>>): Int {
+    fun overrideBatch(owner: ConsoleComputer, commands: List<Pair<String, Int>>): Int {
         val resolved = commands.map { (raw, value) ->
             requireSignal(value)
             val descriptor = resolve(owner, raw)
@@ -287,13 +287,13 @@ object ChannelRegistry {
         )
     }
 
-    fun release(owner: ComputerControlDeskBlockEntity, raw: String): Boolean {
+    fun release(owner: ConsoleComputer, raw: String): Boolean {
         val descriptor = resolve(owner, raw)
         val target = descriptor.controlTarget ?: throw LuaException("Channel '$raw' is not a control channel")
         return ControlOverrideManager.release(owner, target.deskId, target.socket, target.nativeChannel)
     }
 
-    private fun resolve(snapshot: ChannelRegistrySnapshot, owner: ComputerControlDeskBlockEntity, raw: String): ChannelDescriptor? {
+    private fun resolve(snapshot: ChannelRegistrySnapshot, owner: ConsoleComputer, raw: String): ChannelDescriptor? {
         val value = raw.trim()
         snapshot.channels.firstOrNull { it.id == value }?.let { return it }
         val path = normalizePath(value)
@@ -317,7 +317,7 @@ object ChannelRegistry {
 
     private fun groupBinding(
         snapshot: ChannelRegistrySnapshot,
-        owner: ComputerControlDeskBlockEntity,
+        owner: ConsoleComputer,
         raw: String
     ): Pair<ChannelGroupDefinition, ChannelGroupBinding>? {
         val path = normalizePath(raw)

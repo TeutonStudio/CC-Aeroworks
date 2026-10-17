@@ -1,6 +1,6 @@
 package de.teutonstudio.ccaeroworks.radarcompat.computer.source
 
-import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
+import de.teutonstudio.ccaeroworks.computer.ConsoleComputer
 import de.teutonstudio.ccaeroworks.computer.source.InformationSourceKind
 import de.teutonstudio.ccaeroworks.computer.source.InformationSourceView
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
@@ -12,8 +12,8 @@ object RadarInformationSources {
     private val RADAR_DATA_LINK = InformationSourceKind("radar_data_link", "RADAR DATA LINKS", 100)
     private val RADAR_NETWORK_CONTROLLER = InformationSourceKind("radar_network_controller", "NETWORK CONTROLLERS", 110)
 
-    fun sources(owner: ComputerControlDeskBlockEntity): List<InformationSourceView> = buildList {
-        RadarSourceRegistry.sources(owner).forEach { source ->
+    fun sources(owner: ConsoleComputer): List<InformationSourceView> = buildList {
+        RadarSourceRegistry.sources(owner.host).forEach { source ->
             val radar = source.radarPos
             add(InformationSourceView(
                 id = "radar_data_link:${source.id}", kind = RADAR_DATA_LINK,

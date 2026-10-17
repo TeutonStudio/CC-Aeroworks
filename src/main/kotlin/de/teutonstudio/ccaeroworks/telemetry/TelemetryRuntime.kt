@@ -1,9 +1,10 @@
 package de.teutonstudio.ccaeroworks.telemetry
 
+import de.teutonstudio.ccaeroworks.computer.ConsoleComputers
 import com.simibubi.create.api.registry.CreateBuiltInRegistries
 import com.simibubi.create.content.redstone.displayLink.DisplayLinkBlockEntity
 import com.simibubi.create.content.redstone.displayLink.DisplayLinkContext
-import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
+import de.teutonstudio.ccaeroworks.computer.ConsoleComputer
 import de.teutonstudio.ccaeroworks.config.CCServerConfig
 import dev.ryanhcode.sable.Sable
 import net.minecraft.core.BlockPos
@@ -65,7 +66,7 @@ internal object TelemetryRuntime {
         val endpoints = endpointsByLevel.getOrPut(level) { linkedMapOf() }
         endpoints[endpointId]?.let { return it }
         if (!create) return null
-        val kind = if (target is ComputerControlDeskBlockEntity) {
+        val kind = if (ConsoleComputers.get(target) != null) {
             TelemetryEndpointKind.COMPUTER
         } else {
             TelemetryEndpointKind.DOCK

@@ -98,7 +98,9 @@ public abstract class DriveByWireClientWireNetworkHandlerMixin {
         ccaeroworks$mirrorEndpoint(endpoint);
     }
 
-    @Inject(method = "changeChannel", at = @At("HEAD"), cancellable = true, require = 0)
+    // Run before Aeroworks' default-order cancellable HEAD callback. Mixin priority alone
+    // does not give this handler precedence: lower-priority mixins are applied first.
+    @Inject(method = "changeChannel", at = @At("HEAD"), order = 900, cancellable = true, require = 1)
     private static void ccaeroworks$scrollWholeDeskNetwork(
         final Block source,
         final boolean forward,

@@ -4,7 +4,7 @@ CC-Aeroworks connects **Create: Aeroworks Control Desks** with **CC:Tweaked**, t
 
 ## Core features
 
-- Linear networks of normal Aeroworks desks and computer control desks.
+- Linear networks of ordinary Aeroworks desks with one shared computer slot.
 - Normal or advanced CC:Tweaked computers embedded directly into a desk.
 - Every desk remains an individual `ControlDesk` peripheral with its own position, modules, inputs, and displays.
 - Embedded-computer APIs: `peripherals`, `channels`, `controls`, `wires`, and `telemetry`.
@@ -16,7 +16,7 @@ CC-Aeroworks connects **Create: Aeroworks Control Desks** with **CC:Tweaked**, t
 
 ## Desk networks and peripherals
 
-Aligned consoles connect directly left and right. Desk and Copycat Desk variants may mix, while Control Stand and Copycat Stand form a separate geometry family. All four Aeroworks variants are available with normal and advanced embedded computers. The resolver never force-loads chunks and accepts at most 64 fully loaded consoles; a valid network contains at most one embedded computer.
+Aligned consoles connect directly left and right. Desk and Copycat Desk variants may mix, while Control Stand and Copycat Stand form a separate geometry family. All four Aeroworks variants support normal and advanced computers in the shared slot. The resolver never force-loads chunks and accepts at most 64 fully loaded consoles; a valid network contains at most one embedded computer.
 
 Each desk is addressed by its canonical `x,y,z` position. Adjacent CC:Tweaked peripherals are discovered automatically and delegated through normal CC:Tweaked attach/detach, event, mount, and main-thread semantics.
 
@@ -31,6 +31,14 @@ The embedded computer exposes the `peripherals` API. Common entry points include
 Example: [`examples/cc/network-basics.lua`](examples/cc/network-basics.lua)
 
 The previous global `aeroworks` API and the old network-wide desk/display facades are no longer part of the public contract.
+
+## Shared computer slot
+
+Sneak + right-click any ordinary console to open its module overview, including empty consoles. The overview includes your inventory and the row’s shared computer slot. Insert a normal or advanced CC:Tweaked computer, then use the Computer button to open its terminal. Insertion and extraction support shift-click.
+
+Breaking the computer’s host moves it into the larger remaining piece, preferring left on a tie. Breaking the last console drops the computer separately. Computer ID, files, label, terminal size, capacity, wire channels and channel groups are retained. Modules, skins and desk IDs stay with their original consoles.
+
+The combined-block recipe is retired. Existing computer desks migrate automatically when loaded; legacy items migrate when placed. Joining occupied rows keeps an advanced computer first, then the first in row order, and ejects extras with their data.
 
 ## Control APIs
 

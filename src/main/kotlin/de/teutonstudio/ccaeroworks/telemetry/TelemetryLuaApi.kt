@@ -6,7 +6,7 @@ import dan200.computercraft.api.lua.LuaException
 import dan200.computercraft.api.lua.LuaFunction
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.computer.ComputerConsoleAccess
-import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
+import de.teutonstudio.ccaeroworks.computer.ConsoleComputer
 import de.teutonstudio.ccaeroworks.config.CCServerConfig
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.block.entity.BlockEntity
@@ -91,9 +91,9 @@ internal class TelemetryComputerRuntime(
         TelemetryComputerRuntimes.register(this)
     }
 
-    fun list(): Map<String, Any> = TelemetryRuntime.describeSources(owner())
+    fun list(): Map<String, Any> = TelemetryRuntime.describeSources(owner().host)
 
-    fun get(nameOrId: String): Map<String, Any>? = TelemetryRuntime.describeSource(owner(), nameOrId)
+    fun get(nameOrId: String): Map<String, Any>? = TelemetryRuntime.describeSource(owner().host, nameOrId)
 
     fun find(type: String): Map<String, Any> {
         val normalized = type.trim().lowercase()
@@ -108,25 +108,25 @@ internal class TelemetryComputerRuntime(
     fun rename(nameOrId: String, alias: String): Map<String, Any> {
         val owner = owner()
         try {
-            TelemetryRuntime.rename(owner, nameOrId, alias)
+            TelemetryRuntime.rename(owner.host, nameOrId, alias)
                 ?: throw LuaException("Telemetry source '$nameOrId' was not found")
         } catch (error: IllegalArgumentException) {
             throw LuaException(error.message ?: "Invalid telemetry alias")
         }
-        return TelemetryRuntime.describeSource(owner, alias)
+        return TelemetryRuntime.describeSource(owner.host, alias)
             ?: throw LuaException("Telemetry source '$alias' was not found after renaming")
     }
 
     fun clearName(nameOrId: String): Map<String, Any> {
         val owner = owner()
-        val source = TelemetryRuntime.clearAlias(owner, nameOrId)
+        val source = TelemetryRuntime.clearAlias(owner.host, nameOrId)
             ?: throw LuaException("Telemetry source '$nameOrId' was not found")
-        return TelemetryRuntime.describeSource(owner, source.id)
+        return TelemetryRuntime.describeSource(owner.host, source.id)
             ?: throw LuaException("Telemetry source '${source.id}' is no longer available")
     }
 
     fun status(): Map<String, Any> = linkedMapOf<String, Any>().apply {
-        putAll(TelemetryRuntime.status(owner()))
+        putAll(TelemetryRuntime.status(owner().host))
         put("dockCount", refreshDocks().size)
         put("simulatedDockingAvailable", SimulatedDockDiscovery.available())
     }
@@ -216,7 +216,7 @@ internal class TelemetryComputerRuntime(
         TelemetryRuntime.validate(level)
         val computerOn = owner.getServerComputer()?.isOn == true
 
-        val current = TelemetryRuntime.sourceRevisions(owner)
+        val current = TelemetryRuntime.sourceRevisions(owner.host)
         if (initialized && computerOn) publishLocalEvents(current)
         revisions = current
 
@@ -334,7 +334,7 @@ internal class TelemetryComputerRuntime(
         return dock.remote?.takeIf { !it.isRemoved }
     }
 
-    private fun owner(): ComputerControlDeskBlockEntity =
+    private fun owner(): ConsoleComputer =
         access.owner() ?: throw LuaException("The computer control desk is no longer loaded")
 
     private fun level(): ServerLevel =

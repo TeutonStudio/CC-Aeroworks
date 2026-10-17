@@ -43,7 +43,7 @@ require(
     "Computer/API buttons must reserve Orientation without following right-aligned Done/Delete",
 )
 require("withCallback<HoverTintIconButton>(callback)" in aero_buttons, "Catnip callback typing regression")
-require("private val API_ICON" in aero_buttons and "GuideBookScreen(screen, GuideSectionId.NETWORK_API)" in aero_buttons, "API button must open the named Network/API guide section")
+require("private val API_ICON" in aero_buttons and "GuideBookScreen(Minecraft.getInstance().screen ?: screen, GuideSectionId.NETWORK_API)" in aero_buttons, "API button must open the named Network/API guide section")
 require("Component.translatable(\"guide.cc_aeroworks.tab.network\")" in aero_buttons, "API button must use the localized Network/API tooltip")
 require("if (!ControlDeskUiSwitchState.clientCanSwitchToComputer()) return" not in module and "if (!ControlDeskUiSwitchState.clientCanSwitchToComputer()) return" not in overview, "API documentation must not depend on Computer availability")
 require("val computerAction = if" in module and "val computerAction = if" in overview, "Computer action must be optional while API remains available")
@@ -82,12 +82,12 @@ require(
     "Information Sources must remain grouped/collapsible"
 )
 
-require("TelemetryRuntime.describeSources(owner)" in source_builder, "Display Link sources must come from TelemetryRuntime")
+require("TelemetryRuntime.describeSources(owner.host)" in source_builder, "Display Link sources must come from TelemetryRuntime")
 require("PeripheralNetworkBuilder.build(owner)" in source_builder, "storage must come from peripheral graph")
 require("InformationSourceExtensions.sources(owner)" in source_builder, "optional information sources must use the extension boundary")
 require("CopyOnWriteArrayList" in source_extensions and "fun register(" in source_extensions, "information source extension registry must remain safe and explicit")
 require("InformationSourceExtensions.register(RadarInformationSources::sources)" in radar_compat, "radar compat must register its information-source provider")
-require("RadarSourceRegistry.sources(owner)" in radar_sources, "radar Data Links must come from the isolated radar registry")
+require("RadarSourceRegistry.sources(owner.host)" in radar_sources, "radar Data Links must come from the isolated radar registry")
 require("RadarNetworkControllerLookup.controllerFor" in radar_sources, "radar controllers must use isolated topology lookup")
 require("RadarSourceRegistry" not in source_builder and "RadarNetworkControllerLookup" not in source_builder, "base information-source builder must not depend directly on radar compat")
 require("activeComputerDesk(player)" in source_payload and "InformationSourceSnapshotBuilder.build(owner)" in source_payload, "Sources snapshot must use validated session")

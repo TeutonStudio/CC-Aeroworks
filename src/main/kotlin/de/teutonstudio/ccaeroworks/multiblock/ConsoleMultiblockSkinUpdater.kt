@@ -1,15 +1,9 @@
 package de.teutonstudio.ccaeroworks.multiblock
 
-import dan200.computercraft.shared.ModRegistry
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
-import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
-import de.teutonstudio.ccaeroworks.mixin.BlockEntityComponentInvoker
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
-import net.minecraft.core.component.DataComponentType
-import net.minecraft.core.component.DataComponents
 import net.minecraft.server.level.ServerLevel
-import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.BooleanProperty
@@ -50,6 +44,8 @@ object ConsoleMultiblockSkinUpdater {
         if (!AeroworksTypes.isControlDesk(event.state.block)) return
         schedule(level, event.pos)
     }
+
+    fun scheduleRefresh(level: ServerLevel, pos: BlockPos) = schedule(level, pos)
 
     private fun schedule(
         level: ServerLevel,
@@ -153,62 +149,7 @@ object ConsoleMultiblockSkinUpdater {
     }
 
     private fun normalizeDuplicateComputer(level: ServerLevel, origin: BlockPos): Boolean {
-        val placed = level.getBlockEntity(origin) as? ComputerControlDeskBlockEntity ?: return false
-        val snapshot = ConsoleMultiblockResolver.resolve(
-            level,
-            origin,
-            revision.incrementAndGet()
-        )
-        if (snapshot.computers.none { it.blockPos != origin }) return false
-
-        val normalBlock = AeroworksTypes.vanillaControlDeskBlock()
-        val preservedDesk = ItemStack(normalBlock)
-        placed.writeToItem(preservedDesk)
-        val computerDrop = createComputerDrop(placed, preservedDesk)
-        val replacementState = copyDeskState(
-            level.getBlockState(origin),
-            normalBlock.defaultBlockState()
-        )
-
-        if (!level.setBlock(origin, replacementState, Block.UPDATE_ALL)) return false
-
-        level.getBlockEntity(origin)?.let { replacementEntity ->
-            (replacementEntity as BlockEntityComponentInvoker)
-                .ccaeroworks_applyComponentsFromItemStack(preservedDesk)
-            replacementEntity.setChanged()
-            level.sendBlockUpdated(
-                origin,
-                replacementState,
-                replacementState,
-                Block.UPDATE_CLIENTS
-            )
-        }
-
-        Block.popResource(level, origin, computerDrop)
-        return true
-    }
-
-    private fun createComputerDrop(
-        placed: ComputerControlDeskBlockEntity,
-        source: ItemStack
-    ): ItemStack {
-        val computer = ItemStack(
-            if (placed.isAdvanced) ModRegistry.Items.COMPUTER_ADVANCED.get()
-            else ModRegistry.Items.COMPUTER_NORMAL.get()
-        )
-        copyComponent(source, computer, ModRegistry.DataComponents.COMPUTER_ID.get())
-        copyComponent(source, computer, ModRegistry.DataComponents.STORAGE_CAPACITY.get())
-        copyComponent(source, computer, ModRegistry.DataComponents.TERMINAL_SIZE.get())
-        copyComponent(source, computer, DataComponents.CUSTOM_NAME)
-        return computer
-    }
-
-    private fun <T : Any> copyComponent(
-        source: ItemStack,
-        target: ItemStack,
-        type: DataComponentType<T>
-    ) {
-        target.set(type, source.get(type))
+        return de.teutonstudio.ccaeroworks.computer.ConsoleComputerLifecycle.reconcile(level, origin)
     }
 
     private fun copyDeskState(source: BlockState, initialTarget: BlockState): BlockState {

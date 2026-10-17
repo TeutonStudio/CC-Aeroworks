@@ -1,5 +1,6 @@
 package de.teutonstudio.ccaeroworks.display
 
+import de.teutonstudio.ccaeroworks.computer.ConsoleComputers
 import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import com.simibubi.create.api.behaviour.display.DisplayTarget
 import com.simibubi.create.content.redstone.displayLink.DisplayLinkContext
@@ -15,6 +16,10 @@ class DeskDisplayTarget : DisplayTarget() {
     override fun acceptText(line: Int, text: List<MutableComponent>, context: DisplayLinkContext) {
         val desk = context.getTargetBlockEntity() as? ConsoleBlockEntity ?: return
         if (desk.level?.isClientSide != false) return
+        if (ConsoleComputers.get(desk) != null) {
+            de.teutonstudio.ccaeroworks.telemetry.TelemetryRuntime.accept(desk, context, text)
+            return
+        }
         val displays = AeroworksDeskAccess.displays(desk)
         text.forEachIndexed { offset, component ->
             displays.getOrNull(line + offset)?.let { display ->
@@ -26,6 +31,7 @@ class DeskDisplayTarget : DisplayTarget() {
 
     override fun provideStats(context: DisplayLinkContext): DisplayTargetStats {
         val desk = context.getTargetBlockEntity() as? ConsoleBlockEntity
+        if (ConsoleComputers.get(desk) != null) return DisplayTargetStats(1, 64, this)
         val rows = desk?.let(AeroworksDeskAccess::displays)?.size?.coerceAtLeast(1) ?: 1
         return DisplayTargetStats(rows, 3, this)
     }

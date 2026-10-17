@@ -13,21 +13,21 @@ import java.util.Locale
 import java.util.WeakHashMap
 
 internal object PeripheralNetworkRuntimes {
-    private val runtimes = WeakHashMap<ComputerControlDeskBlockEntity, MutableSet<PeripheralNetworkRuntime>>()
+    private val runtimes = WeakHashMap<ConsoleComputer, MutableSet<PeripheralNetworkRuntime>>()
 
     @Synchronized
-    fun register(owner: ComputerControlDeskBlockEntity, runtime: PeripheralNetworkRuntime) {
+    fun register(owner: ConsoleComputer, runtime: PeripheralNetworkRuntime) {
         runtimes.getOrPut(owner, ::linkedSetOf).add(runtime)
     }
 
     @Synchronized
-    fun unregister(owner: ComputerControlDeskBlockEntity, runtime: PeripheralNetworkRuntime) {
+    fun unregister(owner: ConsoleComputer, runtime: PeripheralNetworkRuntime) {
         val current = runtimes[owner] ?: return
         current.remove(runtime)
         if (current.isEmpty()) runtimes.remove(owner)
     }
 
-    fun tick(owner: ComputerControlDeskBlockEntity) {
+    fun tick(owner: ConsoleComputer) {
         val current = synchronized(this) { runtimes[owner]?.toList().orEmpty() }
         current.forEach(PeripheralNetworkRuntime::tick)
     }
@@ -220,7 +220,7 @@ internal class PeripheralNetworkRuntime(
             "y" to node.pos.y,
             "z" to node.pos.z,
             "dimension" to current.dimension,
-            "computer" to (node.desk is ComputerControlDeskBlockEntity),
+            "computer" to (ConsoleComputers.get(node.desk) != null),
             "variant" to node.member.kind.name.lowercase(Locale.ROOT),
             "facing" to node.member.facing.name.lowercase(Locale.ROOT),
             "loaded" to true

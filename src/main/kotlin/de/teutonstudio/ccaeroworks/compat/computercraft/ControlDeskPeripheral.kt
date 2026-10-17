@@ -150,6 +150,11 @@ open class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral 
     fun setDisplayTouchScript(arguments: IArguments): Map<String, Any> =
         DisplayBindingService.setTouchScript(desk(), arguments.get(0), arguments.getString(1))
 
+    /** The selected script executes on the console's embedded computer when this module changes. */
+    @LuaFunction(mainThread = true)
+    fun setControlScript(arguments: IArguments): Map<String, Any> =
+        DisplayBindingService.setControlScript(desk(), arguments.get(0), arguments.getString(1))
+
     @LuaFunction(mainThread = true)
     fun clearDisplayBinding(arguments: IArguments): Map<String, Any> =
         DisplayBindingService.clearBinding(desk(), arguments.get(0))

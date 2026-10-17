@@ -3,6 +3,7 @@ package de.teutonstudio.ccaeroworks.network
 import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.sable.SableInteractionGeometry
+import de.teutonstudio.ccaeroworks.display.ControlScriptBindings
 import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
 import de.teutonstudio.ccaeroworks.display.DisplayScriptCatalog
@@ -55,14 +56,20 @@ data class SetDisplayTouchScriptPayload(
             if (payload.socket !in 0 until desk.socketCount()) return
 
             val module = desk.module(payload.socket) ?: return
-            val displayType = CCModuleTypes.displayType(module.type()) ?: return
+            val displayType = CCModuleTypes.displayType(module.type())
+            val control = ControlScriptBindings.supports(module)
+            if (displayType == null && !control) return
             val normalized = payload.path.trim()
             val binding = if (normalized.isEmpty()) {
                 DisplayBinding.Default
             } else {
                 if (normalized.length > DisplayBindings.MAX_HANDLER_PATH_LENGTH) return
                 val owner = DisplayScriptCatalog.ownerFor(desk) ?: return
-                val descriptor = DisplayScriptCatalog.find(owner, normalized, displayType) ?: return
+                val descriptor = if (control) {
+                    val path = DisplayScriptCatalog.normalizePath(normalized) ?: return
+                    DisplayScriptCatalog.scanControls(owner, force = true).firstOrNull { it.path == path }
+                } else DisplayScriptCatalog.find(owner, normalized, displayType!!)
+                if (descriptor == null) return
                 DisplayBinding.LuaHandler(descriptor.path)
             }
             DisplayBindings.set(desk, payload.socket, binding)

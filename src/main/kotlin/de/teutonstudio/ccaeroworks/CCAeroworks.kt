@@ -39,6 +39,7 @@ class CCAeroworks(modEventBus: IEventBus, modContainer: ModContainer) {
         CCBlockEntities.register(modEventBus)
         CCModuleTypes.register()
         CCItems.register(modEventBus)
+        de.teutonstudio.ccaeroworks.registry.CCMenus.register(modEventBus)
         CCRecipeSerializers.register(modEventBus)
         CCDisplayTargets.register(modEventBus)
         ControlDeskPeripheralRegistry.register(modEventBus)

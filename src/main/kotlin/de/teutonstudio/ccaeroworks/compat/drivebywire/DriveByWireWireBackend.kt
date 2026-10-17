@@ -1,10 +1,15 @@
 package de.teutonstudio.ccaeroworks.compat.drivebywire
 
 import de.teutonstudio.ccaeroworks.CCAeroworks
-import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
+import de.teutonstudio.ccaeroworks.computer.ConsoleComputer
 import de.teutonstudio.ccaeroworks.computer.wire.WireBackend
 import de.teutonstudio.ccaeroworks.computer.wire.WireConnectionView
 import edn.stratodonut.drivebywire.wire.WireNetworkManager
+import edn.stratodonut.drivebywire.WireConfig
+import edn.stratodonut.drivebywire.WireItems
+import edn.stratodonut.drivebywire.network.WireNetworkFullSyncPacket
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.item.ItemStack
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 
@@ -15,7 +20,7 @@ import net.minecraft.core.Direction
  * ComputerControlDesk remains loadable without the optional dependency.
  */
 class DriveByWireWireBackend(
-    private val owner: ComputerControlDeskBlockEntity
+    private val owner: ConsoleComputer
 ) : WireBackend {
     override val name: String = "drivebywire"
 
@@ -93,6 +98,26 @@ class DriveByWireWireBackend(
                 )
             }
             .sortedWith(compareBy(WireConnectionView::x, WireConnectionView::y, WireConnectionView::z, WireConnectionView::side))
+
+    override fun changeConnection(sourcePos: BlockPos, channel: String, target: BlockPos, side: Direction, add: Boolean, player: ServerPlayer) {
+        val level = owner.level ?: throw IllegalStateException("Console is no longer loaded")
+        val consume = WireConfig.CONFIG.shouldConsumeWires.get() && !player.hasInfiniteMaterials()
+        if (add) {
+            val wire = if (consume) (0 until player.inventory.containerSize)
+                .map { player.inventory.getItem(it) }.firstOrNull { it.`is`(WireItems.WIRE.get()) } else null
+            require(!consume || wire != null) { "A Cable is required in your inventory" }
+            val result = WireNetworkManager.createConnection(level, sourcePos, target, side, channel)
+            check(result.isSuccess) { result.description }
+            wire?.consume(1, player)
+        } else {
+            check(WireNetworkManager.removeConnection(level, sourcePos, target, side, channel)) { "This connection does not exist" }
+            if (consume) {
+                val refund = ItemStack(WireItems.WIRE.get())
+                if (!player.addItem(refund)) player.drop(refund, false)
+            }
+        }
+        WireNetworkFullSyncPacket.sendTo(player)
+    }
 
     override fun clearSignals() {
         val level = owner.level ?: return

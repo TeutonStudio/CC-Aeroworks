@@ -13,7 +13,7 @@ import java.util.Locale
 import java.util.UUID
 
 internal object PeripheralNetworkBuilder {
-    fun build(owner: ComputerControlDeskBlockEntity): PeripheralNetworkGraph {
+    fun build(owner: ConsoleComputer): PeripheralNetworkGraph {
         val level = owner.level as? ServerLevel
             ?: throw LuaException("The computer control desk is not in a server level")
         val snapshot = ConsoleMultiblockManager.resolve(level, owner.blockPos)

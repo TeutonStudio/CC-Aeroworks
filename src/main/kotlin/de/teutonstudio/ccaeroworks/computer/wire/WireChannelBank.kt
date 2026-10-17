@@ -1,9 +1,11 @@
 package de.teutonstudio.ccaeroworks.computer.wire
 
 import de.teutonstudio.ccaeroworks.CCAeroworks
-import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
+import de.teutonstudio.ccaeroworks.computer.ConsoleComputer
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
+import net.minecraft.core.Direction
+import net.minecraft.server.level.ServerPlayer
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.neoforged.fml.ModList
@@ -56,6 +58,10 @@ interface WireBackend {
     /** Read-only DBW topology lookup used by the channel GUI for any logical desk source. */
     fun connectionTargets(sourcePos: BlockPos, channel: String): List<WireConnectionView> = emptyList()
 
+    fun changeConnection(sourcePos: BlockPos, channel: String, target: BlockPos, side: Direction, add: Boolean, player: ServerPlayer) {
+        throw IllegalStateException("Drive By Wire is not available")
+    }
+
     fun clearSignals()
 
     fun close() {
@@ -81,12 +87,12 @@ private object WireBackends {
     private const val DRIVE_BY_WIRE_BACKEND =
         "de.teutonstudio.ccaeroworks.compat.drivebywire.DriveByWireWireBackend"
 
-    fun create(owner: ComputerControlDeskBlockEntity): WireBackend {
+    fun create(owner: ConsoleComputer): WireBackend {
         if (!ModList.get().isLoaded("drivebywire")) return NoWireBackend
 
         return runCatching {
             val backendClass = Class.forName(DRIVE_BY_WIRE_BACKEND)
-            val constructor = backendClass.getConstructor(ComputerControlDeskBlockEntity::class.java)
+            val constructor = backendClass.getConstructor(ConsoleComputer::class.java)
             constructor.newInstance(owner) as WireBackend
         }.getOrElse { throwable ->
             CCAeroworks.LOGGER.error("Failed to initialize Drive By Wire backend", throwable)
@@ -96,7 +102,7 @@ private object WireBackends {
 }
 
 class WireChannelBank(
-    private val owner: ComputerControlDeskBlockEntity
+    private val owner: ConsoleComputer
 ) {
     private val definitions = mutableListOf<WireChannelDefinition>()
     private val states = hashMapOf<UUID, WireChannelState>()
@@ -234,6 +240,9 @@ class WireChannelBank(
 
     fun connectionTargets(sourcePos: BlockPos, channel: String): List<WireConnectionView> =
         backend().connectionTargets(sourcePos, channel)
+
+    fun changeConnection(sourcePos: BlockPos, channel: String, target: BlockPos, side: Direction, add: Boolean, player: ServerPlayer) =
+        backend().changeConnection(sourcePos, channel, target, side, add, player)
 
     fun snapshot(): WireChannelBankView {
         val activeBackend = backend()

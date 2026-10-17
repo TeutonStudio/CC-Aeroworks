@@ -30,7 +30,7 @@ def main() -> int:
     binding = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralBinding.kt")
     handles = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralLuaHandles.kt")
     mounts = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralMountRegistry.kt")
-    computer = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerControlDeskBlockEntity.kt")
+    computer = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ConsoleComputer.kt")
     local = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ControlDeskPeripheral.kt")
     state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ControlDeskPeripheralState.kt")
     docs = read("docs/cc-peripheral-api.md")

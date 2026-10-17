@@ -2,7 +2,7 @@ package de.teutonstudio.ccaeroworks.computer.wire
 
 import de.teutonstudio.ccaeroworks.compat.drivebywire.NativeDriveByWireChannel
 import de.teutonstudio.ccaeroworks.compat.drivebywire.NativeDriveByWireChannels
-import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
+import de.teutonstudio.ccaeroworks.computer.ConsoleComputer
 import de.teutonstudio.ccaeroworks.computer.channel.ControlDirectionalSignals
 import de.teutonstudio.ccaeroworks.computer.channel.UserChannelGroupView
 import de.teutonstudio.ccaeroworks.computer.control.ControlOverrideManager
@@ -65,7 +65,7 @@ object WireChannelSnapshotState {
 }
 
 object ControlChannelSnapshotBuilder {
-    fun build(owner: ComputerControlDeskBlockEntity): List<ControlModuleGroupView> {
+    fun build(owner: ConsoleComputer): List<ControlModuleGroupView> {
         val level = owner.level ?: return emptyList()
         val network = ConsoleMultiblockManager.resolve(level, owner.blockPos)
         val members = network.members.associateBy { it.id }

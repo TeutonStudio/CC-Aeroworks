@@ -34,6 +34,9 @@ object CCAeroworksClient {
             )
         }
         DeskDisplayModels.init()
+        modBus.addListener<net.neoforged.neoforge.client.event.RegisterMenuScreensEvent> { event ->
+            event.register(de.teutonstudio.ccaeroworks.registry.CCMenus.CONSOLE_INVENTORY.get(), ::ConsoleInventoryScreen)
+        }
         modBus.addListener(::clientSetup)
         modBus.addListener(::registerRenderers)
         modBus.addListener<ModelEvent.RegisterAdditional>(ConsoleMultiblockModels::registerAdditional)

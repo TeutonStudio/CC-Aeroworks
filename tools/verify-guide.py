@@ -151,7 +151,7 @@ def verify_structure() -> None:
     require(len(raw) > 100, "Ponder structure is unexpectedly small")
     require(b"minecraft:smooth_stone" in raw, "Ponder structure has no base plate")
     require(b"aeroworks:control_desk" in raw, "Ponder structure has no Aeroworks desks")
-    require(b"cc_aeroworks:computer_control_desk" in raw, "Ponder structure has no Computer Control Desk")
+    require(b"cc_aeroworks:computer_control_desk" not in raw, "Ponder structure must use ordinary consoles with the shared computer slot")
 
 
 def main() -> int:

@@ -118,3 +118,24 @@ Interactive CC-Aeroworks displays keep real Aeroworks `x/y` ControlChannels for 
 Wire definitions are stored in `cc_aeroworks:wire_channels`; logical groups are stored in `cc_aeroworks:channel_groups`. Both survive block/item transfer and duplicate embedded-computer ejection. Runtime wire values and pending pulses are transient.
 
 Wire outputs are forced to zero when the embedded computer is off, the ControlDesk network is not `ACTIVE`, the ComputerControlDesk is not the single owner, or the block entity is invalidated/unloaded. Programs must establish desired outputs again after boot.
+
+## Direct connection targets in Channels
+
+Select a physical directional control channel, a wire channel, or a user binding to one of those
+channels, then click **Ziel…**. Enter integer **X/Y/Z block coordinates** and cycle **Blockseite** to
+the target block's input face (`down`, `up`, `north`, `south`, `west`, `east`). **Verbinden** creates
+the connection; **Trennen** removes that exact channel/position/face connection. **Ziel laden**
+cycles through existing targets so they can be removed without retyping their coordinates.
+The Cable continues to create and remove the same connections in the world.
+
+The server resolves the selected channel again, including its physical source desk, socket and
+axis sign. User-defined wires retain the embedded computer as their source. A stale or unavailable
+channel is rejected. The console must be active, authorized and within interaction reach; target
+blocks must be loaded in the same dimension and editable. Coordinates on Sable SubLevels are the
+SubLevel's stored block coordinates, and faces use that block coordinate system. No chunks are
+loaded by the editor. When DBW consumes cables, adding uses one Cable from the inventory and removing
+returns one, matching the Cable workflow; creative players do not pay or receive cables.
+
+Channel scrolling uses an explicit injection order ahead of Aeroworks' cancellable channel handler.
+This keeps the logical multiblock selection and DBW's `currentChannel` synchronized before a target
+is clicked, including when scrolling to another physical member.
