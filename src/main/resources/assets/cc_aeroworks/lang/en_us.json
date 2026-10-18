@@ -147,5 +147,16 @@
   "radar_status.cc_aeroworks.waiting": "Waiting for radar data",
   "radar_status.cc_aeroworks.stale": "Radar data expired",
   "gui.cc_aeroworks.console_inventory": "Control console",
-  "gui.cc_aeroworks.computer_slot": "Shared computer slot: normal or advanced CC:Tweaked computer"
+  "gui.cc_aeroworks.computer_slot": "Shared computer slot: normal or advanced CC:Tweaked computer",
+  "ui.cc_aeroworks.workspace.bind": "Bind",
+  "ui.cc_aeroworks.workspace.targets": "Targets…",
+  "ui.cc_aeroworks.workspace.rename": "Rename",
+  "ui.cc_aeroworks.workspace.delete": "Delete",
+  "ui.cc_aeroworks.workspace.unbind": "Unbind",
+  "ui.cc_aeroworks.workspace.add_wire": "+Wire",
+  "ui.cc_aeroworks.workspace.add_group": "+Group",
+  "ui.cc_aeroworks.workspace.controls": "Control modules",
+  "ui.cc_aeroworks.workspace.wires": "Wire channels",
+  "ui.cc_aeroworks.workspace.groups": "User groups",
+  "ui.cc_aeroworks.workspace.peripherals": "Peripherals"
 }

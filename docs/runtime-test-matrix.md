@@ -8,7 +8,7 @@ Diese Matrix definiert die minimale Baseline für CC-Aeroworks auf Minecraft 1.2
 |---|---|
 | Java | 21 |
 | Minecraft | 1.21.1 |
-| NeoForge | 21.1.228 |
+| NeoForge | 21.1.234 |
 | KotlinForForge | 5.12.0 |
 | Create | 6.0.10 |
 | Create: Aeronautics | 1.3.2 |

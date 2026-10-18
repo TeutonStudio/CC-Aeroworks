@@ -2,31 +2,21 @@ package de.teutonstudio.ccaeroworks.mixin.client
 
 import dan200.computercraft.client.gui.AbstractComputerScreen
 import dan200.computercraft.shared.computer.inventory.AbstractComputerMenu
-import de.teutonstudio.ccaeroworks.client.ComputerDeskPage
+import de.TeutonStudio.TeutonLib.client.computer.ComputerPanels
+import de.TeutonStudio.TeutonLib.client.computer.ComputerSidebarTabs
+import de.TeutonStudio.TeutonLib.client.computer.WorkspacePanels
 import de.teutonstudio.ccaeroworks.client.ControlDeskComputerSidebar
 import de.teutonstudio.ccaeroworks.client.ControlDeskUiClientNavigation
-import de.teutonstudio.ccaeroworks.client.InformationSourceManagerWidget
 import de.teutonstudio.ccaeroworks.client.WireConnectionScreen
-import de.teutonstudio.ccaeroworks.client.WireChannelManagerWidget
+import de.teutonstudio.ccaeroworks.compat.teutonlib.DeskComputerWorkspace
 import de.teutonstudio.ccaeroworks.computer.ControlDeskUiSwitchState
-import de.teutonstudio.ccaeroworks.computer.source.InformationSourceSnapshotState
-import de.teutonstudio.ccaeroworks.computer.wire.WireChannelSnapshotState
-import de.teutonstudio.ccaeroworks.network.ChannelGroupMutation
-import de.teutonstudio.ccaeroworks.network.MutateChannelGroupPayload
-import de.teutonstudio.ccaeroworks.network.MutateWireChannelPayload
-import de.teutonstudio.ccaeroworks.network.RequestInformationSourceSnapshotPayload
-import de.teutonstudio.ccaeroworks.network.RequestWireChannelSnapshotPayload
-import de.teutonstudio.ccaeroworks.network.WireChannelMutation
-import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlock
-import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.components.Button
+import de.teutonstudio.ccaeroworks.computer.wire.WireConnectionView
+import de.teutonstudio.ccaeroworks.registry.CCDataComponents
 import net.minecraft.client.gui.components.EditBox
-import net.minecraft.client.gui.components.Renderable
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
+import net.minecraft.nbt.Tag
 import net.minecraft.network.chat.Component
 import net.minecraft.world.entity.player.Inventory
-import net.minecraft.world.item.BlockItem
-import net.neoforged.neoforge.network.PacketDistributor
 import org.lwjgl.glfw.GLFW
 import org.spongepowered.asm.mixin.Mixin
 import org.spongepowered.asm.mixin.Unique
@@ -34,143 +24,72 @@ import org.spongepowered.asm.mixin.injection.At
 import org.spongepowered.asm.mixin.injection.Inject
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable
-import java.util.UUID
 
+/** Aeroworks supplies navigation and its backend; TeutonLib owns the workspace. */
 @Mixin(value = [AbstractComputerScreen::class], remap = false)
-abstract class AbstractComputerScreenSwitchMixin(menu: AbstractComputerMenu, inventory: Inventory, title: Component) : AbstractContainerScreen<AbstractComputerMenu>(menu, inventory, title) {
-    @Unique private var ccaeroworks_page: ComputerDeskPage = ComputerDeskPage.TERMINAL
-    @Unique private var ccaeroworks_channelPanel: WireChannelManagerWidget? = null
-    @Unique private var ccaeroworks_sourcePanel: InformationSourceManagerWidget? = null
-    @Unique private var ccaeroworks_channelName: EditBox? = null
-    @Unique private var ccaeroworks_addChannel: Button? = null
-    @Unique private var ccaeroworks_addGroup: Button? = null
-    @Unique private var ccaeroworks_rename: Button? = null
-    @Unique private var ccaeroworks_bind: Button? = null
-    @Unique private var ccaeroworks_delete: Button? = null
-    @Unique private var ccaeroworks_target: Button? = null
-    @Unique private var ccaeroworks_deleteArmed: UUID? = null
-    @Unique private var ccaeroworks_lastSnapshotRequest: Long = Long.MIN_VALUE
-    @Unique private var ccaeroworks_lastSourceSnapshotRequest: Long = Long.MIN_VALUE
-    @Unique private val ccaeroworks_snapshotIntervalTicks: Long = 20L
+abstract class AbstractComputerScreenSwitchMixin(menu: AbstractComputerMenu, inventory: Inventory, title: Component) :
+    AbstractContainerScreen<AbstractComputerMenu>(menu, inventory, title) {
+    @Unique private var ccaeroworks_workspace: WorkspacePanels? = null
 
     @Inject(method = ["init()V"], at = [At("TAIL")])
     private fun ccaeroworks_addDeskTabs(callback: CallbackInfo) {
-        val item = menu.displayStack.item
-        if (!menu.displayStack.has(de.teutonstudio.ccaeroworks.registry.CCDataComponents.DESK_ID.get())) return
+        if (!menu.displayStack.has(CCDataComponents.DESK_ID.get())) return
         val accessor = this as AbstractComputerScreenAccessor
-        val family = accessor.ccaeroworks_getFamily(); val canReturnToControls = ControlDeskUiSwitchState.clientCanReturnToControls(); var extensionIndex = 0
-        if (canReturnToControls) {
-            val layout = ControlDeskComputerSidebar.layout(leftPos, topPos, accessor.ccaeroworks_getSidebarYOffset(), extensionIndex++)
-            addRenderableOnly(Renderable { graphics, _, _, _ -> ControlDeskComputerSidebar.renderBackground(graphics, layout, family) })
-            addRenderableWidget(ControlDeskComputerSidebar.controlsButton(layout) { ccaeroworks_setPage(ComputerDeskPage.TERMINAL); ControlDeskUiClientNavigation.reopenControls() })
+        val terminal = accessor.ccaeroworks_getTerminal() ?: return
+        val page = ccaeroworks_workspace?.page() ?: 0
+        val family = accessor.ccaeroworks_getFamily()
+        val workspace = ComputerPanels.workspace(menu.containerId, DeskComputerWorkspace.ID,
+            terminal.x, terminal.y, terminal.width, terminal.height, font,
+            { addRenderableWidget(it) }, { setFocused(terminal) }) { action, entry ->
+            if (action.id == "targets" && entry != null && entry.target.isNotEmpty()) {
+                val connections = entry.metadata.getList("connections", Tag.TAG_COMPOUND.toInt()).map { raw ->
+                    val tag = raw as net.minecraft.nbt.CompoundTag
+                    WireConnectionView(tag.getInt("x"), tag.getInt("y"), tag.getInt("z"), tag.getString("side"))
+                }
+                minecraft?.setScreen(WireConnectionScreen(this, entry.target, entry.label, connections))
+            }
         }
-        val channelLayout = ControlDeskComputerSidebar.layout(leftPos, topPos, accessor.ccaeroworks_getSidebarYOffset(), extensionIndex++)
-        addRenderableOnly(Renderable { graphics, _, _, _ -> ControlDeskComputerSidebar.renderBackground(graphics, channelLayout, family) })
-        addRenderableWidget(ControlDeskComputerSidebar.channelsButton(channelLayout) { ccaeroworks_setPage(if (ccaeroworks_page == ComputerDeskPage.CHANNELS) ComputerDeskPage.TERMINAL else ComputerDeskPage.CHANNELS) })
-        val sourceLayout = ControlDeskComputerSidebar.layout(leftPos, topPos, accessor.ccaeroworks_getSidebarYOffset(), extensionIndex)
-        addRenderableOnly(Renderable { graphics, _, _, _ -> ControlDeskComputerSidebar.renderBackground(graphics, sourceLayout, family) })
-        addRenderableWidget(ControlDeskComputerSidebar.sourcesButton(sourceLayout) { ccaeroworks_setPage(if (ccaeroworks_page == ComputerDeskPage.INFORMATION_SOURCES) ComputerDeskPage.TERMINAL else ComputerDeskPage.INFORMATION_SOURCES) })
-        ccaeroworks_createChannelManager(accessor); ccaeroworks_createInformationSourceManager(accessor); ccaeroworks_setPage(ccaeroworks_page)
+        workspace.family(family)
+        ccaeroworks_workspace = workspace
+        (this as WorkspacePanels.Host).`teutonlib$setWorkspace`(workspace)
+        var index = 0
+        if (ControlDeskUiSwitchState.clientCanReturnToControls()) {
+            addRenderableWidget(ControlDeskComputerSidebar.controlsButton(leftPos,
+                ComputerSidebarTabs.top(topPos, accessor.ccaeroworks_getSidebarYOffset(), index++), family) {
+                ccaeroworks_show(0); ControlDeskUiClientNavigation.reopenControls()
+            })
+        }
+        for ((target, name) in listOf(1 to "sources", 2 to "channels")) {
+            addRenderableWidget(ComputerSidebarTabs.tab(leftPos,
+                ComputerSidebarTabs.top(topPos, accessor.ccaeroworks_getSidebarYOffset(), index++), family, name,
+                { workspace.page() == target }, { ccaeroworks_show(if (workspace.page() == target) 0 else target) }))
+        }
+        ccaeroworks_show(page)
     }
-
+    @Unique private fun ccaeroworks_show(page: Int) {
+        val workspace = ccaeroworks_workspace ?: return
+        workspace.show(page)
+        val terminal = (this as AbstractComputerScreenAccessor).ccaeroworks_getTerminal()
+        terminal?.visible = page == 0; terminal?.active = page == 0
+        setFocused(if (page == 0) terminal else null)
+        ccaeroworks_applyFocus()
+    }
+    @Unique private fun ccaeroworks_applyFocus() {
+        val workspace = ccaeroworks_workspace ?: return
+        val requested = workspace.takeRequestedFocus()
+        if (requested != null) { setFocused(requested); requested.isFocused = true }
+        else if (focused is ComputerSidebarTabs.Tab) setFocused(if (workspace.page() == 0) (this as AbstractComputerScreenAccessor).ccaeroworks_getTerminal() else null)
+    }
     @Inject(method = ["containerTick()V"], at = [At("TAIL")])
-    private fun ccaeroworks_refreshDeskPages(callback: CallbackInfo) {
-        ccaeroworks_target?.active = ccaeroworks_page == ComputerDeskPage.CHANNELS &&
-            ccaeroworks_channelPanel?.selectedConnectionChannelId() != null &&
-            WireChannelSnapshotState.get().wire.backend == "drivebywire"
-        val now = Minecraft.getInstance().level?.gameTime ?: return
-        when (ccaeroworks_page) {
-            ComputerDeskPage.CHANNELS -> if (now - ccaeroworks_lastSnapshotRequest >= ccaeroworks_snapshotIntervalTicks) ccaeroworks_requestWireSnapshot(now)
-            ComputerDeskPage.INFORMATION_SOURCES -> if (now - ccaeroworks_lastSourceSnapshotRequest >= ccaeroworks_snapshotIntervalTicks) ccaeroworks_requestInformationSources(now)
-            ComputerDeskPage.TERMINAL -> Unit
-        }
-    }
-
+    private fun ccaeroworks_tickWorkspace(callback: CallbackInfo) { ccaeroworks_workspace?.tick(); ccaeroworks_applyFocus() }
+    @Inject(method = ["mouseClicked(DDI)Z"], at = [At("TAIL")])
+    private fun ccaeroworks_clickFocus(x: Double, y: Double, button: Int, callback: CallbackInfoReturnable<Boolean>) { ccaeroworks_applyFocus() }
+    @Inject(method = ["keyPressed(III)Z"], at = [At("TAIL")])
+    private fun ccaeroworks_keyFocus(key: Int, scan: Int, modifiers: Int, callback: CallbackInfoReturnable<Boolean>) { ccaeroworks_applyFocus() }
     @Inject(method = ["keyPressed(III)Z"], at = [At("HEAD")], cancellable = true)
-    private fun ccaeroworks_handleDeskPageKeys(keyCode: Int, scanCode: Int, modifiers: Int, callback: CallbackInfoReturnable<Boolean>) {
-        if (ccaeroworks_page == ComputerDeskPage.CHANNELS && ccaeroworks_channelName?.isFocused == true && Minecraft.getInstance().options.keyInventory.matches(keyCode, scanCode)) {
-            callback.returnValue = true; return
-        }
-        if (ccaeroworks_page == ComputerDeskPage.TERMINAL || keyCode != GLFW.GLFW_KEY_ESCAPE) return
-        ccaeroworks_setPage(ComputerDeskPage.TERMINAL); callback.returnValue = true
+    private fun ccaeroworks_workspaceKeys(key: Int, scan: Int, modifiers: Int, callback: CallbackInfoReturnable<Boolean>) {
+        if ((ccaeroworks_workspace?.page() ?: 0) == 0) return
+        if (key == GLFW.GLFW_KEY_ESCAPE) { if (ccaeroworks_workspace?.closeSourceApi() != true) ccaeroworks_show(0); callback.returnValue = true }
+        else if (focused is EditBox && minecraft!!.options.keyInventory.matches(key, scan)) callback.returnValue = true
     }
-
-    @Unique private fun ccaeroworks_createChannelManager(accessor: AbstractComputerScreenAccessor) {
-        val terminal = accessor.ccaeroworks_getTerminal() ?: return
-        val footerHeight = 24; val buttonWidth = 38; val gap = 2; val buttonCount = 6
-        val panel = WireChannelManagerWidget(terminal.x, terminal.y, terminal.width, (terminal.height - footerHeight).coerceAtLeast(30), font)
-        panel.visible = false; panel.active = false; ccaeroworks_channelPanel = addRenderableWidget(panel)
-        val footerY = terminal.y + terminal.height - 20
-        val fieldWidth = (terminal.width - buttonWidth * buttonCount - gap * (buttonCount + 2)).coerceAtLeast(48)
-        val nameField = EditBox(font, terminal.x + gap, footerY, fieldWidth, 18, Component.literal("name / alias"))
-        nameField.setMaxLength(32); nameField.visible = false; nameField.active = false; ccaeroworks_channelName = addRenderableWidget(nameField)
-        var buttonX = terminal.x + gap * 2 + fieldWidth
-        fun button(label: String, action: () -> Unit): Button = Button.builder(Component.literal(label)) { action() }.bounds(buttonX, footerY, buttonWidth, 18).build().also { it.visible = false; it.active = false; buttonX += buttonWidth + gap }
-        ccaeroworks_addChannel = addRenderableWidget(button("+Wire") { ccaeroworks_addWireChannel() })
-        ccaeroworks_addGroup = addRenderableWidget(button("+Group") { ccaeroworks_addUserGroup() })
-        ccaeroworks_rename = addRenderableWidget(button("Rename") { ccaeroworks_renameSelection() })
-        ccaeroworks_bind = addRenderableWidget(button("Bind") { ccaeroworks_bindSelection() })
-        ccaeroworks_delete = addRenderableWidget(button("Delete") { ccaeroworks_deleteSelection() })
-        ccaeroworks_target = addRenderableWidget(button("Ziel…") {
-            val selected = panel.selectedConnectionChannelId()
-            if (selected != null) Minecraft.getInstance().setScreen(WireConnectionScreen(this, selected, panel.selectedConnectionLabel(), panel.selectedConnections()))
-        })
-    }
-
-    @Unique private fun ccaeroworks_createInformationSourceManager(accessor: AbstractComputerScreenAccessor) {
-        val terminal = accessor.ccaeroworks_getTerminal() ?: return
-        val panel = InformationSourceManagerWidget(terminal.x, terminal.y, terminal.width, terminal.height, font)
-        panel.visible = false; panel.active = false; ccaeroworks_sourcePanel = addRenderableWidget(panel)
-    }
-
-    @Unique private fun ccaeroworks_setPage(page: ComputerDeskPage) {
-        ccaeroworks_page = page; val channelEnabled = page == ComputerDeskPage.CHANNELS; val sourceEnabled = page == ComputerDeskPage.INFORMATION_SOURCES
-        val terminal = (this as AbstractComputerScreenAccessor).ccaeroworks_getTerminal(); terminal?.visible = page == ComputerDeskPage.TERMINAL; terminal?.active = page == ComputerDeskPage.TERMINAL
-        ccaeroworks_channelPanel?.let { it.visible = channelEnabled; it.active = channelEnabled }; ccaeroworks_sourcePanel?.let { it.visible = sourceEnabled; it.active = sourceEnabled }
-        listOf(ccaeroworks_channelName, ccaeroworks_addChannel, ccaeroworks_addGroup, ccaeroworks_rename, ccaeroworks_bind, ccaeroworks_delete, ccaeroworks_target).forEach { widget -> widget?.visible = channelEnabled; widget?.active = channelEnabled }
-        ccaeroworks_deleteArmed = null; ccaeroworks_delete?.message = Component.literal("Delete")
-        when (page) {
-            ComputerDeskPage.CHANNELS -> { WireChannelSnapshotState.clear(); ccaeroworks_requestWireSnapshot(Minecraft.getInstance().level?.gameTime ?: 0L); setFocused(ccaeroworks_channelName) }
-            ComputerDeskPage.INFORMATION_SOURCES -> { InformationSourceSnapshotState.clear(); ccaeroworks_requestInformationSources(Minecraft.getInstance().level?.gameTime ?: 0L); setFocused(ccaeroworks_sourcePanel) }
-            ComputerDeskPage.TERMINAL -> if (terminal != null) setFocused(terminal)
-        }
-    }
-
-    @Unique private fun ccaeroworks_requestWireSnapshot(now: Long) { ccaeroworks_lastSnapshotRequest = now; PacketDistributor.sendToServer(RequestWireChannelSnapshotPayload()) }
-    @Unique private fun ccaeroworks_requestInformationSources(now: Long) { ccaeroworks_lastSourceSnapshotRequest = now; PacketDistributor.sendToServer(RequestInformationSourceSnapshotPayload()) }
-    @Unique private fun ccaeroworks_text(): String = ccaeroworks_channelName?.value.orEmpty().trim()
-
-    @Unique private fun ccaeroworks_addWireChannel() {
-        val name = ccaeroworks_text(); if (name.isEmpty()) return
-        PacketDistributor.sendToServer(MutateWireChannelPayload(WireChannelMutation.ADD, null, name)); ccaeroworks_channelName?.setValue(""); ccaeroworks_resetDelete()
-    }
-    @Unique private fun ccaeroworks_addUserGroup() {
-        val name = ccaeroworks_text(); if (name.isEmpty()) return
-        PacketDistributor.sendToServer(MutateChannelGroupPayload(ChannelGroupMutation.ADD, null, name, "", "")); ccaeroworks_channelName?.setValue(""); ccaeroworks_resetDelete()
-    }
-    @Unique private fun ccaeroworks_renameSelection() {
-        val name = ccaeroworks_text(); if (name.isEmpty()) return
-        val panel = ccaeroworks_channelPanel ?: return
-        panel.selectedBindingAlias()?.let { oldAlias ->
-            val group = panel.selectedGroupId() ?: return
-            PacketDistributor.sendToServer(MutateChannelGroupPayload(ChannelGroupMutation.RENAME_BINDING, group, name, oldAlias, "")); ccaeroworks_resetDelete(); return
-        }
-        panel.selectedChannel()?.let { PacketDistributor.sendToServer(MutateWireChannelPayload(WireChannelMutation.RENAME, it.id, name)); ccaeroworks_resetDelete(); return }
-        panel.selectedGroupForMutation()?.let { PacketDistributor.sendToServer(MutateChannelGroupPayload(ChannelGroupMutation.RENAME, it, name, "", "")); ccaeroworks_resetDelete() }
-    }
-    @Unique private fun ccaeroworks_bindSelection() {
-        val alias = ccaeroworks_text(); if (alias.isEmpty()) return
-        val panel = ccaeroworks_channelPanel ?: return; val group = panel.selectedGroupId() ?: return; val target = panel.selectedTargetId() ?: return
-        PacketDistributor.sendToServer(MutateChannelGroupPayload(ChannelGroupMutation.BIND, group, "", alias, target)); ccaeroworks_channelName?.setValue(""); ccaeroworks_resetDelete()
-    }
-    @Unique private fun ccaeroworks_deleteSelection() {
-        val panel = ccaeroworks_channelPanel ?: return
-        panel.selectedBindingAlias()?.let { alias -> panel.selectedGroupId()?.let { group -> PacketDistributor.sendToServer(MutateChannelGroupPayload(ChannelGroupMutation.UNBIND, group, "", alias, "")); ccaeroworks_resetDelete(); return } }
-        panel.selectedChannel()?.let { selected ->
-            if (selected.connections > 0 && ccaeroworks_deleteArmed != selected.id) { ccaeroworks_deleteArmed = selected.id; ccaeroworks_delete?.message = Component.literal("Confirm"); return }
-            PacketDistributor.sendToServer(MutateWireChannelPayload(WireChannelMutation.REMOVE, selected.id, "")); ccaeroworks_resetDelete(); return
-        }
-        panel.selectedGroupForMutation()?.let { PacketDistributor.sendToServer(MutateChannelGroupPayload(ChannelGroupMutation.REMOVE, it, "", "", "")); ccaeroworks_resetDelete() }
-    }
-    @Unique private fun ccaeroworks_resetDelete() { ccaeroworks_deleteArmed = null; ccaeroworks_delete?.message = Component.literal("Delete") }
 }

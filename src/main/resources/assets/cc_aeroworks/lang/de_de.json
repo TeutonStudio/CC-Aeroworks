@@ -147,5 +147,16 @@
   "radar_status.cc_aeroworks.waiting": "Warte auf Radardaten",
   "radar_status.cc_aeroworks.stale": "Radardaten veraltet",
   "gui.cc_aeroworks.console_inventory": "Steuereinheit",
-  "gui.cc_aeroworks.computer_slot": "Gemeinsamer Computerslot: normaler oder erweiterter CC:Tweaked-Computer"
+  "gui.cc_aeroworks.computer_slot": "Gemeinsamer Computerslot: normaler oder erweiterter CC:Tweaked-Computer",
+  "ui.cc_aeroworks.workspace.bind": "Binden",
+  "ui.cc_aeroworks.workspace.targets": "Ziele…",
+  "ui.cc_aeroworks.workspace.rename": "Umbenennen",
+  "ui.cc_aeroworks.workspace.delete": "Löschen",
+  "ui.cc_aeroworks.workspace.unbind": "Lösen",
+  "ui.cc_aeroworks.workspace.add_wire": "+Kanal",
+  "ui.cc_aeroworks.workspace.add_group": "+Gruppe",
+  "ui.cc_aeroworks.workspace.controls": "Steuermodule",
+  "ui.cc_aeroworks.workspace.wires": "Wire-Kanäle",
+  "ui.cc_aeroworks.workspace.groups": "Benutzergruppen",
+  "ui.cc_aeroworks.workspace.peripherals": "Peripheriegeräte"
 }

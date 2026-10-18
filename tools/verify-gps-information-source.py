@@ -15,7 +15,7 @@ def main() -> int:
     tracker = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/source/GpsSourceTracker.kt")
     builder = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/source/InformationSourceSnapshotBuilder.kt")
     state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/source/InformationSourceSnapshotState.kt")
-    widget = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/InformationSourceManagerWidget.kt")
+    widget = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/teutonlib/DeskComputerWorkspace.kt")
     mod = read("src/main/kotlin/de/teutonstudio/ccaeroworks/CCAeroworks.kt")
 
     require('InformationSourceKind("gps", "GPS", 30)' in state, "information-source core kinds must include GPS")
@@ -54,9 +54,10 @@ def main() -> int:
     require(
         "InformationSourceKinds.CORE + snapshot.sources.map { it.kind }" in widget and
         "distinctBy { it.id }" in widget and
-        "SourceRow.Section" in widget and
-        "if (kind in collapsedKinds) return@forEach" in widget and
-        "InformationSourceKinds.GPS" not in widget,
+        'entry("source_kind:${kind.id}"' in widget and
+        "snapshot.sources.filter { it.kind == kind }" in widget and
+        'gps = source.kind == InformationSourceKinds.GPS' in widget and
+        'listOf(SourceMethod("gps.locate"))' in widget,
         "GPS should use the generic collapsible information-source UI, not a parallel widget path"
     )
     require("CompoundTag" not in tracker and "DataComponent" not in tracker,

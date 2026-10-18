@@ -45,6 +45,7 @@ class CCAeroworks(modEventBus: IEventBus, modContainer: ModContainer) {
         ControlDeskPeripheralRegistry.register(modEventBus)
         CCPayloads.register(modEventBus)
         CCLuaApis.register()
+        de.teutonstudio.ccaeroworks.compat.teutonlib.DeskComputerWorkspace.register(modEventBus)
 
         modContainer.registerConfig(ModConfig.Type.CLIENT, CCClientConfig.SPEC, "cc_aeroworks-client.toml")
         modContainer.registerConfig(ModConfig.Type.SERVER, CCServerConfig.SPEC, "cc_aeroworks-server.toml")

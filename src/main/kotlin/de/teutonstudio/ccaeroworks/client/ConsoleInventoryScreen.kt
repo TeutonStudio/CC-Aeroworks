@@ -24,6 +24,9 @@ class ConsoleInventoryScreen(menu: ConsoleInventoryMenu, inventory: Inventory, t
         val host = minecraft?.level?.getBlockEntity(menu.anchor) as? ConsoleBlockEntity ?: return
         overview = object : ConsoleScreen(host) {
             override fun onClose() { this@ConsoleInventoryScreen.onClose() }
+
+            // The outer container draws the background; the embedded screen must not dim its slots again.
+            override fun renderBackground(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {}
         }
         rebuildOverview()
     }

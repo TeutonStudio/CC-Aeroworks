@@ -184,6 +184,7 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
             mod_name               : mod_name,
             mod_license            : mod_license,
             mod_version            : mod_version,
+            teutonlib_version_range : teutonlib_version_range,
             kotlin_for_forge_version: kotlin_for_forge_version,
             kotlin_for_forge_version_range: kotlin_for_forge_version_range,
     ]

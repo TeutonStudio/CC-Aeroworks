@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.1 — 2026-10-18
+
+- TeutonLib 1.2.0 is now required on clients and servers, using a shared NeoForge 21.1.234 baseline.
+- Computer desks use shared TeutonLib tabs and panels: Controls, Sources, Channels. Existing channel groups, DbW targets, information sources and script diagnostics are preserved.
+- Menu and panel sessions isolate snapshots; desk persistence and Lua APIs remain owned by Aeroworks.
+- Fixed the embedded control desk overview drawing an additional background gradient over the computer slot and player inventory.
+
+
 ## 1.4.0 — 2026-10-18
 
 - Computers now use a shared inventory slot on normal control desks. Existing computer desks migrate automatically; removing desks preserves computer data during transfer and drops the computer separately when the last desk is removed.

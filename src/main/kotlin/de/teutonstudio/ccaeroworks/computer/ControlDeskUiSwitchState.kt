@@ -132,6 +132,13 @@ object ControlDeskUiSwitchState {
     /** Resolve the ComputerControlDesk represented by the player's current saved desk session. */
     @JvmStatic
     fun activeComputerDesk(player: ServerPlayer): ConsoleComputer? {
+        val menu = player.containerMenu as? dan200.computercraft.shared.computer.inventory.AbstractComputerMenu
+        val computer = menu?.computer
+        if (computer != null && menu.stillValid(player) && computer.checkUsable(player)) {
+            val pos = computer.position
+            val host = computer.level.chunkSource.getChunkNow(pos.x shr 4, pos.z shr 4)?.blockEntities?.get(pos)
+            ConsoleComputers.get(host)?.takeIf { it.getServerComputer() === computer }?.let { return it }
+        }
         val session = validSession(player) ?: return null
         return resolveOwner(player, session.pos)
     }

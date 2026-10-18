@@ -11,7 +11,7 @@ overview = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/Consol
 overview_accessor = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ConsoleScreenAccessor.kt")
 computer = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/AbstractComputerScreenSwitchMixin.kt")
 computer_accessor = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/AbstractComputerScreenAccessor.kt")
-computer_page = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/ComputerDeskPage.kt")
+workspace = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/teutonlib/DeskComputerWorkspace.kt")
 state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ControlDeskUiSwitchState.kt")
 switch_payload = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/SwitchControlDeskUiPayload.kt")
 client_nav = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/ControlDeskUiClientNavigation.kt")
@@ -20,8 +20,6 @@ guide_screen = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/GuideBoo
 guide_content = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/guide/GuideBookContent.kt")
 creative_sections = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/creative/AeroworksCreativeSections.kt")
 cc_sidebar = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/ControlDeskComputerSidebar.kt")
-channel_widget = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/WireChannelManagerWidget.kt")
-source_widget = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/InformationSourceManagerWidget.kt")
 source_builder = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/source/InformationSourceSnapshotBuilder.kt")
 source_extensions = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/source/InformationSourceExtensions.kt")
 radar_compat = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/RadarCompat.kt")
@@ -57,31 +55,23 @@ require("switchToComputer(player, payload.anchorPos)" in switch_payload and "val
 require("snapshot.members.any" in state, "range validation must accept any member of same multiblock")
 require("reopenExactClientControls" in state and "socket.reopenModuleMenu()" in state and "ConsoleScreenOpener.open(console)" in client_nav, "return navigation must preserve exact native Aeroworks context")
 
-# One native CC screen hosts Terminal, Channels and Information Sources.
-require("ComputerSidebar.HEIGHT" in cc_sidebar and "DynamicImageButton" in cc_sidebar, "custom tabs must extend CC native sidebar")
-require("controlsButton" in cc_sidebar and "channelsButton" in cc_sidebar and "sourcesButton" in cc_sidebar, "Controls/Channels/Sources sidebar actions missing")
-for page in ("TERMINAL", "CHANNELS", "INFORMATION_SOURCES"):
-    require(page in computer_page, f"Computer page state missing {page}")
-require("ccaeroworks_setPage" in computer and "ComputerDeskPage.CHANNELS" in computer and "ComputerDeskPage.INFORMATION_SOURCES" in computer, "computer work areas must switch through one page state")
-require("WireChannelManagerWidget" in computer and "InformationSourceManagerWidget" in computer, "embedded work-area widgets missing")
-require("RequestWireChannelSnapshotPayload" in computer and "RequestInformationSourceSnapshotPayload" in computer, "work areas must request server-authoritative snapshots")
-require("InformationSourceSnapshotState.clear()" in computer and "WireChannelSnapshotState.clear()" in computer, "entering a work area must discard stale snapshot state")
-require('@Accessor("terminal")' in computer_accessor, "computer screen must use native terminal widget")
-require("options.keyInventory.matches(keyCode, scanCode)" in computer, "focused editor must consume configured inventory key")
-require("private val ccaeroworks_snapshotIntervalTicks: Long = 20L" in computer, "snapshot cadence must stay instance-private for Mixin safety")
-require("SNAPSHOT_INTERVAL_TICKS" not in computer and "companion object" not in computer, "computer Mixin must not emit static helper state")
-require("+Wire" in computer and "+Group" in computer and "MutateChannelGroupPayload" in computer, "Channels footer must expose wire and user-group administration")
-require("USER GROUPS" in channel_widget and "ChannelRow.UserGroup" in channel_widget and "ChannelRow.Binding" in channel_widget, "Channels tree must render user groups/bindings")
-require("collapsedGroupIds" in channel_widget, "Channels hierarchy must remain collapsible")
-require("ChannelRow.Connection" in channel_widget, "DBW sink rows must remain visible")
-require(
-    "collapsedKinds" in source_widget and
-    "InformationSourceKinds.CORE" in source_widget and
-    "SourceRow.Section" in source_widget and
-    "if (kind in collapsedKinds) return@forEach" in source_widget,
-    "Information Sources must remain grouped/collapsible"
-)
-
+# One native screen uses the shared TeutonLib controller, with an authoritative addon backend.
+require("ComputerSidebarTabs.tab" in cc_sidebar and "controlsButton" in cc_sidebar, "Controls must use shared native sidebar rendering")
+require('listOf(1 to "sources", 2 to "channels")' in computer, "sidebar order must be Sources then Channels")
+require("ComputerPanels.workspace" in computer and "WorkspacePanels.Host" in computer, "computer must host TeutonLib panels")
+require("terminal?.visible = page == 0" in computer and "terminal?.active = page == 0" in computer, "terminal must stop receiving input on other pages")
+require('options.keyInventory.matches(key, scan)' in computer and 'GLFW_KEY_ESCAPE' in computer, "editor keyboard and Escape navigation missing")
+require("companion object" not in computer, "Mixin must not emit static helper state")
+require("ccaeroworks_workspace?.tick()" in computer and "takeRequestedFocus()" in computer, "shared refresh/focus lifecycle missing")
+require("ComputerExtensions.registerWorkspace" in workspace and "getServerComputer() === computer" in workspace, "workspace must resolve the actual running desk computer")
+require("menu.computer === computer" in workspace and "menu.stillValid(player)" in workspace and "computer.checkUsable(player)" in workspace, "server workspace must validate the current menu and access")
+for action in ("add_wire", "add_group", "rename_wire", "remove_wire", "rename_group", "remove_group", "bind", "rename_binding", "unbind", "targets"):
+    require('"' + action + '"' in workspace, f"workspace action missing: {action}")
+require("ChannelRegistry.snapshot(owner)" in workspace and "owner.wireBank" in workspace and "owner.channelGroups()" in workspace, "addon channel storage must remain authoritative")
+require("InformationSourceKinds.CORE + snapshot.sources.map { it.kind }" in workspace and "collapsed = true" in workspace, "shared sources must retain extensible collapsible categories")
+require("connections(channel.id, channel.connections)" in workspace and "WireConnectionScreen" in computer, "DbW targets must remain visible/editable")
+require("ComputerIntegration.runtime(computer)?.sourceViews()" in workspace, "peripheral addresses must come from TeutonLib runtime")
+require("registerChannelAuthority" in workspace, "pult computers must not create a second writable channel bank")
 require("TelemetryRuntime.describeSources(owner.host)" in source_builder, "Display Link sources must come from TelemetryRuntime")
 require("PeripheralNetworkBuilder.build(owner)" in source_builder, "storage must come from peripheral graph")
 require("InformationSourceExtensions.sources(owner)" in source_builder, "optional information sources must use the extension boundary")
@@ -94,18 +84,9 @@ require("activeComputerDesk(player)" in source_payload and "InformationSourceSna
 require("RequestInformationSourceSnapshotPayload.TYPE" in payloads and "InformationSourceSnapshotPayload.TYPE" in payloads, "Sources payloads must be registered")
 require("MutateChannelGroupPayload.TYPE" in payloads, "channel-group mutation payload must be registered")
 
-require("package de.teutonstudio.ccaeroworks.client" in computer_page and "enum class ComputerDeskPage" in computer_page, "ComputerDeskPage must stay outside mixin package")
-require("import de.teutonstudio.ccaeroworks.client.ComputerDeskPage" in computer, "screen Mixin must import normal page state")
-require("enum class ComputerDeskPage" not in computer, "screen Mixin must not emit top-level helper classes")
-require(not (ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ComputerDeskPage.kt").exists(), "ComputerDeskPage must never return to configured Mixin package")
-
 for path in (
     "src/main/resources/assets/cc_aeroworks/textures/gui/sprites/buttons/control_desk_controls.png",
     "src/main/resources/assets/cc_aeroworks/textures/gui/sprites/buttons/control_desk_controls_hover.png",
-    "src/main/resources/assets/cc_aeroworks/textures/gui/sprites/buttons/control_desk_channels.png",
-    "src/main/resources/assets/cc_aeroworks/textures/gui/sprites/buttons/control_desk_channels_hover.png",
-    "src/main/resources/assets/cc_aeroworks/textures/gui/sprites/buttons/control_desk_sources.png",
-    "src/main/resources/assets/cc_aeroworks/textures/gui/sprites/buttons/control_desk_sources_hover.png",
 ): require((ROOT / path).is_file(), f"missing sidebar icon: {path}")
 
 for registered in ('"client.ConsoleScreenAccessor"','"client.ConsoleScreenSwitchMixin"','"client.AbstractComputerScreenAccessor"'):

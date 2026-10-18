@@ -143,6 +143,19 @@
       "sha256": null,
       "source": "Official Just Enough Items Maven repository",
       "notes": "Development-only recipe viewer automatically resolved for local Gradle runtimes. It is not a published CC-Aeroworks dependency."
+    },
+    {
+      "name": "TeutonLib",
+      "modId": "teutonlib",
+      "version": "1.2.0",
+      "required": true,
+      "filenamePattern": "(?i)^teutonlib-1\\.2\\.0\\.jar$",
+      "filenameExamples": [
+        "teutonlib-1.2.0.jar"
+      ],
+      "sha256": "2b2fdb3034eba8518e50e1a30cef980db7dc75934c599ae6628ea142a083a924",
+      "source": "https://github.com/TeutonStudio/TeutonLib/releases/tag/v1.2.0",
+      "notes": "Required on client and server. Provides the authoritative addon workspace API."
     }
   ]
 }

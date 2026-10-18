@@ -70,6 +70,12 @@ Adds optional Create: Radars integration and radar display modules to CC-Aerowor
     ordering="AFTER"
     side="BOTH"
 [[dependencies.${mod_id}]]
+    modId="teutonlib"
+    type="required"
+    versionRange="${teutonlib_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+[[dependencies.${mod_id}]]
     modId="computercraft"
     type="required"
     versionRange="[1.119.0,1.121.0)"

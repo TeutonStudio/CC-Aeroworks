@@ -17,7 +17,7 @@ def require(condition: bool, message: str) -> None:
 
 state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/source/InformationSourceSnapshotState.kt")
 builder = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/source/InformationSourceSnapshotBuilder.kt")
-widget = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/InformationSourceManagerWidget.kt")
+widget = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/teutonlib/DeskComputerWorkspace.kt")
 payload = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/InformationSourcePayloads.kt")
 catalog = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DisplayScriptCatalog.kt")
 diagnostics = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/DisplayScriptDiagnostics.kt")
@@ -68,14 +68,14 @@ require("displayScripts" in payload and "MAX_DEPENDENCIES" in payload,
         "network payload must serialize bounded structured display diagnostics")
 require("source.kind.id" in payload and "source.kind.title" in payload,
         "network payload must preserve extensible information-source kinds")
-require("expandedScripts" in widget and "SourceRow.Script" in widget,
+require("collapsed = true, children = details" in widget,
         "each display script must be independently expandable")
 require("InformationSourceKinds.CORE" in widget and "snapshot.sources.map { it.kind }" in widget,
         "information-source UI must combine core and optional compatibility categories")
 for section in ("IMPORTS", "REACTIVE", "OBSERVED", "TOUCH"):
-    require(f'"    {section}' in widget or f'"      {section}' in widget,
+    require(f'"{section}' in widget,
             f"display script tree is missing {section} diagnostics")
-require("ccaeroworks_lastSourceSnapshotRequest" in mixin and "ccaeroworks_snapshotIntervalTicks" in mixin,
+require("ccaeroworks_workspace?.tick()" in mixin,
         "information source page must keep refreshing while visible")
 
 print("Validated display script source category, extensible compatibility kinds, static Lua metadata, runtime dependency observation, touch diagnostics, bounded payloads, and expandable UI.")
