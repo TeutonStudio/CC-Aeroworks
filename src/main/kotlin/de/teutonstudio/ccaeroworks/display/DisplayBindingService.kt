@@ -4,6 +4,7 @@ import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import dan200.computercraft.api.lua.LuaException
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskService
 import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
+import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 
 object DisplayBindingService {
     @Throws(LuaException::class)
@@ -20,8 +21,8 @@ object DisplayBindingService {
     @Throws(LuaException::class)
     fun setTouchScript(desk: ConsoleBlockEntity, rawSocket: Any?, path: String): Map<String, Any> {
         val socket = AeroworksDeskService.parseSocket(desk, rawSocket)
-        if (desk.module(socket)?.let { de.teutonstudio.ccaeroworks.registry.CCModuleTypes.displayType(it.type()) } != DeskDisplayType.THREE_DIGIT) {
-            throw LuaException("Touch scripts are supported only by the large Desk Display")
+        if (desk.module(socket)?.let { CCModuleTypes.displayType(it.type()) } == null) {
+            throw LuaException("Touch scripts require a Desk Display")
         }
         val normalized = path.trim()
         TouchInputDiagnostics.info(
@@ -36,7 +37,7 @@ object DisplayBindingService {
                 "binding",
                 "set rejected desk=${desk.blockPos.toShortString()} socket=$socket path='$normalized': display binding does not support Lua handlers"
             )
-            throw LuaException("Touch scripts are supported only by the large Desk Display")
+            throw LuaException("Touch scripts require a Desk Display")
         }
         val stored = DisplayBindings.get(desk, socket)
         TouchInputDiagnostics.info(

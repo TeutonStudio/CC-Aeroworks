@@ -73,6 +73,8 @@ internal class SingleGestureSessionState<K, V>(
 
     fun expire(tick: Long) = sessions.expire(tick)
 
+    fun removeIf(predicate: (K) -> Boolean) = sessions.removeIf(predicate)
+
     fun clear() = sessions.clear()
 
     internal fun size(): Int = sessions.size()

@@ -9,7 +9,7 @@ CC-Aeroworks ergänzt zwei Displaymodule für Aeroworks-Steuerungspulte. Beide k
 | Zweistelliges Display | `left`, `right`, `big` | 2 | `7/16 × 7/16` Block | `112x112` |
 | Dreistelliges Display | nur `big` | 3 | `10/16 × 7/16` Block | `160x112` |
 
-Die Rastergröße wird serverseitig über `display.ppb` in **Parts per Block** bestimmt. `16 PPB` entspricht der normalen Minecraft-Texturdichte von 16 Teilen pro Blockkante, Standard sind `256 PPB`. Breite und Höhe werden aus derselben Dichte und der tatsächlichen Displayfläche abgeleitet, damit jeder dargestellte Pixel physisch quadratisch bleibt.
+Im globalen Standardmodus (`display.useGlobalResolution = true`) wird die Rastergröße serverseitig über `display.ppb` in **Parts per Block** bestimmt. `16 PPB` entspricht der normalen Minecraft-Texturdichte von 16 Teilen pro Blockkante, Standard sind `256 PPB`. Breite und Höhe werden aus derselben Dichte und der tatsächlichen Displayfläche abgeleitet, damit jeder dargestellte Pixel physisch quadratisch bleibt.
 
 Programme müssen die wirksame Breite und Höhe mit `getDisplaySize` lesen und dürfen auch die Standardwerte nicht fest voraussetzen. Die Rückgabe enthält zusätzlich `ppb`, `surfaceWidthParts` und `surfaceHeightParts`.
 
@@ -101,7 +101,15 @@ end
 desk.setDisplayPixels("big", rows)
 ```
 
+## Individuelle Auflösung
+
+Bei `display.useGlobalResolution = false` kann `desk.setDisplayResolution(socket, ppb)` die Auflösung pro Slot ändern, etwa `desk.setDisplayResolution("left", 32)` für 14×14 Pixel auf einem kleinen Display. Die Rückgabe enthält `width`, `height`, `ppb`. `display.setResolution(event, ppb)` bietet denselben Zugriff aus einem Display-Skript und wird von `touchdisplay` geerbt.
+
+Erlaubt sind ganze PPB von 16 bis `display.maxIndividualPpb` (Standard 256; Admins können 16–1024 einstellen). Ohne individuellen Wert gilt `min(display.ppb, display.maxIndividualPpb)`. Bei globalem Modus oder ungültigem Wert entsteht ein Lua-Fehler. Eine Änderung leert das Pixelraster; derselbe Wert erhält es. Die Einstellung wird gespeichert und mit Clients synchronisiert. Der globale Modus ignoriert individuelle Werte, erhält sie aber. Der Ausbau des Moduls entfernt seine Einstellung.
+
 ## Touch und PPB-unabhängige Bedienfelder
+
+Kleine und große Displays unterstützen Touch mit einem erweiterten Computer im aktiven Pultverbund. Normale oder fehlende Computer deaktivieren Touch für beide Größen, einschließlich der Ereignisse an externe Peripherals. Skriptzuweisungen bleiben beim Computerwechsel erhalten.
 
 Touchereignisse liefern weiterhin `x`, `y`, `width` und `height` im aktuellen Pixelraster. Bei 256 PPB besitzt ein großes Display also `160x112` statt eines groben historischen Rasters.
 

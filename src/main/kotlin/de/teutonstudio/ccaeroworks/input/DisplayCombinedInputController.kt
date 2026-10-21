@@ -248,6 +248,7 @@ object DisplayCombinedInputController {
         val candidates = CombinedInputContext.candidates(minecraft, binding)
         val candidate = CombinedInputContext.choose(minecraft, binding, candidates, display = true) ?: return null
         val desk = level.getBlockEntity(candidate.pos) as? ConsoleBlockEntity ?: return null
+        if (!DeskDisplayGeometry.isInteractiveDisplay(desk, candidate.socket)) return null
         val module = desk.module(candidate.socket) ?: return null
         if (!CombinedInputSource.isDisplayPointerModule(module)) return null
 

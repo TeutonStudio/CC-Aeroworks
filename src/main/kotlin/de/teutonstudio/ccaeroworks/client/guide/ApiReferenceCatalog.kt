@@ -59,6 +59,7 @@ object ApiReferenceCatalog {
     private val displayMethods = listOf(
         "resolve(event: table) -> (desk: handle|nil, socket: string|integer)",
         "getSize(event: table) -> table",
+        "setResolution(event: table, ppb: integer) -> table",
         "clear(event: table) -> void",
         "getPixel(event: table, x: integer, y: integer) -> boolean",
         "setPixel(event: table, x: integer, y: integer, enabled: boolean) -> boolean",
@@ -86,6 +87,7 @@ object ApiReferenceCatalog {
                 "clearDisplay(socket: string|integer) -> void",
                 "clearDisplays() -> integer",
                 "getDisplaySize(socket: string|integer) -> table",
+                "setDisplayResolution(socket: string|integer, ppb: integer) -> table",
                 "getDisplayPixel(socket: string|integer, x: integer, y: integer) -> boolean",
                 "setDisplayPixel(socket: string|integer, x: integer, y: integer, enabled: boolean) -> boolean",
                 "setDisplayPixelBatch(socket: string|integer, points: table[], enabled?: boolean) -> integer",
@@ -118,6 +120,7 @@ object ApiReferenceCatalog {
                 "clearDisplay(socket: string|integer) -> void",
                 "clearDisplays() -> integer",
                 "getDisplaySize(socket: string|integer) -> table",
+                "setDisplayResolution(socket: string|integer, ppb: integer) -> table",
                 "getDisplayPixel(socket: string|integer, x: integer, y: integer) -> boolean",
                 "setDisplayPixel(socket: string|integer, x: integer, y: integer, enabled: boolean) -> boolean",
                 "setDisplayPixelBatch(socket: string|integer, points: table[], enabled?: boolean) -> integer",
@@ -242,7 +245,7 @@ object ApiReferenceCatalog {
             moduleName = "display", methods = displayMethods
         ),
         ApiReference(
-            "touchdisplay", "touchdisplay", "DISPLAY SCRIPT · MODULE · LARGE DISPLAY", ApiAccent.TOUCH,
+            "touchdisplay", "touchdisplay", "DISPLAY SCRIPT · MODULE · ADVANCED COMPUTER", ApiAccent.TOUCH,
             moduleName = "touchdisplay",
             methods = displayMethods + listOf(
                 "isTap(event: table) -> boolean",

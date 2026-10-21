@@ -9,7 +9,7 @@ CC-Aeroworks verbindet **Create: Aeroworks Control Desks** mit **CC:Tweaked** un
 - jedes Pult bleibt ein eigenes `ControlDesk`-Peripheral mit eigener Position, Modulen und Displays;
 - globale APIs für eingebettete Computer: `peripherals`, `channels`, `controls`, `wires` und `telemetry`;
 - kleine und große programmierbare Displaymodule mit Text-, Zahlen- und Pixelmodus;
-- Touch-/Draw-Eingabe auf großen Displays über einen frei beweglichen 3D-Zeiger;
+- Touch-/Draw-Eingabe auf kleinen und großen Displays mit erweitertem Computer über einen frei beweglichen 3D-Zeiger;
 - Create Display Links als strukturierte Informationsquellen für Tank-, Lager- und weitere Telemetriedaten;
 - optionale Create:-Radars-Kompatibilität mit nativen Data-Link-Endpunkten;
 - integriertes Manual/API-Nachschlagewerk und lokalisierte Create-Ponder-Erklärungen.
@@ -92,9 +92,20 @@ Dadurch bleiben Pixel unabhängig vom Seitenverhältnis physisch quadratisch. Pr
 
 Beispiel: [`examples/cc/pixel-test.lua`](examples/cc/pixel-test.lua)
 
+### Individuelle Auflösung
+
+Mit `display.useGlobalResolution = true` (Standard) verwenden alle Displays `display.ppb`. Bei `false` dürfen Lua-Programme die Dichte pro Display-Slot ändern:
+
+```lua
+local size = desk.setDisplayResolution("left", 32)
+print(size.width, size.height, size.ppb) -- kleines Display: 14, 14, 32
+```
+
+`display.maxIndividualPpb` begrenzt individuelle Werte (Standard 256, einstellbar 16–1024). Ohne eigenen Wert gilt das Minimum aus `display.ppb` und dieser Grenze. `setDisplayResolution` akzeptiert ausschließlich ganze Zahlen zwischen 16 und der Grenze; bei globalem Modus wird ein Lua-Fehler ausgelöst. Eine Änderung leert das Pixelbild; derselbe Wert erhält es. Individuelle Werte bleiben beim Neustart und während des globalen Modus gespeichert, werden aber beim Ausbau des Displaymoduls entfernt. `getDisplaySize` liefert immer die wirksame Auflösung.
+
 ### Display-Skripte und Touch
 
-Große Displays können ein Skript als Eingabe-/Touch-Handler binden. Der kombinierte Display-Eingabemodus friert die Kamera ein und bewegt einen halbtransparenten 3D-Zeiger orthogonal über die Displayfläche.
+Kleine und große Displays können ein Skript als Eingabe-/Touch-Handler binden. Touch ist nur verfügbar, wenn im aktiven Pultverbund ein erweiterter CC:Tweaked-Computer eingesetzt ist. Ein normaler oder fehlender Computer deaktiviert Touch für alle Displays des Verbunds. Der kombinierte Display-Eingabemodus friert die Kamera ein und bewegt einen halbtransparenten 3D-Zeiger orthogonal über die Displayfläche.
 
 Aktuell erzeugt die Mausbedienung:
 
@@ -199,7 +210,7 @@ Die ausführliche externe Referenz liegt unter [`docs/cc-peripheral-api.md`](doc
 
 - Minecraft 1.21.1
 - NeoForge 21.1.234+
-- TeutonLib 1.2.0 (Pflicht auf Client und Server; gemeinsame Computerreiter)
+- TeutonLib 1.2.2 (Pflicht auf Client und Server; gemeinsame Computerreiter)
 - Java 21
 - Kotlin 2.4.0 / KotlinForForge NeoForge 5.12.0
 - Create 6.0.10 mit Ponder API 1.0.82

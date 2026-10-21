@@ -8,6 +8,7 @@ import com.mred231.aeroworks.content.controls.module.MountedModule
 object CombinedInputSource {
     const val ID: String = "cc_aeroworks.combined"
     private val displayPointerModules: Set<String> = setOf(
+        "cc_aeroworks:two_digit_display",
         "cc_aeroworks:three_digit_display",
         "cc_aeroworks:large_radar_display"
     )

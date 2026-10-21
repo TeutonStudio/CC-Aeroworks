@@ -6,14 +6,15 @@ import de.teutonstudio.ccaeroworks.compat.sable.SableInteractionGeometry
 import de.teutonstudio.ccaeroworks.computer.DeskDisplayInputDispatcher
 import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
 import de.teutonstudio.ccaeroworks.display.DeskDisplayGeometry
+import de.teutonstudio.ccaeroworks.display.DisplayTouchAccess
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
+import java.util.UUID
 import net.minecraft.core.BlockPos
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
 import net.minecraft.server.level.ServerPlayer
 import net.neoforged.neoforge.network.handling.IPayloadContext
-import java.util.UUID
 
 enum class DisplayPointerAction(val eventName: String) {
     TAP("tap"),
@@ -96,6 +97,9 @@ data class DisplayPointerActionPayload(
                 return
             }
 
+            if (!DisplayTouchAccess.enabled(desk)) {
+                return
+            }
             val network = ConsoleMultiblockManager.resolve(level, payload.pos)
             val reachableMembers = network.members.count {
                 SableInteractionGeometry.withinReach(player, level, it.pos)

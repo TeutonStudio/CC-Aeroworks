@@ -3,22 +3,27 @@ package de.teutonstudio.ccaeroworks.network
 import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.sable.SableInteractionGeometry
+import de.teutonstudio.ccaeroworks.computer.ConsoleComputer
 import de.teutonstudio.ccaeroworks.computer.DeskDisplayInputDispatcher
 import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
 import de.teutonstudio.ccaeroworks.display.DeskDisplayGeometry
 import de.teutonstudio.ccaeroworks.display.DeskDisplayInput
 import de.teutonstudio.ccaeroworks.display.DeskDisplayStrokeSample
 import de.teutonstudio.ccaeroworks.display.DeskDisplayTouch
+import de.teutonstudio.ccaeroworks.display.DisplayResolutionSettings
+import de.teutonstudio.ccaeroworks.display.DisplayTouchAccess
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
+import java.util.UUID
+import kotlin.math.abs
+import kotlin.math.hypot
 import net.minecraft.core.BlockPos
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
+import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.level.Level
 import net.neoforged.neoforge.network.handling.IPayloadContext
-import java.util.UUID
-import kotlin.math.abs
-import kotlin.math.hypot
 
 data class DisplayDrawSamplePayload(
     val u: Double,
@@ -201,6 +206,10 @@ data class DisplayDrawPayload(
                 return
             }
 
+            if (!DisplayTouchAccess.enabled(desk)) {
+                gestures.removePlayer(player.uuid)
+                return
+            }
             val network = ConsoleMultiblockManager.resolve(level, payload.pos)
             val reachableMembers = network.members.count {
                 SableInteractionGeometry.withinReach(player, level, it.pos)
@@ -226,12 +235,13 @@ data class DisplayDrawPayload(
 
             // A player can have only one active gesture per physical display socket. The gesture ID
             // identifies which logical stroke owns that slot, rather than multiplying session keys.
-            val key = GestureKey(player.uuid, payload.pos.asLong(), payload.socket)
+            val key = GestureKey(player.uuid, level.dimension(), payload.pos.asLong(), payload.socket)
             if (payload.sequence == 0) {
                 val started = gestures.start(
                     key,
                     payload.gestureId,
-                    GestureData(current.touch, current),
+                    GestureData(current.touch, current, network.owner,
+                        DisplayResolutionSettings.partsPerBlock(desk, payload.socket)),
                     tick
                 )
                 if (!started) {
@@ -289,6 +299,12 @@ data class DisplayDrawPayload(
                 SingleGestureSessionState.AdvanceStatus.ACCEPTED -> Unit
             }
             val state = requireNotNull(advance.previous)
+            if (state.owner !== network.owner ||
+                state.ppb != DisplayResolutionSettings.partsPerBlock(desk, payload.socket) ||
+                state.startTouch.width != current.touch.width || state.startTouch.height != current.touch.height) {
+                gestures.remove(key)
+                return
+            }
 
             val deltaX = current.touch.x - state.lastSample.touch.x
             val deltaY = current.touch.y - state.lastSample.touch.y
@@ -318,6 +334,11 @@ data class DisplayDrawPayload(
             )
             DeskDisplayInputDispatcher.dispatch(desk, input)
             if (payload.isEnd) gestures.remove(key)
+        }
+
+        fun invalidateDisplay(desk: ConsoleBlockEntity, socket: Int) {
+            val dimension = desk.level?.dimension() ?: return
+            gestures.removeIf { it.dimension == dimension && it.pos == desk.blockPos.asLong() && it.socket == socket }
         }
 
         internal fun clearPlayerState(playerId: UUID) {
@@ -359,13 +380,16 @@ data class DisplayDrawPayload(
 
         private data class GestureKey(
             val player: UUID,
+            val dimension: ResourceKey<Level>,
             val pos: Long,
             val socket: Int
         )
 
         private data class GestureData(
             val startTouch: DeskDisplayTouch,
-            val lastSample: ResolvedDrawSample
+            val lastSample: ResolvedDrawSample,
+            val owner: ConsoleComputer?,
+            val ppb: Int
         )
 
         private data class ResolvedDrawSample(

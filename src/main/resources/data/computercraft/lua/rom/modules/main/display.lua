@@ -48,6 +48,11 @@ function display.getSize(event)
     return desk.getDisplaySize(socket)
 end
 
+function display.setResolution(event, ppb)
+    local desk, socket = target(event)
+    return desk.setDisplayResolution(socket, ppb)
+end
+
 function display.clear(event)
     local desk, socket = target(event)
     return desk.clearDisplayPixels(socket)

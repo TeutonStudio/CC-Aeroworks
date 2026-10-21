@@ -8,6 +8,7 @@ import de.teutonstudio.ccaeroworks.display.DeskDisplayInput
 import de.teutonstudio.ccaeroworks.display.DeskDisplayTouch
 import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
+import de.teutonstudio.ccaeroworks.display.DisplayTouchAccess
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import de.teutonstudio.ccaeroworks.network.DisplayPointerAction
@@ -19,6 +20,8 @@ object DeskDisplayInputDispatcher {
 
     @JvmStatic
     fun dispatch(desk: ConsoleBlockEntity, input: DeskDisplayInput) {
+        if (desk.level?.isClientSide != false ||
+            !DisplayTouchAccess.enabled(desk)) return
         val touch = input.touch
         val deskPos = desk.blockPos.toShortString()
         val gesture = if (input.isDraw) {

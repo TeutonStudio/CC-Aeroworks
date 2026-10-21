@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.2 — 2026-10-21
+
+- TeutonLib 1.2.2 is now required on clients and servers (supported range: >=1.2.2, <1.3.0).
+- Added server settings `display.useGlobalResolution` (default true) and `display.maxIndividualPpb` (default 256, range 16–1024). Disable global resolution to configure each display slot through `setDisplayResolution(socket, ppb)` or `display.setResolution(event, ppb)`.
+- Individual resolutions persist across saves and synchronize to clients. Changing density clears the pixel raster; setting the same effective density preserves it. Removing a module resets its slot setting.
+- Small and large displays support touch and draw only with an advanced computer in the active console network. Normal or absent computers disable touch, including events delivered to external peripherals. Script bindings survive computer replacement.
+- Display geometry, pixel APIs and module descriptions use the effective slot resolution. Stale draw gestures are rejected after resolution or computer changes. Radar displays retain their resolution logic.
+- Added integration coverage for mounted displays, persistence, independent slots, computer tiers and external event delivery, plus Lua helper tests. See [verification](docs/test-results/release-1.4.2.md).
+
 ## 1.4.1 — 2026-10-18
 
 - TeutonLib 1.2.0 is now required on clients and servers, using a shared NeoForge 21.1.234 baseline.

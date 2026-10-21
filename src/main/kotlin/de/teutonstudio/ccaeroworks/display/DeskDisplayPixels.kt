@@ -97,9 +97,11 @@ class DeskDisplayPixels private constructor(
             DeskDisplayPixels(width, height, ByteArray(packedByteCount(width, height)))
 
         @JvmStatic
-        fun fromRows(type: DeskDisplayType, rows: List<String>): DeskDisplayPixels {
-            val width = type.pixelWidth
-            val height = type.pixelHeight
+        fun fromRows(type: DeskDisplayType, rows: List<String>): DeskDisplayPixels = fromRows(type.pixelResolution, rows)
+
+        fun fromRows(resolution: DeskDisplayResolution, rows: List<String>): DeskDisplayPixels {
+            val width = resolution.width
+            val height = resolution.height
             require(rows.size == height) { "pixel table must contain exactly $height rows" }
             require(rows.all { it.length == width }) { "every pixel row must contain exactly $width characters" }
             require(rows.all { row -> row.all { it == '0' || it == '1' } }) { "pixel rows may contain only 0 and 1" }
@@ -119,20 +121,22 @@ class DeskDisplayPixels private constructor(
          * the payload as ordinary display text.
          */
         @JvmStatic
-        fun decode(type: DeskDisplayType, stored: String): DeskDisplayPixels? = when {
-            stored.startsWith(PREFIX_V2) -> decodeV2(type, stored.removePrefix(PREFIX_V2))
-            stored.startsWith(PREFIX_V1) -> decodeV1(type, stored.removePrefix(PREFIX_V1))
+        fun decode(type: DeskDisplayType, stored: String): DeskDisplayPixels? = decode(type.pixelResolution, stored)
+
+        fun decode(resolution: DeskDisplayResolution, stored: String): DeskDisplayPixels? = when {
+            stored.startsWith(PREFIX_V2) -> decodeV2(resolution, stored.removePrefix(PREFIX_V2))
+            stored.startsWith(PREFIX_V1) -> decodeV1(resolution, stored.removePrefix(PREFIX_V1))
             else -> null
         }
 
-        private fun decodeV2(type: DeskDisplayType, payload: String): DeskDisplayPixels? {
+        private fun decodeV2(resolution: DeskDisplayResolution, payload: String): DeskDisplayPixels? {
             val first = payload.indexOf(':')
             if (first <= 0) return null
             val second = payload.indexOf(':', first + 1)
             if (second <= first + 1) return null
             val width = payload.substring(0, first).toIntOrNull() ?: return null
             val height = payload.substring(first + 1, second).toIntOrNull() ?: return null
-            if (width != type.pixelWidth || height != type.pixelHeight) return null
+            if (width != resolution.width || height != resolution.height) return null
             val packed = runCatching {
                 Base64.getUrlDecoder().decode(payload.substring(second + 1))
             }.getOrNull() ?: return null
@@ -141,9 +145,9 @@ class DeskDisplayPixels private constructor(
             return DeskDisplayPixels(width, height, packed)
         }
 
-        private fun decodeV1(type: DeskDisplayType, bits: String): DeskDisplayPixels? {
-            val width = type.pixelWidth
-            val height = type.pixelHeight
+        private fun decodeV1(resolution: DeskDisplayResolution, bits: String): DeskDisplayPixels? {
+            val width = resolution.width
+            val height = resolution.height
             val expected = safePixelCount(width, height)
             if (bits.length != expected || bits.any { it != '0' && it != '1' }) return null
             val packed = ByteArray(packedByteCount(width, height))

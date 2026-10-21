@@ -5,17 +5,20 @@ import com.mred231.aeroworks.content.controls.module.MountedModule
 import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
 import de.teutonstudio.ccaeroworks.display.DeskDisplayFormatter
 import de.teutonstudio.ccaeroworks.display.DeskDisplayPixels
+import de.teutonstudio.ccaeroworks.display.DeskDisplayResolution
 import de.teutonstudio.ccaeroworks.display.DeskDisplayState
 import de.teutonstudio.ccaeroworks.display.DeskDisplayType
+import de.teutonstudio.ccaeroworks.display.DisplayResolutionSettings
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
-import net.minecraft.network.chat.Component
 import java.util.WeakHashMap
+import net.minecraft.network.chat.Component
 
 object AeroworksDeskAccess {
     private data class CachedDisplay(
         val module: MountedModule,
         val stored: String,
         val type: DeskDisplayType,
+        val ppb: Int,
         val state: DeskDisplayState
     )
 
@@ -29,23 +32,25 @@ object AeroworksDeskAccess {
     fun display(desk: ConsoleBlockEntity, socket: Int): DeskDisplayState? {
         val module = module(desk, socket) ?: return null
         val type = CCModuleTypes.displayType(module.type()) ?: return null
+        val ppb = DisplayResolutionSettings.partsPerBlock(desk, socket)
+        val resolution = DeskDisplayResolution(type.pixelWidthAt(ppb), type.pixelHeightAt(ppb))
         val stored = module.customName()?.string.orEmpty()
         synchronized(displayCache) {
             displayCache[desk]?.get(socket)?.takeIf {
-                it.module === module && it.stored == stored && it.type == type
+                it.module === module && it.stored == stored && it.type == type && it.ppb == ppb
             }?.let { return it.state }
         }
-        val decoded = DeskDisplayPixels.decode(type, stored)
+        val decoded = DeskDisplayPixels.decode(resolution, stored)
         val encodedRaster = DeskDisplayPixels.isEncoded(stored)
         // A PPB change invalidates the old raster dimensions. Keep that state in pixel mode and
         // start with a correctly sized blank raster instead of accidentally displaying the
         // serialized payload as ordinary seven-segment text.
-        val pixels = decoded ?: if (encodedRaster) DeskDisplayPixels.blank(type) else null
+        val pixels = decoded ?: if (encodedRaster) DeskDisplayPixels.blank(resolution.width, resolution.height) else null
         val text = if (pixels == null) DeskDisplayFormatter.normalizeText(stored, type.width) else ""
-        return DeskDisplayState(socket, type, text, pixels).also { state ->
+        return DeskDisplayState(socket, type, text, pixels, ppb).also { state ->
             synchronized(displayCache) {
                 displayCache.getOrPut(desk) { hashMapOf() }[socket] =
-                    CachedDisplay(module, stored, type, state)
+                    CachedDisplay(module, stored, type, ppb, state)
             }
         }
     }
@@ -74,10 +79,10 @@ object AeroworksDeskAccess {
             TouchInputDiagnostics.warn("pixels", "write rejected desk=$pos socket=$socket: socket is not a CC-Aeroworks display")
             return null
         }
-        if (pixels.width != current.type.pixelWidth || pixels.height != current.type.pixelHeight) {
+        if (pixels.width != current.resolution.width || pixels.height != current.resolution.height) {
             TouchInputDiagnostics.warn(
                 "pixels",
-                "write rejected desk=$pos socket=$socket: raster=${pixels.width}x${pixels.height} expected=${current.type.pixelWidth}x${current.type.pixelHeight} ppb=${current.type.partsPerBlock}"
+                "write rejected desk=$pos socket=$socket: raster=${pixels.width}x${pixels.height} expected=${current.resolution.width}x${current.resolution.height} ppb=${current.partsPerBlock}"
             )
             return null
         }

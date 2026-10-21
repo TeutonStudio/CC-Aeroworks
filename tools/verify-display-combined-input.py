@@ -61,6 +61,7 @@ require(
     "Combined input must discover native analog axes and their mouse direction dynamically",
 )
 require(
+    '"cc_aeroworks:two_digit_display"' in source and
     '"cc_aeroworks:three_digit_display"' in source and
     '"cc_aeroworks:large_radar_display"' in source,
     "display pointer module classification missing",

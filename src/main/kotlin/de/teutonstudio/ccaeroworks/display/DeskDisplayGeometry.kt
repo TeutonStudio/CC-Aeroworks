@@ -5,11 +5,11 @@ import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksModuleAccess
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskSockets
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
+import kotlin.math.abs
+import kotlin.math.floor
 import net.minecraft.world.phys.Vec3
 import org.joml.Matrix4f
 import org.joml.Vector3f
-import kotlin.math.abs
-import kotlin.math.floor
 
 data class DeskDisplayPointer(
     val socket: Int,
@@ -18,7 +18,9 @@ data class DeskDisplayPointer(
     val u: Double,
     val v: Double,
     val width: Int,
-    val height: Int
+    val height: Int,
+    val surfaceWidthParts: Int = 10,
+    val surfaceHeightParts: Int = 7
 ) {
     fun toTouch(): DeskDisplayTouch = DeskDisplayTouch(
         socket = socket,
@@ -45,45 +47,47 @@ object DeskDisplayGeometry {
     private const val RAY_EPSILON: Double = 1.0e-7
 
     @JvmStatic
-    fun resolveHit(desk: ConsoleBlockEntity, hitLocation: Vec3): DeskDisplayPointer? {
-        val descriptor = descriptor(desk, LARGE_SOCKET) ?: return null
-        val inverse = moduleTransform(desk, LARGE_SOCKET)?.invert() ?: return null
-        val local = Vector3f(
-            (hitLocation.x - desk.blockPos.x).toFloat(),
-            (hitLocation.y - desk.blockPos.y).toFloat(),
-            (hitLocation.z - desk.blockPos.z).toFloat()
-        )
-        inverse.transformPosition(local)
-        return pointerFromLocal(descriptor, local.x.toDouble(), local.z.toDouble())
-    }
+    fun resolveHit(desk: ConsoleBlockEntity, hitLocation: Vec3): DeskDisplayPointer? =
+        (0 until desk.socketCount()).mapNotNull { socket ->
+            val descriptor = descriptor(desk, socket) ?: return@mapNotNull null
+            val inverse = moduleTransform(desk, socket)?.invert() ?: return@mapNotNull null
+            val local = Vector3f(
+                (hitLocation.x - desk.blockPos.x).toFloat(),
+                (hitLocation.y - desk.blockPos.y).toFloat(),
+                (hitLocation.z - desk.blockPos.z).toFloat()
+            )
+            inverse.transformPosition(local)
+            val pointer = pointerFromLocal(descriptor, local.x.toDouble(), local.z.toDouble())
+                ?: return@mapNotNull null
+            pointer to abs(local.y.toDouble() - SURFACE_Y)
+        }.minByOrNull { it.second }?.first
 
     @JvmStatic
-    fun resolveRay(desk: ConsoleBlockEntity, rayStart: Vec3, rayEnd: Vec3): DeskDisplayPointer? {
-        val descriptor = descriptor(desk, LARGE_SOCKET) ?: return null
-        val inverse = moduleTransform(desk, LARGE_SOCKET)?.invert() ?: return null
-
-        val localStart = Vector3f(
-            (rayStart.x - desk.blockPos.x).toFloat(),
-            (rayStart.y - desk.blockPos.y).toFloat(),
-            (rayStart.z - desk.blockPos.z).toFloat()
-        )
-        val localEnd = Vector3f(
-            (rayEnd.x - desk.blockPos.x).toFloat(),
-            (rayEnd.y - desk.blockPos.y).toFloat(),
-            (rayEnd.z - desk.blockPos.z).toFloat()
-        )
-        inverse.transformPosition(localStart)
-        inverse.transformPosition(localEnd)
-
-        val dy = localEnd.y.toDouble() - localStart.y.toDouble()
-        if (abs(dy) <= RAY_EPSILON) return null
-        val t = (SURFACE_Y - localStart.y.toDouble()) / dy
-        if (t < 0.0 || t > 1.0) return null
-
-        val x = localStart.x.toDouble() + (localEnd.x.toDouble() - localStart.x.toDouble()) * t
-        val z = localStart.z.toDouble() + (localEnd.z.toDouble() - localStart.z.toDouble()) * t
-        return pointerFromLocal(descriptor, x, z)
-    }
+    fun resolveRay(desk: ConsoleBlockEntity, rayStart: Vec3, rayEnd: Vec3): DeskDisplayPointer? =
+        (0 until desk.socketCount()).mapNotNull { socket ->
+            val descriptor = descriptor(desk, socket) ?: return@mapNotNull null
+            val inverse = moduleTransform(desk, socket)?.invert() ?: return@mapNotNull null
+            val localStart = Vector3f(
+                (rayStart.x - desk.blockPos.x).toFloat(),
+                (rayStart.y - desk.blockPos.y).toFloat(),
+                (rayStart.z - desk.blockPos.z).toFloat()
+            )
+            val localEnd = Vector3f(
+                (rayEnd.x - desk.blockPos.x).toFloat(),
+                (rayEnd.y - desk.blockPos.y).toFloat(),
+                (rayEnd.z - desk.blockPos.z).toFloat()
+            )
+            inverse.transformPosition(localStart)
+            inverse.transformPosition(localEnd)
+            val dy = localEnd.y.toDouble() - localStart.y.toDouble()
+            if (abs(dy) <= RAY_EPSILON) return@mapNotNull null
+            val t = (SURFACE_Y - localStart.y.toDouble()) / dy
+            if (t < 0.0 || t > 1.0) return@mapNotNull null
+            val x = localStart.x.toDouble() + (localEnd.x.toDouble() - localStart.x.toDouble()) * t
+            val z = localStart.z.toDouble() + (localEnd.z.toDouble() - localStart.z.toDouble()) * t
+            val pointer = pointerFromLocal(descriptor, x, z) ?: return@mapNotNull null
+            pointer to t
+        }.minByOrNull { it.second }?.first
 
     @JvmStatic
     fun pointer(desk: ConsoleBlockEntity, socket: Int, u: Double, v: Double): DeskDisplayPointer? {
@@ -114,10 +118,14 @@ object DeskDisplayGeometry {
     }
 
     @JvmStatic
-    fun localX(u: Double): Double = MIN_X + u.coerceIn(0.0, 1.0) * (MAX_X - MIN_X)
+    @JvmOverloads
+    fun localX(u: Double, surfaceParts: Int = 10): Double =
+        0.5 + (u.coerceIn(0.0, 1.0) - 0.5) * surfaceParts / 16.0
 
     @JvmStatic
-    fun localZ(v: Double): Double = MAX_Z - v.coerceIn(0.0, 1.0) * (MAX_Z - MIN_Z)
+    @JvmOverloads
+    fun localZ(v: Double, surfaceParts: Int = 7): Double =
+        0.5 + (0.5 - v.coerceIn(0.0, 1.0)) * surfaceParts / 16.0
 
     @JvmStatic
     fun gridCoordinate(normalized: Double, count: Int): Int {
@@ -127,23 +135,30 @@ object DeskDisplayGeometry {
             .coerceIn(0, count - 1) + 1
     }
 
-    private fun pointerFromLocal(
+    internal fun pointerFromLocal(
         descriptor: DeskDisplayPointer,
         x: Double,
         z: Double
     ): DeskDisplayPointer? {
-        if (x !in MIN_X..MAX_X || z !in MIN_Z..MAX_Z) return null
+        val minX = localX(0.0, descriptor.surfaceWidthParts)
+        val maxX = localX(1.0, descriptor.surfaceWidthParts)
+        val minZ = localZ(1.0, descriptor.surfaceHeightParts)
+        val maxZ = localZ(0.0, descriptor.surfaceHeightParts)
+        if (x !in minX..maxX || z !in minZ..maxZ) return null
         return descriptor.copy(
-            u = ((x - MIN_X) / (MAX_X - MIN_X)).coerceIn(0.0, 1.0),
-            v = ((MAX_Z - z) / (MAX_Z - MIN_Z)).coerceIn(0.0, 1.0)
+            u = ((x - minX) / (maxX - minX)).coerceIn(0.0, 1.0),
+            v = ((maxZ - z) / (maxZ - minZ)).coerceIn(0.0, 1.0)
         )
     }
 
     private fun descriptor(desk: ConsoleBlockEntity, socket: Int): DeskDisplayPointer? {
-        if (socket != LARGE_SOCKET) return null
+        if (socket !in 0 until desk.socketCount() || !DisplayTouchAccess.enabled(desk)) return null
         val module = desk.module(socket) ?: return null
         val displayType = CCModuleTypes.displayType(module.type())
-        if (displayType != DeskDisplayType.THREE_DIGIT && !InteractiveDisplayExtensions.isInteractive(module.type())) return null
+        if (displayType == null && !InteractiveDisplayExtensions.isInteractive(module.type())) return null
+        val type = displayType ?: DeskDisplayType.THREE_DIGIT
+        // Extensions (e.g. radar displays) retain their existing global raster.
+        val ppb = if (displayType != null) DisplayResolutionSettings.partsPerBlock(desk, socket) else type.partsPerBlock
 
         return DeskDisplayPointer(
             socket = socket,
@@ -151,8 +166,10 @@ object DeskDisplayGeometry {
             moduleId = AeroworksModuleAccess.id(module).toString(),
             u = 0.5,
             v = 0.5,
-            width = DeskDisplayType.THREE_DIGIT.pixelWidth,
-            height = DeskDisplayType.THREE_DIGIT.pixelHeight
+            width = type.pixelWidthAt(ppb),
+            height = type.pixelHeightAt(ppb),
+            surfaceWidthParts = type.surfaceWidthParts,
+            surfaceHeightParts = type.surfaceHeightParts
         )
     }
 }

@@ -33,6 +33,13 @@ require("surfaceParts.toLong() * partsPerBlock.toLong() / VANILLA_PARTS_PER_BLOC
 
 require('defineInRange(\n                "ppb"' in config or 'defineInRange("ppb"' in config,
         "server config must expose display.ppb")
+require('define("useGlobalResolution", true)' in config, "global resolution must remain the default")
+require('defineInRange("maxIndividualPpb", 256, 16, 1024)' in config, "individual density must have an admin limit")
+access = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/aeroworks/AeroworksDeskAccess.kt")
+require("it.ppb == ppb" in access, "display cache must account for effective density changes")
+dispatch = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/DeskDisplayInputDispatcher.kt")
+require(dispatch.index("DisplayTouchAccess.enabled(desk)") < dispatch.index("ControlDeskPeripheralState.queueDisplayInput"),
+        "computer tier must be checked before external event delivery")
 require("smallDisplayPixelWidth" not in config and "largeDisplayPixelWidth" not in config,
         "independent width/height config fields must not return")
 

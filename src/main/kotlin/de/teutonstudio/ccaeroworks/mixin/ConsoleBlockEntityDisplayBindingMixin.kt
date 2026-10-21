@@ -3,6 +3,8 @@ package de.teutonstudio.ccaeroworks.mixin
 import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindingStateAccess
+import de.teutonstudio.ccaeroworks.display.DisplayResolutionStateAccess
+import de.teutonstudio.ccaeroworks.network.DisplayDrawPayload
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.ListTag
@@ -18,7 +20,21 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable
 private const val DISPLAY_BINDINGS_NBT_KEY = "CCAeroworksDisplayBindings"
 
 @Mixin(value = [ConsoleBlockEntity::class], remap = false)
-abstract class ConsoleBlockEntityDisplayBindingMixin : DisplayBindingStateAccess {
+abstract class ConsoleBlockEntityDisplayBindingMixin : DisplayBindingStateAccess, DisplayResolutionStateAccess {
+    @Unique
+    private val ccaeroworks_displayPpb = linkedMapOf<Int, Int>()
+
+    override fun ccaeroworks_getDisplayPpb(socket: Int): Int? = ccaeroworks_displayPpb[socket]
+
+    override fun ccaeroworks_setDisplayPpb(socket: Int, ppb: Int) {
+        require(ppb in 16..1024)
+        val desk = this as ConsoleBlockEntity
+        if (socket !in 0 until desk.socketCount()) return
+        if (ccaeroworks_displayPpb.put(socket, ppb) == ppb) return
+        desk.setChanged()
+        desk.notifyUpdate()
+    }
+
     @Unique
     private val ccaeroworks_displayBindings = linkedMapOf<Int, DisplayBinding>()
 
@@ -47,6 +63,9 @@ abstract class ConsoleBlockEntityDisplayBindingMixin : DisplayBindingStateAccess
         clientPacket: Boolean,
         callback: CallbackInfo
     ) {
+        val resolutions = CompoundTag()
+        ccaeroworks_displayPpb.forEach { (socket, ppb) -> resolutions.putInt(socket.toString(), ppb) }
+        tag.put("CCAeroworksDisplayPpb", resolutions)
         if (ccaeroworks_displayBindings.isEmpty()) {
             tag.remove(DISPLAY_BINDINGS_NBT_KEY)
             return
@@ -71,6 +90,14 @@ abstract class ConsoleBlockEntityDisplayBindingMixin : DisplayBindingStateAccess
         clientPacket: Boolean,
         callback: CallbackInfo
     ) {
+        ccaeroworks_displayPpb.clear()
+        val resolutions = tag.getCompound("CCAeroworksDisplayPpb")
+        val host = this as ConsoleBlockEntity
+        resolutions.allKeys.forEach { key ->
+            val socket = key.toIntOrNull() ?: return@forEach
+            val ppb = resolutions.getInt(key)
+            if (socket in 0 until host.socketCount() && ppb in 16..1024) ccaeroworks_displayPpb[socket] = ppb
+        }
         ccaeroworks_displayBindings.clear()
         if (!tag.contains(DISPLAY_BINDINGS_NBT_KEY, Tag.TAG_LIST.toInt())) return
 
@@ -93,6 +120,8 @@ abstract class ConsoleBlockEntityDisplayBindingMixin : DisplayBindingStateAccess
         socket: Int,
         callback: CallbackInfoReturnable<ItemStack>
     ) {
+        DisplayDrawPayload.invalidateDisplay(this as ConsoleBlockEntity, socket)
+        ccaeroworks_displayPpb.remove(socket)
         ccaeroworks_displayBindings.remove(socket)
     }
 }
