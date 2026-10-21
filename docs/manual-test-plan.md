@@ -218,7 +218,7 @@ Ein Fall ist nur `PASS`, wenn alle Schritte und Erwartungen erfüllt sind. Ein H
 
 **Erwartung:**
 
-- Größen sind `7x5` beziehungsweise `11x5`.
+- Bei 256 PPB sind die Größen `112x112` beziehungsweise `160x112`; mit anderer Dichte stimmen sie mit `getDisplaySize()` überein.
 - Koordinaten beginnen bei `1`.
 - Randpixel sind schreib- und lesbar.
 - Ungültige Koordinaten erzeugen einen Lua-Fehler ohne Teiländerung.
@@ -235,7 +235,7 @@ Ein Fall ist nur `PASS`, wenn alle Schritte und Erwartungen erfüllt sind. Ein H
 
 **Erwartung:**
 
-- Genau fünf Zeilen mit korrekter Breite werden übernommen.
+- Genau `getDisplaySize().height` Zeilen mit der gemeldeten Breite werden übernommen.
 - Sichtbare Pixel, Rückgabe und gelesener Zustand stimmen überein.
 
 ### `DISPLAY-PIXEL-03` Ungültige Raster
@@ -520,3 +520,15 @@ Ein Fall ist nur `PASS`, wenn alle Schritte und Erwartungen erfüllt sind. Ein H
 - Displayitems und Handbuch erscheinen genau einmal im richtigen Abschnitt.
 - Text und Oberfläche bleiben scharf; kein Blur-Shader verwischt die bereits gezeichnete Oberfläche.
 - Navigation funktioniert bei beiden GUI-Skalierungen.
+
+
+## Individuelle Auflösung und Computer-Touch
+
+1. Server mit `display.useGlobalResolution = true` starten: beide Displaygrößen verwenden `display.ppb`; `setDisplayResolution` erzeugt einen Lua-Fehler.
+2. Globalen Modus deaktivieren. Auf zwei kleinen Slots unterschiedliche PPB setzen; auf einem weiteren Pult ein großes Display verwenden. `getDisplaySize`, `getDisplay`, `getModule` und Randpixel vergleichen.
+3. Werte 16, 255, die konfigurierte Obergrenze, Bruchzahlen, Strings und Werte außerhalb der Grenzen prüfen. Ungültige Aufrufe ändern weder Raster noch Einstellung.
+4. Pixel zeichnen, dieselbe PPB erneut setzen (Bild erhalten), dann andere PPB setzen (Bild leer). Chunk neu laden, neu verbinden und Server neu starten: PPB und passendes Raster bleiben erhalten.
+5. Globalen Modus aktivieren und wieder deaktivieren: individuelle Werte bleiben gespeichert. Obergrenze senken: wirksame individuelle Werte werden begrenzt. Display ausbauen und ersetzen: Slot verwendet wieder den Standard.
+6. Ohne Computer und mit normalem Computer: weder kleine noch große Displays erlauben Touch/Draw. Auch externe Peripherals empfangen keine Displayeingaben. Mit erweitertem Computer funktionieren beide Größen auf allen Mitgliedern des aktiven Verbunds.
+7. Während einer Draw-Geste den Computer oder die Auflösung wechseln: alte Fortsetzungen werden verworfen; eine neue Geste funktioniert mit dem aktuellen Raster. Gespeicherte Skriptzuweisungen bleiben beim Computerwechsel erhalten.
+8. Zeiger, Eckpixel und Draw-Pfad bei gedrehten Pulten, auf Ständern und auf bewegten Sable-Unterwelten visuell prüfen. Radar-Displays behalten ihre bisherige Auflösung.

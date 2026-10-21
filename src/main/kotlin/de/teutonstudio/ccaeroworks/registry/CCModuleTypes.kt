@@ -8,11 +8,11 @@ import com.mred231.aeroworks.content.controls.socket.SocketType
 import com.mred231.aeroworks.content.controls.socket.SocketTypes
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.display.DeskDisplayType
-import net.minecraft.resources.ResourceLocation
-import net.minecraft.world.phys.Vec3
 import java.lang.reflect.Array
 import java.lang.reflect.Modifier
 import java.util.Locale
+import net.minecraft.resources.ResourceLocation
+import net.minecraft.world.phys.Vec3
 
 object CCModuleTypes {
     private const val AEROWORKS_YOKE = "aeroworks:yoke"
@@ -28,7 +28,7 @@ object CCModuleTypes {
     val TWO_DIGIT: ModuleType = createExtensionModule(
         DeskDisplayType.TWO_DIGIT,
         DeskDisplayType.TWO_DIGIT.modulePath,
-        interactive = false
+        interactive = true
     )
 
     @JvmField
@@ -53,7 +53,7 @@ object CCModuleTypes {
             )
 
         if (interactive) {
-            // Aeroworks already defines the exact two-axis control semantics needed by the large
+            // Aeroworks already defines the exact two-axis control semantics needed by programmable
             // displays on its Yoke. Clone those public channel records so CC-Aeroworks inherits
             // the same value range and channel options instead of maintaining a parallel format.
             // Only the channel ids change: turn -> x and pitch -> y.

@@ -110,6 +110,10 @@ open class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral 
         AeroworksDeskService.getDisplaySize(desk(), arguments.get(0))
 
     @LuaFunction(mainThread = true)
+    fun setDisplayResolution(arguments: IArguments): Map<String, Int> =
+        AeroworksDeskService.setDisplayResolution(desk(), arguments.get(0), arguments.get(1))
+
+    @LuaFunction(mainThread = true)
     fun getDisplayPixel(arguments: IArguments): Boolean = AeroworksDeskService.getDisplayPixel(
         desk(), arguments.get(0), arguments.getInt(1), arguments.getInt(2)
     )

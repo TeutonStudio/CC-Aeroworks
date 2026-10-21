@@ -48,6 +48,7 @@ setDisplayNumber(socket, value, zeroPad?)
 clearDisplay(socket)
 clearDisplays()
 getDisplaySize(socket)
+setDisplayResolution(socket, ppb)
 getDisplayPixel(socket, x, y)
 setDisplayPixel(socket, x, y, enabled)
 setDisplayPixelBatch(socket, points, enabled?)
@@ -57,6 +58,10 @@ getDisplayBinding(socket)
 setDisplayTouchScript(socket, path)
 clearDisplayBinding(socket)
 ```
+
+`setDisplayResolution(socket, ppb)` setzt bei deaktivierter Serveroption `display.useGlobalResolution` die individuelle Pixeldichte und liefert `{width, height, ppb}`. Erlaubt sind ganze Werte von 16 bis `display.maxIndividualPpb` (Standard 256). Eine Änderung leert das Pixelbild, derselbe Wert erhält es. Globale Vorgabe, ungültiger Slot oder ungültige Dichte führen zu einem Lua-Fehler. Diese Funktion steht auch am eingebetteten Desk-Handle bereit; `display.setResolution(event, ppb)` und `touchdisplay.setResolution(event, ppb)` leiten sie weiter.
+
+Touch und Draw auf kleinen und großen Displays erfordern einen erweiterten Computer im aktiven Pultverbund. Normale oder fehlende Computer erzeugen auch für externe Peripherals keine Displayeingaben.
 
 `setDisplayPixelBatch(socket, points, enabled?)` erwartet eine Liste aus `{x=..., y=...}` mit 1-basierten Displaykoordinaten. Alle Punkte werden in einer einzigen Kopie des gepackten Rasters angewendet; das Display wird höchstens einmal persistiert. Der Rückgabewert ist die Anzahl tatsächlich geänderter Pixel.
 
@@ -226,6 +231,7 @@ Das Modul `display` ist eventbasiert:
 ```text
 resolve(event)
 getSize(event)
+setResolution(event, ppb)
 clear(event)
 getPixel(event, x, y)
 setPixel(event, x, y, enabled)

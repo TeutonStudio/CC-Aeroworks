@@ -1,8 +1,12 @@
-# Touch-Eingaben auf großen Pultanzeigen
+# Touch-Eingaben auf Pultanzeigen
 
-Die große Pultanzeige und die große Radaranzeige verwenden den kombinierten Display-Eingabemodus. Während die konfigurierte Display-Bedienungstaste gehalten wird, bewegt die Maus einen virtuellen Finger auf der Displayfläche. Linksklick erzeugt `tap`, Rechtsklick startet eine `draw`-Geste und Loslassen beendet sie mit `isEnd = true`.
+Kleine und große Pultanzeigen sowie die große Radaranzeige verwenden den kombinierten Display-Eingabemodus. Während die konfigurierte Display-Bedienungstaste gehalten wird, bewegt die Maus einen virtuellen Finger auf der Displayfläche. Linksklick erzeugt `tap`, Rechtsklick startet eine `draw`-Geste und Loslassen beendet sie mit `isEnd = true`.
 
 Die primären Maustasten werden weiterhin über Raw-`MouseHandler`, NeoForge-Fallback und direktes GLFW-Polling abgesichert. Die Bewegung des virtuellen Fingers wird dagegen höherfrequent im Player-Turn-Pfad erfasst und erst anschließend tickweise zum Server gebündelt.
+
+Touch benötigt einen erweiterten Computer im aktiven Pultverbund. Normale Computer, fehlende Computer und inaktive oder widersprüchliche Verbünde erlauben keine Touch-Ereignisse, auch nicht für externe Peripherals. Skriptzuweisungen bleiben beim Computerwechsel erhalten. Kleine Displays besitzen dieselben X/Y-Bedienkanäle wie große Displays.
+
+Mit deaktiviertem `display.useGlobalResolution` kann `desk.setDisplayResolution(socket, ppb)` die individuelle Pixeldichte setzen. Der Helper `display.setResolution(event, ppb)` ist auch über `touchdisplay` verfügbar. Die Rückgabe enthält `width`, `height`, `ppb`; die neue Dichte muss ganzzahlig zwischen 16 und `display.maxIndividualPpb` liegen. Bei einer tatsächlichen Änderung wird das Bild geleert. Eine laufende Geste muss nach Computer- oder Auflösungswechsel neu gestartet werden. Radar-Displays behalten ihre eigene Auflösungslogik.
 
 ## Draw-Datenmodell
 

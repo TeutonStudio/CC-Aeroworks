@@ -5,6 +5,7 @@ import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.compat.sable.SableClientRenderPose
 import de.teutonstudio.ccaeroworks.display.DeskDisplayGeometry
 import de.teutonstudio.ccaeroworks.input.DisplayCombinedInputController
+import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 import net.minecraft.client.Minecraft
 import net.minecraft.client.renderer.LevelRenderer
 import net.minecraft.client.renderer.RenderType
@@ -53,8 +54,11 @@ object DisplayPointerRenderer {
             poseStack.mulPose(socket.orientation())
             poseStack.translate(-0.5, 0.0, -0.5)
 
-            val x = DeskDisplayGeometry.localX(active.u)
-            val z = DeskDisplayGeometry.localZ(active.v)
+            val type = desk.module(active.socket)?.let {
+                CCModuleTypes.displayType(it.type())
+            }
+            val x = DeskDisplayGeometry.localX(active.u, type?.surfaceWidthParts ?: 10)
+            val z = DeskDisplayGeometry.localZ(active.v, type?.surfaceHeightParts ?: 7)
             val baseY = DeskDisplayGeometry.SURFACE_Y + 0.006
             LevelRenderer.addChainedFilledBoxVertices(
                 poseStack,

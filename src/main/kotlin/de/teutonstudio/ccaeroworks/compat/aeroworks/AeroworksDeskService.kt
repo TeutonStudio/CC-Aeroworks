@@ -6,9 +6,13 @@ import dan200.computercraft.api.lua.LuaException
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.computercraft.LuaModuleDescription
 import de.teutonstudio.ccaeroworks.compat.computercraft.LuaModuleSnapshot
+import de.teutonstudio.ccaeroworks.network.DisplayDrawPayload
+import de.teutonstudio.ccaeroworks.config.CCServerConfig
 import de.teutonstudio.ccaeroworks.display.DeskDisplayFormatter
 import de.teutonstudio.ccaeroworks.display.DeskDisplayPixels
 import de.teutonstudio.ccaeroworks.display.DeskDisplayState
+import de.teutonstudio.ccaeroworks.display.DisplayResolutionSettings
+import de.teutonstudio.ccaeroworks.display.DisplayResolutionStateAccess
 
 data class DeskInputSnapshot(
     val moduleId: String,
@@ -99,18 +103,44 @@ object AeroworksDeskService {
     fun getDisplaySize(desk: ConsoleBlockEntity, rawSocket: Any?): Map<String, Int> {
         val display = requiredDisplay(desk, parseSocket(desk, rawSocket))
         return linkedMapOf(
-            "width" to display.type.pixelWidth,
-            "height" to display.type.pixelHeight,
-            "ppb" to display.type.partsPerBlock,
+            "width" to display.resolution.width,
+            "height" to display.resolution.height,
+            "ppb" to display.partsPerBlock,
             "surfaceWidthParts" to display.type.surfaceWidthParts,
             "surfaceHeightParts" to display.type.surfaceHeightParts
         )
     }
 
     @Throws(LuaException::class)
+    fun setDisplayResolution(desk: ConsoleBlockEntity, rawSocket: Any?, rawPpb: Any?): Map<String, Int> {
+        if (CCServerConfig.displayUseGlobalResolutionValue()) {
+            throw LuaException("Individual display resolution is disabled by display.useGlobalResolution")
+        }
+        val maximum = CCServerConfig.displayMaxIndividualPpbValue()
+        val ppb = try {
+            DisplayResolutionSettings.validateIndividualPpb(rawPpb, maximum)
+        } catch (error: IllegalArgumentException) {
+            throw LuaException(error.message ?: "Invalid display PPB")
+        }
+        val socket = parseSocket(desk, rawSocket)
+        val display = requiredDisplay(desk, socket)
+        val state = desk as? DisplayResolutionStateAccess
+            ?: throw LuaException("Display resolution state is unavailable")
+        state.ccaeroworks_setDisplayPpb(socket, ppb)
+        if (display.partsPerBlock != ppb) {
+            DisplayDrawPayload.invalidateDisplay(desk, socket)
+            AeroworksDeskAccess.invalidate(desk, socket)
+            AeroworksDeskAccess.setDisplayPixels(desk, socket, DeskDisplayPixels.blank(
+                display.type.pixelWidthAt(ppb), display.type.pixelHeightAt(ppb)
+            ))
+        }
+        return linkedMapOf("width" to display.type.pixelWidthAt(ppb), "height" to display.type.pixelHeightAt(ppb), "ppb" to ppb)
+    }
+
+    @Throws(LuaException::class)
     fun getDisplayPixel(desk: ConsoleBlockEntity, rawSocket: Any?, x: Int, y: Int): Boolean {
         val display = requiredDisplay(desk, parseSocket(desk, rawSocket))
-        val pixels = display.pixels ?: DeskDisplayPixels.blank(display.type)
+        val pixels = display.pixels ?: DeskDisplayPixels.blank(display.resolution.width, display.resolution.height)
         validatePixel(pixels, x, y)
         return pixels.get(x - 1, y - 1)
     }
@@ -125,7 +155,7 @@ object AeroworksDeskService {
     ): Boolean {
         val socket = parseSocket(desk, rawSocket)
         val display = requiredDisplay(desk, socket)
-        val pixels = display.pixels ?: DeskDisplayPixels.blank(display.type)
+        val pixels = display.pixels ?: DeskDisplayPixels.blank(display.resolution.width, display.resolution.height)
         validatePixel(pixels, x, y)
         AeroworksDeskAccess.setDisplayPixels(desk, socket, pixels.withPixel(x - 1, y - 1, enabled))
         return enabled
@@ -147,7 +177,7 @@ object AeroworksDeskService {
         }
         val socket = parseSocket(desk, rawSocket)
         val display = requiredDisplay(desk, socket)
-        val pixels = display.pixels ?: DeskDisplayPixels.blank(display.type)
+        val pixels = display.pixels ?: DeskDisplayPixels.blank(display.resolution.width, display.resolution.height)
         val zeroBased = ArrayList<Pair<Int, Int>>(points.size)
         points.forEach { (x, y) ->
             validatePixel(pixels, x, y)
@@ -171,7 +201,7 @@ object AeroworksDeskService {
         val socket = parseSocket(desk, rawSocket)
         val display = requiredDisplay(desk, socket)
         val pixels = try {
-            DeskDisplayPixels.fromRows(display.type, rows)
+            DeskDisplayPixels.fromRows(display.resolution, rows)
         } catch (error: IllegalArgumentException) {
             throw LuaException(error.message ?: "invalid pixel table")
         }
@@ -183,7 +213,7 @@ object AeroworksDeskService {
     fun clearDisplayPixels(desk: ConsoleBlockEntity, rawSocket: Any?) {
         val socket = parseSocket(desk, rawSocket)
         val display = requiredDisplay(desk, socket)
-        AeroworksDeskAccess.setDisplayPixels(desk, socket, DeskDisplayPixels.blank(display.type))
+        AeroworksDeskAccess.setDisplayPixels(desk, socket, DeskDisplayPixels.blank(display.resolution.width, display.resolution.height))
     }
 
     fun snapshotInputs(desk: ConsoleBlockEntity): Map<Int, DeskInputSnapshot> {
@@ -248,8 +278,8 @@ object AeroworksDeskService {
                 displayWidth = display?.type?.width,
                 displayText = display?.text,
                 displayPixels = display?.pixels?.rows(),
-                displayPixelWidth = display?.type?.pixelWidth,
-                displayPixelHeight = display?.type?.pixelHeight
+                displayPixelWidth = display?.resolution?.width,
+                displayPixelHeight = display?.resolution?.height
             )
         )
     }
@@ -261,13 +291,13 @@ object AeroworksDeskService {
         "width" to display.type.width,
         "text" to display.text,
         "mode" to if (display.pixels == null) "text" else "pixels",
-        "pixelWidth" to display.type.pixelWidth,
-        "pixelHeight" to display.type.pixelHeight,
-        "PIXEL_WIDTH" to display.type.pixelWidth,
-        "PIXEL_HEIGHT" to display.type.pixelHeight,
-        "ppb" to display.type.partsPerBlock,
+        "pixelWidth" to display.resolution.width,
+        "pixelHeight" to display.resolution.height,
+        "PIXEL_WIDTH" to display.resolution.width,
+        "PIXEL_HEIGHT" to display.resolution.height,
+        "ppb" to display.partsPerBlock,
         "surfaceWidthParts" to display.type.surfaceWidthParts,
         "surfaceHeightParts" to display.type.surfaceHeightParts,
-        "pixels" to (display.pixels ?: DeskDisplayPixels.blank(display.type)).rows()
+        "pixels" to (display.pixels ?: DeskDisplayPixels.blank(display.resolution.width, display.resolution.height)).rows()
     )
 }

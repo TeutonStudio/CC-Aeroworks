@@ -1,8 +1,8 @@
 package de.teutonstudio.ccaeroworks.display
 
-import de.teutonstudio.ccaeroworks.computer.ConsoleComputers
 import dan200.computercraft.api.filesystem.Mount
 import de.teutonstudio.ccaeroworks.computer.ConsoleComputer
+import de.teutonstudio.ccaeroworks.computer.ConsoleComputers
 import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
@@ -19,10 +19,7 @@ data class DisplayScriptDescriptor(
     val imports: List<String> = emptyList(),
     val declaredTouchEvents: List<String> = emptyList()
 ) {
-    fun supports(type: DeskDisplayType): Boolean = when (type) {
-        DeskDisplayType.TWO_DIGIT -> display
-        DeskDisplayType.THREE_DIGIT -> display || touchDisplay
-    }
+    fun supports(@Suppress("UNUSED_PARAMETER") type: DeskDisplayType): Boolean = display || touchDisplay
 }
 
 /**

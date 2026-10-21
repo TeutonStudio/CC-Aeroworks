@@ -3,8 +3,8 @@ package de.teutonstudio.ccaeroworks.display
 import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
-import net.minecraft.nbt.CompoundTag
 import java.util.concurrent.ConcurrentHashMap
+import net.minecraft.nbt.CompoundTag
 
 data class ExtensionBindingHandler(
     val supports: (ConsoleBlockEntity, Int, DisplayBinding.Extension) -> Boolean,
@@ -104,7 +104,7 @@ object DisplayBindings {
         return when (binding) {
             DisplayBinding.Default -> true
             is DisplayBinding.LuaHandler ->
-                (CCModuleTypes.displayType(module.type()) == DeskDisplayType.THREE_DIGIT ||
+                (CCModuleTypes.displayType(module.type()) != null ||
                     ControlScriptBindings.supports(module)) &&
                     binding.path.isNotBlank() &&
                     binding.path.length <= MAX_HANDLER_PATH_LENGTH

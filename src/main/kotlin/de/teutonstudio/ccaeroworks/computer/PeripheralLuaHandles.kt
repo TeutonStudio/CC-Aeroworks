@@ -87,6 +87,10 @@ internal class DeskLuaHandle(
         AeroworksDeskService.getDisplaySize(runtime.desk(address), arguments.get(0))
 
     @LuaFunction(mainThread = true)
+    fun setDisplayResolution(arguments: IArguments): Map<String, Int> =
+        AeroworksDeskService.setDisplayResolution(runtime.desk(address), arguments.get(0), arguments.get(1))
+
+    @LuaFunction(mainThread = true)
     fun getDisplayPixel(arguments: IArguments): Boolean = AeroworksDeskService.getDisplayPixel(
         runtime.desk(address), arguments.get(0), arguments.getInt(1), arguments.getInt(2)
     )

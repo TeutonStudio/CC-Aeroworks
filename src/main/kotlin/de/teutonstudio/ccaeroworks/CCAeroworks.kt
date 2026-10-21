@@ -11,6 +11,7 @@ import de.teutonstudio.ccaeroworks.config.CCServerConfig
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockSkinUpdater
 import de.teutonstudio.ccaeroworks.network.CCPayloads
+import de.teutonstudio.ccaeroworks.network.DisplayDrawPayload
 import de.teutonstudio.ccaeroworks.network.ServerSessionLifecycle
 import de.teutonstudio.ccaeroworks.registry.CCBlockEntities
 import de.teutonstudio.ccaeroworks.registry.CCBlocks
@@ -26,6 +27,7 @@ import net.neoforged.bus.api.IEventBus
 import net.neoforged.fml.ModContainer
 import net.neoforged.fml.common.Mod
 import net.neoforged.fml.config.ModConfig
+import net.neoforged.fml.event.config.ModConfigEvent
 import net.neoforged.fml.loading.FMLEnvironment
 import net.neoforged.neoforge.common.NeoForge
 import org.slf4j.Logger
@@ -44,6 +46,11 @@ class CCAeroworks(modEventBus: IEventBus, modContainer: ModContainer) {
         CCDisplayTargets.register(modEventBus)
         ControlDeskPeripheralRegistry.register(modEventBus)
         CCPayloads.register(modEventBus)
+        modEventBus.addListener { event: ModConfigEvent.Reloading ->
+            if (event.config.spec === CCServerConfig.SPEC) {
+                DisplayDrawPayload.clearAllPlayerState()
+            }
+        }
         CCLuaApis.register()
         de.teutonstudio.ccaeroworks.compat.teutonlib.DeskComputerWorkspace.register(modEventBus)
 

@@ -10,6 +10,12 @@ object CCServerConfig {
     val displayPartsPerBlock: ModConfigSpec.IntValue
 
     @JvmField
+    val displayUseGlobalResolution: ModConfigSpec.BooleanValue
+
+    @JvmField
+    val displayMaxIndividualPpb: ModConfigSpec.IntValue
+
+    @JvmField
     val telemetryMaxSources: ModConfigSpec.IntValue
 
     @JvmField
@@ -41,6 +47,13 @@ object CCServerConfig {
                     "derive from the same value so rendered pixels stay square."
             )
             .push("display")
+
+        displayUseGlobalResolution = builder
+            .comment("Use display.ppb for every display. Disable to allow Lua setDisplayResolution per slot.")
+            .define("useGlobalResolution", true)
+        displayMaxIndividualPpb = builder
+            .comment("Maximum individual display density allowed to Lua programs (16..1024 PPB).")
+            .defineInRange("maxIndividualPpb", 256, 16, 1024)
 
         displayPartsPerBlock = builder
             .comment(
@@ -93,6 +106,12 @@ object CCServerConfig {
     @JvmStatic
     fun displayPartsPerBlockValue(): Int =
         displayPartsPerBlock.loadedOr(DeskDisplayType.DEFAULT_PARTS_PER_BLOCK)
+
+    @JvmStatic
+    fun displayUseGlobalResolutionValue(): Boolean = displayUseGlobalResolution.loadedOr(true)
+
+    @JvmStatic
+    fun displayMaxIndividualPpbValue(): Int = displayMaxIndividualPpb.loadedOr(256)
 
     @JvmStatic
     fun pixelWidth(type: DeskDisplayType): Int = type.pixelWidthAt(displayPartsPerBlockValue())

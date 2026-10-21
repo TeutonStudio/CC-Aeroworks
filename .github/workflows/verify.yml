@@ -107,6 +107,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y lua5.4
           lua5.4 src/test/lua/control_handlers_test.lua
+          lua5.4 src/test/lua/display_resolution_test.lua
 
       - name: Validate display script information sources
         run: python3 tools/verify-display-script-information-sources.py

@@ -18,8 +18,13 @@ object DisplayTooltipHandler {
             else -> return
         }
 
+        val ppb = de.teutonstudio.ccaeroworks.display.DisplayResolutionSettings.effectivePpb(
+            de.teutonstudio.ccaeroworks.config.CCServerConfig.displayUseGlobalResolutionValue(),
+            type.partsPerBlock,
+            de.teutonstudio.ccaeroworks.config.CCServerConfig.displayMaxIndividualPpbValue(), null
+        )
         event.toolTip.add(
-            Component.literal("Pixel: ${type.pixelWidth} × ${type.pixelHeight}")
+            Component.literal("Pixel: ${type.pixelWidthAt(ppb)} × ${type.pixelHeightAt(ppb)}")
                 .withStyle(ChatFormatting.DARK_GRAY)
         )
     }

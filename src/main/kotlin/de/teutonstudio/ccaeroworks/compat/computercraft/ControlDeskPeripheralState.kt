@@ -8,9 +8,10 @@ import de.teutonstudio.ccaeroworks.display.DeskDisplayInput
 import de.teutonstudio.ccaeroworks.display.DeskDisplayTouch
 import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
+import de.teutonstudio.ccaeroworks.display.DisplayTouchAccess
+import java.util.concurrent.ConcurrentHashMap
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.event.tick.ServerTickEvent
-import java.util.concurrent.ConcurrentHashMap
 
 object ControlDeskPeripheralState {
     private val active = ConcurrentHashMap.newKeySet<ControlDeskPeripheral>()
@@ -59,6 +60,7 @@ object ControlDeskPeripheralState {
         desk: ConsoleBlockEntity,
         input: DeskDisplayInput
     ) {
+        if (!DisplayTouchAccess.enabled(desk)) return
         val touch = input.touch
         val handlerPath = (DisplayBindings.get(desk, touch.socket) as? DisplayBinding.LuaHandler)?.path.orEmpty()
         var matchedPeripherals = 0
@@ -110,6 +112,7 @@ object ControlDeskPeripheralState {
     }
 
     internal fun queueDisplayTouch(desk: ConsoleBlockEntity, touch: DeskDisplayTouch) {
+        if (!DisplayTouchAccess.enabled(desk)) return
         active.forEach { peripheral ->
             if (peripheral.validDesk() !== desk) return@forEach
             peripheral.computers.forEach { computer ->

@@ -2,6 +2,7 @@ package de.teutonstudio.ccaeroworks.client
 
 import com.mred231.aeroworks.content.controls.console.ConsoleVisual
 import com.mred231.aeroworks.content.controls.module.ModulePartials
+import com.mred231.aeroworks.content.controls.module.ModuleTypes
 import com.mred231.aeroworks.foundation.input.InputSource
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.client.creative.AeroworksCreativeSections
@@ -15,6 +16,7 @@ import de.teutonstudio.ccaeroworks.input.CombinedLeverController
 import de.teutonstudio.ccaeroworks.input.DisplayCombinedInputController
 import de.teutonstudio.ccaeroworks.registry.CCBlockEntities
 import dev.engine_room.flywheel.lib.visualization.SimpleBlockEntityVisualizer
+import net.minecraft.client.resources.model.ModelResourceLocation
 import net.createmod.ponder.foundation.PonderIndex
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.fml.ModList
@@ -39,6 +41,7 @@ object CCAeroworksClient {
         }
         modBus.addListener(::clientSetup)
         modBus.addListener(::registerRenderers)
+        modBus.addListener<ModelEvent.RegisterAdditional>(::registerModulePartials)
         modBus.addListener<ModelEvent.RegisterAdditional>(ConsoleMultiblockModels::registerAdditional)
         modBus.addListener<ModelEvent.ModifyBakingResult>(::modifyBakingResult)
         NeoForge.EVENT_BUS.addListener(DeskDisplayTextureCache::clientTick)
@@ -53,7 +56,6 @@ object CCAeroworksClient {
 
     private fun clientSetup(event: FMLClientSetupEvent) {
         event.enqueueWork {
-            ModulePartials.init()
             InputSource.displayName(CombinedInputSource.ID)
             PonderIndex.addPlugin(CCAeroworksPonderPlugin())
 
@@ -64,6 +66,23 @@ object CCAeroworksClient {
                 .skipVanillaRender { true }
                 .apply()
         }
+    }
+
+    private fun registerModulePartials(event: ModelEvent.RegisterAdditional) {
+        // Aeroworks initializes its partial cache before extension mods have registered their
+        // ModuleTypes. Calling init again discovers our types, but doing so in clientSetup is too
+        // late for Flywheel's initial model bake and leaves old/held display previews with a null
+        // BakedModel. Discover and register every CC-Aeroworks extension model while additional
+        // models are still accepted. This also covers optional radar module types.
+        ModulePartials.init()
+        ModuleTypes.all()
+            .filterKeys { it.namespace == CCAeroworks.MOD_ID }
+            .values
+            .flatMap { it.parts() }
+            .map { it.model() }
+            .distinct()
+            .map(ModelResourceLocation::standalone)
+            .forEach(event::register)
     }
 
     private fun registerRenderers(event: EntityRenderersEvent.RegisterRenderers) {

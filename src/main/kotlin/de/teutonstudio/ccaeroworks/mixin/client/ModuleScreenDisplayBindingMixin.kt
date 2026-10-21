@@ -1,8 +1,8 @@
 package de.teutonstudio.ccaeroworks.mixin.client
 
-import com.mred231.aeroworks.content.controls.socket.ConsoleSocket
 import com.mred231.aeroworks.content.controls.module.ModuleMenu
 import com.mred231.aeroworks.content.controls.module.ModuleScreen
+import com.mred231.aeroworks.content.controls.socket.ConsoleSocket
 import de.teutonstudio.ccaeroworks.client.ModuleScreenRowGeometry
 import de.teutonstudio.ccaeroworks.client.SourceSelectorOverlayOwner
 import de.teutonstudio.ccaeroworks.client.SourceSelectorWidget
@@ -51,7 +51,7 @@ abstract class ModuleScreenDisplayBindingMixin(
     @Inject(method = ["init()V"], at = [At("TAIL")])
     private fun ccaeroworks_addDisplayBindingRows(callback: CallbackInfo) {
         val module = (this as ModuleScreenInvoker).ccaeroworks_module() ?: return
-        if (CCModuleTypes.displayType(module.type()) != DeskDisplayType.THREE_DIGIT &&
+        if (CCModuleTypes.displayType(module.type()) == null &&
             !ControlScriptBindings.supports(module)) return
         val holder = menu.contentHolder as? ConsoleSocket ?: return
         if (!holder.valid()) return

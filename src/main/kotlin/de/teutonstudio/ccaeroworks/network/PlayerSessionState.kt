@@ -38,6 +38,10 @@ internal class PlayerSessionState<K, V>(
         entries.entries.removeIf { (_, entry) -> tick - entry.lastTouchedTick > ttlTicks }
     }
 
+    fun removeIf(predicate: (K) -> Boolean) {
+        entries.keys.removeIf(predicate)
+    }
+
     fun clear() = entries.clear()
 
     internal fun size(): Int = entries.size

@@ -9,7 +9,7 @@ CC-Aeroworks connects **Create: Aeroworks Control Desks** with **CC:Tweaked**, t
 - Every desk remains an individual `ControlDesk` peripheral with its own position, modules, inputs, and displays.
 - Embedded-computer APIs: `peripherals`, `channels`, `controls`, `wires`, and `telemetry`.
 - Small and large programmable display modules supporting text, numbers, and pixel rasters.
-- Touch and continuous draw input on large displays through the combined 3D pointer input mode.
+- Touch and continuous draw input on small and large displays with an advanced computer through the combined 3D pointer input mode.
 - Create Display Links exposed as structured telemetry sources.
 - Optional Create: Radars support isolated in the `cc_aeroworks_radarcompat` module.
 - An in-game manual/API reference and localized Create Ponder scenes.
@@ -55,6 +55,17 @@ At 256 PPB the usable raster is:
 - small display: `112 × 112` pixels (`7/16 × 7/16` block);
 - large display: `160 × 112` pixels (`10/16 × 7/16` block).
 
+The server setting `display.useGlobalResolution` defaults to `true`, so every display uses `display.ppb`. Set it to `false` to let Lua programs choose a density per display slot:
+
+```lua
+local size = desk.setDisplayResolution("left", 32)
+print(size.width, size.height, size.ppb) -- small display: 14, 14, 32
+```
+
+`display.maxIndividualPpb` limits individual density (default 256, configurable from 16 to 1024). Unconfigured slots use the smaller of `display.ppb` and this limit. The Lua function accepts whole numbers from 16 to the limit and raises an error in global mode. Changing density clears the pixel raster; setting the same density preserves pixels. Slot settings survive restarts and global mode, and are removed when the module is dismounted. `getDisplaySize` always reports the effective dimensions.
+
+Both display sizes support touch only while the active console network contains an advanced CC:Tweaked computer. Normal or absent computers disable touch, including events sent to external peripherals. Bindings survive computer replacement. Running gestures are discarded after computer or resolution changes. `require("display").setResolution(event, ppb)` provides the equivalent helper for display scripts; `touchdisplay` inherits it.
+
 Programs should query the current size through the display API rather than hard-coding these values. Pixel state is packed and rendered through cached dynamic textures, so high PPB values do not require one rendered model instance per logical pixel.
 
 Large displays can bind an input script. The combined input mode moves a virtual 3D pointer across the display surface. Left click produces `tap`; holding the right mouse button produces a sequenced `draw` gesture with normalized coordinates, direction, speed, bounded path samples, and an explicit end event.
@@ -86,7 +97,7 @@ See [`docs/create-radars-integration.md`](docs/create-radars-integration.md).
 
 - Minecraft 1.21.1
 - NeoForge 21.1.234+
-- TeutonLib 1.2.0 (required on client and server; shared computer workspace)
+- TeutonLib 1.2.2 (required on client and server; shared computer workspace)
 - Java 21
 - Kotlin 2.4.0 / KotlinForForge NeoForge 5.12.0
 - Create 6.0.10
