@@ -31,12 +31,12 @@ AEROWORKS_1_3_0_LANGUAGE_KEY_COUNT = 260
 PONDER_SCENES = {
     "desk_network": ("desk_network", 6),
     "peripheral_search": ("peripheral_search", 7),
-    "desk_diagnostics": ("diagnostics", 5),
+    "desk_diagnostics": ("diagnostics", 6),
     "display_crafting": ("display_crafting", 4),
     "display_mounting": ("display_mounting", 4),
-    "display_programming": ("display_programming", 5),
+    "display_programming": ("display_programming", 6),
     "radar_controller": ("radar_controller", 5),
-    "radar_direct": ("radar_direct", 5),
+    "radar_direct": ("radar_direct", 6),
 }
 
 
@@ -109,9 +109,9 @@ def verify_ponder_sources(german: dict[str, str], english: dict[str, str]) -> No
     for registration in ("RadarDisplayScenes::controllerConnection", "RadarDisplayScenes::directRadarDisplay"):
         require(registration in radar_plugin, f"Missing radar Ponder registration: {registration}")
     require("RadarDisplayScenes" not in plugin, "Base Ponder plugin must not regain Create Radars scene dependencies")
-    require(computer.count("showText(") == 18, "Computer Ponder scenes must contain 18 explanation steps")
-    require(display.count("showText(") == 13, "Display Ponder scenes must contain 13 explanation steps")
-    require(radar.count("showText(") == 10, "Radar Ponder scenes must contain ten explanation steps")
+    require(computer.count("showText(") == 19, "Computer Ponder scenes must contain 19 explanation steps")
+    require(display.count("showText(") == 14, "Display Ponder scenes must contain 14 explanation steps")
+    require(radar.count("showText(") == 11, "Radar Ponder scenes must contain 11 explanation steps")
     for path, source in ((COMPUTER_SCENES, computer), (DISPLAY_SCENES, display), (RADAR_SCENES, radar)):
         require("PonderText.get(" in source, f"{path.name} does not use translated Ponder text")
         require('.text("' not in source, f"{path.name} contains a hard-coded explanation")
@@ -128,10 +128,16 @@ def verify_ponder_sources(german: dict[str, str], english: dict[str, str]) -> No
     require("scene.world().setBlock(modem" in computer and "scene.world().setBlock(speaker" in computer, "Peripheral Ponder must render the modem and speaker as world blocks")
     require(".withItem(itemStack(ADVANCED_MODEM))" not in computer and ".withItem(itemStack(SPEAKER))" not in computer, "Peripheral Ponder must not substitute floating items for attached world peripherals")
     require("PonderDeskSetup.setDisplayText" in computer and "PonderDeskSetup.setDisplayText" in display and "PonderDeskSetup.setDisplayPattern" in display, "Ponder scenes must visibly exercise mounted display state")
+    require("PonderDeskSetup.setControlValue" in computer and '"aeroworks", "yoke_module"' in computer,
+            "Control-authority Ponder must move a real mounted Aeroworks control")
+    require("installComputer(scene, computer, true)" in display and '"display_programming", "text_6"' in display,
+            "Display programming Ponder must demonstrate Advanced-computer touch")
     require('"create_radar", "network_filterer"' in radar, "Radar Ponder omits the native Network Filterer")
     require('"create_radar", "data_link"' in radar, "Radar Ponder omits the physical Data Link")
     require("setBlock(physicalLink" in radar, "Radar Ponder does not place the native Data Link")
     require("hideSection(util.select().position(physicalLink)" in radar, "Radar Ponder does not show link removal")
+    require("showSection(util.select().position(physicalLink)" in radar and '"ponder.cc_aeroworks.radar_direct.text_6"' in radar,
+            "Radar Ponder does not demonstrate link recovery")
     radar_keys = sorted(key for key in expected_ponder_keys() if ".radar_" in key)
     english_radar = " ".join(english[key] for key in radar_keys)
     german_radar = " ".join(german[key] for key in radar_keys)

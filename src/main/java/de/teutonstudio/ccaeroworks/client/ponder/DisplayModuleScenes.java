@@ -179,6 +179,7 @@ public class DisplayModuleScenes {
         BlockPos right = util.grid().at(3, 1, 2);
         scene.world().setBlock(middle, PonderDeskSetup.normalDesk(), false);
         scene.world().setBlock(right, PonderDeskSetup.normalDesk(), false);
+        PonderDeskSetup.installComputer(scene, computer, true);
         PonderDeskSetup.mount(scene, right, 2, new ItemStack(CCItems.THREE_DIGIT_DISPLAY.get()));
         PonderDeskSetup.clearDisplay(scene, right, 2);
         scene.world().showSection(util.select().fromTo(computer, right), Direction.DOWN);
@@ -226,6 +227,17 @@ public class DisplayModuleScenes {
             .pointAt(util.vector().topOf(right))
             .placeNearTarget();
         scene.idle(100);
+
+        scene.overlay().showControls(util.vector().topOf(right), Pointing.DOWN, 55)
+            .rightClick();
+        scene.effects().indicateSuccess(computer);
+        scene.overlay().showText(85)
+            .attachKeyFrame()
+            .colored(PonderPalette.GREEN)
+            .text(PonderText.get("display_programming", "text_6"))
+            .pointAt(util.vector().topOf(right))
+            .placeNearTarget();
+        scene.idle(95);
         scene.markAsFinished();
     }
 

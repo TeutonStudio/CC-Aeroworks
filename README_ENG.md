@@ -97,7 +97,7 @@ See [`docs/create-radars-integration.md`](docs/create-radars-integration.md).
 
 - Minecraft 1.21.1
 - NeoForge 21.1.234+
-- TeutonLib 1.2.2 (required on client and server; shared computer workspace)
+- TeutonLib 1.3.0 (required on client and server; shared computer workspace)
 - Java 21
 - Kotlin 2.4.0 / KotlinForForge NeoForge 5.12.0
 - Create 6.0.10

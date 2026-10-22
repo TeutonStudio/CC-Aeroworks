@@ -20,7 +20,7 @@ gradlew.bat -Pmod_dependency_dir=C:\mods\cc-aeroworks verifyModDependencies
 
 | Mod | Mod-ID | Version | Status |
 |---|---|---:|---|
-| TeutonLib | `teutonlib` | 1.2.2 | erforderlich, Client und Server |
+| TeutonLib | `teutonlib` | 1.3.0 | erforderlich, Client und Server |
 | Create | `create` | 6.0.10 | erforderlich |
 | Create: Aeronautics | `aeronautics` | 1.3.2 | erforderlich |
 | Create: Aeroworks | `aeroworks` | 1.5.0 | erforderlich |
@@ -50,7 +50,7 @@ Die maschinenlesbaren Dateimuster und bekannte offizielle Beispieldateinamen ste
 
 ## Prüfsummen
 
-`dependencies.json` unterstützt pro Artefakt eine feste SHA-256-Prüfsumme. TeutonLib 1.2.2 ist auf die SHA-256 der offiziellen GitHub-Release-JAR (mit der lokal vorliegenden JAR abgeglichen) festgelegt. Andere Felder bleiben `null`, weil verschiedene offizielle Distributionsplattformen identische Modversionen mit unterschiedlich benannten oder neu signierten Dateien ausliefern können. Sobald die vom Team verwendeten Zielartefakte festgelegt sind, werden deren SHA-256-Werte eingetragen und damit verbindlich.
+`dependencies.json` unterstützt pro Artefakt eine feste SHA-256-Prüfsumme. TeutonLib 1.3.0 ist auf die SHA-256 der offiziellen GitHub-Release-JAR (mit der lokal vorliegenden JAR abgeglichen) festgelegt. Andere Felder bleiben `null`, weil verschiedene offizielle Distributionsplattformen identische Modversionen mit unterschiedlich benannten oder neu signierten Dateien ausliefern können. Sobald die vom Team verwendeten Zielartefakte festgelegt sind, werden deren SHA-256-Werte eingetragen und damit verbindlich.
 
 ```bash
 sha256sum libs/*.jar
@@ -80,6 +80,6 @@ Fehlt ein Pflichtartefakt oder passen mehrere Dateien auf dasselbe Muster, brich
 
 ## TeutonLib-Computeroberfläche
 
-TeutonLib **1.2.2** stellt die gemeinsamen Quellen-/Kanalpanels und Symbolreiter bereit. Lege die Release-JAR `teutonlib-1.2.2.jar` in das konfigurierte Modverzeichnis. Alternativ baue das benachbarte TeutonLib-Projekt mit `./gradlew build` und kopiere diese JAR aus `build/libs/`; die Sources-JAR gehört nicht auf den Mod-Classpath. TeutonLib 1.0.0 genügt der neuen Workspace-API nicht.
+TeutonLib **1.3.0** stellt die gemeinsamen Quellen-/Kanalpanels und Symbolreiter bereit. Lege die Release-JAR `teutonlib-1.3.0.jar` in das konfigurierte Modverzeichnis. Alternativ baue das benachbarte TeutonLib-Projekt mit `./gradlew build` und kopiere diese JAR aus `build/libs/`; die Sources-JAR gehört nicht auf den Mod-Classpath. Ältere TeutonLib-Versionen genügen der aktuellen Workspace-API nicht.
 
 Die gemeinsame Basis ist NeoForge **21.1.234**. Auf Pultcomputern bleiben Aeroworks-Kanäle, Gruppen, DbW-Ziele und Lua-APIs maßgeblich. Es wird kein zweiter beschreibbarer TeutonLib-Kanalbestand angelegt. Die bestehende Kanalspeicherung benötigt keine Migration. Siehe [Integration und Abnahme](../docs/teutonlib-computer-ui.md).

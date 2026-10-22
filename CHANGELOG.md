@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.5 — 2026-10-22
+
+- Fixed HARD computer overrides being restored only after Aeroworks had already sprung and published unattended controls. Overrides are now re-applied immediately before the Redstone Link network push, including controls hosted by another desk in the same console network.
+- TeutonLib 1.3.0 is now required on clients and servers (supported range: >=1.3.0, <1.4.0).
+- Small and large radar displays are back in the CC-Aeroworks section of the Aeroworks creative tab.
+- Rebuilt all four display item models as flat mounted modules with active digit or radar surfaces and revised inventory/hand transforms.
+- Redesigned all eight Ponder scenes around complete computer, display and radar workflows, including control override and fail-safe behaviour.
+
 ## 1.4.2 — 2026-10-21
 
 - TeutonLib 1.2.2 is now required on clients and servers (supported range: >=1.2.2, <1.3.0).

@@ -44,6 +44,11 @@ public final class PonderDeskSetup {
             desk -> AeroworksDeskAccess.setDisplayText(desk, socket, text));
     }
 
+    public static void setControlValue(CreateSceneBuilder scene, BlockPos position, int socket, String channel, int value) {
+        scene.world().modifyBlockEntity(position, ConsoleBlockEntity.class,
+            desk -> desk.setChannelFromController(socket, channel, value));
+    }
+
     public static void clearDisplay(CreateSceneBuilder scene, BlockPos position, int socket) {
         setDisplayText(scene, position, socket, "");
     }

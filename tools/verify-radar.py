@@ -39,7 +39,7 @@ def main() -> int:
         "ponder.cc_aeroworks.radar_controller.header",
         *(f"ponder.cc_aeroworks.radar_controller.text_{index}" for index in range(1, 6)),
         "ponder.cc_aeroworks.radar_direct.header",
-        *(f"ponder.cc_aeroworks.radar_direct.text_{index}" for index in range(1, 6)),
+        *(f"ponder.cc_aeroworks.radar_direct.text_{index}" for index in range(1, 7)),
     }
     require(required_keys <= english.keys(), "Missing RadarDisplay manual or Ponder translations")
     require("Network Filterer" in english["book.cc_aeroworks.page_7"], "English manual omits the native filterer-first flow")

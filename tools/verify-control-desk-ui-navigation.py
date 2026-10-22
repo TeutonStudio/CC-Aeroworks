@@ -23,6 +23,7 @@ cc_sidebar = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/ControlDes
 source_builder = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/source/InformationSourceSnapshotBuilder.kt")
 source_extensions = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/source/InformationSourceExtensions.kt")
 radar_compat = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/RadarCompat.kt")
+radar_client = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/RadarCompatClient.kt")
 radar_sources = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/computer/source/RadarInformationSources.kt")
 source_payload = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/InformationSourcePayloads.kt")
 payloads = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/CCPayloads.kt")
@@ -49,6 +50,8 @@ require("initialSection: GuideSectionId = GuideSectionId.START" in guide_screen 
 require("minecraft?.setScreen(parent)" in guide_screen, "guide must return to its invoking Aeroworks screen")
 require("GuideSectionId.NETWORK_API" in guide_content and "val id: GuideSectionId" in guide_content, "guide content must expose stable semantic section IDs")
 require("removeIf(::isGuideBook)" in creative_sections and "appendMissing(bridgeItems, CCItems.GUIDE_BOOK" not in creative_sections, "legacy guide item must stay out of the Creative/search workflow")
+require("registerAeroworksItem" not in radar_client and "RadarItems.SMALL_RADAR_DISPLAY" not in radar_client and "RadarItems.LARGE_RADAR_DISPLAY" not in radar_client,
+        "radar displays must remain in the namespace-driven CC-Aeroworks creative section")
 require("data class SwitchControlDeskUiPayload" in switch_payload and "val anchorPos: BlockPos" in switch_payload, "switch payload must carry explicit current anchor")
 require("SwitchControlDeskUiPayload(current.be().blockPos)" in module and "SwitchControlDeskUiPayload(console.blockPos)" in overview, "visible screen must send its own desk position")
 require("switchToComputer(player, payload.anchorPos)" in switch_payload and "validateAnchorAndResolveOwner" in state, "server must validate explicit anchor")

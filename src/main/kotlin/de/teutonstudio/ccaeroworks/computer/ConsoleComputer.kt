@@ -110,6 +110,8 @@ class ConsoleComputer(val host: ConsoleBlockEntity, private val installed: ItemS
 
     fun wireChannelNames(): List<String> = wireBank.channelNames()
 
+    internal fun isRuntimePowered(): Boolean = getServerComputer()?.isOn == true
+
     internal fun markWireChannelsChanged() {
         setChanged()
         sendData()

@@ -301,6 +301,49 @@ object ControlOverrideManager {
         if (levelStates.isEmpty()) states.remove(level)
     }
 
+    /**
+     * Aeroworks springs unattended channels immediately before publishing their Redstone Link
+     * values. Re-apply authoritative computer values at that exact boundary so the published
+     * signal and the visible module state agree in the same server tick.
+     */
+    @Synchronized
+    @JvmStatic
+    fun applyBeforeNetworkPush(desk: ConsoleBlockEntity) {
+        val level = desk.level as? ServerLevel ?: return
+        val levelStates = states[level] ?: return
+        val deskId = (desk as DeskIdentityAccess).ccaeroworks_getDeskId()
+        val targetStates = levelStates.values.filter { it.key.deskId == deskId }
+        if (targetStates.isEmpty()) return
+
+        val snapshot = ConsoleMultiblockManager.resolve(level, desk.blockPos)
+        val owner = snapshot.owner
+        if (snapshot.state != ConsoleNetworkState.ACTIVE || owner == null || !owner.isRuntimePowered()) {
+            return
+        }
+
+        val invalid = arrayListOf<ControlOverrideKey>()
+        targetStates.forEach { state ->
+            if (state.ownerDeskId != owner.deskId || !validControl(desk, state.key.socket, state.key.channel)) {
+                invalid += state.key
+                return@forEach
+            }
+            val module = desk.module(state.key.socket) ?: run {
+                invalid += state.key
+                return@forEach
+            }
+            if (module.value(state.key.channel) != state.commandedValue) {
+                ControlWriteContext.computerOverride {
+                    desk.setChannelFromController(state.key.socket, state.key.channel, state.commandedValue)
+                }
+            }
+        }
+        invalid.forEach { key ->
+            levelStates.remove(key)
+            queueReleaseEvent(owner, key, "target_invalid")
+        }
+        if (levelStates.isEmpty()) states.remove(level)
+    }
+
     private fun activeNetwork(owner: ConsoleComputer): Pair<ServerLevel, ConsoleMultiblockSnapshot> {
         val level = owner.level as? ServerLevel
             ?: throw LuaException("The ComputerControlDesk is not in a server level")

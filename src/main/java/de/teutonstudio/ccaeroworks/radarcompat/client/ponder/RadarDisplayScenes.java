@@ -145,6 +145,16 @@ public class RadarDisplayScenes {
             .pointAt(util.vector().topOf(linkedDesk))
             .placeNearTarget();
         scene.idle(105);
+
+        scene.world().showSection(util.select().position(physicalLink), Direction.DOWN);
+        scene.effects().indicateSuccess(linkedDesk);
+        scene.overlay().showText(85)
+            .attachKeyFrame()
+            .colored(PonderPalette.GREEN)
+            .text(PonderText.get("ponder.cc_aeroworks.radar_direct.text_6"))
+            .pointAt(util.vector().topOf(linkedDesk))
+            .placeNearTarget();
+        scene.idle(95);
         scene.markAsFinished();
     }
 

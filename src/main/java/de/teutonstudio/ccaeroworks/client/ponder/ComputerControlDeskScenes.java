@@ -1,7 +1,6 @@
 package de.teutonstudio.ccaeroworks.client.ponder;
 
 import com.simibubi.create.foundation.ponder.CreateSceneBuilder;
-import de.teutonstudio.ccaeroworks.registry.CCBlocks;
 import de.teutonstudio.ccaeroworks.registry.CCItems;
 import net.createmod.catnip.math.Pointing;
 import net.createmod.ponder.api.PonderPalette;
@@ -20,6 +19,8 @@ public class ComputerControlDeskScenes {
         ResourceLocation.fromNamespaceAndPath("computercraft", "wireless_modem_advanced");
     private static final ResourceLocation SPEAKER =
         ResourceLocation.fromNamespaceAndPath("computercraft", "speaker");
+    private static final ResourceLocation YOKE_MODULE =
+        ResourceLocation.fromNamespaceAndPath("aeroworks", "yoke_module");
 
     public static void network(SceneBuilder builder, SceneBuildingUtil util) {
         CreateSceneBuilder scene = new CreateSceneBuilder(builder);
@@ -187,65 +188,74 @@ public class ComputerControlDeskScenes {
         scene.idle(10);
 
         BlockPos computer = util.grid().at(1, 1, 2);
+        BlockPos controlledDesk = util.grid().at(3, 1, 2);
         PonderDeskSetup.installComputer(scene, computer, false);
-        BlockPos middle = util.grid().at(2, 1, 2);
-        BlockPos right = util.grid().at(3, 1, 2);
-        scene.world().showSection(util.select().fromTo(computer, right), Direction.DOWN);
+        scene.world().setBlock(controlledDesk, PonderDeskSetup.normalDesk(), false);
+        PonderDeskSetup.mount(scene, controlledDesk, 2, itemStack(YOKE_MODULE));
+        scene.world().showSection(util.select().fromTo(computer, controlledDesk), Direction.DOWN);
         scene.idle(20);
 
-        // Both positions are ordinary consoles; the slot owns the computer, not a block variant.
-        scene.world().setBlock(middle, PonderDeskSetup.normalDesk(), false);
-        scene.overlay().showControls(util.vector().topOf(middle), Pointing.DOWN, 55)
-            .withItem(new ItemStack(dan200.computercraft.shared.ModRegistry.Items.COMPUTER_NORMAL.get()));
-        scene.effects().indicateRedstone(middle);
-        scene.overlay().showText(75)
+        scene.overlay().showText(70)
             .attachKeyFrame()
-            .colored(PonderPalette.RED)
             .text(PonderText.get("desk_diagnostics", "text_1"))
-            .pointAt(util.vector().topOf(middle))
+            .pointAt(util.vector().topOf(computer))
             .placeNearTarget();
-        scene.idle(85);
+        scene.idle(80);
 
-        scene.world().setBlock(middle, PonderDeskSetup.normalDesk(), false);
-        scene.effects().indicateSuccess(middle);
         scene.overlay().showText(75)
             .attachKeyFrame()
-            .colored(PonderPalette.GREEN)
             .text(PonderText.get("desk_diagnostics", "text_2"))
-            .pointAt(util.vector().topOf(middle))
+            .pointAt(util.vector().topOf(controlledDesk))
             .placeNearTarget();
         scene.idle(85);
 
-        scene.world().hideSection(util.select().position(right), Direction.UP);
-        scene.effects().indicateRedstone(right);
+        PonderDeskSetup.setControlValue(scene, controlledDesk, 2, "turn", 12);
+        scene.effects().indicateSuccess(controlledDesk);
         scene.overlay().showText(85)
             .attachKeyFrame()
-            .colored(PonderPalette.RED)
+            .colored(PonderPalette.GREEN)
             .text(PonderText.get("desk_diagnostics", "text_3"))
-            .pointAt(util.vector().centerOf(right))
+            .pointAt(util.vector().centerOf(controlledDesk))
             .placeNearTarget();
         scene.idle(95);
 
-        scene.world().showSection(util.select().position(right), Direction.DOWN);
-        scene.effects().indicateSuccess(right);
-        scene.overlay().showText(90)
+        scene.overlay().showControls(util.vector().topOf(controlledDesk), Pointing.DOWN, 55)
+            .rightClick();
+        scene.effects().indicateRedstone(controlledDesk);
+        scene.overlay().showText(85)
             .attachKeyFrame()
             .text(PonderText.get("desk_diagnostics", "text_4"))
-            .pointAt(util.vector().topOf(computer))
+            .pointAt(util.vector().topOf(controlledDesk))
             .placeNearTarget();
-        scene.idle(100);
+        scene.idle(95);
 
-        scene.overlay().showText(95)
+        PonderDeskSetup.setControlValue(scene, controlledDesk, 2, "turn", 0);
+        scene.effects().indicateSuccess(computer);
+        scene.overlay().showText(85)
             .attachKeyFrame()
             .colored(PonderPalette.GREEN)
             .text(PonderText.get("desk_diagnostics", "text_5"))
-            .pointAt(util.vector().centerOf(middle))
+            .pointAt(util.vector().topOf(computer))
             .placeNearTarget();
-        scene.idle(105);
+        scene.idle(95);
+
+        PonderDeskSetup.setControlValue(scene, controlledDesk, 2, "turn", -8);
+        scene.effects().indicateRedstone(computer);
+        scene.overlay().showText(90)
+            .attachKeyFrame()
+            .colored(PonderPalette.RED)
+            .text(PonderText.get("desk_diagnostics", "text_6"))
+            .pointAt(util.vector().centerOf(controlledDesk))
+            .placeNearTarget();
+        scene.idle(100);
         scene.markAsFinished();
     }
 
     private static BlockState blockState(ResourceLocation id) {
         return BuiltInRegistries.BLOCK.get(id).defaultBlockState();
+    }
+
+    private static ItemStack itemStack(ResourceLocation id) {
+        return new ItemStack(BuiltInRegistries.ITEM.get(id));
     }
 }

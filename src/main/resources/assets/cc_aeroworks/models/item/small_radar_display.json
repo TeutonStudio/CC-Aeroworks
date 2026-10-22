@@ -2,6 +2,6 @@
   "parent": "cc_aeroworks:item/template_small_display_panel",
   "textures": {
     "frame": "cc_aeroworks:block/display_base",
-    "screen": "minecraft:block/green_concrete"
+    "screen": "cc_aeroworks:item/small_radar_display_active"
   }
 }

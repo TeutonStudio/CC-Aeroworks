@@ -51,6 +51,12 @@ require("setChannelFromController" in manager and "ControlWriteContext.computerO
         "computer commands must still write through Aeroworks' canonical controller setter")
 require("ConsoleBlockEntityControlOverrideMixin" in mixins_json,
         "server mixin configuration must register the control override guard")
+require('target = "Lcom/mred231/aeroworks/content/controls/console/ConsoleBlockEntity;pushNetworkIfChanged()V"' in mixin and
+        "shift = At.Shift.BEFORE" in mixin and "applyBeforeNetworkPush" in mixin,
+        "HARD overrides must be restored after Aeroworks springing and before its network push")
+require("fun applyBeforeNetworkPush(desk: ConsoleBlockEntity)" in manager and
+        "owner.isRuntimePowered()" in manager and "state.ownerDeskId != owner.deskId" in manager,
+        "pre-push restoration must validate active powered ownership")
 require("ThreadLocal" in context and "finally" in context,
         "control write source context must be nested-safe and always restored")
 

@@ -147,14 +147,14 @@
     {
       "name": "TeutonLib",
       "modId": "teutonlib",
-      "version": "1.2.2",
+      "version": "1.3.0",
       "required": true,
-      "filenamePattern": "(?i)^teutonlib-1\\.2\\.2\\.jar$",
+      "filenamePattern": "(?i)^teutonlib-1\\.3\\.0\\.jar$",
       "filenameExamples": [
-        "teutonlib-1.2.2.jar"
+        "teutonlib-1.3.0.jar"
       ],
-      "sha256": "bf8b6dc74a2b2f7a279d052616ef000b2bfb01c34c749eb7fcdd8623dc47ae67",
-      "source": "https://github.com/TeutonStudio/TeutonLib/releases/tag/v1.2.2",
+      "sha256": "a3e655dc804868bc7e73d6d6aaa58eef70a86817394203d7e7d58f04459bd32c",
+      "source": "https://github.com/TeutonStudio/TeutonLib/releases/tag/v1.3.0",
       "notes": "Required on client and server. Provides the authoritative addon workspace API."
     }
   ]

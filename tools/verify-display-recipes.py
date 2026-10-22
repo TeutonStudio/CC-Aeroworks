@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import struct
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -113,15 +114,15 @@ def verify_template(name: str, expected_width: float) -> None:
     require(required_contexts <= display.keys(), f"{name} panel is missing item display contexts")
 
     elements = template.get("elements")
-    require(isinstance(elements, list) and len(elements) == 3, f"{name} panel must have three elements")
+    require(isinstance(elements, list) and len(elements) == 2, f"{name} model must have a base and active surface")
     by_name = {element.get("name"): element for element in elements if isinstance(element, dict)}
     require(
-        set(by_name) == {"screen_housing", "screen", "desk_connector"},
-        f"{name} panel must contain housing, screen and desk connector",
+        set(by_name) == {"mounted_base", "active_surface"},
+        f"{name} model must contain the mounted base and active surface",
     )
 
-    housing = by_name["screen_housing"]
-    screen = by_name["screen"]
+    housing = by_name["mounted_base"]
+    screen = by_name["active_surface"]
     housing_from = housing.get("from")
     housing_to = housing.get("to")
     screen_from = screen.get("from")
@@ -130,21 +131,23 @@ def verify_template(name: str, expected_width: float) -> None:
         all(isinstance(value, list) and len(value) == 3 for value in (housing_from, housing_to, screen_from, screen_to)),
         f"{name} panel elements must use three-dimensional bounds",
     )
-    require(housing_to[0] - housing_from[0] == expected_width, f"{name} panel has the wrong width")
-    require(housing_to[2] - housing_from[2] <= 2, f"{name} panel housing is not flat")
-    require(screen_to[2] <= housing_from[2], f"{name} panel screen must sit on the front face")
-    require(screen.get("shade") is False, f"{name} panel screen must render without shading")
+    require(housing_to[0] - housing_from[0] == expected_width, f"{name} module has the wrong width")
+    require(housing_to[1] == 2 and housing_from[1] == 0, f"{name} module must match the mounted two-pixel height")
+    require(screen_from[1] == housing_to[1] and screen_to[1] > screen_from[1], f"{name} active surface must sit on top")
+    require(screen.get("shade") is False and screen.get("light_emission") == 8,
+            f"{name} active surface must remain readable in the inventory")
+    require(set(screen.get("faces", {})) == {"up"}, f"{name} active surface must face upward")
 
 
 def verify_item_models() -> None:
-    verify_template("small", 8)
-    verify_template("large", 12)
+    verify_template("small", 7)
+    verify_template("large", 10)
 
     expected = {
-        "two_digit_display": ("small", "minecraft:block/black_concrete"),
-        "three_digit_display": ("large", "minecraft:block/black_concrete"),
-        "small_radar_display": ("small", "minecraft:block/green_concrete"),
-        "large_radar_display": ("large", "minecraft:block/green_concrete"),
+        "two_digit_display": ("small", "cc_aeroworks:item/two_digit_display_active"),
+        "three_digit_display": ("large", "cc_aeroworks:item/three_digit_display_active"),
+        "small_radar_display": ("small", "cc_aeroworks:item/small_radar_display_active"),
+        "large_radar_display": ("large", "cc_aeroworks:item/large_radar_display_active"),
     }
     for name, (size, screen_texture) in expected.items():
         model = load_json(MODELS / "item" / f"{name}.json")
@@ -159,6 +162,11 @@ def verify_item_models() -> None:
             f"{name} must reuse the display housing texture",
         )
         require(textures.get("screen") == screen_texture, f"{name} has the wrong screen texture")
+        texture_path = ROOT / "src/main/resources/assets/cc_aeroworks/textures/item" / f"{name}_active.png"
+        data = texture_path.read_bytes()
+        require(data.startswith(b"\x89PNG\r\n\x1a\n"), f"{name} active surface is not a PNG")
+        require(struct.unpack(">II", data[16:24]) == (16, 16), f"{name} active surface must be 16x16")
+        require((ROOT / "art/item" / f"{name}_active.svg").is_file(), f"{name} active surface source is missing")
 
 
 def main() -> int:

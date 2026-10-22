@@ -15,6 +15,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo
  */
 @Mixin(value = [ConsoleBlockEntity::class], remap = false)
 abstract class ConsoleBlockEntityControlOverrideMixin {
+    @Inject(
+        method = ["tick"],
+        at = [At(
+            value = "INVOKE",
+            target = "Lcom/mred231/aeroworks/content/controls/console/ConsoleBlockEntity;pushNetworkIfChanged()V",
+            shift = At.Shift.BEFORE
+        )]
+    )
+    private fun ccaeroworks_applyComputerOverridesBeforeNetworkPush(callback: CallbackInfo) {
+        ControlOverrideManager.applyBeforeNetworkPush((this as Any) as ConsoleBlockEntity)
+    }
+
     @Inject(method = ["setChannelFromController"], at = [At("HEAD")], cancellable = true)
     private fun ccaeroworks_guardControlOverride(
         socket: Int,
@@ -23,7 +35,7 @@ abstract class ConsoleBlockEntityControlOverrideMixin {
         callback: CallbackInfo
     ) {
         if (ControlWriteContext.isComputerOverrideWrite()) return
-        val desk = this as ConsoleBlockEntity
+        val desk = (this as Any) as ConsoleBlockEntity
         if (ControlOverrideManager.isHardOverridden(desk, socket, channel)) {
             callback.cancel()
             // The client may have locally predicted a control movement before the server write
