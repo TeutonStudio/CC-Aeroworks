@@ -90,6 +90,10 @@ abstract class AbstractComputerScreenSwitchMixin(menu: AbstractComputerMenu, inv
     private fun ccaeroworks_workspaceKeys(key: Int, scan: Int, modifiers: Int, callback: CallbackInfoReturnable<Boolean>) {
         if ((ccaeroworks_workspace?.page() ?: 0) == 0) return
         if (key == GLFW.GLFW_KEY_ESCAPE) { if (ccaeroworks_workspace?.closeSourceApi() != true) ccaeroworks_show(0); callback.returnValue = true }
-        else if (focused is EditBox && minecraft!!.options.keyInventory.matches(key, scan)) callback.returnValue = true
+        else if (ccaeroworks_isEditingText() && minecraft!!.options.keyInventory.matches(key, scan)) callback.returnValue = true
     }
+
+    /** Keep container hotkeys out of every active text input hosted by this screen. */
+    @Unique private fun ccaeroworks_isEditingText(): Boolean =
+        children().filterIsInstance<EditBox>().any { it.isFocused && it.visible && it.active }
 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.6 — 2026-10-22
+
+- Fixed the inventory key closing the computer screen when its character was typed into channel, wire, group or binding name fields. Active text fields now retain the character, while Escape continues to navigate back.
+
 ## 1.4.5 — 2026-10-22
 
 - Fixed HARD computer overrides being restored only after Aeroworks had already sprung and published unattended controls. Overrides are now re-applied immediately before the Redstone Link network push, including controls hosted by another desk in the same console network.

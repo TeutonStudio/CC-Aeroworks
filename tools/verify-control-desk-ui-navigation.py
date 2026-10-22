@@ -63,7 +63,14 @@ require("ComputerSidebarTabs.tab" in cc_sidebar and "controlsButton" in cc_sideb
 require('listOf(1 to "sources", 2 to "channels")' in computer, "sidebar order must be Sources then Channels")
 require("ComputerPanels.workspace" in computer and "WorkspacePanels.Host" in computer, "computer must host TeutonLib panels")
 require("terminal?.visible = page == 0" in computer and "terminal?.active = page == 0" in computer, "terminal must stop receiving input on other pages")
-require('options.keyInventory.matches(key, scan)' in computer and 'GLFW_KEY_ESCAPE' in computer, "editor keyboard and Escape navigation missing")
+require(
+    'ccaeroworks_isEditingText()' in computer and
+    'filterIsInstance<EditBox>()' in computer and
+    'it.isFocused && it.visible && it.active' in computer and
+    'options.keyInventory.matches(key, scan)' in computer and
+    'GLFW_KEY_ESCAPE' in computer,
+    "all active text inputs must retain the inventory character while Escape remains navigation",
+)
 require("companion object" not in computer, "Mixin must not emit static helper state")
 require("ccaeroworks_workspace?.tick()" in computer and "takeRequestedFocus()" in computer, "shared refresh/focus lifecycle missing")
 require("ComputerExtensions.registerWorkspace" in workspace and "getServerComputer() === computer" in workspace, "workspace must resolve the actual running desk computer")
