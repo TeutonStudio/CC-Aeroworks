@@ -1,10 +1,10 @@
 # Gemeinsame Computeroberfläche mit TeutonLib
 
-CC-Aeroworks benötigt TeutonLib 1.3.0 auf Client und Server sowie NeoForge 21.1.234. TeutonLib muss vor CC-Aeroworks geladen werden; die optionale Gegenintegration darf keine AFTER-Abhängigkeit zurück zu Aeroworks deklarieren.
+CC-Aeroworks benötigt TeutonLib 1.3.4 auf Client und Server sowie NeoForge 21.1.234. TeutonLib muss vor CC-Aeroworks geladen werden; die optionale Gegenintegration darf keine AFTER-Abhängigkeit zurück zu Aeroworks deklarieren.
 
 ## Bedienung
 
-Unter den nativen CC-Strom-/Neustartaktionen folgen **Steuerung**, **Quellen**, **Kanäle**. Steuerung erscheint bei vorhandenem Rückkehrkontext und öffnet die zuvor besuchte Pultübersicht oder Modulansicht. Aktiven Reiter erneut anklicken oder Escape drücken führt zum Terminal.
+Unter den nativen CC-Strom-/Neustartaktionen folgen **Standard**, optional **Steuerung**, **Quellen** und **Kanäle**. Standard öffnet das Terminal. Steuerung erscheint bei vorhandenem Rückkehrkontext und öffnet die zuvor besuchte Pultübersicht oder Modulansicht. Einen aktiven Arbeitsreiter erneut anzuklicken oder Escape zu drücken führt ebenfalls zum Terminal.
 
 Quellen und Kanalgruppen sind aufklappbar. Die Quellen enthalten Peripherals aus TeutonLib, die vorhandenen Display-Link-/GPS-/Radar-Quellen und die vollständigen Display-Skriptdetails. Lange Detailzeilen stehen auch im Tooltip.
 

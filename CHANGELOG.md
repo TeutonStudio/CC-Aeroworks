@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.8 — 2026-10-23
+
+- Updated the required TeutonLib version to 1.3.4 and placed the computer tabs in the order Standard, optional Controls, Sources and Channels.
+
 ## 1.4.7 — 2026-10-23
 
 - Fixed channel, wire, group and binding name fields losing keyboard focus after opening the Channels tab. Text entry now works immediately and remains protected from the inventory hotkey.

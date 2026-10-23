@@ -53,6 +53,9 @@ abstract class AbstractComputerScreenSwitchMixin(menu: AbstractComputerMenu, inv
         ccaeroworks_workspace = workspace
         (this as WorkspacePanels.Host).`teutonlib$setWorkspace`(workspace)
         var index = 0
+        addRenderableWidget(ComputerSidebarTabs.standardTab(leftPos,
+            ComputerSidebarTabs.top(topPos, accessor.ccaeroworks_getSidebarYOffset(), index++), family,
+            { workspace.page() == 0 }, { ccaeroworks_show(0) }))
         if (ControlDeskUiSwitchState.clientCanReturnToControls()) {
             addRenderableWidget(ControlDeskComputerSidebar.controlsButton(leftPos,
                 ComputerSidebarTabs.top(topPos, accessor.ccaeroworks_getSidebarYOffset(), index++), family) {

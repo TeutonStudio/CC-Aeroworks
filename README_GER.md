@@ -210,7 +210,7 @@ Die ausführliche externe Referenz liegt unter [`docs/cc-peripheral-api.md`](doc
 
 - Minecraft 1.21.1
 - NeoForge 21.1.234+
-- TeutonLib 1.3.0 (Pflicht auf Client und Server; gemeinsame Computerreiter)
+- TeutonLib 1.3.4 (Pflicht auf Client und Server; gemeinsame Computerreiter)
 - Java 21
 - Kotlin 2.4.0 / KotlinForForge NeoForge 5.12.0
 - Create 6.0.10 mit Ponder API 1.0.82

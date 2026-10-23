@@ -60,6 +60,12 @@ require("reopenExactClientControls" in state and "socket.reopenModuleMenu()" in 
 
 # One native screen uses the shared TeutonLib controller, with an authoritative addon backend.
 require("ComputerSidebarTabs.tab" in cc_sidebar and "controlsButton" in cc_sidebar, "Controls must use shared native sidebar rendering")
+require("ComputerSidebarTabs.standardTab" in computer, "Terminal must use TeutonLib's shared Standard tab")
+require(
+    "var index = 0" in computer and
+    computer.index("ComputerSidebarTabs.standardTab") < computer.index("ControlDeskComputerSidebar.controlsButton") < computer.index('listOf(1 to "sources", 2 to "channels")'),
+    "sidebar order must be Standard, optional Controls, Sources, Channels",
+)
 require('listOf(1 to "sources", 2 to "channels")' in computer, "sidebar order must be Sources then Channels")
 require("ComputerPanels.workspace" in computer and "WorkspacePanels.Host" in computer, "computer must host TeutonLib panels")
 require("terminal?.visible = page == 0" in computer and "terminal?.active = page == 0" in computer, "terminal must stop receiving input on other pages")
@@ -110,4 +116,4 @@ for path in (
 for registered in ('"client.ConsoleScreenAccessor"','"client.ConsoleScreenSwitchMixin"','"client.AbstractComputerScreenAccessor"'):
     require(registered in mixins, f"missing UI mixin {registered}")
 require("python3 tools/verify-control-desk-ui-navigation.py" in workflow, "workflow must enforce UI navigation contract")
-print("Validated Computer/API Aeroworks navigation, explicit ComputerControlDesk UI context, keyboard-safe channel/group editing, three native CC work areas and authoritative optional information sources.")
+print("Validated Computer/API Aeroworks navigation, explicit ComputerControlDesk UI context, keyboard-safe channel/group editing, Standard/Controls/Sources/Channels ordering and authoritative optional information sources.")
