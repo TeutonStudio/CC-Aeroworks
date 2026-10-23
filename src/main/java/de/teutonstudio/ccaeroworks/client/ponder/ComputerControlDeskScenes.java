@@ -41,8 +41,8 @@ public class ComputerControlDeskScenes {
 
         // Real mounted modules make the scene explain the desk itself instead of substituting
         // floating inventory icons for its state.
-        PonderDeskSetup.mount(scene, middle, 0, new ItemStack(CCItems.TWO_DIGIT_DISPLAY.get()));
-        PonderDeskSetup.mount(scene, right, 2, new ItemStack(CCItems.THREE_DIGIT_DISPLAY.get()));
+        PonderDeskSetup.mount(scene, middle, 0, new ItemStack(CCItems.SMALL_DISPLAY.get()));
+        PonderDeskSetup.mount(scene, right, 2, new ItemStack(CCItems.LARGE_DISPLAY.get()));
         PonderDeskSetup.setDisplayText(scene, middle, 0, "42");
         PonderDeskSetup.setDisplayText(scene, right, 2, "123");
 

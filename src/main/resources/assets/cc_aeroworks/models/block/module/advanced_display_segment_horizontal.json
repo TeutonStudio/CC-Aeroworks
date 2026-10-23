@@ -1,0 +1,10 @@
+{
+  "ambientocclusion": false,
+  "textures": { "segment": "minecraft:block/white_concrete", "particle": "minecraft:block/white_concrete" },
+  "elements": [
+    { "from": [7, 2.02, 7.65], "to": [9, 2.25, 8.35], "shade": false, "faces": {
+      "down": {"texture": "#segment"}, "up": {"texture": "#segment"}, "north": {"texture": "#segment"},
+      "south": {"texture": "#segment"}, "west": {"texture": "#segment"}, "east": {"texture": "#segment"}
+    }}
+  ]
+}

@@ -8,7 +8,9 @@ import com.mred231.aeroworks.content.controls.channel.ControlChannel
 import com.mred231.aeroworks.content.controls.socket.SocketType
 import com.mred231.aeroworks.content.controls.socket.SocketTypes
 import de.teutonstudio.ccaeroworks.CCAeroworks
+import de.teutonstudio.ccaeroworks.display.DeskDisplayTier
 import de.teutonstudio.ccaeroworks.display.DeskDisplayType
+import de.teutonstudio.ccaeroworks.display.DeskDisplayVariant
 import java.lang.reflect.Array
 import java.lang.reflect.Modifier
 import java.util.Locale
@@ -28,61 +30,48 @@ object CCModuleTypes {
     @JvmField
     val TWO_DIGIT: ModuleType = createExtensionModule(
         DeskDisplayType.TWO_DIGIT,
-        DeskDisplayType.TWO_DIGIT.modulePath,
-        interactive = true
+        moduleIdPath = DeskDisplayType.TWO_DIGIT.modulePath,
+        geometryPath = "small_display",
+        interactive = false
     )
 
     @JvmField
     val THREE_DIGIT: ModuleType = createExtensionModule(
         DeskDisplayType.THREE_DIGIT,
-        DeskDisplayType.THREE_DIGIT.modulePath,
+        moduleIdPath = DeskDisplayType.THREE_DIGIT.modulePath,
+        geometryPath = "large_display",
+        interactive = false
+    )
+
+    @JvmField
+    val ADVANCED_TWO_DIGIT: ModuleType = createExtensionModule(
+        DeskDisplayType.TWO_DIGIT,
+        moduleIdPath = "advanced_two_digit_display",
+        geometryPath = "advanced_small_display",
         interactive = true
     )
 
-    /**
-     * A console-mounted replacement for Create's full-block train controls.
-     *
-     * The two ordinary Aeroworks axes make the object useful as a desk control while stationary.
-     * On an assembled Create train, the moving-console integration hands input to Create's native
-     * train controller instead; this preserves Create's driving, junction and dismount semantics.
-     */
     @JvmField
-    val TRAIN_CONTROLS: ModuleType = ModuleTypes.register(
-        CCAeroworks.id("train_controls"),
-        ModuleType.builder(AeroworksSocketTypes.LARGE)
-            .summary("item.cc_aeroworks.train_controls")
-            .axis(
-                ControlChannel.axis("speed", "module.cc_aeroworks.train_controls.channel.speed")
-                    .springBack(true, true)
-                    .keys("key.keyboard.w", "key.keyboard.s")
-                    .independentHud()
-            )
-            .axis(
-                ControlChannel.axis("steering", "module.cc_aeroworks.train_controls.channel.steering")
-                    .springBack(true, true)
-                    .keys("key.keyboard.d", "key.keyboard.a")
-                    .horizontalHud()
-            )
-            .part(ModulePart.builder(CCAeroworks.id("block/module/train_controls_base")))
-            .part(
-                ModulePart.builder(CCAeroworks.id("block/module/train_controls_throttle"))
-                    .rotate("speed", Vec3(1.0, 0.0, 0.0), 3.0f, Vec3(0.34375, 0.1875, 0.5625))
-            )
-            .part(
-                ModulePart.builder(CCAeroworks.id("block/module/train_controls_steering"))
-                    .rotate("steering", Vec3(1.0, 0.0, 0.0), 3.0f, Vec3(0.65625, 0.1875, 0.5625))
-            )
+    val ADVANCED_THREE_DIGIT: ModuleType = createExtensionModule(
+        DeskDisplayType.THREE_DIGIT,
+        moduleIdPath = "advanced_three_digit_display",
+        geometryPath = "advanced_large_display",
+        interactive = true
     )
 
-
-    internal fun createExtensionModule(displayType: DeskDisplayType, modulePath: String, interactive: Boolean): ModuleType {
-        val model = CCAeroworks.id("block/module/$modulePath")
+    internal fun createExtensionModule(
+        displayType: DeskDisplayType,
+        moduleIdPath: String,
+        geometryPath: String,
+        interactive: Boolean
+    ): ModuleType {
+        val model = CCAeroworks.id("block/module/$geometryPath")
         val shanks = when (displayType) {
             DeskDisplayType.TWO_DIGIT -> arrayOf(AeroworksSocketTypes.SMALL, AeroworksSocketTypes.LARGE)
             DeskDisplayType.THREE_DIGIT -> arrayOf(AeroworksSocketTypes.LARGE)
         }
         val builder = ModuleType.builder(*shanks)
-            .summary("item.cc_aeroworks.$modulePath")
+            .summary("item.cc_aeroworks.$geometryPath")
             .part(
                 ModulePart.builder(model)
                     .subSocket("internal", Vec3(0.5, -1.0, 0.5), INTERNAL_SOCKET)
@@ -97,7 +86,9 @@ object CCModuleTypes {
             addClonedChannel(builder, YOKE_Y_TEMPLATE, "y")
         }
 
-        return ModuleTypes.register(CCAeroworks.id(modulePath), builder)
+        // Aeroworks 1.5.0 has no module-registry aliases. Retain the historical ID for mounted
+        // module persistence while the model and visible summary use the current size/tier name.
+        return ModuleTypes.register(CCAeroworks.id(moduleIdPath), builder)
     }
 
     private fun addClonedChannel(builder: ModuleType.Builder, templateId: String, newId: String) {
@@ -176,18 +167,28 @@ object CCModuleTypes {
     fun register() = Unit
 
     @JvmStatic
-    fun displayType(moduleType: ModuleType): DeskDisplayType? {
-        if (moduleType === TWO_DIGIT || moduleType == TWO_DIGIT) return DeskDisplayType.TWO_DIGIT
-        if (moduleType === THREE_DIGIT || moduleType == THREE_DIGIT) return DeskDisplayType.THREE_DIGIT
+    fun displayVariant(moduleType: ModuleType): DeskDisplayVariant? {
+        if (moduleType === TWO_DIGIT || moduleType == TWO_DIGIT) return NORMAL_TWO_DIGIT
+        if (moduleType === THREE_DIGIT || moduleType == THREE_DIGIT) return NORMAL_THREE_DIGIT
+        if (moduleType === ADVANCED_TWO_DIGIT || moduleType == ADVANCED_TWO_DIGIT) return ADVANCED_TWO_DIGIT_VARIANT
+        if (moduleType === ADVANCED_THREE_DIGIT || moduleType == ADVANCED_THREE_DIGIT) return ADVANCED_THREE_DIGIT_VARIANT
         return moduleTypeIdentities(moduleType)
-            .mapNotNull(::displayTypeFromIdentity)
+            .mapNotNull(::displayVariantFromIdentity)
             .firstOrNull()
     }
 
+    @JvmStatic
+    fun displayType(moduleType: ModuleType): DeskDisplayType? = displayVariant(moduleType)?.type
 
-    private fun displayTypeFromIdentity(rawIdentity: String): DeskDisplayType? = when {
-        matchesModuleIdentity(rawIdentity, DeskDisplayType.TWO_DIGIT.modulePath) -> DeskDisplayType.TWO_DIGIT
-        matchesModuleIdentity(rawIdentity, DeskDisplayType.THREE_DIGIT.modulePath) -> DeskDisplayType.THREE_DIGIT
+    @JvmStatic
+    fun isInteractiveDisplay(moduleType: ModuleType): Boolean =
+        displayVariant(moduleType)?.tier?.touchCapable == true
+
+    private fun displayVariantFromIdentity(rawIdentity: String): DeskDisplayVariant? = when {
+        matchesModuleIdentity(rawIdentity, ADVANCED_TWO_DIGIT_VARIANT.modulePath) -> ADVANCED_TWO_DIGIT_VARIANT
+        matchesModuleIdentity(rawIdentity, ADVANCED_THREE_DIGIT_VARIANT.modulePath) -> ADVANCED_THREE_DIGIT_VARIANT
+        matchesModuleIdentity(rawIdentity, NORMAL_TWO_DIGIT.modulePath) -> NORMAL_TWO_DIGIT
+        matchesModuleIdentity(rawIdentity, NORMAL_THREE_DIGIT.modulePath) -> NORMAL_THREE_DIGIT
         else -> null
     }
 
@@ -255,4 +256,25 @@ object CCModuleTypes {
         } ?: return@runCatching null
         method.invoke(moduleType)
     }.getOrNull()
+
+    private val NORMAL_TWO_DIGIT = DeskDisplayVariant(
+        DeskDisplayType.TWO_DIGIT,
+        DeskDisplayTier.NORMAL,
+        DeskDisplayType.TWO_DIGIT.modulePath
+    )
+    private val NORMAL_THREE_DIGIT = DeskDisplayVariant(
+        DeskDisplayType.THREE_DIGIT,
+        DeskDisplayTier.NORMAL,
+        DeskDisplayType.THREE_DIGIT.modulePath
+    )
+    private val ADVANCED_TWO_DIGIT_VARIANT = DeskDisplayVariant(
+        DeskDisplayType.TWO_DIGIT,
+        DeskDisplayTier.ADVANCED,
+        "advanced_two_digit_display"
+    )
+    private val ADVANCED_THREE_DIGIT_VARIANT = DeskDisplayVariant(
+        DeskDisplayType.THREE_DIGIT,
+        DeskDisplayTier.ADVANCED,
+        "advanced_three_digit_display"
+    )
 }

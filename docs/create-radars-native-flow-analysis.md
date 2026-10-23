@@ -51,7 +51,7 @@ After classification, the original filterer-first path:
 
 The exact bytecode verifier checks the calls to `getOrCreateGroup`, `canAttachMonitor`, `attachMonitor`, `addDataLinkToGroup`, `BlockItem.useOn`, and the native link-range configuration inside `useOn(...)`.
 
-CC-Aeroworks must therefore not replace `useOn(...)`, place a link block, perform a second range check, persist a controller position, or create the private filter target reflectively. Sponge Mixin 0.8.7 does not provide an `INSTANCEOF` injection point, so the compatibility Mixin uses MixinExtras 0.5.0 `@ModifyExpressionValue` with the expression `? instanceof ?` and `ordinal = 0`. The handler receives the native boolean result and only turns it true for a `ConsoleBlockEntity` with a mounted RadarDisplay. Native code still creates and consumes its private target object.
+CC-Aeroworks must therefore not replace `useOn(...)`, place a link block, perform a second range check, persist a controller position, or create the private filter target reflectively. Sponge Mixin 0.8.7 does not provide an `INSTANCEOF` injection point, so the compatibility Mixin uses MixinExtras 0.5.0 `@ModifyExpressionValue` with the expression `? instanceof ?` and `ordinal = 0`. The handler receives the native boolean result and only turns it true for a `ConsoleBlockEntity` with a mounted advanced display. Native code still creates and consumes its private target object.
 
 ## `NetworkData`
 

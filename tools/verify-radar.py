@@ -33,8 +33,6 @@ def main() -> int:
     require(set(english) == set(german), "German and English language keys differ")
 
     required_keys = {
-        "item.cc_aeroworks.small_radar_display",
-        "item.cc_aeroworks.large_radar_display",
         "book.cc_aeroworks.page_7",
         "ponder.cc_aeroworks.radar_controller.header",
         *(f"ponder.cc_aeroworks.radar_controller.text_{index}" for index in range(1, 6)),
@@ -54,14 +52,16 @@ def main() -> int:
         require("adjacent" not in radar_text.lower() and "angrenzend" not in radar_text.lower(), "Radar Ponder still describes controller adjacency")
 
     for name in ("small_radar_display", "large_radar_display"):
-        load_json(MODELS / "block/module" / f"{name}.json")
-        load_json(MODELS / "item" / f"{name}.json")
-        recipe = load_json(RECIPES / f"{name}.json")
-        require(
-            recipe.get("neoforge:conditions") == [{"type": "neoforge:mod_loaded", "modid": "create_radar"}],
-            f"{name} recipe must remain optional",
-        )
-        require(recipe.get("result", {}).get("id") == f"cc_aeroworks:{name}", f"Wrong result for {name}")
+        require(not (MODELS / "block/module" / f"{name}.json").exists(), f"{name} block model must be removed")
+        require(not (MODELS / "item" / f"{name}.json").exists(), f"{name} item model must be removed")
+        require(not (RECIPES / f"{name}.json").exists(), f"{name} recipe must be removed")
+
+    radar_options = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/client/RadarSourceOptions.kt")
+    radar_compat = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/RadarCompat.kt")
+    require("DisplaySourceSelectorExtensions.register" in radar_options,
+            "radar sources must be contributed as pseudo-scripts to the shared selector")
+    require("RadarItems" not in radar_compat and "RadarModuleTypes" not in radar_compat,
+            "radar compat must not register dedicated display items or modules")
 
     for obsolete in (
         "radar_background_small",
@@ -89,11 +89,20 @@ def main() -> int:
     client = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/CCAeroworksClient.kt")
     radar_client = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/RadarCompatClient.kt")
     render_extensions = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/DisplayRenderExtensions.kt")
+    desk_render_access = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/aeroworks/AeroworksDeskAccess.kt")
+    touch_geometry = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DeskDisplayGeometry.kt")
+    radar_bindings = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/display/RadarDisplayBindings.kt")
 
     require(
         not (ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/RadarSurfaceRenderer.kt").exists(),
         "Custom RadarSurfaceRenderer still exists",
     )
+    require("DeskDisplayTier.ADVANCED" in radar_bindings,
+            "radar pseudo-scripts must be restricted to advanced displays")
+    require("is DisplayBinding.Extension" in desk_render_access,
+            "extension ownership must suppress the ordinary display renderer")
+    require("is DisplayBinding.Extension" in touch_geometry,
+            "extension ownership must suppress ordinary display touch")
 
     for token in (
         "enum class RadarLinkStatus",

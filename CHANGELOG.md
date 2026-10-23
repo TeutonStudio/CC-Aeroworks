@@ -1,5 +1,29 @@
 # Changelog
 
+- Integrated Create Contraption Controls as native Desk/Stand row segments alongside Train Controls, with exact block classification, mixed bridging, orphan fallback, dedicated insert models, native filter/button rendering, and preserved Create state.
+- Replaced implicit neighbour merging with persistent UUID assemblies, Create-style end placement arrows, sneak-to-separate placement, symmetric desk/control recruitment, exact copper-stand classification, and a hard 64-segment admission limit.
+- Added row-wide paid Copycat frame/panel styles for integrated Create controls, including persistent style revisions, atomic loaded-row updates, per-segment material ownership, and orphan/break refunds.
+- Added stable Contraption Control UUIDs, the `ContraptionControl` CC:Tweaked peripheral and aliases, actor/door/elevator Lua methods, state-change events, and direct stationary capability access.
+- Added the default-enabled ordinary-Create mobile runtime, Java `MobilePeripheralAdapter` API, embedded computer restart/persistence, moving terminal access, contraption coordinates and telemetry, internal wired isolation, and explicit adapters for CC:Tweaked base peripherals.
+
+## 1.5.0 — 2026-10-24
+
+- Split programmable displays into independent small/large and normal/advanced variants. Normal monitors press into output-only small displays, advanced monitors into color/touch small displays, and deploying an Iron Sheet produces the matching large tier. Advanced displays add persistent `0xRRGGBB` color control and require an advanced embedded computer for touch.
+- Renamed the four public display item IDs to `small_display`, `large_display`, `advanced_small_display`, and `advanced_large_display`. NeoForge registry aliases migrate inventories and external recipe references from the former digit-count IDs.
+- Added raised CC:Tweaked-style frames to both display sizes: grey for normal displays and yellow for advanced displays. Their item icons now reuse the mounted 3D models with recessed, powered-off screens instead of separate illuminated icon surfaces. The geometry resources follow the same `small_display`, `large_display`, `advanced_small_display`, and `advanced_large_display` naming as the items, while historical module IDs remain load-compatible.
+- Replaced the separate small/large Radar Display items with optional Create: Radars pseudo-script sources in the single advanced-display controller dropdown. Lua and radar bindings now replace one another; Data Link or embedded Network Controller ingress may own the surface, and radar ownership disables the ordinary pixel renderer and touch input.
+- Raised the required TeutonLib version to 1.5.0 and moved general Sable interaction/render geometry plus bounded player session, gesture and tick-budget helpers into its public APIs.
+- Migrated the console peripheral lifecycle, client workspace integration, persistent channel groups, named wire-signal runtime, embedded computer kernel and Simulated docking access to public TeutonLib APIs without changing saved IDs, channel formats or Lua names.
+- Wireless modems and the existing GPS information source now use TeutonLib's visible-world Sable geometry. A moving Sable console reports its global position after a successful real CC:Tweaked GPS fix; a directly detectable wireless modem remains required.
+- Removed the dedicated CC-Aeroworks train-control module, item, recipe, models and carriage hook. Existing `cc_aeroworks:train_controls` stacks are intentionally not migrated.
+- Create's native Train Controls now inherit the chassis, facing and multiblock skin of a floor Control Desk or Control Stand when placed against its left or right side. Integrated controls bridge matching desk rows, appear in shared previews and outlines, retain Create's native train interaction, and fall back to their native model when no matching desk remains.
+- Integrated Train Controls are physical bridge segments, not addressable `ControlDesk` API members. The 64-block topology limit counts desks and bridge segments, while desk APIs continue to report real desks only.
+- Modems and other CC:Tweaked peripherals, Create: Radars Network Filterers, and radar Data Links attached to an integrated Train Controls segment are now available to the shared console multiblock as sources.
+
+## 1.4.11 — 2026-10-23
+
+- Fixed Combined keyboard activation keys also triggering their normal Minecraft bindings, such as opening chat with `T` or an emote wheel with `R`. Combined control now consumes press, repeat and release before vanilla key-mapping dispatch while preserving ordinary keys and the Shift camera escape.
+
 ## 1.4.10 — 2026-10-23
 
 - Added computer-routed Create: Radars input. An active console network with one embedded computer can read one Network Filterer placed directly against any member desk, or already exposed through a desk endpoint, and feed its native filtered radar snapshot to RadarDisplays without a second monitor Data Link. Native monitor endpoints retain priority; ambiguous controller networks show an explicit status.

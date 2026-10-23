@@ -9,7 +9,7 @@ CC-Aeroworks verbindet die Steuerungspulte aus Create: Aeroworks mit CC:Tweaked.
 - [[Peripheral-Netzwerk]] erklärt Desk-Adapter, Typauflösung und Geräteadressen.
 - [[API-Schnellreferenz]] listet alle Lua-Methoden und Rückgabeformen.
 - [[Programmierbare-Displays]] beschreibt Text-, Zahlen- und Pixelmodus.
-- [[Radar-Routing]] erklärt automatische Verbindungen zwischen Data Link und Radaranzeige.
+- [[Radar-Routing]] erklärt Radar-Pseudo-Skripte für erweiterte Displays sowie Data-Link- und Network-Controller-Quellen.
 - [[Kombinierte-Eingabe]] erklärt den Halte-zu-Steuern-Modus.
 
 ## Zwei Zugriffsebenen
@@ -62,7 +62,9 @@ Der lokale Adapter sieht ausschließlich dieses Pult. Mehrere Pulte in einem Wir
 
 Gleich ausgerichtete Steuerungspulte verbinden sich unmittelbar links und rechts zu einer linearen Reihe. Normale Aeroworks-Pulte und beide Computerpultvarianten dürfen gemischt werden.
 
-- maximal 64 Mitglieder,
+Seitlich an Bodenpulte oder Steuerstände gesetzte native Create-Zugsteuerungen können die Reihe als transparente Segmente verbinden. Sie sind keine adressierbaren `ControlDesk`-Knoten; direkt angrenzende Modems, Network Filterer und Data Links stehen dem Multiblock dennoch als Quellen zur Verfügung.
+
+- maximal 64 physische Pult- und Zugsteuerungssegmente,
 - keine automatische Chunk-Nachladung,
 - teilweise geladene Netzwerke werden abgelehnt,
 - höchstens ein eingebetteter Computer,

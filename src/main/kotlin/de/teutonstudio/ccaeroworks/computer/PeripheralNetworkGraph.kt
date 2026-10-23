@@ -4,8 +4,10 @@ import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import dan200.computercraft.api.peripheral.IPeripheral
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMember
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
+import de.teutonstudio.ccaeroworks.telemetry.TelemetryIdentity
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
+import net.minecraft.server.level.ServerLevel
 import java.util.Locale
 
 internal data class DeskNetworkNode(
@@ -20,7 +22,8 @@ internal data class DeskNetworkNode(
 internal data class PeripheralNetworkNode(
     val desk: DeskNetworkNode,
     val pos: BlockPos,
-    val side: Direction,
+    /** Null for peripherals which are part of a physical row segment itself. */
+    val side: Direction?,
     val address: String,
     val target: IPeripheral,
     val primaryType: String,
@@ -37,7 +40,18 @@ internal data class PeripheralNetworkGraph(
     val desks: List<DeskNetworkNode>,
     val peripherals: List<PeripheralNetworkNode>,
     val dimension: String
-)
+) {
+    /**
+     * Keep this outside the primary constructor: TeutonLib 1.3.4 injects into the
+     * six-argument Kotlin data-class copy method, so changing that ABI crashes at runtime.
+     */
+    val space: String
+        get() {
+            val desk = desks.firstOrNull() ?: return "world"
+            val level = desk.desk.level as? ServerLevel ?: return "world"
+            return if (TelemetryIdentity.subLevelId(level, desk.pos) == null) "world" else "sable"
+        }
+}
 
 internal object PeripheralTypeNames {
     private val separators = Regex("[\\s_-]+")

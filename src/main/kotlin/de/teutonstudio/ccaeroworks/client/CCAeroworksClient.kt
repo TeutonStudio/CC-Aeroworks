@@ -14,6 +14,7 @@ import de.teutonstudio.ccaeroworks.client.ponder.CCAeroworksPonderPlugin
 import de.teutonstudio.ccaeroworks.input.CombinedInputSource
 import de.teutonstudio.ccaeroworks.input.CombinedLeverController
 import de.teutonstudio.ccaeroworks.input.DisplayCombinedInputController
+import de.teutonstudio.ccaeroworks.compat.teutonlib.DeskComputerWorkspaceClient
 import de.teutonstudio.ccaeroworks.registry.CCBlockEntities
 import dev.engine_room.flywheel.lib.visualization.SimpleBlockEntityVisualizer
 import net.minecraft.client.resources.model.ModelResourceLocation
@@ -57,6 +58,7 @@ object CCAeroworksClient {
     private fun clientSetup(event: FMLClientSetupEvent) {
         event.enqueueWork {
             InputSource.displayName(CombinedInputSource.ID)
+            DeskComputerWorkspaceClient.register()
             PonderIndex.addPlugin(CCAeroworksPonderPlugin())
 
             SimpleBlockEntityVisualizer.builder(CCBlockEntities.COMPUTER_CONTROL_DESK.get())

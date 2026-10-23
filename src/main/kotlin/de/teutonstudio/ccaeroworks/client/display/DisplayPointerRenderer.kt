@@ -2,7 +2,7 @@ package de.teutonstudio.ccaeroworks.client.display
 
 import com.mred231.aeroworks.content.controls.console.ConsoleBlock
 import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
-import de.teutonstudio.ccaeroworks.compat.sable.SableClientRenderPose
+import de.TeutonStudio.TeutonLib.api.sable.SubLevelRenderPose
 import de.teutonstudio.ccaeroworks.display.DeskDisplayGeometry
 import de.teutonstudio.ccaeroworks.input.DisplayCombinedInputController
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
@@ -35,7 +35,7 @@ object DisplayPointerRenderer {
 
         poseStack.pushPose()
         try {
-            SableClientRenderPose.apply(
+            SubLevelRenderPose.apply(
                 poseStack,
                 desk,
                 desk.blockPos.x.toDouble(),

@@ -3,7 +3,7 @@ package de.teutonstudio.ccaeroworks.radarcompat.client.render
 import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.radarcompat.compat.aeroworks.RadarDeskAccess
 import de.teutonstudio.ccaeroworks.radarcompat.createradar.RadarTrace
-import de.teutonstudio.ccaeroworks.compat.sable.SableClientRenderPose
+import de.TeutonStudio.TeutonLib.api.sable.SubLevelRenderPose
 import net.minecraft.client.Minecraft
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent
 import java.util.Collections
@@ -134,7 +134,7 @@ object RadarOverlayRenderer {
 
             poseStack.pushPose()
             try {
-                val anchor = SableClientRenderPose.apply(
+                val anchor = SubLevelRenderPose.apply(
                     poseStack,
                     desk,
                     desk.blockPos.x.toDouble(),

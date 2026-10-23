@@ -93,7 +93,7 @@ def main() -> int:
         "boolean nativeMonitor",
         "BlockEntity candidate",
         "boolean isDesk = candidate instanceof ConsoleBlockEntity",
-        "RadarDeskAccess.hasRadarDisplay((ConsoleBlockEntity) candidate)",
+        "RadarDeskAccess.hasRadarCapableDisplay((ConsoleBlockEntity) candidate)",
         "boolean accepted = nativeMonitor || hasRadarDisplay",
         '"DL_CLASSIFY"',
         "return accepted",
@@ -124,8 +124,10 @@ def main() -> int:
     )
 
     desk_access = read(DESK_ACCESS)
-    require("fun hasRadarDisplay(desk: ConsoleBlockEntity)" in desk_access, "RadarDisplay presence check is missing")
-    require("radarDisplayType(desk, it) != null" in desk_access, "Desk target is not tied to a mounted RadarDisplay")
+    require("fun hasRadarCapableDisplay(desk: ConsoleBlockEntity)" in desk_access,
+            "advanced-display radar endpoint check is missing")
+    require("radarCapableType(desk, it) != null" in desk_access,
+            "Data Link target is not tied to a mounted advanced display")
 
     compat = read(COMPAT)
     required_compat = (

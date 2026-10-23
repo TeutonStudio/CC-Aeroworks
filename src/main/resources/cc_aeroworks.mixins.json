@@ -7,9 +7,12 @@
     "minVersion": "0.5.0"
   },
   "mixins": [
+    "AbstractContraptionEntityMobileRuntimeMixin",
     "BlockEntityComponentInvoker",
+    "BlockEntityPositionAccessor",
     "BlockEntityDeskIdMixin",
     "ConsoleBlockSkinMixin",
+    "CopycatConsoleDeskAssemblyMixin",
     "ConsoleDeskBlockConnectionMixin",
     "ConsoleBlockEntityControlOverrideMixin",
     "ConsoleBlockEntityDeskIdMixin",
@@ -17,16 +20,17 @@
     "ConsoleBlockComputerRemovalMixin",
     "ConsoleBlockBundledComputerMixin",
     "ConsoleBlockEntityDisplayBindingMixin",
-    "CarriageContraptionTrainControlsMixin",
+    "ContraptionControlsBlockEntityIdentityMixin",
+    "ContraptionControlsBlockConsoleMixin",
+    "ControlsBlockConsoleMixin",
     "compat.ConsoleWireChannelsDisplayFilterMixin",
     "compat.DriveByWireSignalFilterMixin"
   ],
   "client": [
     "client.AbstractContainerScreenAccessor",
     "client.AbstractContainerScreenSourceSelectorTooltipMixin",
-    "client.AbstractComputerScreenAccessor",
-    "client.AbstractComputerScreenSwitchMixin",
     "client.MouseHandlerAccessor",
+    "client.CombinedKeyboardGuardMixin",
     "client.CombinedMouseButtonGuardMixin",
     "client.AeroworksAnalogInputMixin",
     "client.AeroworksControlSessionMixin",

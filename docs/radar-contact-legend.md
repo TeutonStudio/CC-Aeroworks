@@ -1,6 +1,6 @@
-# Large RadarDisplay contact legend
+# Large advanced-display radar contact legend
 
-The large RadarDisplay adds a compact vertical legend to the right of Create: Radars' native radar circle. The small RadarDisplay remains unchanged.
+When its radar pseudo-script is selected, the large advanced display adds a compact vertical legend to the right of Create: Radars' native radar circle. The small advanced display keeps only the native surface.
 
 ## Displayed categories
 
@@ -52,8 +52,8 @@ ITM 00
 
 At minimum verify the following in `runClient`:
 
-1. A small RadarDisplay still shows only the native radar surface.
-2. A large RadarDisplay shows the seven-row legend to the right of the circle.
+1. A small advanced display with a radar binding shows only the native radar surface.
+2. A large advanced display with a radar binding shows the seven-row legend to the right of the circle.
 3. A player increments `PLY`.
 4. A hostile mob increments `MOB`, not a separate hostile row.
 5. Animals, items, projectiles, contraptions and VS2/Sable ships increment their matching rows.

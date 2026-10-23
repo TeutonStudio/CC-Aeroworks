@@ -24,7 +24,7 @@ selector = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/SourceSelect
 access = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/compat/aeroworks/RadarDeskAccess.kt")
 state_mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/ConsoleBlockEntityDisplayBindingMixin.kt")
 ui_mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ModuleScreenDisplayBindingMixin.kt")
-radar_ui_mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/mixin/client/RadarModuleScreenMixin.kt")
+selector_extensions = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/DisplaySourceSelectorExtensions.kt")
 radar_payload = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/network/SetRadarDisplaySourcePayload.kt")
 script_payload = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/SetDisplayTouchScriptPayload.kt")
 catalog_payload = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/DisplayScriptCatalogPayloads.kt")
@@ -73,16 +73,18 @@ require('ResourceLocation.fromNamespaceAndPath("create_radar", "network_filterer
         "radar source presentation must use the Create: Radars Network Filterer registry item")
 require("descriptor.radarPos" not in radar_widgets,
         "radar source icon must never regress to the radar bearing/radar block")
-require("SourceSelectorWidget<RadarSourceChoice>" in radar_ui_mixin and "SetRadarDisplaySourcePayload" in radar_ui_mixin,
-        "Radar Display module UI must use the shared selector and the binding payload")
+require("DisplaySourceSelectorExtensions.register" in radar_widgets and "SetRadarDisplaySourcePayload" in radar_widgets,
+        "radar pseudo-scripts must contribute to the shared display selector")
+require("CopyOnWriteArrayList" in selector_extensions and "selectedKey" in selector_extensions,
+        "optional pseudo-script sources need a generic client extension registry")
 require("RadarSourceRegistry.sources(desk)" in radar_payload,
         "server must validate requested radar sources against the current multiblock")
-require("RadarModuleTypes.radarDisplayType(module.type())" in radar_payload,
-        "server must reject source bindings on non-radar modules")
+require("RadarDeskAccess.radarCapableType(desk, payload.socket)" in radar_payload,
+        "server must reject radar bindings on normal or non-display modules")
 require('"client.ModuleScreenDisplayBindingMixin"' in mixins,
-        "Script Display binding UI mixin must be registered")
-require('"client.RadarModuleScreenMixin"' in radar_mixins,
-        "Radar Display binding UI mixin must be registered by radar compat")
+        "shared display binding UI mixin must be registered")
+require("RadarModuleScreenMixin" not in radar_mixins,
+        "radar compat must not add a second display-source row")
 
 # Script sources are discovered from the embedded computer instead of accepting arbitrary typed paths.
 require("createRootMount()" in catalog, "script catalog must scan the embedded computer root mount")
@@ -94,8 +96,8 @@ require("skipTrivia" in catalog and "skipQuoted" in catalog,
         "script capability discovery must ignore comments and quoted text")
 require("DisplayScriptCatalogState" in catalog_state and "BlockPos" in catalog_state,
         "client catalog metadata must be keyed to desk/socket context")
-require("scriptSourceOptions" in widgets and "SourceSelectorWidget<String>" in ui_mixin,
-        "script source UI must use the same bounded selector as radar sources")
+require("scriptSourceOptions" in widgets and "SourceSelectorWidget<DisplaySourceSelection>" in ui_mixin,
+        "Lua and pseudo-script sources must use one bounded selector")
 require("mouseScrolled" in selector and "expanded" in selector and "MAX_VISIBLE_OPTIONS" in selector,
         "shared source selector must own wheel input while open")
 require("EditBox" not in ui_mixin and "Touch script" not in ui_mixin,
@@ -106,11 +108,11 @@ require("DisplayScriptCatalog.find" in script_payload,
         "script selection payload must revalidate selected files against the current catalog")
 require("DisplayBinding.LuaHandler(descriptor.path)" in script_payload,
         "script binding must persist the catalog's canonical path")
-require("SableInteractionGeometry.withinReach" in script_payload and
-        "SableInteractionGeometry.mayInteract" in script_payload,
+require("SubLevelInteractionGeometry.withinReach" in script_payload and
+        "SubLevelInteractionGeometry.mayInteract" in script_payload,
         "script selection must validate reach in rendered Sable space")
-require("SableInteractionGeometry.withinReach" in catalog_payload and
-        "SableInteractionGeometry.mayInteract" in catalog_payload,
+require("SubLevelInteractionGeometry.withinReach" in catalog_payload and
+        "SubLevelInteractionGeometry.mayInteract" in catalog_payload,
         "script catalog requests must validate reach in rendered Sable space")
 require("player.distanceToSqr(pos.center)" not in script_payload and
         "player.distanceToSqr(pos.center)" not in catalog_payload and
@@ -172,15 +174,15 @@ require("member.pos.x" in dispatcher and "member.pos.y" in dispatcher and "membe
         "embedded display events must append exact source desk coordinates")
 
 # A touch must not disappear if source discovery created an embedded computer which is still off.
-require("MAX_PENDING_COMPUTER_EVENTS" in computer_desk and "pendingComputerEvents" in computer_desk,
-        "embedded event delivery must use a bounded pending queue")
-require("fun queueComputerEventWhenReady" in computer_desk and "computer.turnOn()" in computer_desk,
-        "embedded event delivery must start CraftOS when a display event arrives")
-require("pendingComputerEvents.isNotEmpty()" in computer_desk and
-        "if (newPowered) flushPendingComputerEvents(computer)" in computer_desk,
-        "pending display events must flush only after CC:Tweaked reports the computer as on")
-require("pendingComputerEvents.clear()" in computer_desk,
-        "pending embedded events must be discarded when the computer is closed")
+# Queue bounds, startup, flush and close semantics are owned and unit-tested by TeutonLib's
+# HostedComputer. Aeroworks must use that single lifecycle instead of restoring a local queue.
+require("HostedComputer" in computer_desk and "private val computer = HostedComputer(" in computer_desk,
+        "embedded computers must delegate their lifecycle to TeutonLib HostedComputer")
+require("fun queueComputerEventWhenReady" in computer_desk and
+        "computer.queueEventWhenReady(name, *arguments)" in computer_desk,
+        "embedded event delivery must use HostedComputer's bounded start-safe queue")
+require("pendingComputerEvents" not in computer_desk and "flushPendingComputerEvents" not in computer_desk,
+        "Aeroworks must not duplicate HostedComputer's pending event lifecycle")
 require(dispatcher.count("owner.queueComputerEventWhenReady(") >= 2,
         "display and legacy touch events must use start-safe embedded delivery")
 require("computer.queueEvent(" not in dispatcher,

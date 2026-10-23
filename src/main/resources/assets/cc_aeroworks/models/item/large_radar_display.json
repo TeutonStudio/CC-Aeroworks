@@ -1,7 +1,0 @@
-{
-  "parent": "cc_aeroworks:item/template_large_display_panel",
-  "textures": {
-    "frame": "cc_aeroworks:block/display_base",
-    "screen": "cc_aeroworks:item/large_radar_display_active"
-  }
-}

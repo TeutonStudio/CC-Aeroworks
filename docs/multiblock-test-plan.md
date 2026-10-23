@@ -27,6 +27,35 @@ Erwartung:
 - identische Ergebnisse für jede Computerposition,
 - keine zusätzliche Verkabelung.
 
+## MB-TOPOLOGY-02: Native Zugsteuerung als Brückensegment
+
+1. Create-Zugsteuerung durch Klick auf die linke oder rechte Seite eines Boden-Control-Desks platzieren.
+2. Weitere Zugsteuerungen seitlich an die integrierte Zugsteuerung setzen und am anderen Ende ein gleich ausgerichtetes Pult ergänzen.
+3. Den Aufbau jeweils mit Control Desk, Copycat Control Desk, Control Stand und Copycat Control Stand wiederholen.
+4. Eine Zugsteuerung frei, an einer Vorder-/Rückseite und an einem Deckenpult platzieren.
+5. Alle passenden Ankerpulte einer zusammenhängenden Zugsteuerungsgruppe abbauen.
+
+Erwartung:
+
+- seitliche Platzierung erbt Ausrichtung, Desk-/Stand-Geometrie und Computer-Skin;
+- passende Zugsteuerungen verbinden beide Pultabschnitte, erscheinen im gemeinsamen Preview und in den Außenkonturen;
+- freie, vordere, hintere und Deckenplatzierung bleibt vollständig nativ;
+- ohne passendes Ankerpult fällt die gesamte Gruppe auf die native Create-Darstellung zurück;
+- Create erkennt und bedient die Zugsteuerung nach Fahrzeugmontage weiterhin nativ.
+
+## MB-TOPOLOGY-03: Zugsteuerung bleibt transparenter Knoten
+
+1. Ein Netz aus zwei Pulten mit einer integrierten Zugsteuerung dazwischen und genau einem eingebetteten Computer bauen.
+2. `peripherals.getNetwork()`, `peripherals.getDesks()`, `channels` und `controls` prüfen.
+3. Modem beziehungsweise anderes CC:Tweaked-Peripheral, Create:-Radars-Network-Filterer und Radar-Data-Link nacheinander direkt an die Zugsteuerung setzen.
+
+Erwartung:
+
+- drei physische Segmente, aber genau zwei adressierbare Desks;
+- keine Desk-ID, kein `ControlDesk`-Handle und keine Modul-/Kanaleinträge für die Zugsteuerung;
+- alle direkt angrenzenden Geräte werden mit ihrer echten Position und Seite als Multiblockquellen gefunden;
+- Radarcontroller und Data-Link-Endpunkt funktionieren ebenso wie bei direkter Montage am Pult.
+
 ## MB-LOCAL-01: Lokale Desk-Adapter
 
 1. Mehrere Pulte über Wired Modems an einen externen Computer anschließen.
@@ -156,15 +185,15 @@ Erwartung: Teilzustand wird als Fehler gemeldet, es werden keine Chunks nachgela
 
 ## MB-LIMIT-01: Größenlimit
 
-1. 64 kompatible Pulte verbinden.
-2. 65. Pult ergänzen.
+1. Insgesamt 64 kompatible Pulte und integrierte Zugsteuerungssegmente verbinden.
+2. Ein 65. physisches Segment ergänzen.
 
-Erwartung: 64 Mitglieder funktionieren; der übergroße Verbund wird eindeutig abgelehnt und verursacht keine unbegrenzte Suche oder Radarroute.
+Erwartung: 64 physische Segmente funktionieren; der übergroße Verbund wird eindeutig abgelehnt und verursacht keine unbegrenzte Suche oder Radarroute. Desk-Zähler und APIs enthalten weiterhin ausschließlich echte Pulte.
 
 ## MB-RADAR-01: Eindeutige automatische Route
 
 1. Data Link an einem Pult platzieren.
-2. Genau eine Radaranzeige an einem anderen Pult montieren.
+2. Genau ein erweitertes Display an einem anderen Pult montieren und dort eine Radarquelle als Pseudo-Skript auswählen.
 3. Computer-Steuerungspult links, mittig und rechts testen.
 4. Radar-Monitor verbinden und Tracks erzeugen.
 

@@ -3,6 +3,7 @@ package de.teutonstudio.ccaeroworks
 import de.teutonstudio.ccaeroworks.client.CCAeroworksClient
 import de.teutonstudio.ccaeroworks.compat.computercraft.ControlDeskPeripheralRegistry
 import de.teutonstudio.ccaeroworks.compat.computercraft.ControlDeskPeripheralState
+import de.teutonstudio.ccaeroworks.compat.computercraft.ContraptionControlPeripheralState
 import de.teutonstudio.ccaeroworks.computer.CCLuaApis
 import de.teutonstudio.ccaeroworks.computer.ComputerConsoleInteractionHandler
 import de.teutonstudio.ccaeroworks.computer.source.GpsSourceTracker
@@ -10,6 +11,7 @@ import de.teutonstudio.ccaeroworks.config.CCClientConfig
 import de.teutonstudio.ccaeroworks.config.CCServerConfig
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockSkinUpdater
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleAssemblyPlacementHelper
 import de.teutonstudio.ccaeroworks.network.CCPayloads
 import de.teutonstudio.ccaeroworks.network.DisplayDrawPayload
 import de.teutonstudio.ccaeroworks.network.ServerSessionLifecycle
@@ -21,7 +23,8 @@ import de.teutonstudio.ccaeroworks.registry.CCItems
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 import de.teutonstudio.ccaeroworks.registry.CCRecipeSerializers
 import de.teutonstudio.ccaeroworks.telemetry.TelemetryComputerRuntimes
-import de.teutonstudio.ccaeroworks.train.TrainControlIntegration
+import de.teutonstudio.ccaeroworks.train.TrainControlConsoleUpdater
+import de.teutonstudio.ccaeroworks.contraption.BuiltinMobilePeripheralAdapters
 import net.minecraft.resources.ResourceLocation
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.bus.api.IEventBus
@@ -29,7 +32,6 @@ import net.neoforged.fml.ModContainer
 import net.neoforged.fml.common.Mod
 import net.neoforged.fml.config.ModConfig
 import net.neoforged.fml.event.config.ModConfigEvent
-import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent
 import net.neoforged.fml.loading.FMLEnvironment
 import net.neoforged.neoforge.common.NeoForge
 import org.slf4j.Logger
@@ -38,6 +40,8 @@ import org.slf4j.LoggerFactory
 @Mod(CCAeroworks.MOD_ID)
 class CCAeroworks(modEventBus: IEventBus, modContainer: ModContainer) {
     init {
+        ConsoleAssemblyPlacementHelper.register()
+        BuiltinMobilePeripheralAdapters.register()
         CCDataComponents.register(modEventBus)
         CCBlocks.register(modEventBus)
         CCBlockEntities.register(modEventBus)
@@ -46,7 +50,6 @@ class CCAeroworks(modEventBus: IEventBus, modContainer: ModContainer) {
         de.teutonstudio.ccaeroworks.registry.CCMenus.register(modEventBus)
         CCRecipeSerializers.register(modEventBus)
         CCDisplayTargets.register(modEventBus)
-        modEventBus.addListener<FMLCommonSetupEvent>(TrainControlIntegration::commonSetup)
         ControlDeskPeripheralRegistry.register(modEventBus)
         CCPayloads.register(modEventBus)
         modEventBus.addListener { event: ModConfigEvent.Reloading ->
@@ -60,7 +63,9 @@ class CCAeroworks(modEventBus: IEventBus, modContainer: ModContainer) {
         modContainer.registerConfig(ModConfig.Type.CLIENT, CCClientConfig.SPEC, "cc_aeroworks-client.toml")
         modContainer.registerConfig(ModConfig.Type.SERVER, CCServerConfig.SPEC, "cc_aeroworks-server.toml")
         NeoForge.EVENT_BUS.register(ControlDeskPeripheralState)
+        NeoForge.EVENT_BUS.register(ContraptionControlPeripheralState)
         NeoForge.EVENT_BUS.register(ConsoleMultiblockManager)
+        NeoForge.EVENT_BUS.register(TrainControlConsoleUpdater)
         NeoForge.EVENT_BUS.register(ConsoleMultiblockSkinUpdater)
         NeoForge.EVENT_BUS.register(ComputerConsoleInteractionHandler)
         NeoForge.EVENT_BUS.register(TelemetryComputerRuntimes)
@@ -88,6 +93,7 @@ class CCAeroworks(modEventBus: IEventBus, modContainer: ModContainer) {
         const val CONTROL_RELEASE_EVENT: String = "cc_aeroworks_control_release"
         const val PERIPHERAL_ATTACHED_EVENT: String = "cc_aeroworks_peripheral_attached"
         const val PERIPHERAL_DETACHED_EVENT: String = "cc_aeroworks_peripheral_detached"
+        const val CONTRAPTION_CONTROL_EVENT: String = "cc_aeroworks_contraption_control"
         const val TELEMETRY_ADDED_EVENT: String = "cc_aeroworks_telemetry_added"
         const val TELEMETRY_CHANGED_EVENT: String = "cc_aeroworks_telemetry_changed"
         const val TELEMETRY_REMOVED_EVENT: String = "cc_aeroworks_telemetry_removed"

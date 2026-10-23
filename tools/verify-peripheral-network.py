@@ -27,9 +27,7 @@ def main() -> int:
     builder = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralNetworkBuilder.kt")
     graph = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralNetworkGraph.kt")
     runtime = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralNetworkRuntime.kt")
-    binding = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralBinding.kt")
     handles = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralLuaHandles.kt")
-    mounts = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralMountRegistry.kt")
     computer = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ConsoleComputer.kt")
     local = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ControlDeskPeripheral.kt")
     state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ControlDeskPeripheralState.kt")
@@ -55,14 +53,17 @@ def main() -> int:
         "Direction.DOWN",
         "PeripheralCapability.get()",
         "side.opposite",
-        "targetPos in deskPositions",
+        "val segments = snapshot.segmentPositions",
+        "targetPos in segmentPositions",
+        "nearestDesk(segments, segmentIndex, desksByPos)",
         "peripheral.additionalTypes",
         "PeripheralTypeNames.aliases(types)",
         "existing.pos == targetPos",
         "existing.types == types",
         "equivalent(existing.target, peripheral)",
         "UUID.nameUUIDFromBytes",
-        'address = "${desk.address}/${side.name.lowercase(Locale.ROOT)}"',
+        '"${desk.address}/${side.name.lowercase(Locale.ROOT)}"',
+        '"${desk.address}/segment_${address(segmentPos)}/${side.name.lowercase(Locale.ROOT)}"',
         'fun address(pos: BlockPos): String = "${pos.x},${pos.y},${pos.z}"',
     ))
     require_tokens(graph, "PeripheralNetworkGraph", (
@@ -73,31 +74,14 @@ def main() -> int:
         "compact(value",
         "substringAfter(':', lower)",
     ))
-    require_tokens(binding, "PeripheralBinding", (
-        "ServerContext.get(system.getLevel().server).peripheralMethods().getSelfMethods(node.target)",
-        "GuardedLuaContext(context, this)",
-        "method.apply(node.target, guarded, this, arguments)",
-        "node.target.attach(this)",
-        "node.target.detach(this)",
-        "NotAttachedException()",
-        "system.mount(",
-        "system.unmount(",
-        "system.queueEvent(",
-        "getAvailablePeripherals",
-        "getMainThreadMonitor",
-        "cleanupMounts(throwable)",
-        "mounts.drain()",
-        "throwable::addSuppressed",
-    ))
-    require_tokens(mounts, "PeripheralMountRegistry", (
-        "linkedSetOf<String>()",
-        "fun drain(): List<String>",
-        "locations.clear()",
-    ))
     require_tokens(runtime, "PeripheralNetworkRuntime", (
         '"id" to current.networkId',
-        "bindings[node.address] = binding",
-        "binding.attach()",
+        "private val attachments = PeripheralAttachmentRuntime(",
+        "attachments.refresh(force)",
+        "attachments.binding(node.address)",
+        "attachments.close()",
+        "onAttached = { endpoint -> queueAttached(endpoint.node()) }",
+        "onDetached = { endpoint -> queueDetached(endpoint.node()) }",
         'system.queueEvent("peripheral", node.address)',
         'system.queueEvent("peripheral_detach", node.address)',
         "GRAPH_REFRESH_INTERVAL = 5L",
@@ -106,6 +90,11 @@ def main() -> int:
         "else -> handles",
         "alwaysCollection -> handles",
         "PeripheralTypeNames.isControlDesk(type)",
+        "class AeroworksPeripheralTopologyProvider",
+        ") : PeripheralTopologyProvider",
+        "PeripheralProviders.endpoints(computer)",
+        "PeripheralTopology(",
+        "PeripheralEndpoint(",
     ))
     require_tokens(handles, "PeripheralLuaHandles", (
         "class DeskLuaHandle",
@@ -116,8 +105,10 @@ def main() -> int:
 
     require("PeripheralNetworkRuntimes.tick(this)" in computer, "Computer tick does not refresh the peripheral graph")
     removed_monolith = "PeripheralNetwork" + ".kt"
-    require(removed_monolith not in "\n".join((builder, graph, runtime, binding, handles)),
+    require(removed_monolith not in "\n".join((builder, graph, runtime, handles)),
             "Refactored peripheral runtime still references the removed monolith")
+    require(not (ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralBinding.kt").exists(),
+            "Aeroworks must not restore the generic binding now owned by TeutonLib")
     require("cc_aeroworks_peripheral_attached" in read("src/main/kotlin/de/teutonstudio/ccaeroworks/CCAeroworks.kt"), "Attach event constant is missing")
     require("cc_aeroworks_peripheral_detached" in read("src/main/kotlin/de/teutonstudio/ccaeroworks/CCAeroworks.kt"), "Detach event constant is missing")
 
@@ -146,7 +137,7 @@ def main() -> int:
     require("getPeripheralInfo" in docs, "Peripheral handle metadata is undocumented")
 
     print(
-        "Validated split peripheral builder/graph/runtime/binding architecture, partial-attach cleanup, stable network IDs, "
+        "Validated split peripheral builder/graph/provider architecture, TeutonLib attachment delegation, stable network IDs, "
         "physical peripheral deduplication, lifecycle events, docs and Lua examples."
     )
     return 0

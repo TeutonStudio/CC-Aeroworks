@@ -9,16 +9,27 @@ CC-Aeroworks verbindet **Create: Aeroworks Control Desks** mit **CC:Tweaked** un
 - jedes Pult bleibt ein eigenes `ControlDesk`-Peripheral mit eigener Position, Modulen und Displays;
 - globale APIs für eingebettete Computer: `peripherals`, `channels`, `controls`, `wires` und `telemetry`;
 - kleine und große programmierbare Displaymodule mit Text-, Zahlen- und Pixelmodus;
-- Touch-/Draw-Eingabe auf kleinen und großen Displays mit erweitertem Computer über einen frei beweglichen 3D-Zeiger;
+- Touch-/Draw-Eingabe auf erweiterten kleinen und großen Displays mit erweitertem Computer über einen frei beweglichen 3D-Zeiger;
 - Create Display Links als strukturierte Informationsquellen für Tank-, Lager- und weitere Telemetriedaten;
 - optionale Create:-Radars-Kompatibilität mit nativen Data-Link-Endpunkten;
 - integriertes Manual/API-Nachschlagewerk und lokalisierte Create-Ponder-Erklärungen.
 
 ## Pultnetzwerke
 
-Gleich ausgerichtete Steuerungspulte verbinden sich unmittelbar links und rechts zu einem linearen Netzwerk. Desk und Copycat Desk dürfen sich untereinander mischen; Control Stand und Copycat Stand bilden eine separate Geometriefamilie. Alle vier Aeroworks-Ausführungen unterstützen den gemeinsamen Slot für normale und erweiterte Computer.
+Steuerungspulte bilden explizite lineare Reihen mit einer persistenten `assemblyId`. Zum Erweitern einen kompatiblen Block in der Hand halten und den Create-Pfeil am linken oder rechten Reihenende anklicken; direktes seitliches Platzieren übernimmt dieselbe Reihe ebenfalls. Schleichen beim Platzieren beginnt immer eine neue Reihe. Dadurch dürfen gleich ausgerichtete Pulte unmittelbar nebeneinanderstehen, ohne Computer, Displays oder Peripheral-Graphen zu verbinden. Desk und Copycat Desk gehören zur Desk-Familie, Control Stand und Copycat Stand zur Stand-Familie.
 
-Jedes Pult bleibt ein eigenes Peripheral vom Typ `ControlDesk`. Es besitzt seine eigene Position, stabile Desk-ID, Module, Displays und angrenzenden Geräte. Die Netzwerkauflösung lädt keine Chunks nach und ist auf 64 vollständig geladene Pulte begrenzt.
+Create-Zugsteuerungen und Create-Vorrichtungs-Steuerungen, die an die linke oder rechte Seite eines Bodenpults beziehungsweise Steuerstands gesetzt werden, übernehmen dessen Ausrichtung, Chassis und Skin. Beide dürfen gemischt Pultabschnitte derselben Geometriefamilie verbinden. Ohne verbleibendes passendes Pult kehrt die komplette zusammenhängende Steuerungsgruppe zur nativen Create-Darstellung zurück. Deckenpulte integrieren keine Create-Steuerung.
+
+Copycat-Frame und -Panel sind Reihenstile. Eine Änderung wird nur bei vollständig geladener Reihe ausgeführt und kostet pro sichtbarem Segment und aktiver Zone einen passenden Materialblock. Abbau und Entfernen geben die je Segment gespeicherten Materialien exakt zurück; Creative erzeugt keine Rückgaben.
+
+Jedes echte Pult bleibt ein eigenes Peripheral vom Typ `ControlDesk`. Integrierte Create-Steuerungen sind physische Brückensegmente ohne Desk-ID oder Modul-Sockets. Die Vorrichtungs-Steuerung erscheint zusätzlich als `ContraptionControl`; stationär auch an externen Computern und Modems. Die Netzwerkauflösung lädt keine Chunks nach und ist auf 64 vollständig geladene physische Segmente einschließlich beider Create-Steuerungen begrenzt.
+
+Auf gewöhnlichen bewegten Create-Contraptions startet die standardmäßig aktive mobile Laufzeit den eingebetteten Computer mit derselben Computer-ID, Dateien, Familie, Terminalgröße und Stromlage neu. `peripherals.getNetwork().space` ist dort `contraption`; Handles melden Entity-UUID, lokale und projizierte Weltposition. `telemetry` liefert Position, Rotation, Geschwindigkeit und Mounted-Storage-Belegung der Contraption; stationäre Weltziele werden mobil ausdrücklich als nicht verfügbar behandelt. Die Serveroption `mobileContraptions.enabled=false` schließt Computer, Adapter und Ausgänge fail-safe. Sable verwendet weiterhin echte Sublevel-BlockEntities.
+
+Auf bewegten Sable-Sublevels misst TeutonLib CC:Tweaked-Funkentfernungen und normale
+Modemreichweiten in sichtbaren Weltkoordinaten. `gps.locate()` und die GPS-Informationsquelle
+liefern dadurch nach einem erfolgreichen Fix die globale Weltposition; die Quelle benötigt
+weiterhin ein direkt erkennbares Funkmodem und ignoriert Hosts in echten anderen Dimensionen.
 
 Ein externer CC:Tweaked-Computer oder ein Wired Modem arbeitet mit dem direkt angeschlossenen lokalen Pult. Zusätzliche Typnamen für die lokale Erkennung sind `control_desk`, `cc_aeroworks:control_desk` und `cc_aeroworks_control_desk`.
 
@@ -74,12 +85,14 @@ Details:
 
 ## Programmierbare Displays
 
-CC-Aeroworks registriert zwei normale Displaymodule:
+CC-Aeroworks registriert beide Displaygrößen in zwei Stufen:
 
-- **Two Digit Display:** passt in kleine und große Sockets;
-- **Three Digit Display:** passt ausschließlich in den großen Socket und unterstützt interaktive Eingabe.
+- **klein** (`cc_aeroworks:small_display`): passt in kleine und große Sockets;
+- **groß** (`cc_aeroworks:large_display`): passt ausschließlich in den großen Socket;
+- **normal:** reine Text-, Zahlen- und Pixelanzeige mit fester Signalfarbe;
+- **erweitert** (`cc_aeroworks:advanced_small_display` / `cc_aeroworks:advanced_large_display`): einstellbare Farbe und Touch-/Draw-Eingabe.
 
-Ein normaler CC:Tweaked-Monitor wird unter einer mechanischen Presse zum kleinen Display, ein erweiterter Monitor zum großen Display.
+Eine mechanische Presse formt einen normalen beziehungsweise erweiterten CC:Tweaked-Monitor zum kleinen Display derselben Stufe. Ein Deployer erweitert das kleine Display mit einem `create:iron_sheet` zur großen Variante; die Stufe bleibt erhalten.
 
 Die Displays unterstützen Text, Zahlen und frei beschreibbare Pixelraster. Die Rasterdichte wird über `display.ppb` in **Parts per Block** festgelegt. `16 PPB` entspricht der üblichen Minecraft-Texturdichte; Standard sind `256 PPB`.
 
@@ -105,7 +118,7 @@ print(size.width, size.height, size.ppb) -- kleines Display: 14, 14, 32
 
 ### Display-Skripte und Touch
 
-Kleine und große Displays können ein Skript als Eingabe-/Touch-Handler binden. Touch ist nur verfügbar, wenn im aktiven Pultverbund ein erweiterter CC:Tweaked-Computer eingesetzt ist. Ein normaler oder fehlender Computer deaktiviert Touch für alle Displays des Verbunds. Der kombinierte Display-Eingabemodus friert die Kamera ein und bewegt einen halbtransparenten 3D-Zeiger orthogonal über die Displayfläche.
+Nur erweiterte kleine und große Displays können ein Skript als Eingabe-/Touch-Handler binden. Zusätzlich muss im aktiven Pultverbund ein erweiterter CC:Tweaked-Computer eingesetzt sein. Normale Displays sowie normale oder fehlende Computer erzeugen keine Touch-Ereignisse. `setDisplayColor(socket, 0xRRGGBB)` setzt die gespeicherte Text-/Pixelfarbe eines erweiterten Displays; `getDisplayColor` liest sie. In Display-Skripten stehen dieselben Aufrufe als `display.setColor(event, color)` und `display.getColor(event)` bereit. Der kombinierte Display-Eingabemodus friert die Kamera ein und bewegt einen halbtransparenten 3D-Zeiger orthogonal über die Displayfläche.
 
 Aktuell erzeugt die Mausbedienung:
 
@@ -156,7 +169,7 @@ Details:
 
 Die Radar-Integration ist vollständig unter `de.teutonstudio.ccaeroworks.radarcompat` isoliert und wird nur aktiviert, wenn Create: Radars geladen ist. Damit bleibt der Basismod unabhängig von Radar-Klassen und Radar-Registrierungen.
 
-Mit der unterstützten Create:-Radars-Laufzeit werden eine kleine und eine große Radaranzeige freigeschaltet. Die Anzeige wird als echtes Aeroworks-Pultmodul gerendert und kann einen nativen Create:-Radars-Data-Link-Endpunkt oder den von einem eingebetteten Pultcomputer gerouteten Network Filterer verwenden.
+Mit der unterstützten Create:-Radars-Laufzeit erscheinen Radar-Ingresses als Pseudo-Skripte im gemeinsamen Dropdown `Display-Steuerung` der kleinen und großen erweiterten Displays. Separate Radar-Display-Items gibt es nicht. Die gewählte Quelle kann einen nativen Create:-Radars-Data-Link-Endpunkt oder den von einem eingebetteten Pultcomputer gerouteten Network Filterer verwenden.
 
 Radarquelle, eingebetteter Computer und Anzeige dürfen an verschiedenen Pulten desselben Pultnetzes liegen. Die konkrete Quellenwahl kann über den Radar-`ControlDesk`-Adapter ausgelesen und gesetzt werden.
 
@@ -210,7 +223,7 @@ Die ausführliche externe Referenz liegt unter [`docs/cc-peripheral-api.md`](doc
 
 - Minecraft 1.21.1
 - NeoForge 21.1.234+
-- TeutonLib 1.3.4 (Pflicht auf Client und Server; gemeinsame Computerreiter)
+- TeutonLib 1.5.0 (Pflicht auf Client und Server; gemeinsame Computer-, Geometrie- und Netzwerkbasis)
 - Java 21
 - Kotlin 2.4.0 / KotlinForForge NeoForge 5.12.0
 - Create 6.0.10 mit Ponder API 1.0.82

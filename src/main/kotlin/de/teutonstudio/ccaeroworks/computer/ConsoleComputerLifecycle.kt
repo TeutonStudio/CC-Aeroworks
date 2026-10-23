@@ -5,6 +5,7 @@ import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockResolver
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockSkinUpdater
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleAssemblyRuntime
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.server.level.ServerLevel
@@ -49,17 +50,23 @@ object ConsoleComputerLifecycle {
         val host = level.getBlockEntity(pos) as? ConsoleBlockEntity ?: return
         if (host in migrating || ConsoleComputers.get(host) == null) return
         val facing = old.getValue(BlockStateProperties.HORIZONTAL_FACING)
+        val rowId = (host as? de.teutonstudio.ccaeroworks.multiblock.ConsoleAssemblyStateAccess)
+            ?.ccaeroworks_getAssemblyId()
         fun scan(direction: Direction): List<ConsoleBlockEntity> {
             val desks = mutableListOf<ConsoleBlockEntity>()
             var cursor = pos.relative(direction)
-            while (level.isLoaded(cursor) && desks.size < ConsoleMultiblockResolver.MAX_MEMBERS) {
+            var segments = 0
+            while (level.isLoaded(cursor) && segments < ConsoleMultiblockResolver.MAX_MEMBERS) {
                 val state = level.getBlockState(cursor)
-                if (!ConsoleMultiblockResolver.compatible(state, facing)) break
-                if ((state.block as com.mred231.aeroworks.content.controls.console.ConsoleDeskBlock).standGeometry() !=
-                    (old.block as com.mred231.aeroworks.content.controls.console.ConsoleDeskBlock).standGeometry()) break
-                if (state.getValue(com.mred231.aeroworks.content.controls.console.ConsoleBlock.CEILING) != old.getValue(com.mred231.aeroworks.content.controls.console.ConsoleBlock.CEILING)) break
-                val desk = level.getBlockEntity(cursor) as? ConsoleBlockEntity ?: break
-                desks += desk
+                if (!ConsoleAssemblyRuntime.samePhysicalProfile(old, state)) break
+                val candidateId = ConsoleAssemblyRuntime.id(level, cursor)
+                if (rowId != null && candidateId != rowId) break
+                if (rowId == null && candidateId != null) break
+                segments += 1
+                if (AeroworksTypes.isControlDesk(state.block)) {
+                    val desk = level.getBlockEntity(cursor) as? ConsoleBlockEntity ?: break
+                    desks += desk
+                }
                 cursor = cursor.relative(direction)
             }
             return desks

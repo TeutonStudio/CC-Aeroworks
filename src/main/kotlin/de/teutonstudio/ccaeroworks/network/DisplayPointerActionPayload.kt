@@ -1,8 +1,9 @@
 package de.teutonstudio.ccaeroworks.network
 
+import de.TeutonStudio.TeutonLib.api.network.PlayerSessionState
 import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
-import de.teutonstudio.ccaeroworks.compat.sable.SableInteractionGeometry
+import de.TeutonStudio.TeutonLib.api.sable.SubLevelInteractionGeometry
 import de.teutonstudio.ccaeroworks.computer.DeskDisplayInputDispatcher
 import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
 import de.teutonstudio.ccaeroworks.display.DeskDisplayGeometry
@@ -82,7 +83,7 @@ data class DisplayPointerActionPayload(
                 TouchInputDiagnostics.warn("server", "rejected $descriptor: target chunk is not loaded")
                 return
             }
-            if (!SableInteractionGeometry.mayInteract(player, level, payload.pos)) {
+            if (!SubLevelInteractionGeometry.mayInteract(player, level, payload.pos)) {
                 TouchInputDiagnostics.warn("server", "rejected $descriptor: Sable/world interaction check failed")
                 return
             }
@@ -102,7 +103,7 @@ data class DisplayPointerActionPayload(
             }
             val network = ConsoleMultiblockManager.resolve(level, payload.pos)
             val reachableMembers = network.members.count {
-                SableInteractionGeometry.withinReach(player, level, it.pos)
+                SubLevelInteractionGeometry.withinReach(player, level, it.pos)
             }
             if (reachableMembers == 0) {
                 TouchInputDiagnostics.warn(

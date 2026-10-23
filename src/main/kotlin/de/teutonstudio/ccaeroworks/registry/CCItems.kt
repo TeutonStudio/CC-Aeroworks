@@ -19,23 +19,37 @@ object CCItems {
     private val ITEMS: DeferredRegister.Items = DeferredRegister.createItems(CCAeroworks.MOD_ID)
 
     @JvmField
-    val TWO_DIGIT_DISPLAY: DeferredItem<ModuleItem> = ITEMS.register(
-        "two_digit_display",
+    val SMALL_DISPLAY: DeferredItem<ModuleItem> = ITEMS.register(
+        "small_display",
         Supplier { ModuleItem(CCModuleTypes.TWO_DIGIT, Item.Properties()) }
     )
 
     @JvmField
-    val THREE_DIGIT_DISPLAY: DeferredItem<ModuleItem> = ITEMS.register(
-        "three_digit_display",
+    val LARGE_DISPLAY: DeferredItem<ModuleItem> = ITEMS.register(
+        "large_display",
         Supplier { ModuleItem(CCModuleTypes.THREE_DIGIT, Item.Properties()) }
     )
 
     @JvmField
-    val TRAIN_CONTROLS: DeferredItem<ModuleItem> = ITEMS.register(
-        "train_controls",
-        Supplier { ModuleItem(CCModuleTypes.TRAIN_CONTROLS, Item.Properties()) }
+    val ADVANCED_SMALL_DISPLAY: DeferredItem<ModuleItem> = ITEMS.register(
+        "advanced_small_display",
+        Supplier { ModuleItem(CCModuleTypes.ADVANCED_TWO_DIGIT, Item.Properties()) }
     )
 
+    @JvmField
+    val ADVANCED_LARGE_DISPLAY: DeferredItem<ModuleItem> = ITEMS.register(
+        "advanced_large_display",
+        Supplier { ModuleItem(CCModuleTypes.ADVANCED_THREE_DIGIT, Item.Properties()) }
+    )
+
+    init {
+        // Preserve inventories and recipe references from releases which named displays after
+        // their former character count instead of their physical size and feature tier.
+        ITEMS.addAlias(CCAeroworks.id("two_digit_display"), CCAeroworks.id("small_display"))
+        ITEMS.addAlias(CCAeroworks.id("three_digit_display"), CCAeroworks.id("large_display"))
+        ITEMS.addAlias(CCAeroworks.id("advanced_two_digit_display"), CCAeroworks.id("advanced_small_display"))
+        ITEMS.addAlias(CCAeroworks.id("advanced_three_digit_display"), CCAeroworks.id("advanced_large_display"))
+    }
 
     @JvmField
     val COMPUTER_CONTROL_DESK: DeferredItem<BlockItem> = ITEMS.register(

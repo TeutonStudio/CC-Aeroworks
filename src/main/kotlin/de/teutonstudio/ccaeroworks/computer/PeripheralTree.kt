@@ -25,7 +25,10 @@ internal fun PeripheralNetworkRuntime.describeTree(): Map<String, Any> {
                 info["y"] = node.pos.y
                 info["z"] = node.pos.z
                 info["handle"] = peripheralHandle(node)
-                children[node.side.name.lowercase(Locale.ROOT)] = info
+                val connection = if (info["connectionType"] == "wireless") node.address else
+                    node.side?.name?.lowercase(Locale.ROOT)
+                        ?: "internal_${node.primaryType.lowercase(Locale.ROOT)}"
+                children[connection] = info
             }
 
         val info = linkedMapOf<String, Any>()
@@ -36,11 +39,12 @@ internal fun PeripheralNetworkRuntime.describeTree(): Map<String, Any> {
     }
 }
 
-private fun sideOrder(direction: Direction): Int = when (direction) {
+private fun sideOrder(direction: Direction?): Int = when (direction) {
     Direction.NORTH -> 0
     Direction.SOUTH -> 1
     Direction.EAST -> 2
     Direction.WEST -> 3
     Direction.UP -> 4
     Direction.DOWN -> 5
+    null -> 6
 }

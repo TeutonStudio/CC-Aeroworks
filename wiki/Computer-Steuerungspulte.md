@@ -38,7 +38,11 @@ Weitere Details stehen unter [[Bedienung]].
 
 ## Pultnetz
 
-Unmittelbar links und rechts angrenzende, gleich ausgerichtete Pulte bilden eine lineare Reihe. Unterstützt werden Desk, Copycat Desk, Control Stand und Copycat Stand.
+Eine Reihe wird durch ihre persistente `assemblyId` festgelegt, nicht mehr allein durch Nachbarschaft. Mit einem kompatiblen Block in der Hand erscheinen Create-Platzierungspfeile an den freien Reihenenden. Pfeilklick oder seitliches Platzieren übernimmt Ausrichtung, Familie, Skin und Reihen-ID; Schleichen beginnt eine neue Reihe. Zwei gleich ausgerichtete Reihen dürfen daher direkt aneinandergrenzen. Eine Platzierung zwischen zwei Reihen übernimmt ausschließlich die angeklickte Seite.
+
+Native Create-Zugsteuerungen und Vorrichtungs-Steuerungen übernehmen bei seitlicher Platzierung an einem Bodenpult oder Steuerstand dessen Ausrichtung und Chassis. Das funktioniert in beiden Platzierungsreihenfolgen. Sie dürfen gemischt passende Pultabschnitte verbinden. Ohne verbleibendes passendes Ankerpult fällt ihre zusammenhängende Gruppe auf die normale Create-Darstellung zurück; Deckenpulte integrieren sie nicht.
+
+Frame- und Panel-Material einer Copycat-Reihe werden atomar auf alle geladenen sichtbaren Segmente übertragen. Pro Segment und aktiver Zone wird ein Materialblock benötigt. Bei unvollständig geladener Reihe oder Materialmangel bleibt der Stil unverändert. Jedes Segment speichert seine Zahlung, damit Abbau, Montage, Demontage und Neuladen weder Material verlieren noch vervielfältigen.
 
 Jedes Mitglied behält:
 
@@ -47,7 +51,9 @@ Jedes Mitglied behält:
 - seine Module und Displays,
 - Peripherals an seinen sechs Seiten.
 
-Der Computer darf links, mittig oder rechts stehen. Seine Position verändert die erreichbaren Geräte nicht. Das Netzwerk lädt keine Chunks nach und ist auf 64 vollständig geladene Pulte begrenzt.
+Eine integrierte Zugsteuerung zählt als physisches Brückensegment, aber nicht als Pult: Sie besitzt keine Desk-ID, keine Desk-Adresse und keine Module. Modems, andere CC:Tweaked-Peripherals, Create:-Radars-Network-Filterer und Radar-Data-Links an diesem Segment werden trotzdem als Quellen des gemeinsamen Netzes gefunden.
+
+Der Computer darf links, mittig oder rechts stehen. Seine Position verändert die erreichbaren Geräte nicht. Das Netzwerk lädt keine Chunks nach und ist auf 64 vollständig geladene physische Segmente einschließlich Zugsteuerungen begrenzt.
 
 ## Globale `peripherals`-API
 
@@ -155,7 +161,7 @@ Alle Texte liegen auf Deutsch und Englisch vor.
 
 ## Fehlerfälle
 
-- mehr als 64 verbundene Pulte: globaler Zugriff wird abgelehnt,
+- mehr als 64 verbundene physische Pult- und Zugsteuerungssegmente: globaler Zugriff wird abgelehnt,
 - nicht vollständig geladenes Netzwerk: globaler Zugriff wird abgelehnt,
 - mehrere eingebettete Computer: globaler Zugriff wird abgelehnt,
 - unbekannte Koordinate oder fehlender Typ: `nil`,

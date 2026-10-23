@@ -1,8 +1,10 @@
 package de.teutonstudio.ccaeroworks.network
 
+import de.TeutonStudio.TeutonLib.api.network.PlayerTickBudget
+import de.TeutonStudio.TeutonLib.api.network.SingleGestureSessionState
 import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
-import de.teutonstudio.ccaeroworks.compat.sable.SableInteractionGeometry
+import de.TeutonStudio.TeutonLib.api.sable.SubLevelInteractionGeometry
 import de.teutonstudio.ccaeroworks.computer.ConsoleComputer
 import de.teutonstudio.ccaeroworks.computer.DeskDisplayInputDispatcher
 import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
@@ -191,7 +193,7 @@ data class DisplayDrawPayload(
                 TouchInputDiagnostics.warn("server", "rejected draw $descriptor: target chunk is not loaded")
                 return
             }
-            if (!SableInteractionGeometry.mayInteract(player, level, payload.pos)) {
+            if (!SubLevelInteractionGeometry.mayInteract(player, level, payload.pos)) {
                 TouchInputDiagnostics.warn("server", "rejected draw $descriptor: Sable/world interaction check failed")
                 return
             }
@@ -212,7 +214,7 @@ data class DisplayDrawPayload(
             }
             val network = ConsoleMultiblockManager.resolve(level, payload.pos)
             val reachableMembers = network.members.count {
-                SableInteractionGeometry.withinReach(player, level, it.pos)
+                SubLevelInteractionGeometry.withinReach(player, level, it.pos)
             }
             if (reachableMembers == 0) {
                 TouchInputDiagnostics.warn("server", "rejected draw $descriptor: no multiblock member is within interaction reach")

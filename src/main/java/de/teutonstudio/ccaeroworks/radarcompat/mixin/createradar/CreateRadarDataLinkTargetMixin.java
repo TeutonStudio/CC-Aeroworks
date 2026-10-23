@@ -5,6 +5,7 @@ import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity;
 import de.teutonstudio.ccaeroworks.radarcompat.compat.aeroworks.RadarDeskAccess;
 import de.teutonstudio.ccaeroworks.radarcompat.createradar.RadarTrace;
+import de.teutonstudio.ccaeroworks.train.TrainControlConsoleIntegration;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
@@ -42,8 +43,9 @@ public abstract class CreateRadarDataLinkTargetMixin {
         BlockState state
     ) {
         boolean isDesk = candidate instanceof ConsoleBlockEntity;
-        boolean hasRadarDisplay = isDesk && RadarDeskAccess.hasRadarDisplay((ConsoleBlockEntity) candidate);
-        boolean accepted = nativeMonitor || hasRadarDisplay;
+        boolean hasRadarDisplay = isDesk && RadarDeskAccess.hasRadarCapableDisplay((ConsoleBlockEntity) candidate);
+        boolean integratedTrainControls = state != null && TrainControlConsoleIntegration.isIntegrated(state);
+        boolean accepted = nativeMonitor || hasRadarDisplay || integratedTrainControls;
 
         RadarTrace.event(
             "DL_CLASSIFY",
@@ -54,6 +56,7 @@ public abstract class CreateRadarDataLinkTargetMixin {
                 + " nativeMonitor=" + nativeMonitor
                 + " isConsoleDesk=" + isDesk
                 + " hasRadarDisplay=" + hasRadarDisplay
+                + " integratedTrainControls=" + integratedTrainControls
                 + " acceptedAsMonitor=" + accepted
         );
 

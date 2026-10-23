@@ -24,5 +24,6 @@ object CCPayloads {
         registrar.playToClient(WireChannelSnapshotPayload.TYPE, WireChannelSnapshotPayload.STREAM_CODEC, WireChannelSnapshotPayload::handle)
         registrar.playToServer(RequestInformationSourceSnapshotPayload.TYPE, RequestInformationSourceSnapshotPayload.STREAM_CODEC, RequestInformationSourceSnapshotPayload::handle)
         registrar.playToClient(InformationSourceSnapshotPayload.TYPE, InformationSourceSnapshotPayload.STREAM_CODEC, InformationSourceSnapshotPayload::handle)
+        registrar.playToClient(MobileContraptionSnapshotPayload.TYPE, MobileContraptionSnapshotPayload.STREAM_CODEC, MobileContraptionSnapshotPayload::handle)
     }
 }

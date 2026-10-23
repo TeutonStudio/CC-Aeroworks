@@ -16,12 +16,12 @@ class RadarSourceChoicesTest {
     )
 
     @Test
-    fun localAndRemoteInputsStayDistinctAndDuplicatesAreRemoved() {
+    fun controllerAndDataLinkInputsStayDistinctAndDuplicatesAreRemoved() {
         val local = source(BlockPos(1, 2, 3), RadarLinkStatus.NOT_LINKED)
         val remote = source(BlockPos(4, 5, 6), RadarLinkStatus.ACTIVE)
-        val choices = radarSourceChoices(local.ingressPos, listOf(local, remote, remote), remote.ingressPos)
+        val choices = radarSourceChoices(listOf(local, remote, remote), remote.ingressPos)
         assertEquals(2, choices.size)
-        assertNull(choices[0].ingressPos)
+        assertEquals(local.ingressPos, choices[0].ingressPos)
         assertEquals(RadarLinkStatus.NOT_LINKED, choices[0].descriptor?.status)
         assertEquals(remote, choices[1].descriptor)
     }
@@ -29,17 +29,17 @@ class RadarSourceChoicesTest {
     @Test
     fun explicitOwnIngressKeepsItsStatus() {
         val local = source(BlockPos(1, 2, 3), RadarLinkStatus.ACTIVE)
-        val choices = radarSourceChoices(local.ingressPos, listOf(local), local.ingressPos)
+        val choices = radarSourceChoices(listOf(local), local.ingressPos)
         assertEquals(local, choices.last().descriptor)
         assertEquals(local.ingressPos, choices.last().ingressPos)
     }
 
     @Test
-    fun missingStoredSourceRemainsVisibleInsteadOfFallingBackToLocal() {
+    fun missingStoredSourceRemainsVisibleInsteadOfFallingBackToAnotherIngress() {
         val missing = BlockPos(20481032, 129, 20481032)
-        val choices = radarSourceChoices(BlockPos.ZERO, emptyList(), missing)
-        assertEquals(listOf(null, missing), choices.map { it.ingressPos })
-        assertNull(choices.last().descriptor)
-        assertEquals("20481032,129,20481032", radarSourceKey(missing))
+        val choices = radarSourceChoices(emptyList(), missing)
+        assertEquals(listOf(missing), choices.map { it.ingressPos })
+        assertNull(choices.single().descriptor)
+        assertEquals("extension:radar_source:20481032,129,20481032", radarSourceKey(missing))
     }
 }

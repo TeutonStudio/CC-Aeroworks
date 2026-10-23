@@ -26,6 +26,8 @@ import de.teutonstudio.ccaeroworks.computer.wire.WireChannelBank
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import de.teutonstudio.ccaeroworks.registry.CCDataComponents
+import de.TeutonStudio.TeutonLib.api.computer.hosted.HostedComputer
+import de.TeutonStudio.TeutonLib.api.computer.hosted.HostedComputerPersistenceKeys
 import net.minecraft.core.Direction
 import net.minecraft.core.HolderLookup
 import net.minecraft.core.component.DataComponents
@@ -39,7 +41,6 @@ import net.minecraft.world.entity.player.Player
 import net.minecraft.world.inventory.AbstractContainerMenu
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
-import java.util.ArrayDeque
 import java.util.UUID
 
 /** Computer installed in an ordinary Aeroworks console. Never a second block entity. */
@@ -60,25 +61,21 @@ class ConsoleComputer(val host: ConsoleBlockEntity, private val installed: ItemS
 
     internal val wireBank = WireChannelBank(this)
 
-    private data class PendingComputerEvent(
-        val name: String,
-        val arguments: Array<Any?>
-    )
-
-    private var instanceId: UUID? = null
-    private var computerId: Int = -1
-    private var label: String? = null
-    private var storageCapacity: Long = -1
-    private var terminalSize: TerminalSize? = null
-    private var powered: Boolean = false
-    private var startOn: Boolean = false
     private var lastNetworkRevision: Long = Long.MIN_VALUE
     private var lastInputs: Map<String, Map<Int, DeskInputSnapshot>> = emptyMap()
-    private val directMenuOpeners = hashSetOf<UUID>()
-    private val pendingComputerEvents = ArrayDeque<PendingComputerEvent>()
 
     private val peripheralAccess: ComponentAccess<dan200.computercraft.api.peripheral.IPeripheral> =
         PlatformHelper.get().createPeripheralAccess(host) {}
+
+    private val computer = HostedComputer(
+        host = host,
+        installed = installed,
+        family = family,
+        initialPowered = installed.get(CCDataComponents.COMPUTER_POWERED.get()) ?: false,
+        configure = { properties -> properties.addComponent(CCComputerComponents.CONSOLE, ComputerConsoleAccess(this)) },
+        refreshInputs = ::refreshComputerInputs,
+        changed = { setChanged(); sendData() }
+    )
 
     val family: ComputerFamily
         get() = if (installed.`is`(ModRegistry.Items.COMPUTER_ADVANCED.get())) ComputerFamily.ADVANCED else ComputerFamily.NORMAL
@@ -95,12 +92,6 @@ class ConsoleComputer(val host: ConsoleBlockEntity, private val installed: ItemS
     }
 
     init {
-        computerId = NonNegativeId.getId(installed.get(ModRegistry.DataComponents.COMPUTER_ID.get()))
-        storageCapacity = StorageCapacity.getOrDefault(installed.get(ModRegistry.DataComponents.STORAGE_CAPACITY.get()), -1)
-        terminalSize = installed.get(ModRegistry.DataComponents.TERMINAL_SIZE.get())
-        label = installed.get(DataComponents.CUSTOM_NAME)?.string
-        powered = installed.get(CCDataComponents.COMPUTER_POWERED.get()) ?: false
-        startOn = powered
         radarDestinationDeskId = installed.get(CCDataComponents.RADAR_DESTINATION_DESK_ID.get())
         wireBank.loadEncodedDefinitions(installed.get(CCDataComponents.WIRE_CHANNELS.get()))
         groups.loadEncodedDefinitions(installed.get(CCDataComponents.CHANNEL_GROUPS.get()))
@@ -110,7 +101,7 @@ class ConsoleComputer(val host: ConsoleBlockEntity, private val installed: ItemS
 
     fun wireChannelNames(): List<String> = wireBank.channelNames()
 
-    internal fun isRuntimePowered(): Boolean = getServerComputer()?.isOn == true
+    internal fun isRuntimePowered(): Boolean = computer.serverComputer()?.isOn == true
 
     internal fun markWireChannelsChanged() {
         setChanged()
@@ -123,83 +114,26 @@ class ConsoleComputer(val host: ConsoleBlockEntity, private val installed: ItemS
      * turnOn() only schedules an asynchronous start. Display interactions need to survive that gap.
      */
     internal fun queueComputerEventWhenReady(name: String, vararg arguments: Any?) {
-        val copiedArguments = arrayOf(*arguments)
-        val computer = getServerComputer() ?: createServerComputer()
-        if (computer.isOn) {
-            computer.queueEvent(name, copiedArguments)
-            return
-        }
-
-        while (pendingComputerEvents.size >= MAX_PENDING_COMPUTER_EVENTS) {
-            pendingComputerEvents.removeFirst()
-        }
-        pendingComputerEvents.addLast(PendingComputerEvent(name, copiedArguments))
-        computer.turnOn()
+        computer.queueEventWhenReady(name, *arguments)
     }
 
     fun tick() {
         val serverLevel = level as? ServerLevel ?: return
-        val computer = getServerComputer() ?: if (
-            computerId >= 0 || startOn || pendingComputerEvents.isNotEmpty()
-        ) {
-            createServerComputer()
-        } else {
+        val serverComputer = computer.tick() ?: run {
             ControlOverrideManager.tick(this, false)
             wireBank.tick(false)
             return
         }
-
-        computer.setPosition(serverLevel, blockPos)
-        if (startOn || powered || pendingComputerEvents.isNotEmpty()) {
-            computer.turnOn()
-            startOn = false
-        }
-        refreshComputerInputs(computer)
-        computer.keepAlive()
-
-        val newPowered = computer.isOn
-        val newLabel = computer.label
-        if (powered != newPowered || label != newLabel) {
-            powered = newPowered
-            label = newLabel
-            setChanged()
-            sendData()
-        }
-
-        if (newPowered) flushPendingComputerEvents(computer)
+        val newPowered = serverComputer.isOn
         ControlOverrideManager.tick(this, newPowered)
         wireBank.tick(newPowered)
-        publishConsoleEvents(computer)
+        publishConsoleEvents(serverComputer)
         PeripheralNetworkRuntimes.tick(this)
     }
 
-    fun createServerComputer(): ServerComputer {
-        val serverLevel = level as? ServerLevel
-            ?: throw IllegalStateException("Cannot create a server computer outside a ServerLevel")
-        val context = ServerContext.get(serverLevel.server)
-        instanceId?.let { context.registry().get(it) }?.let { return it }
+    fun createServerComputer(): ServerComputer = computer.createServerComputer()
 
-        if (computerId < 0) {
-            computerId = ComputerCraftAPI.createUniqueNumberedSaveDir(serverLevel.server, "computer")
-            setChanged()
-        }
-
-        val properties = ServerComputer.properties(computerId, family)
-            .label(label)
-            .terminalSize(terminalSize ?: defaultTerminalSize())
-            .storageCapacity(storageCapacity)
-            .addComponent(CCComputerComponents.CONSOLE, ComputerConsoleAccess(this))
-
-        val computer = ServerComputer(serverLevel, blockPos, properties)
-        instanceId = computer.register()
-        refreshComputerInputs(computer)
-        return computer
-    }
-
-    fun getServerComputer(): ServerComputer? {
-        val serverLevel = level as? ServerLevel ?: return null
-        return instanceId?.let { ServerContext.get(serverLevel.server).registry().get(it) }
-    }
+    fun getServerComputer(): ServerComputer? = computer.serverComputer()
 
     fun openTerminal(player: Player, direct: Boolean = false): Boolean {
         if (!family.checkUsable(player)) return false
@@ -209,10 +143,15 @@ class ConsoleComputer(val host: ConsoleBlockEntity, private val installed: ItemS
             if (snapshot.state != ConsoleNetworkState.ACTIVE || snapshot.owner !== this) return false
         }
 
-        val computer = createServerComputer()
-        computer.turnOn()
-        if (direct) directMenuOpeners += player.uuid
-        powered = true
+        val canUse: (Player) -> Boolean = if (direct) {
+            { candidate ->
+                val currentLevel = level
+                currentLevel != null && candidate.level() === currentLevel &&
+                    candidate.distanceToSqr(blockPos.center) <=
+                    (candidate.blockInteractionRange() + 1.0) * (candidate.blockInteractionRange() + 1.0)
+            }
+        } else ::isUsableFromNetwork
+        val serverComputer = computer.prepareMenu(player, canUse)
         val displayStack = installed.copy()
         collectSafeComputerComponents(displayStack)
         displayStack.set(CCDataComponents.DESK_ID.get(), deskId.toString())
@@ -220,7 +159,7 @@ class ConsoleComputer(val host: ConsoleBlockEntity, private val installed: ItemS
             player,
             displayName,
             this,
-            ComputerContainerData(computer, displayStack)
+            ComputerContainerData(serverComputer, displayStack)
         )
         return true
     }
@@ -235,25 +174,7 @@ class ConsoleComputer(val host: ConsoleBlockEntity, private val installed: ItemS
     }
 
     override fun createMenu(id: Int, inventory: Inventory, player: Player): AbstractContainerMenu {
-        val direct = directMenuOpeners.remove(player.uuid)
-        val canUse: (Player) -> Boolean = if (direct) {
-            { candidate ->
-                val currentLevel = level
-                currentLevel != null &&
-                    candidate.level() === currentLevel &&
-                    candidate.distanceToSqr(blockPos.center) <=
-                    (candidate.blockInteractionRange() + 1.0) * (candidate.blockInteractionRange() + 1.0)
-            }
-        } else {
-            ::isUsableFromNetwork
-        }
-        return ComputerMenuWithoutInventory(
-            ModRegistry.Menus.COMPUTER.get(),
-            id,
-            inventory,
-            canUse,
-            createServerComputer()
-        )
+        return computer.createMenu(id, inventory, player)
     }
 
     fun writeToItem(stack: ItemStack) {
@@ -277,75 +198,41 @@ class ConsoleComputer(val host: ConsoleBlockEntity, private val installed: ItemS
     }
 
     fun write(tag: CompoundTag, registries: HolderLookup.Provider, clientPacket: Boolean) {
-        if (computerId >= 0) tag.putInt(NBT_COMPUTER_ID, computerId)
-        label?.let { tag.putString(NBT_LABEL, it) }
-        if (storageCapacity > 0) tag.putLong(NBT_CAPACITY, storageCapacity)
-        terminalSize?.let {
-            tag.putInt(NBT_TERMINAL_WIDTH, it.width())
-            tag.putInt(NBT_TERMINAL_HEIGHT, it.height())
-        }
+        computer.write(tag, COMPUTER_KEYS)
         radarDestinationDeskId?.let { tag.putString(NBT_RADAR_DESTINATION_DESK_ID, it) }
         wireBank.encodedDefinitions().takeIf(String::isNotEmpty)?.let {
             tag.putString(NBT_WIRE_CHANNELS, it)
         }
-        tag.putBoolean(NBT_POWERED, powered)
     }
 
     fun read(tag: CompoundTag, registries: HolderLookup.Provider, clientPacket: Boolean) {
-        computerId = if (tag.contains(NBT_COMPUTER_ID)) tag.getInt(NBT_COMPUTER_ID) else -1
-        label = tag.getString(NBT_LABEL).takeIf { it.isNotEmpty() }
-        storageCapacity = if (tag.contains(NBT_CAPACITY)) tag.getLong(NBT_CAPACITY) else -1
-        terminalSize = if (tag.contains(NBT_TERMINAL_WIDTH) && tag.contains(NBT_TERMINAL_HEIGHT)) {
-            TerminalSize(tag.getInt(NBT_TERMINAL_WIDTH), tag.getInt(NBT_TERMINAL_HEIGHT))
-        } else {
-            null
-        }
+        computer.read(tag, COMPUTER_KEYS, clientPacket)
         radarDestinationDeskId = tag.getString(NBT_RADAR_DESTINATION_DESK_ID).takeIf(String::isNotEmpty)
         wireBank.loadEncodedDefinitions(tag.getString(NBT_WIRE_CHANNELS).takeIf(String::isNotEmpty))
-        powered = tag.getBoolean(NBT_POWERED)
-        if (!clientPacket) startOn = powered
     }
 
     override fun getName(): Component =
-        label?.let { Component.literal(it) } ?: installed.hoverName
+        computer.label?.let { Component.literal(it) } ?: installed.hoverName
 
     override fun getDisplayName(): Component = name
 
-    override fun getCustomName(): Component? = label?.let { Component.literal(it) }
+    override fun getCustomName(): Component? = computer.label?.let { Component.literal(it) }
 
-    override fun hasCustomName(): Boolean = !label.isNullOrEmpty()
+    override fun hasCustomName(): Boolean = !computer.label.isNullOrEmpty()
 
     private fun collectSafeComputerComponents(stack: ItemStack) {
-        stack.set(ModRegistry.DataComponents.COMPUTER_ID.get(), NonNegativeId.of(computerId))
-        stack.set(ModRegistry.DataComponents.STORAGE_CAPACITY.get(), storageCapacity.takeIf { it > 0 }?.let(::StorageCapacity))
-        stack.set(ModRegistry.DataComponents.TERMINAL_SIZE.get(), terminalSize)
-        stack.set(CCDataComponents.COMPUTER_POWERED.get(), powered)
+        computer.writeStandardComponents(stack)
+        stack.set(CCDataComponents.COMPUTER_POWERED.get(), computer.powered)
         stack.set(CCDataComponents.RADAR_DESTINATION_DESK_ID.get(), radarDestinationDeskId)
         wireBank.encodedDefinitions().takeIf(String::isNotEmpty)?.let {
             stack.set(CCDataComponents.WIRE_CHANNELS.get(), it)
         }
         stack.set(CCDataComponents.CHANNEL_GROUPS.get(), groups.encodedDefinitions().takeIf(String::isNotEmpty))
-        stack.set(DataComponents.CUSTOM_NAME, label?.let { Component.literal(it) })
-    }
-
-    private fun flushPendingComputerEvents(computer: ServerComputer) {
-        while (computer.isOn && pendingComputerEvents.isNotEmpty()) {
-            val event = pendingComputerEvents.removeFirst()
-            computer.queueEvent(event.name, event.arguments)
-        }
     }
 
     private fun closeComputer() {
-        pendingComputerEvents.clear()
-        getServerComputer()?.close()
-        instanceId = null
+        computer.close()
     }
-
-    private fun defaultTerminalSize(): TerminalSize =
-        TerminalSize(
-            dan200.computercraft.shared.config.ConfigSpec.computerTermWidth.get(),
-            dan200.computercraft.shared.config.ConfigSpec.computerTermHeight.get()
-        )
 
     private fun refreshComputerInputs(computer: ServerComputer) {
         val currentLevel = level ?: return
@@ -429,7 +316,6 @@ class ConsoleComputer(val host: ConsoleBlockEntity, private val installed: ItemS
     }
 
     companion object {
-        private const val MAX_PENDING_COMPUTER_EVENTS = 64
         private const val NBT_COMPUTER_ID = "CCAeroworksComputerId"
         private const val NBT_LABEL = "CCAeroworksLabel"
         private const val NBT_CAPACITY = "CCAeroworksCapacity"
@@ -438,5 +324,8 @@ class ConsoleComputer(val host: ConsoleBlockEntity, private val installed: ItemS
         private const val NBT_POWERED = "CCAeroworksPowered"
         private const val NBT_RADAR_DESTINATION_DESK_ID = "CCAeroworksRadarDestinationDeskId"
         private const val NBT_WIRE_CHANNELS = "CCAeroworksWireChannels"
+        private val COMPUTER_KEYS = HostedComputerPersistenceKeys(
+            NBT_COMPUTER_ID, NBT_LABEL, NBT_CAPACITY, NBT_TERMINAL_WIDTH, NBT_TERMINAL_HEIGHT, NBT_POWERED
+        )
     }
 }

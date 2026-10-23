@@ -3,13 +3,16 @@ package de.teutonstudio.ccaeroworks.display
 import com.mred231.aeroworks.content.controls.module.ModuleType
 import java.util.concurrent.CopyOnWriteArrayList
 
-/** Optional integrations can mark module types as using the large interactive display surface. */
+/** Optional integrations can expose module types as interactive display surfaces. */
 object InteractiveDisplayExtensions {
-    private val predicates = CopyOnWriteArrayList<(ModuleType) -> Boolean>()
+    private val resolvers = CopyOnWriteArrayList<(ModuleType) -> DeskDisplayType?>()
 
-    fun register(predicate: (ModuleType) -> Boolean) {
-        predicates += predicate
+    fun register(resolver: (ModuleType) -> DeskDisplayType?) {
+        resolvers += resolver
     }
 
-    fun isInteractive(moduleType: ModuleType): Boolean = predicates.any { it(moduleType) }
+    fun displayType(moduleType: ModuleType): DeskDisplayType? =
+        resolvers.firstNotNullOfOrNull { it(moduleType) }
+
+    fun isInteractive(moduleType: ModuleType): Boolean = displayType(moduleType) != null
 }

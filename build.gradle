@@ -154,7 +154,8 @@ dependencies {
             'createdieselgenerators-*.jar', 'create-diesel-generators-*.jar',
             'createbigcannons-*.jar', 'create-big-cannons-*.jar',
             'ritchiesprojectilelib-*.jar', 'ritchies-projectile-lib-*.jar',
-            'jei-*.jar'
+            'jei-*.jar',
+            'Neat-*.jar', 'neat-*.jar'
         ]
     )
     compileOnly("net.createmod.ponder:ponder-neoforge:${ponder_version}+mc${minecraft_version}")
@@ -166,7 +167,10 @@ dependencies {
     localRuntime("curse.maven:create-diesel-generators-869316:${create_diesel_generators_curse_file_id}")
     localRuntime("curse.maven:create-big-cannons-646668:${create_big_cannons_curse_file_id}")
     localRuntime("curse.maven:ritchies-projectile-library-1279407:${ritchies_projectile_lib_curse_file_id}")
-    localRuntime("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")
+    // Client-only inspection overlays belong exclusively to runClient. Keeping them off
+    // localRuntime prevents dedicated-server and GameTest runs from loading client mods.
+    clientAdditionalRuntimeClasspath("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")
+    clientAdditionalRuntimeClasspath("curse.maven:neat-238372:${neat_curse_file_id}")
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
     testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5:2.4.0'
@@ -219,6 +223,11 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
 
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
+}
+
+tasks.named('test', Test).configure {
+    dependsOn tasks.named('jar')
+    systemProperty 'ccaeroworks.architectureArtifact', tasks.named('jar', Jar).get().archiveFile.get().asFile.absolutePath
 }
 
 idea {

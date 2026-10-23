@@ -31,6 +31,9 @@ object CCServerConfig {
     val telemetryDockScanIntervalTicks: ModConfigSpec.IntValue
 
     @JvmField
+    val mobileContraptionRuntime: ModConfigSpec.BooleanValue
+
+    @JvmField
     val debugRadar: ModConfigSpec.BooleanValue
 
     @JvmField
@@ -67,6 +70,14 @@ object CCServerConfig {
                 Int.MAX_VALUE
             )
 
+        builder.pop()
+
+        builder
+            .comment("Runtime for embedded desks and explicitly adapted peripherals on ordinary moving Create contraptions.")
+            .push("mobileContraptions")
+        mobileContraptionRuntime = builder
+            .comment("Disable to close all moving computers, peripherals, audio and actor outputs fail-safe.")
+            .define("enabled", true)
         builder.pop()
 
         builder
@@ -133,6 +144,9 @@ object CCServerConfig {
 
     @JvmStatic
     fun telemetryDockScanIntervalTicksValue(): Int = telemetryDockScanIntervalTicks.loadedOr(40)
+
+    @JvmStatic
+    fun mobileContraptionRuntimeEnabled(): Boolean = mobileContraptionRuntime.loadedOr(true)
 
     @JvmStatic
     fun debugRadarEnabled(): Boolean = debugRadar.loadedOr(false)

@@ -9,9 +9,11 @@ import de.teutonstudio.ccaeroworks.display.DeskDisplayTouch
 import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
 import de.teutonstudio.ccaeroworks.display.DisplayTouchAccess
+import de.teutonstudio.ccaeroworks.display.InteractiveDisplayExtensions
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import de.teutonstudio.ccaeroworks.network.DisplayPointerAction
+import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 
 object DeskDisplayInputDispatcher {
     @JvmStatic
@@ -23,6 +25,9 @@ object DeskDisplayInputDispatcher {
         if (desk.level?.isClientSide != false ||
             !DisplayTouchAccess.enabled(desk)) return
         val touch = input.touch
+        val module = desk.module(touch.socket) ?: return
+        if (!CCModuleTypes.isInteractiveDisplay(module.type()) &&
+            !InteractiveDisplayExtensions.isInteractive(module.type())) return
         val deskPos = desk.blockPos.toShortString()
         val gesture = if (input.isDraw) {
             " gesture=${input.gestureId} seq=${input.sequence} start=${input.startX},${input.startY} delta=${input.deltaX},${input.deltaY} direction=${input.directionU},${input.directionV} speed=${input.speed} samples=${input.samples.size} end=${input.isEnd}"

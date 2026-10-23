@@ -49,24 +49,15 @@ def main() -> int:
 
     compat = ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat"
     require((compat / "RadarCompat.kt").exists(), "RadarCompat entrypoint missing")
-    require((compat / "registry/RadarItems.kt").exists(), "Radar item registry missing")
-
-    module_types = (compat / "registry/RadarModuleTypes.kt").read_text(encoding="utf-8")
-    require(
-        "import de.teutonstudio.ccaeroworks.registry.CCModuleTypes" in module_types,
-        "RadarModuleTypes must depend on the generic core module registry",
-    )
-    require(
-        "import de.teutonstudio.ccaeroworks.radarcompat.registry.RadarModuleTypes" not in module_types,
-        "RadarModuleTypes must not import itself",
-    )
+    require(not (compat / "registry/RadarItems.kt").exists(), "radar pseudo-script must not register items")
+    require(not (compat / "registry/RadarModuleTypes.kt").exists(), "radar pseudo-script must not register modules")
 
     metadata = (ROOT / "src/main/templates/META-INF/neoforge.mods.toml").read_text(encoding="utf-8")
     require('modId="${radarcompat_mod_id}"' in metadata, "separate radar compat mod metadata missing")
     require('config="cc_aeroworks_radarcompat.mixins.json"' in metadata, "radar mixin config missing")
     core_items = (ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/registry/CCItems.kt").read_text(encoding="utf-8")
     require("RADAR_DISPLAY" not in core_items, "core item registry still owns radar items")
-    print("Validated one-way core <- radarcompat architecture, package moves, and separate NeoForge mod metadata.")
+    print("Validated one-way core <- radarcompat architecture, pseudo-script integration, and separate NeoForge mod metadata.")
     return 0
 
 if __name__ == "__main__":

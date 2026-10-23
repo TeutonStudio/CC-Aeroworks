@@ -8,6 +8,9 @@ import de.teutonstudio.ccaeroworks.display.DeskDisplayPixels
 import de.teutonstudio.ccaeroworks.display.DeskDisplayResolution
 import de.teutonstudio.ccaeroworks.display.DeskDisplayState
 import de.teutonstudio.ccaeroworks.display.DeskDisplayType
+import de.teutonstudio.ccaeroworks.display.DisplayColorSettings
+import de.teutonstudio.ccaeroworks.display.DisplayBinding
+import de.teutonstudio.ccaeroworks.display.DisplayBindings
 import de.teutonstudio.ccaeroworks.display.DisplayResolutionSettings
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 import java.util.WeakHashMap
@@ -19,6 +22,7 @@ object AeroworksDeskAccess {
         val stored: String,
         val type: DeskDisplayType,
         val ppb: Int,
+        val color: Int,
         val state: DeskDisplayState
     )
 
@@ -31,13 +35,15 @@ object AeroworksDeskAccess {
     @JvmStatic
     fun display(desk: ConsoleBlockEntity, socket: Int): DeskDisplayState? {
         val module = module(desk, socket) ?: return null
-        val type = CCModuleTypes.displayType(module.type()) ?: return null
+        val variant = CCModuleTypes.displayVariant(module.type()) ?: return null
+        val type = variant.type
         val ppb = DisplayResolutionSettings.partsPerBlock(desk, socket)
+        val color = DisplayColorSettings.color(desk, socket, variant.tier)
         val resolution = DeskDisplayResolution(type.pixelWidthAt(ppb), type.pixelHeightAt(ppb))
         val stored = module.customName()?.string.orEmpty()
         synchronized(displayCache) {
             displayCache[desk]?.get(socket)?.takeIf {
-                it.module === module && it.stored == stored && it.type == type && it.ppb == ppb
+                it.module === module && it.stored == stored && it.type == type && it.ppb == ppb && it.color == color
             }?.let { return it.state }
         }
         val decoded = DeskDisplayPixels.decode(resolution, stored)
@@ -47,10 +53,10 @@ object AeroworksDeskAccess {
         // serialized payload as ordinary seven-segment text.
         val pixels = decoded ?: if (encodedRaster) DeskDisplayPixels.blank(resolution.width, resolution.height) else null
         val text = if (pixels == null) DeskDisplayFormatter.normalizeText(stored, type.width) else ""
-        return DeskDisplayState(socket, type, text, pixels, ppb).also { state ->
+        return DeskDisplayState(socket, variant, text, pixels, ppb, color).also { state ->
             synchronized(displayCache) {
                 displayCache.getOrPut(desk) { hashMapOf() }[socket] =
-                    CachedDisplay(module, stored, type, ppb, state)
+                    CachedDisplay(module, stored, type, ppb, color, state)
             }
         }
     }
@@ -60,7 +66,8 @@ object AeroworksDeskAccess {
         (0 until desk.socketCount()).mapNotNull { display(desk, it) }
 
     @JvmStatic
-    fun renderedDisplays(desk: ConsoleBlockEntity): List<DeskDisplayState> = displays(desk)
+    fun renderedDisplays(desk: ConsoleBlockEntity): List<DeskDisplayState> =
+        displays(desk).filterNot { DisplayBindings.get(desk, it.socket) is DisplayBinding.Extension }
 
     @JvmStatic
     fun setDisplayText(desk: ConsoleBlockEntity, socket: Int, text: String): DeskDisplayState? {

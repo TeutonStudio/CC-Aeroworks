@@ -7,10 +7,11 @@ import dan200.computercraft.api.lua.LuaException
 import dan200.computercraft.api.lua.LuaFunction
 import dan200.computercraft.api.lua.MethodResult
 import dan200.computercraft.api.lua.ObjectLuaTable
+import de.TeutonStudio.TeutonLib.api.computer.peripheral.PeripheralDeviceBinding
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskService
 import de.teutonstudio.ccaeroworks.compat.computercraft.DisplayPixelBatchArguments
 
-internal class PeripheralLuaHandle(private val binding: PeripheralBinding) : IDynamicLuaObject {
+internal class PeripheralLuaHandle(private val binding: PeripheralDeviceBinding) : IDynamicLuaObject {
     private val names = buildList {
         addAll(binding.methodNames.sorted())
         if ("getPeripheralInfo" !in binding.methodNames) add("getPeripheralInfo")
@@ -122,6 +123,14 @@ internal class DeskLuaHandle(
     @LuaFunction(mainThread = true)
     fun clearDisplayPixels(arguments: IArguments) =
         AeroworksDeskService.clearDisplayPixels(runtime.desk(address), arguments.get(0))
+
+    @LuaFunction(mainThread = true)
+    fun getDisplayColor(arguments: IArguments): Int =
+        AeroworksDeskService.getDisplayColor(runtime.desk(address), arguments.get(0))
+
+    @LuaFunction(mainThread = true)
+    fun setDisplayColor(arguments: IArguments): Int =
+        AeroworksDeskService.setDisplayColor(runtime.desk(address), arguments.get(0), arguments.get(1))
 
     @LuaFunction(mainThread = true)
     fun getPeripherals(): Map<String, Any> = runtime.peripheralsForDesk(address)

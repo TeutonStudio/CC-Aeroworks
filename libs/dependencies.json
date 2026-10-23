@@ -142,20 +142,33 @@
       ],
       "sha256": null,
       "source": "Official Just Enough Items Maven repository",
-      "notes": "Development-only recipe viewer automatically resolved for local Gradle runtimes. It is not a published CC-Aeroworks dependency."
+      "notes": "Development-only recipe viewer automatically resolved exclusively for runClient. It is not a published CC-Aeroworks dependency."
+    },
+    {
+      "name": "Neat",
+      "modId": "neat",
+      "version": "1.21-47-NEOFORGE",
+      "required": false,
+      "filenamePattern": "(?i)^neat[-_ ]?1\\.21[-_ ]?47[-_ ]?neoforge\\.jar$",
+      "filenameExamples": [
+        "Neat-1.21-47-NEOFORGE.jar"
+      ],
+      "sha256": null,
+      "source": "Official Neat CurseForge release",
+      "notes": "Development-only health-bar overlay automatically resolved exclusively for runClient. It is not a published CC-Aeroworks dependency."
     },
     {
       "name": "TeutonLib",
       "modId": "teutonlib",
-      "version": "1.3.4",
+      "version": "1.5.0",
       "required": true,
-      "filenamePattern": "(?i)^teutonlib-1\\.3\\.4\\.jar$",
+      "filenamePattern": "(?i)^teutonlib-1\\.5\\.0\\.jar$",
       "filenameExamples": [
-        "teutonlib-1.3.4.jar"
+        "teutonlib-1.5.0.jar"
       ],
-      "sha256": "ffc820a1b95aadef1928e898eab00c7357405ae59d91a2457716163ab3c663fa",
-      "source": "https://github.com/TeutonStudio/TeutonLib/releases/tag/v1.3.4",
-      "notes": "Required on client and server. Provides the authoritative addon workspace and standard terminal tab APIs."
+      "sha256": "de3aa4755af06502d3d2489d5c8bf5d16a3d600ca35db757937210df3fb110c0",
+      "source": "Local coordinated TeutonLib 1.5.0 release artifact",
+      "notes": "Required on client and server. Provides the shared workspace, world geometry and bounded network session APIs."
     }
   ]
 }

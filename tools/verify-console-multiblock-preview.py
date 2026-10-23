@@ -59,7 +59,7 @@ require('@Accessor("windowTop")' in accessor and '@Accessor("windowLeft")' in ac
 require('"client.ConsoleScreenMultiblockPreviewMixin"' in mixins, "preview mixin is not registered")
 
 require("ConsoleMultiblockManager.resolve(level, console.blockPos)" in renderer, "preview must reuse canonical multiblock resolution")
-require("snapshot.members.size <= 1" in renderer, "single desks must retain Aeroworks' native preview")
+require("snapshot.segmentPositions.size <= 1" in renderer, "single physical segments must retain Aeroworks' native preview")
 require("ConsoleNetworkState.PARTIALLY_LOADED" in renderer and "ConsoleNetworkState.TOO_LARGE" in renderer, "incomplete/oversized networks need safe native fallback")
 require('it.name == "facing"' in renderer and "canonicalFacing = Direction.NORTH" in renderer, "world facing must be normalized")
 require('it.name == "ceiling"' in renderer and "state.setValue(ceiling, false)" in renderer, "ceiling placement must be normalized like Aeroworks")
@@ -96,8 +96,8 @@ require("ProjectionScore" not in renderer, "obsolete aspect-score camera path re
 # The scene must be rotated once in camera space before any per-member translation/render.
 require(
     renderer.index("cameraPose.mulPose(Axis.YP.rotationDegrees(layout.yaw))")
-    < renderer.index("scene.members.forEach { member ->"),
-    "collective Y rotation must happen before individual member transforms",
+    < renderer.index("scene.segments.forEach { segment ->"),
+    "collective Y rotation must happen before individual segment transforms",
 )
 require("val cameraPose = PoseStack()" in renderer, "preview needs a camera-space PoseStack")
 require("graphics.pose()" not in renderer, "GUI PoseStack would bake an orthographic screen transform before perspective")
@@ -105,7 +105,7 @@ require("graphics.pose()" not in renderer, "GUI PoseStack would bake an orthogra
 # Catnip SuperByteBuffer discards homogeneous w before forwarding vertices. Perspective must
 # therefore happen in a VertexConsumer wrapper after the shared camera transform.
 require("private class PerspectiveVertexConsumer(" in renderer, "vertex-level perspective consumer missing")
-require("PerspectiveVertexConsumer(" in renderer and "deskBuffer.renderInto(cameraPose, perspectiveConsumer)" in renderer, "desk vertices must pass through the perspective consumer")
+require("PerspectiveVertexConsumer(" in renderer and "blockBuffer.renderInto(cameraPose, perspectiveConsumer)" in renderer, "segment vertices must pass through the perspective consumer")
 require("partBuffer.renderInto(poseStack, consumer)" in renderer, "module vertices must share the same perspective consumer")
 require("1.0F - z / layout.perspectiveDistance" in renderer, "runtime perspective denominator must enlarge positive-Z near geometry")
 require("1.0F + z / layout.perspectiveDistance" not in renderer, "runtime perspective depth direction is inverted")
@@ -120,10 +120,10 @@ require("val cameraZ = sinPitch * localY + cosPitch * yawZ" in renderer, "solver
 require("val perspective = perspectiveFactor(cameraZ, perspectiveDistance)" in renderer, "solver must use camera-space depth for perspective")
 require("val projectedX = yawX * perspective" in renderer and "val projectedY = cameraY * perspective" in renderer, "solver must perspective-project every corner")
 require("private fun perspectiveFactor(" in renderer and "1.0 - cameraZ / perspectiveDistance" in renderer, "solver/runtime perspective formula drift")
-require("scene.members.forEach { member ->" in renderer, "projection must include every member")
-require("doubleArrayOf(member.x, member.x + 1.0)" in renderer, "projection must include each member's X corners")
-require("doubleArrayOf(member.y, member.y + 1.0)" in renderer, "projection must include each member's Y corners")
-require("doubleArrayOf(member.z, member.z + 1.0)" in renderer, "projection must include each member's Z corners")
+require("scene.segments.forEach { segment ->" in renderer, "projection must include every physical segment")
+require("doubleArrayOf(segment.x, segment.x + 1.0)" in renderer, "projection must include each segment's X corners")
+require("doubleArrayOf(segment.y, segment.y + 1.0)" in renderer, "projection must include each segment's Y corners")
+require("doubleArrayOf(segment.z, segment.z + 1.0)" in renderer, "projection must include each segment's Z corners")
 
 # The smaller fit rectangle creates real internal headroom for mounted module geometry. Merely
 # widening the scissor would hide the symptom rather than reducing the oversized preview.
@@ -137,7 +137,9 @@ require("snapshot.revision" in renderer and "snapshot.anchor.asLong()" in render
 require("val scene = buildScene(snapshot)" in renderer and "CachedPreview(key, scene, layoutFor(scene))" in renderer, "scene and layout must be built together on cache miss")
 require("private data class CachedPreview(" in renderer and "val scene: Scene" in renderer and "val layout: Layout" in renderer, "cache must retain both scene and layout")
 
-require("CachedBuffers.block(state)" in renderer, "desk baked model rendering missing")
+require("snapshot.segmentPositions.map" in renderer and "state = level.getBlockState(pos)" in renderer,
+        "preview scene must include the real state of transparent bridge segments")
+require("CachedBuffers.block(state)" in renderer, "segment baked model rendering missing")
 require("ModulePartRender.flatten" in renderer and "ModulePartRender.apply" in renderer, "mounted Aeroworks module rendering missing")
 require("ModulePartRender.displayValues(mounted, restValues)" in renderer, "module preview must retain native REST-value semantics")
 require("import net.createmod.catnip.render.SuperByteBuffer" in renderer, "Kotlin renderer must import SuperByteBuffer for explicit Flywheel self types")

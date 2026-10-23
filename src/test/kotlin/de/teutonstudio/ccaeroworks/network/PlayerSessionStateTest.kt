@@ -1,5 +1,6 @@
 package de.teutonstudio.ccaeroworks.network
 
+import de.TeutonStudio.TeutonLib.api.network.PlayerSessionState
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test

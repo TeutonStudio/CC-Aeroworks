@@ -3,7 +3,7 @@ package de.teutonstudio.ccaeroworks.radarcompat.display
 import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.radarcompat.access.RadarDeskStateAccess
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
-import de.teutonstudio.ccaeroworks.radarcompat.registry.RadarModuleTypes
+import de.teutonstudio.ccaeroworks.radarcompat.compat.aeroworks.RadarDeskAccess
 import net.minecraft.core.BlockPos
 
 data class RadarSourceDescriptor(
@@ -48,7 +48,7 @@ object RadarSourceRegistry {
         val network = ConsoleMultiblockManager.resolve(level, desk.blockPos)
         return network.members
             .asSequence()
-            .filter { hasRadarDisplay(it.desk) }
+            .filter { RadarDeskAccess.hasRadarCapableDisplay(it.desk) }
             .map { member ->
                 val snapshot = (member.desk as? RadarDeskStateAccess)?.ccaeroworks_getRadarSnapshot()
                 RadarSourceDescriptor(
@@ -69,15 +69,10 @@ object RadarSourceRegistry {
 
         val network = ConsoleMultiblockManager.resolve(level, desk.blockPos)
         val member = network.memberAt(source.ingressPos) ?: return null
-        if (!hasRadarDisplay(member.desk)) return null
+        if (!RadarDeskAccess.hasRadarCapableDisplay(member.desk)) return null
         return (member.desk as? RadarDeskStateAccess)?.ccaeroworks_getRadarSnapshot()
     }
 
     fun find(desk: ConsoleBlockEntity, sourceId: String): RadarSourceDescriptor? =
         sources(desk).firstOrNull { it.id == sourceId }
-
-    private fun hasRadarDisplay(desk: ConsoleBlockEntity): Boolean =
-        (0 until desk.socketCount()).any { socket ->
-            desk.module(socket)?.let { RadarModuleTypes.radarDisplayType(it.type()) } != null
-        }
 }

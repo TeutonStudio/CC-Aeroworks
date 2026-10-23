@@ -1,4 +1,4 @@
-# RadarDisplay diagnostic capture
+# Radar pseudo-script diagnostic capture
 
 Dieser Ablauf ist absichtlich auf **einen** reproduzierbaren Spieltest zugeschnitten. Ab Version 1.3.4 sind Radar-Diagnosen standardmäßig deaktiviert. Mit aktivierter Diagnose schreibt die Mod sehr ausführliche Zeilen mit dem Präfix:
 
@@ -19,11 +19,11 @@ Den Entwicklungsclient so starten, dass die Terminalausgabe zusätzlich gespeich
 ## Exakter Spielablauf
 
 1. In der wirksamen Serverkonfiguration (`config/cc_aeroworks-server.toml` oder einem vorhandenen Override unter `<welt>/serverconfig/cc_aeroworks-server.toml`) unter `[debug]` den Wert `radar = true` setzen und die Welt beziehungsweise den Server neu starten. Die Einstellung wird an verbundene Clients synchronisiert; `display` kann `false` bleiben. Welt laden und mindestens drei Sekunden warten.
-2. Ein Pult mit montiertem RadarDisplay aufstellen beziehungsweise den vorhandenen Aufbau laden, aber das Pult zunächst **nicht** verbinden.
+2. Ein Pult mit montiertem erweitertem Display aufstellen beziehungsweise den vorhandenen Aufbau laden, aber das Pult zunächst **nicht** verbinden.
 3. Sicherstellen, dass Radar und Network Filterer als Create:-Radars-Aufbau grundsätzlich funktionieren.
 4. Drei Sekunden warten. Dadurch wird der unverlinkte Ausgangszustand protokolliert.
 5. Mit dem nativen Create:-Radars-Data-Link-Gegenstand den Network Filterer auswählen.
-6. Mit demselben Gegenstand eine freie Seite des Pults mit RadarDisplay anklicken.
+6. Mit demselben Gegenstand eine freie Seite des Pults mit erweitertem Display anklicken und danach den lokalen Radar-Ingress im Dropdown `Display-Steuerung` wählen.
 7. Prüfen, dass Create: Radars den physischen Data-Link-Block am Pult platziert.
 8. Mindestens fünf Sekunden warten, ohne weitere Blöcke zu verändern.
 9. Ein Ziel in Radarreichweite bringen, vorzugsweise zuerst einen Spieler oder Mob.

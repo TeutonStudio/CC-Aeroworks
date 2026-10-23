@@ -9,14 +9,27 @@ CC-Aeroworks connects **Create: Aeroworks Control Desks** with **CC:Tweaked**, t
 - Every desk remains an individual `ControlDesk` peripheral with its own position, modules, inputs, and displays.
 - Embedded-computer APIs: `peripherals`, `channels`, `controls`, `wires`, and `telemetry`.
 - Small and large programmable display modules supporting text, numbers, and pixel rasters.
-- Touch and continuous draw input on small and large displays with an advanced computer through the combined 3D pointer input mode.
+- Touch and continuous draw input on advanced small and large displays with an advanced computer through the combined 3D pointer input mode.
 - Create Display Links exposed as structured telemetry sources.
 - Optional Create: Radars support isolated in the `cc_aeroworks_radarcompat` module.
 - An in-game manual/API reference and localized Create Ponder scenes.
 
 ## Desk networks and peripherals
 
-Aligned consoles connect directly left and right. Desk and Copycat Desk variants may mix, while Control Stand and Copycat Stand form a separate geometry family. All four Aeroworks variants support normal and advanced computers in the shared slot. The resolver never force-loads chunks and accepts at most 64 fully loaded consoles; a valid network contains at most one embedded computer.
+Consoles form explicit linear rows with a persistent `assemblyId`. Hold a compatible block and use the Create arrow at either free row end to extend it; ordinary side placement inherits the clicked row as well. Sneak while placing to always start a separate row. Aligned consoles may therefore touch without sharing computers, displays, or peripheral graphs. Desk and Copycat Desk use the desk family, while Control Stand and Copycat Stand use the stand family.
+
+Create Train Controls and Create Contraption Controls placed against the left or right side of a floor desk or stand inherit its facing, chassis, and skin and may be mixed while bridging matching console sections. If no matching desk remains, the whole connected controls group returns to Create's native appearance. Ceiling consoles do not integrate either Create control.
+
+Copycat frame and panel materials are row styles. A change is accepted only while the complete row is loaded and consumes one matching material per visible segment and active zone. Removal returns the material stored by each segment exactly once; creative mode produces no returns.
+
+Each real desk remains an individual `ControlDesk` peripheral. Integrated Create controls are physical bridge segments, not desks: they have no desk ID or module sockets. Contraption Controls additionally expose `ContraptionControl` to embedded and external CC:Tweaked computers. The resolver never force-loads chunks and accepts at most 64 fully loaded physical segments, including both control types; a valid network contains at most one embedded computer.
+
+On ordinary moving Create contraptions, the default-enabled mobile runtime restarts the embedded computer with the same computer ID, files, family, terminal size, and power state. `peripherals.getNetwork().space` becomes `contraption`, and mobile handles expose the entity UUID plus local and projected world coordinates. `telemetry` reports contraption position, rotation, velocity, and mounted-storage occupancy; stationary world targets are explicitly unavailable while moving. `mobileContraptions.enabled=false` closes computers, adapters, and outputs fail-safe. Sable continues to use its real sublevel block entities.
+
+On moving Sable sublevels, TeutonLib measures CC:Tweaked wireless distance and normal-modem
+range in visible world coordinates. `gps.locate()` and the GPS information source therefore expose
+the global position after a successful fix. The source still requires a directly detectable
+wireless modem and ignores hosts in genuinely different dimensions.
 
 Each desk is addressed by its canonical `x,y,z` position. Adjacent CC:Tweaked peripherals are discovered automatically and delegated through normal CC:Tweaked attach/detach, event, mount, and main-thread semantics.
 
@@ -48,7 +61,7 @@ Examples are collected in [`examples/cc/`](examples/cc/), including channel, con
 
 ## Programmable displays
 
-CC-Aeroworks registers a small **Two Digit Display** and a large **Three Digit Display**. Display resolution is derived from `display.ppb` in **Parts per Block**, keeping logical pixels physically square at every supported aspect ratio. The default is `256 PPB`.
+CC-Aeroworks registers small and large displays in normal and advanced tiers. Their item IDs are `small_display`, `large_display`, `advanced_small_display`, and `advanced_large_display`. Normal displays are output-only with a fixed signal color. Advanced displays add a persistent configurable `0xRRGGBB` color plus touch/draw input. Press a matching normal or advanced CC:Tweaked monitor into the small tier, then deploy a Create Iron Sheet onto it for the large variant. Display resolution is derived from `display.ppb` in **Parts per Block**, keeping logical pixels physically square at every supported aspect ratio. The default is `256 PPB`.
 
 At 256 PPB the usable raster is:
 
@@ -64,11 +77,11 @@ print(size.width, size.height, size.ppb) -- small display: 14, 14, 32
 
 `display.maxIndividualPpb` limits individual density (default 256, configurable from 16 to 1024). Unconfigured slots use the smaller of `display.ppb` and this limit. The Lua function accepts whole numbers from 16 to the limit and raises an error in global mode. Changing density clears the pixel raster; setting the same density preserves pixels. Slot settings survive restarts and global mode, and are removed when the module is dismounted. `getDisplaySize` always reports the effective dimensions.
 
-Both display sizes support touch only while the active console network contains an advanced CC:Tweaked computer. Normal or absent computers disable touch, including events sent to external peripherals. Bindings survive computer replacement. Running gestures are discarded after computer or resolution changes. `require("display").setResolution(event, ppb)` provides the equivalent helper for display scripts; `touchdisplay` inherits it.
+Both advanced display sizes support touch only while the active console network also contains an advanced CC:Tweaked computer. Normal displays and normal or absent computers disable touch, including events sent to external peripherals. `setDisplayColor(socket, 0xRRGGBB)` changes an advanced display's text/pixel color and `getDisplayColor` reads it. Bindings survive computer replacement. Running gestures are discarded after computer or resolution changes. `require("display").setResolution(event, ppb)` provides the equivalent helper for display scripts; `touchdisplay` inherits it.
 
 Programs should query the current size through the display API rather than hard-coding these values. Pixel state is packed and rendered through cached dynamic textures, so high PPB values do not require one rendered model instance per logical pixel.
 
-Large displays can bind an input script. The combined input mode moves a virtual 3D pointer across the display surface. Left click produces `tap`; holding the right mouse button produces a sequenced `draw` gesture with normalized coordinates, direction, speed, bounded path samples, and an explicit end event.
+Advanced displays can bind an input script. The combined input mode moves a virtual 3D pointer across the display surface. Left click produces `tap`; holding the right mouse button produces a sequenced `draw` gesture with normalized coordinates, direction, speed, bounded path samples, and an explicit end event.
 
 Useful Lua helpers include `touchdisplay.normalizedPosition(event)`, `drawSamples(event)`, and `drawStroke(event)`. See [`docs/display-touch.md`](docs/display-touch.md) and [`examples/cc/touch-test.lua`](examples/cc/touch-test.lua).
 
@@ -80,7 +93,7 @@ With optional Create: Simulated, docking connectors can relay telemetry from a s
 
 ## Optional Create: Radars integration
 
-Radar-specific code is isolated under `de.teutonstudio.ccaeroworks.radarcompat` and activates only when Create: Radars is present. Supported radar displays are native Aeroworks desk modules and can use Create: Radars Data Link endpoints or a Network Filterer routed by the embedded desk computer. Radar source, embedded computer, and display may be located on different desks of the same network.
+Radar-specific code is isolated under `de.teutonstudio.ccaeroworks.radarcompat` and activates only when Create: Radars is present. Radar is offered as a pseudo-script in the single controller dropdown of small and large advanced displays; no separate radar display items are registered. The selected source may use a Create: Radars Data Link endpoint or a Network Filterer routed by the embedded desk computer. Radar source, embedded computer, and display may be located on different desks of the same network.
 
 See [`docs/create-radars-integration.md`](docs/create-radars-integration.md).
 
@@ -97,7 +110,7 @@ See [`docs/create-radars-integration.md`](docs/create-radars-integration.md).
 
 - Minecraft 1.21.1
 - NeoForge 21.1.234+
-- TeutonLib 1.3.4 (required on client and server; shared computer workspace)
+- TeutonLib 1.5.0 (required on client and server; shared computer, geometry and network foundation)
 - Java 21
 - Kotlin 2.4.0 / KotlinForForge NeoForge 5.12.0
 - Create 6.0.10

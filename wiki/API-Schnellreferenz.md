@@ -46,6 +46,8 @@ getDisplayPixel(socket, x, y)
 setDisplayPixel(socket, x, y, enabled)
 setDisplayPixels(socket, rows)
 clearDisplayPixels(socket)
+getDisplayColor(socket)
+setDisplayColor(socket, color)
 ```
 
 ## Globale `peripherals`-API
@@ -66,6 +68,26 @@ getTypes()
 getNetwork()
 refresh()
 ```
+
+## `ContraptionControl`
+
+Typaliase: `contraption_control`, `create:contraption_controls`, `cc_aeroworks:contraption_control`.
+
+```text
+getInfo()
+getState()
+getFilter()
+isEnabled()
+setEnabled(boolean)
+toggle()
+getFloors()
+getSelectedFloor()
+selectFloor(indexOrName)
+```
+
+`setEnabled`/`toggle` gelten für `actors` und `doors`; die drei Floor-Methoden ausschließlich für `elevator`. Unpassende Methoden erzeugen einen Lua-Fehler. Das Ereignis `cc_aeroworks_contraption_control(address, id, mode, state, cause)` deckt manuelle, Redstone-, Lua- und Aufzugänderungen ab.
+
+Mobil liefert `telemetry.get("contraption")` die Entity-Position, Rotation, Geschwindigkeit und Mounted-Storage-Belegung. Weltgebundene Quellen sind dort ausdrücklich `unavailable`; Sable behält dagegen die vollständige Sublevel-Semantik.
 
 ## Rückgabe von `find`
 
@@ -135,6 +157,7 @@ Metadaten:
   y = 64,
   z = -7,
   dimension = "minecraft:overworld",
+  space = "world", -- world | sable | contraption
   computer = false,
   variant = "control_desk",
   facing = "north",
@@ -171,6 +194,8 @@ local radar = peripherals.wrap(12, 64, -8, "radar")
 
 Es werden keine Chunks geladen. Gesucht wird nur in der Dimension des eingebetteten Computers.
 
+Integrierte Create-Zugsteuerungen sind transparente Brückensegmente und erscheinen nicht in `deskCount` oder `getDesks()`. Direkt angrenzende Geräte bleiben über ihre echte Position verfügbar und werden dem nächstgelegenen echten Desk zugeordnet.
+
 ## Netzwerkstatus
 
 ```lua
@@ -187,7 +212,7 @@ Globale Graphzugriffe werden abgelehnt bei:
 
 - mehreren eingebetteten Computern,
 - teilweise geladenen Pultreihen,
-- mehr als 64 Pulten,
+- mehr als 64 physischen Pult-, Zugsteuerungs- und Vorrichtungs-Steuerungssegmenten,
 - einem Computer außerhalb des Besitzerverbunds.
 
 # Globale `controls`-API
@@ -391,6 +416,9 @@ cc_aeroworks_remote_telemetry_changed(dockId, sourceId, action, revision)
 - Pixelursprung: `(1,1)` links oben.
 - Rastergröße: über `getDisplaySize` lesen, nicht fest annehmen.
 - `setDisplayPixels`: exakt `height` Strings aus `0` und `1`, jeweils exakt `width` Zeichen.
+- `getDisplayColor(socket)` / `setDisplayColor(socket, 0xRRGGBB)`: gespeicherte Farbe; Setzen nur bei erweiterten Displays.
+- Touch: nur erweiterte Displays und nur mit erweitertem Computer im aktiven Pultverbund.
+- Create: Radars: Radar-Ingresses erscheinen als Pseudo-Skripte im selben Dropdown wie Lua-Skripte; die Auswahl ist exklusiv und nur für erweiterte Displays verfügbar.
 
 ## Ponder
 

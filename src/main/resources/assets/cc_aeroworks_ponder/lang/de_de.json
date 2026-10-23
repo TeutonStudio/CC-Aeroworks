@@ -1,14 +1,14 @@
 {
   "cc_aeroworks.ponder.desk_network.header": "Einen Pultcomputer einsetzen und teilen",
   "cc_aeroworks.ponder.desk_network.text_1": "Öffne eine normale Steuereinheit schleichend und setze einen CC:Tweaked-Computer in den gemeinsamen Slot ein.",
-  "cc_aeroworks.ponder.desk_network.text_2": "Gleich ausgerichtete Nachbarpulte bilden eine Reihe; Positionen, Module und Anschlüsse bleiben getrennt.",
+  "cc_aeroworks.ponder.desk_network.text_2": "Gleich ausgerichtete Nachbarpulte bilden eine Reihe. Create-Zug- und Vorrichtungs-Steuerungen an Bodenpult oder Steuerstand erben Chassis und Skin und dürfen die Reihe gemischt verbinden.",
   "cc_aeroworks.ponder.desk_network.text_3": "Jedes Pult zeigt denselben Slot. Wird der Host entfernt, wandert der Computer in ein verbleibendes Pult.",
   "cc_aeroworks.ponder.desk_network.text_4": "Die Reihe besitzt nun einen Computer-Eigentümer und ein gemeinsam durchsuchbares Netzwerk.",
   "cc_aeroworks.ponder.desk_network.text_5": "Schleichender Rechtsklick öffnet die Übersicht; Computer öffnet Terminal und gemeinsame Arbeitsreiter.",
   "cc_aeroworks.ponder.desk_network.text_6": "Beim Abbau des letzten Pults droppt der Computer mit unveränderter ID, Beschriftung und Dateien.",
 
   "cc_aeroworks.ponder.peripheral_search.header": "Quellen, Peripherals und Kanäle finden",
-  "cc_aeroworks.ponder.peripheral_search.text_1": "Direkte Anschlüsse werden mit Position und Anschlussseite ihres Pults erfasst.",
+  "cc_aeroworks.ponder.peripheral_search.text_1": "Direkte Anschlüsse an Pulten oder integrierten Create-Steuerungen stellt der gemeinsame Multiblock bereit. Vorrichtungs-Steuerungen erscheinen zusätzlich als ContraptionControl.",
   "cc_aeroworks.ponder.peripheral_search.text_2": "Entfernte Pulte behalten ihre Adressen, damit gleiche Peripheral-Typen unterscheidbar bleiben.",
   "cc_aeroworks.ponder.peripheral_search.text_3": "Quellen zeigt Peripherals, Telemetrie und optionale Radareingaben in einer aktualisierbaren Ansicht.",
   "cc_aeroworks.ponder.peripheral_search.text_4": "peripherals.find(type) liefert bei genau einem Treffer direkt das Handle.",
@@ -25,9 +25,9 @@
   "cc_aeroworks.ponder.desk_diagnostics.text_6": "Computer-Aus, ein ungültiges Netz oder ein entferntes Modul geben betroffene Overrides automatisch frei.",
 
   "cc_aeroworks.ponder.display_crafting.header": "Pultdisplays herstellen",
-  "cc_aeroworks.ponder.display_crafting.text_1": "Presse einen normalen Monitor zur kompakten Zweiziffernanzeige.",
-  "cc_aeroworks.ponder.display_crafting.text_2": "Presse einen erweiterten Monitor zur breiteren Dreiziffernanzeige.",
-  "cc_aeroworks.ponder.display_crafting.text_3": "Beide Ergebnisse sind flache montierte Module und keine eigenständigen Monitorblöcke.",
+  "cc_aeroworks.ponder.display_crafting.text_1": "Presse einen normalen Monitor zur kleinen reinen Anzeige.",
+  "cc_aeroworks.ponder.display_crafting.text_2": "Presse einen erweiterten Monitor zur kleinen Farb- und Touchanzeige.",
+  "cc_aeroworks.ponder.display_crafting.text_3": "Setze mit einem Deployer ein Iron Sheet auf eine kleine Anzeige, um die große Variante derselben Stufe zu erhalten.",
   "cc_aeroworks.ponder.display_crafting.text_4": "Mit Create: Radars wird dessen Monitor per Deployer auf das passende Display gesetzt und zur Radarvariante.",
 
   "cc_aeroworks.ponder.display_mounting.header": "Den passenden Display-Socket wählen",
@@ -45,17 +45,17 @@
   "cc_aeroworks.ponder.display_programming.text_6": "Ein erweiterter Computer aktiviert Touch, Zeichenströme und gebundene Skripte für dieses Display.",
 
   "cc_aeroworks.ponder.radar_controller.header": "Einen Pult-Radarendpoint verbinden",
-  "cc_aeroworks.ponder.radar_controller.text_1": "Montiere eine kleine oder große Radaranzeige in dem Pult, das das Radarbild empfangen soll.",
+  "cc_aeroworks.ponder.radar_controller.text_1": "Montiere ein kleines oder großes erweitertes Display in dem Pult, das das Radarbild empfangen soll.",
   "cc_aeroworks.ponder.radar_controller.text_2": "Verwende den Create:-Radars-Data-Link zuerst auf dem Network Filterer, um das Quellnetz zu speichern.",
-  "cc_aeroworks.ponder.radar_controller.text_3": "Verwende denselben Data Link am Pult mit Radaranzeige; ein normales Display ist kein gültiger Endpoint.",
+  "cc_aeroworks.ponder.radar_controller.text_3": "Verwende denselben Data Link am Pult mit erweitertem Display; ein normales Display ist kein gültiger Endpoint.",
   "cc_aeroworks.ponder.radar_controller.text_4": "Create: Radars prüft die Reichweite und setzt den physischen Data-Link-Block auf das Pult.",
-  "cc_aeroworks.ponder.radar_controller.text_5": "Das Pult arbeitet nun als nativer Monitorendpoint dieses gefilterten Radarnetzes.",
+  "cc_aeroworks.ponder.radar_controller.text_5": "Wähle den Radar-Ingress als Pseudo-Skript unter Display-Steuerung; er ersetzt dort das Lua-Skript.",
 
-  "cc_aeroworks.ponder.radar_direct.header": "Eine Radaranzeige lesen und wiederverbinden",
+  "cc_aeroworks.ponder.radar_direct.header": "Ein erweitertes Display mit Radar steuern",
   "cc_aeroworks.ponder.radar_direct.text_1": "Das verbundene Pult findet Network Filterer und Radar über die NetworkData von Create: Radars.",
   "cc_aeroworks.ponder.radar_direct.text_2": "Sweep und Kontakte folgen DetectionConfig und Zielauswahl der Gruppe.",
   "cc_aeroworks.ponder.radar_direct.text_3": "Die große Anzeige zeigt zusätzlich die native Kontaktlegende und die Zielmarkierung.",
-  "cc_aeroworks.ponder.radar_direct.text_4": "Jedes RadarDisplay-Pult braucht auch in derselben Reihe einen eigenen physischen Data Link.",
+  "cc_aeroworks.ponder.radar_direct.text_4": "Weitere erweiterte Displays derselben Reihe dürfen denselben synchronisierten Radar-Ingress auswählen.",
   "cc_aeroworks.ponder.radar_direct.text_5": "Wird der Link abgebaut, verschwindet der Endpoint und statt veralteter Kontakte erscheint der Trennungszustand.",
   "cc_aeroworks.ponder.radar_direct.text_6": "Setze den physischen Data Link wieder ein; Live-Sweep und Kontakte kehren automatisch zurück."
 }

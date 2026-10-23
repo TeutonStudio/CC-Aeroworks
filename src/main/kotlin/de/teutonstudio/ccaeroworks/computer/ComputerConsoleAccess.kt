@@ -31,6 +31,14 @@ object CCLuaApis {
             }
         }
         ComputerCraftAPI.registerAPIFactory { system ->
+            system.getComponent(MobileComputerComponents.CONSOLE)?.let { access ->
+                MobilePeripheralLuaApi(access, system)
+            }
+        }
+        ComputerCraftAPI.registerAPIFactory { system ->
+            system.getComponent(MobileComputerComponents.CONSOLE)?.let(::MobileTelemetryLuaApi)
+        }
+        ComputerCraftAPI.registerAPIFactory { system ->
             system.getComponent(CCComputerComponents.CONSOLE)?.let { access ->
                 TelemetryLuaApi(access, system)
             }

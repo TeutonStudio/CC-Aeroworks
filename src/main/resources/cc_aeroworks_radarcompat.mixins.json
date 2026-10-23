@@ -14,9 +14,6 @@
     "createradar.CreateRadarBearingContraptionMixin",
     "createradar.CreateRadarDataLinkTargetMixin"
   ],
-  "client": [
-    "client.RadarModuleScreenMixin"
-  ],
   "injectors": {
     "defaultRequire": 1
   }

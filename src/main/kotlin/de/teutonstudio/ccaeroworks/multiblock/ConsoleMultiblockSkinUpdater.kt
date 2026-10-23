@@ -1,6 +1,8 @@
 package de.teutonstudio.ccaeroworks.multiblock
 
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
+import de.teutonstudio.ccaeroworks.train.TrainControlConsoleIntegration
+import de.teutonstudio.ccaeroworks.train.TrainControlConsoleUpdater
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.server.level.ServerLevel
@@ -23,7 +25,7 @@ object ConsoleMultiblockSkinUpdater {
     @SubscribeEvent
     fun onPlace(event: BlockEvent.EntityPlaceEvent) {
         val level = event.level as? ServerLevel ?: return
-        if (!AeroworksTypes.isControlDesk(event.placedBlock.block)) return
+        if (!isRelevant(event.placedBlock)) return
         schedule(
             level,
             event.pos,
@@ -34,14 +36,14 @@ object ConsoleMultiblockSkinUpdater {
     @SubscribeEvent
     fun onBreak(event: BlockEvent.BreakEvent) {
         val level = event.level as? ServerLevel ?: return
-        if (!AeroworksTypes.isControlDesk(event.state.block)) return
+        if (!isRelevant(event.state)) return
         schedule(level, event.pos)
     }
 
     @SubscribeEvent
     fun onNeighbourNotify(event: BlockEvent.NeighborNotifyEvent) {
         val level = event.level as? ServerLevel ?: return
-        if (!AeroworksTypes.isControlDesk(event.state.block)) return
+        if (!isRelevant(event.state)) return
         schedule(level, event.pos)
     }
 
@@ -100,6 +102,10 @@ object ConsoleMultiblockSkinUpdater {
             HORIZONTAL_DIRECTIONS.forEach { direction ->
                 addIfDesk(level, origin.relative(direction), starts)
             }
+            addControlAnchors(level, origin, starts)
+            HORIZONTAL_DIRECTIONS.forEach { direction ->
+                addControlAnchors(level, origin.relative(direction), starts)
+            }
 
             val processedAnchors = hashSetOf<BlockPos>()
             starts.forEach startLoop@{ start ->
@@ -111,29 +117,20 @@ object ConsoleMultiblockSkinUpdater {
                 if (!processedAnchors.add(snapshot.anchor)) return@startLoop
 
                 val skin = ConsoleMultiblockSkinState.forMembers(snapshot.members)
-                val lastIndex = snapshot.members.lastIndex
-                snapshot.members.forEachIndexed memberLoop@{ index, member ->
-                    val state = level.getBlockState(member.pos)
-                    var nextState = state
-                    val connectedWest = index > 0
-                    val connectedEast = index < lastIndex
-                    nextState = setBooleanProperty(
-                        nextState,
-                        "open_west",
-                        connectedWest
-                    )
-                    nextState = setBooleanProperty(
-                        nextState,
-                        "open_east",
-                        connectedEast
-                    )
+                snapshot.segmentPositions.forEach memberLoop@{ segmentPos ->
+                    val state = level.getBlockState(segmentPos)
+                    var nextState = if (AeroworksTypes.isControlDesk(state.block)) {
+                        ConsoleDeskConnections.apply(level, segmentPos, state)
+                    } else {
+                        TrainControlConsoleIntegration.applyConnections(level, segmentPos, state)
+                    }
                     if (nextState.hasProperty(ConsoleMultiblockSkinState.SKIN)) {
                         nextState = nextState.setValue(ConsoleMultiblockSkinState.SKIN, skin)
                     }
                     if (nextState == state) return@memberLoop
 
                     level.setBlock(
-                        member.pos,
+                        segmentPos,
                         nextState,
                         Block.UPDATE_CLIENTS
                     )
@@ -223,6 +220,18 @@ object ConsoleMultiblockSkinUpdater {
             starts += pos.immutable()
         }
     }
+
+    private fun addControlAnchors(
+        level: ServerLevel,
+        pos: BlockPos,
+        starts: MutableSet<BlockPos>
+    ) {
+        if (!level.isLoaded(pos) || !TrainControlConsoleIntegration.isIntegrated(level.getBlockState(pos))) return
+        starts += TrainControlConsoleUpdater.anchorDesks(level, pos)
+    }
+
+    private fun isRelevant(state: BlockState): Boolean =
+        AeroworksTypes.isControlDesk(state.block) || TrainControlConsoleIntegration.isTrainControls(state)
 
     private val HORIZONTAL_DIRECTIONS = arrayOf(
         Direction.NORTH,

@@ -61,7 +61,9 @@ clearDisplayBinding(socket)
 
 `setDisplayResolution(socket, ppb)` setzt bei deaktivierter Serveroption `display.useGlobalResolution` die individuelle Pixeldichte und liefert `{width, height, ppb}`. Erlaubt sind ganze Werte von 16 bis `display.maxIndividualPpb` (Standard 256). Eine Änderung leert das Pixelbild, derselbe Wert erhält es. Globale Vorgabe, ungültiger Slot oder ungültige Dichte führen zu einem Lua-Fehler. Diese Funktion steht auch am eingebetteten Desk-Handle bereit; `display.setResolution(event, ppb)` und `touchdisplay.setResolution(event, ppb)` leiten sie weiter.
 
-Touch und Draw auf kleinen und großen Displays erfordern einen erweiterten Computer im aktiven Pultverbund. Normale oder fehlende Computer erzeugen auch für externe Peripherals keine Displayeingaben.
+Touch und Draw erfordern ein erweitertes kleines oder großes Display und zusätzlich einen erweiterten Computer im aktiven Pultverbund. Normale Displays sowie normale oder fehlende Computer erzeugen auch für externe Peripherals keine Displayeingaben. Erweiterte Displays bieten außerdem `getDisplayColor(socket)` und `setDisplayColor(socket, 0xRRGGBB)`; die Farbe wird pro Slot gespeichert und beim Ausbau entfernt.
+
+Wenn Create: Radars geladen ist, kann dasselbe Binding eines erweiterten Displays statt eines Lua-Skripts einen Network-Controller-/Data-Link-Ingress als Radar-Pseudo-Skript enthalten. Es gibt keine separaten Radar-Display-Items. Während dieses Extension-Binding aktiv ist, besitzt die Radarquelle die Oberfläche exklusiv und Touch wird nicht ausgeliefert.
 
 `setDisplayPixelBatch(socket, points, enabled?)` erwartet eine Liste aus `{x=..., y=...}` mit 1-basierten Displaykoordinaten. Alle Punkte werden in einer einzigen Kopie des gepackten Rasters angewendet; das Display wird höchstens einmal persistiert. Der Rückgabewert ist die Anzahl tatsächlich geänderter Pixel.
 

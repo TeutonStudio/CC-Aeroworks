@@ -53,6 +53,16 @@ function display.setResolution(event, ppb)
     return desk.setDisplayResolution(socket, ppb)
 end
 
+function display.getColor(event)
+    local desk, socket = target(event)
+    return desk.getDisplayColor(socket)
+end
+
+function display.setColor(event, color)
+    local desk, socket = target(event)
+    return desk.setDisplayColor(socket, color)
+end
+
 function display.clear(event)
     local desk, socket = target(event)
     return desk.clearDisplayPixels(socket)

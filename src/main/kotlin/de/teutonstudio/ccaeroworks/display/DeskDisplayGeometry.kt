@@ -38,7 +38,7 @@ data class DeskDisplayPointer(
 object DeskDisplayGeometry {
     const val LARGE_SOCKET: Int = 2
 
-    // Top surface of models/block/module/three_digit_display.json.
+    // Programmable surface inside the raised CC:Tweaked-style display frame.
     const val MIN_X: Double = 3.0 / 16.0
     const val MAX_X: Double = 13.0 / 16.0
     const val MIN_Z: Double = 4.5 / 16.0
@@ -154,10 +154,14 @@ object DeskDisplayGeometry {
     private fun descriptor(desk: ConsoleBlockEntity, socket: Int): DeskDisplayPointer? {
         if (socket !in 0 until desk.socketCount() || !DisplayTouchAccess.enabled(desk)) return null
         val module = desk.module(socket) ?: return null
-        val displayType = CCModuleTypes.displayType(module.type())
-        if (displayType == null && !InteractiveDisplayExtensions.isInteractive(module.type())) return null
-        val type = displayType ?: DeskDisplayType.THREE_DIGIT
-        // Extensions (e.g. radar displays) retain their existing global raster.
+        val displayVariant = CCModuleTypes.displayVariant(module.type())
+        if (displayVariant != null && !displayVariant.tier.touchCapable) return null
+        // Extension bindings own the complete surface. In particular, the Radar compatibility
+        // pseudo-script renders native radar output and must not also dispatch Lua touch events.
+        if (DisplayBindings.get(desk, socket) is DisplayBinding.Extension) return null
+        val displayType = displayVariant?.type
+        val type = displayType ?: InteractiveDisplayExtensions.displayType(module.type()) ?: return null
+        // Third-party interactive module types retain their own fixed raster.
         val ppb = if (displayType != null) DisplayResolutionSettings.partsPerBlock(desk, socket) else type.partsPerBlock
 
         return DeskDisplayPointer(

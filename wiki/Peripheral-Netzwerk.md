@@ -162,12 +162,14 @@ Eine reine Capability-Änderung kann sofort geprüft werden:
 peripherals.refresh()
 ```
 
+Native Create-Zugsteuerungen, die als Pultchassis integriert sind, verbinden den Graphen ohne selbst ein `ControlDesk` zu werden. Direkt an ihnen platzierte Peripherals werden mit ihrer echten Position und Seite dem nächstgelegenen echten Pult zugeordnet. Ihre Adresse enthält zusätzlich das physische Brückensegment.
+
 ## Grenzen
 
 Der globale Zugriff wird abgelehnt bei:
 
 - mehreren eingebetteten Computern,
-- mehr als 64 Pulten,
+- mehr als 64 physischen Pult- und Zugsteuerungssegmenten,
 - teilweise geladenen Reihen,
 - einem Computer, der den aufgelösten Verbund nicht besitzt.
 

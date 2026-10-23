@@ -5,7 +5,16 @@ import dan200.computercraft.api.lua.IArguments
 import dan200.computercraft.api.lua.IComputerSystem
 import dan200.computercraft.api.lua.LuaException
 import dan200.computercraft.api.peripheral.IPeripheral
+import de.TeutonStudio.TeutonLib.api.computer.ComputerContext
+import de.TeutonStudio.TeutonLib.api.computer.peripheral.PeripheralAttachmentRuntime
+import de.TeutonStudio.TeutonLib.api.computer.peripheral.PeripheralEndpoint
+import de.TeutonStudio.TeutonLib.api.computer.peripheral.PeripheralEndpointMetadata
+import de.TeutonStudio.TeutonLib.api.computer.peripheral.PeripheralHost
+import de.TeutonStudio.TeutonLib.api.computer.peripheral.PeripheralTopology
+import de.TeutonStudio.TeutonLib.api.computer.peripheral.PeripheralTopologyProvider
+import de.TeutonStudio.TeutonLib.api.computer.peripheral.PeripheralProviders
 import de.teutonstudio.ccaeroworks.CCAeroworks
+import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.server.level.ServerLevel
@@ -37,10 +46,16 @@ internal class PeripheralNetworkRuntime(
     private val access: ComputerConsoleAccess,
     private val system: IComputerSystem
 ) {
+    private val topologyProvider = AeroworksPeripheralTopologyProvider(access)
+    private val attachments = PeripheralAttachmentRuntime(
+        system = system,
+        context = ::computerContext,
+        provider = topologyProvider,
+        describe = ::describePeripheral,
+        onAttached = { endpoint -> queueAttached(endpoint.node()) },
+        onDetached = { endpoint -> queueDetached(endpoint.node()) }
+    )
     private var graph: PeripheralNetworkGraph? = null
-    private val bindings = linkedMapOf<String, PeripheralBinding>()
-    private var initialized = false
-    private var lastScanTick = Long.MIN_VALUE
 
     init {
         access.owner()?.let { PeripheralNetworkRuntimes.register(it, this) }
@@ -48,59 +63,9 @@ internal class PeripheralNetworkRuntime(
 
     @Synchronized
     fun graph(force: Boolean = false): PeripheralNetworkGraph {
-        val owner = access.owner()
-            ?: throw LuaException("The computer control desk is no longer loaded")
-        val level = owner.level as? ServerLevel
-            ?: throw LuaException("The computer control desk is not in a server level")
-        if (!force && graph != null && lastScanTick == level.gameTime) return graph!!
-
-        val next = PeripheralNetworkBuilder.build(owner)
-        lastScanTick = level.gameTime
-        if (!force && graph?.revision == next.revision && sameTargets(graph, next)) {
-            return graph!!
-        }
-
-        val desired = next.peripherals.associateBy { it.address }
-        val detached = mutableListOf<PeripheralNetworkNode>()
-        val iterator = bindings.iterator()
-        while (iterator.hasNext()) {
-            val (address, binding) = iterator.next()
-            val node = desired[address]
-            if (node == null || !samePeripheral(binding.node, node)) {
-                detached += binding.node
-                binding.close()
-                iterator.remove()
-            } else {
-                binding.updateNode(node)
-            }
-        }
-
-        // Publish the complete new topology before calling IPeripheral.attach(). Some peripherals
-        // immediately inspect getAvailablePeripherals() during attach, and must not observe the old graph.
-        graph = next
-
-        val attached = mutableListOf<PeripheralNetworkNode>()
-        try {
-            for (node in next.peripherals) {
-                if (node.address in bindings) continue
-                val binding = PeripheralBinding(this, system, node)
-                bindings[node.address] = binding
-                binding.attach()
-                attached += node
-            }
-        } catch (throwable: Throwable) {
-            runCatching { invalidateGraph(queueEvents = false) }
-                .exceptionOrNull()
-                ?.let(throwable::addSuppressed)
-            throw throwable
-        }
-
-        if (initialized) {
-            detached.forEach(::queueDetached)
-            attached.forEach(::queueAttached)
-        }
-        initialized = true
-        return next
+        attachments.refresh(force)
+        return topologyProvider.latestGraph.also { graph = it }
+            ?: throw LuaException("The peripheral topology provider returned no graph")
     }
 
     fun tick() {
@@ -109,30 +74,26 @@ internal class PeripheralNetworkRuntime(
         if (level.gameTime % GRAPH_REFRESH_INTERVAL != 0L) return
         try {
             graph()
-        } catch (failure: LuaException) {
+        } catch (failure: RuntimeException) {
             runCatching { invalidateGraph(queueEvents = true) }
                 .exceptionOrNull()
                 ?.let(failure::addSuppressed)
+            CCAeroworks.LOGGER.debug("Peripheral topology is not ready yet; retrying", failure)
         }
     }
 
     @Synchronized
     fun close() {
         access.owner()?.let { PeripheralNetworkRuntimes.unregister(it, this) }
-        try {
-            invalidateGraph(queueEvents = false)
-        } finally {
-            initialized = false
-        }
+        attachments.close()
+        graph = null
     }
 
     fun deskHandle(node: DeskNetworkNode): DeskLuaHandle = DeskLuaHandle(this, node.address)
 
     @Synchronized
     fun peripheralHandle(node: PeripheralNetworkNode): PeripheralLuaHandle {
-        val binding = bindings[node.address]
-            ?: throw LuaException("Peripheral '${node.address}' is no longer attached")
-        return PeripheralLuaHandle(binding)
+        return PeripheralLuaHandle(attachments.binding(node.address))
     }
 
     fun find(type: String, deskAddress: String? = null, alwaysCollection: Boolean = false): Any? {
@@ -165,7 +126,7 @@ internal class PeripheralNetworkRuntime(
             val side = Direction.values().firstOrNull { it.name.equals(sideName, ignoreCase = true) }
                 ?: throw LuaException("Unknown side '$sideName'")
             val node = current.peripherals.firstOrNull {
-                it.desk.address == deskAddress && it.side == side
+                it.desk.address == deskAddress && it.side != null && it.side == side
             }
             return node?.let(::peripheralHandle)
         }
@@ -192,9 +153,11 @@ internal class PeripheralNetworkRuntime(
         val current = graph()
         return linkedMapOf(
             "id" to current.networkId,
+            "assemblyId" to current.networkId,
             "state" to current.state.name.lowercase(Locale.ROOT),
             "revision" to current.revision,
             "dimension" to current.dimension,
+            "space" to current.space,
             "deskCount" to current.desks.size,
             "peripheralCount" to current.peripherals.size
         )
@@ -214,6 +177,7 @@ internal class PeripheralNetworkRuntime(
             ?: throw LuaException("Control desk '$address' is no longer part of the network")
         return linkedMapOf(
             "id" to node.id,
+            "assemblyId" to current.networkId,
             "address" to node.address,
             "index" to node.member.index,
             "x" to node.pos.x,
@@ -237,43 +201,44 @@ internal class PeripheralNetworkRuntime(
             ?: throw LuaException("Control desk '$address' is no longer loaded")
     }
 
+    fun describePeripheral(endpoint: PeripheralEndpoint): Map<String, Any> {
+        val node = endpoint.node()
+        return linkedMapOf<String, Any>().apply {
+            putAll(describePeripheral(node))
+            endpoint.metadata.forEach { (key, value) ->
+                if (!key.startsWith("teutonlib:") && value != null) put(key, value)
+            }
+        }
+    }
+
     fun describePeripheral(node: PeripheralNetworkNode): Map<String, Any> {
         val current = graph ?: throw LuaException("The peripheral network is not initialized")
-        return linkedMapOf(
+        return linkedMapOf<String, Any>(
             "address" to node.address,
+            "assemblyId" to current.networkId,
             "type" to node.primaryType,
             "types" to node.types.toList(),
             "deskId" to node.desk.id,
             "deskAddress" to node.desk.address,
             "deskPosition" to position(node.desk.pos, current.dimension),
             "position" to position(node.pos, current.dimension),
-            "side" to node.side.name.lowercase(Locale.ROOT),
+            "side" to (node.side?.name?.lowercase(Locale.ROOT) ?: "internal"),
             "loaded" to true
-        )
+        ).apply {
+            topologyProvider.latestMetadata[node.address].orEmpty().forEach { (key, value) ->
+                if (!key.startsWith("teutonlib:") && value != null) put(key, value)
+            }
+        }
     }
 
     @Synchronized
     fun availablePeripherals(): Map<String, IPeripheral> =
-        bindings.mapValuesTo(linkedMapOf()) { it.value.node.target }
+        attachments.availablePeripherals()
 
     @Synchronized
     private fun invalidateGraph(queueEvents: Boolean) {
-        val detached = bindings.values.map { it.node }
-        var failure: Throwable? = null
-        bindings.values.forEach { binding ->
-            val closeFailure = runCatching { binding.close() }.exceptionOrNull() ?: return@forEach
-            val currentFailure = failure
-            if (currentFailure == null) {
-                failure = closeFailure
-            } else if (currentFailure !== closeFailure) {
-                currentFailure.addSuppressed(closeFailure)
-            }
-        }
-        bindings.clear()
+        attachments.invalidate(queueEvents)
         graph = null
-        lastScanTick = Long.MIN_VALUE
-        if (queueEvents && initialized) detached.forEach(::queueDetached)
-        failure?.let { throw it }
     }
 
     private fun queueAttached(node: PeripheralNetworkNode) {
@@ -286,21 +251,18 @@ internal class PeripheralNetworkRuntime(
         system.queueEvent(CCAeroworks.PERIPHERAL_DETACHED_EVENT, node.address, node.primaryType)
     }
 
-    private fun sameTargets(previous: PeripheralNetworkGraph?, next: PeripheralNetworkGraph): Boolean {
-        if (previous == null || previous.peripherals.size != next.peripherals.size) return false
-        val old = previous.peripherals.associateBy { it.address }
-        return next.peripherals.all { node ->
-            old[node.address]?.let { previousNode -> samePeripheral(previousNode, node) } == true
+    private fun computerContext(): ComputerContext {
+        val owner = access.owner() ?: throw LuaException("The computer control desk is no longer loaded")
+        val level = owner.level as? ServerLevel ?: throw LuaException("The computer control desk is not in a server level")
+        return object : ComputerContext {
+            override fun host(): BlockEntity = owner.host
+            override fun computerId(): Int = system.id
+            override fun level(): ServerLevel = level
+            override fun position(): BlockPos = owner.blockPos
+            override fun peripherals(): Map<String, IPeripheral> = system.availablePeripherals
+            override fun queueEvent(event: String, vararg arguments: Any?) = system.queueEvent(event, *arguments)
         }
     }
-
-    private fun samePeripheral(first: PeripheralNetworkNode, second: PeripheralNetworkNode): Boolean =
-        first.primaryType == second.primaryType &&
-            first.types == second.types &&
-            equivalent(first.target, second.target)
-
-    private fun equivalent(first: IPeripheral, second: IPeripheral): Boolean =
-        first === second || runCatching { first.equals(second) && second.equals(first) }.getOrDefault(false)
 
     private data class ParsedPosition(val pos: BlockPos, val type: String?)
 
@@ -343,3 +305,62 @@ internal class PeripheralNetworkRuntime(
         private const val GRAPH_REFRESH_INTERVAL = 5L
     }
 }
+
+private class AeroworksPeripheralTopologyProvider(
+    private val access: ComputerConsoleAccess
+) : PeripheralTopologyProvider {
+    var latestGraph: PeripheralNetworkGraph? = null
+        private set
+    var latestMetadata: Map<String, Map<String, Any?>> = emptyMap()
+        private set
+
+    override fun snapshot(computer: ComputerContext): PeripheralTopology {
+        val owner = access.owner() ?: throw LuaException("The computer control desk is no longer loaded")
+        val base = PeripheralNetworkBuilder.build(owner)
+        val occupied = base.peripherals.mapTo(linkedSetOf(), PeripheralNetworkNode::address)
+        val externalMetadata = linkedMapOf<String, Map<String, Any?>>()
+        val external = PeripheralProviders.endpoints(computer).mapNotNull { endpoint ->
+            if (!occupied.add(endpoint.address)) return@mapNotNull null
+            val anchorPos = endpoint.metadata[PeripheralEndpointMetadata.ANCHOR_POSITION] as? BlockPos
+                ?: return@mapNotNull null
+            val desk = base.desks.firstOrNull { it.pos == anchorPos } ?: return@mapNotNull null
+            val position = endpoint.metadata[PeripheralEndpointMetadata.DEVICE_POSITION] as? BlockPos
+                ?: return@mapNotNull null
+            val side = endpoint.metadata[PeripheralEndpointMetadata.SIDE] as? Direction
+            externalMetadata[endpoint.address] = endpoint.metadata
+            PeripheralNetworkNode(
+                desk = desk,
+                pos = position,
+                side = side,
+                address = endpoint.address,
+                target = endpoint.peripheral,
+                primaryType = endpoint.primaryType,
+                types = endpoint.types,
+                aliases = PeripheralTypeNames.aliases(endpoint.types)
+            )
+        }
+        val next = base.copy(peripherals = base.peripherals + external)
+        latestGraph = next
+        latestMetadata = externalMetadata.toMap()
+        return PeripheralTopology(
+            revision = next.revision,
+            state = next.state.name,
+            hosts = next.desks.map { PeripheralHost(it.id, it.address, mapOf("node" to it)) },
+            endpoints = next.peripherals.map { node ->
+                PeripheralEndpoint(
+                    address = node.address,
+                    primaryType = node.primaryType,
+                    types = node.types,
+                    peripheral = node.target,
+                    ownerKey = node.desk.id,
+                    descriptor = node,
+                    metadata = externalMetadata[node.address].orEmpty()
+                )
+            },
+            metadata = mapOf("networkId" to next.networkId, "dimension" to next.dimension, "space" to next.space)
+        )
+    }
+}
+
+private fun PeripheralEndpoint.node(): PeripheralNetworkNode =
+    descriptor as? PeripheralNetworkNode ?: error("Aeroworks peripheral endpoint lost its descriptor")

@@ -1,13 +1,15 @@
 # Programmierbare Displays
 
-CC-Aeroworks ergänzt zwei Displaymodule für Aeroworks-Steuerungspulte. Beide können Text und Zahlen anzeigen oder als frei beschreibbares Pixelraster verwendet werden.
+CC-Aeroworks ergänzt zwei Displaygrößen in normaler und erweiterter Stufe. Alle Varianten können Text und Zahlen anzeigen oder als frei beschreibbares Pixelraster verwendet werden. Nur erweiterte Displays bieten Farbe und Touch.
 
 ## Displaytypen
 
-| Display | Passende Sockets | Zeichen | Fläche | Standardraster bei 256 PPB |
+| Größe | Passende Sockets | Zeichen | Fläche | Standardraster bei 256 PPB |
 |---|---|---:|---:|---:|
-| Zweistelliges Display | `left`, `right`, `big` | 2 | `7/16 × 7/16` Block | `112x112` |
-| Dreistelliges Display | nur `big` | 3 | `10/16 × 7/16` Block | `160x112` |
+| Klein / zweistellig | `left`, `right`, `big` | 2 | `7/16 × 7/16` Block | `112x112` |
+| Groß / dreistellig | nur `big` | 3 | `10/16 × 7/16` Block | `160x112` |
+
+Die normale Stufe ist eine reine Anzeige mit fester Signalfarbe. Die erweiterte Stufe speichert eine frei wählbare 24-Bit-Farbe und besitzt die X/Y-Kanäle für Touch-/Draw-Eingaben. Ein normaler beziehungsweise erweiterter Monitor wird gepresst und ergibt die kleine Variante derselben Stufe. Ein Deployer mit Iron Sheet baut sie zur großen Variante aus.
 
 Im globalen Standardmodus (`display.useGlobalResolution = true`) wird die Rastergröße serverseitig über `display.ppb` in **Parts per Block** bestimmt. `16 PPB` entspricht der normalen Minecraft-Texturdichte von 16 Teilen pro Blockkante, Standard sind `256 PPB`. Breite und Höhe werden aus derselben Dichte und der tatsächlichen Displayfläche abgeleitet, damit jeder dargestellte Pixel physisch quadratisch bleibt.
 
@@ -101,6 +103,15 @@ end
 desk.setDisplayPixels("big", rows)
 ```
 
+### Farbe erweiterter Displays
+
+```lua
+desk.setDisplayColor("big", 0x33AAFF)
+local color = desk.getDisplayColor("big")
+```
+
+Erlaubt sind ganze Werte von `0x000000` bis `0xFFFFFF`. Normale Displays melden bei `setDisplayColor` einen Lua-Fehler. `getDisplay` und `getDisplays` liefern zusätzlich `tier`, `colorCapable`, `touchCapable`, `touchEnabled` und `color`.
+
 ## Individuelle Auflösung
 
 Bei `display.useGlobalResolution = false` kann `desk.setDisplayResolution(socket, ppb)` die Auflösung pro Slot ändern, etwa `desk.setDisplayResolution("left", 32)` für 14×14 Pixel auf einem kleinen Display. Die Rückgabe enthält `width`, `height`, `ppb`. `display.setResolution(event, ppb)` bietet denselben Zugriff aus einem Display-Skript und wird von `touchdisplay` geerbt.
@@ -109,7 +120,9 @@ Erlaubt sind ganze PPB von 16 bis `display.maxIndividualPpb` (Standard 256; Admi
 
 ## Touch und PPB-unabhängige Bedienfelder
 
-Kleine und große Displays unterstützen Touch mit einem erweiterten Computer im aktiven Pultverbund. Normale oder fehlende Computer deaktivieren Touch für beide Größen, einschließlich der Ereignisse an externe Peripherals. Skriptzuweisungen bleiben beim Computerwechsel erhalten.
+Kleine und große **erweiterte** Displays unterstützen Touch mit einem erweiterten Computer im aktiven Pultverbund. Normale Displays sowie normale oder fehlende Computer deaktivieren Touch, einschließlich der Ereignisse an externe Peripherals. Skriptzuweisungen bleiben beim Computerwechsel erhalten.
+
+Im Modulfenster legt das gemeinsame Dropdown `Display-Steuerung` exklusiv fest, wer das erweiterte Display übernimmt. Normalerweise ist dies ein kompatibles Lua-Skript. Mit geladener Create:-Radars-Kompatibilität erscheinen dort zusätzlich Network-Controller-/Data-Link-Ingresses als Pseudo-Skripte. Eine Radarwahl ersetzt die Lua-Bindung und deaktiviert die normale Pixeloberfläche samt Touch, bis wieder ein Skript oder `Keine externe Steuerung` gewählt wird. Separate Radar-Display-Items existieren nicht.
 
 Touchereignisse liefern weiterhin `x`, `y`, `width` und `height` im aktuellen Pixelraster. Bei 256 PPB besitzt ein großes Display also `160x112` statt eines groben historischen Rasters.
 

@@ -2,6 +2,7 @@ package de.teutonstudio.ccaeroworks.telemetry
 
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.computer.ConsoleComputer
+import de.TeutonStudio.TeutonLib.api.simulated.SimulatedDockingConnector
 import dev.ryanhcode.sable.Sable
 import net.minecraft.core.BlockPos
 import net.minecraft.core.registries.BuiltInRegistries
@@ -9,7 +10,6 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.neoforged.fml.ModList
 import net.neoforged.neoforge.capabilities.Capabilities
-import java.lang.reflect.Method
 
 internal data class DockSnapshot(
     val id: String,
@@ -69,7 +69,7 @@ internal data class DockSnapshot(
 
 internal object SimulatedDockDiscovery {
     fun available(): Boolean =
-        ModList.get().isLoaded("simulated") && ModList.get().isLoaded("sable") && SimulatedDockAccess.available()
+        ModList.get().isLoaded("sable") && SimulatedDockingConnector.available()
 
     fun discover(owner: ConsoleComputer): List<DockSnapshot> {
         if (!available()) return emptyList()
@@ -80,7 +80,7 @@ internal object SimulatedDockDiscovery {
 
         subLevel.plot.loadedChunks.forEach { holder ->
             holder.chunk.blockEntities.values.forEach { blockEntity ->
-                if (SimulatedDockAccess.isDock(blockEntity)) {
+                if (SimulatedDockingConnector.isConnector(blockEntity)) {
                     found[blockEntity.blockPos.immutable()] = blockEntity
                 }
             }
@@ -92,12 +92,12 @@ internal object SimulatedDockDiscovery {
     }
 
     fun snapshot(level: ServerLevel, dock: BlockEntity, localSubLevelId: String? = TelemetryIdentity.subLevelId(level, dock.blockPos)): DockSnapshot? {
-        if (!SimulatedDockAccess.isDock(dock)) return null
-        val locked = SimulatedDockAccess.isLocked(dock)
-        val extended = SimulatedDockAccess.isExtended(dock)
-        val retracted = SimulatedDockAccess.isRetracted(dock)
-        val connected = SimulatedDockAccess.hasOtherConnector(dock)
-        val remote = SimulatedDockAccess.otherConnector(dock)
+        if (!SimulatedDockingConnector.isConnector(dock)) return null
+        val locked = SimulatedDockingConnector.isLocked(dock)
+        val extended = SimulatedDockingConnector.isExtended(dock)
+        val retracted = SimulatedDockingConnector.isRetracted(dock)
+        val connected = SimulatedDockingConnector.hasOtherConnector(dock)
+        val remote = SimulatedDockingConnector.otherConnector(dock)
         val remoteSubLevel = remote?.let { runCatching { Sable.HELPER.getContaining(it) }.getOrNull() }
         val state = when {
             locked -> "locked"
@@ -187,60 +187,4 @@ internal object SimulatedDockDiscovery {
 
     private const val PERSISTENT_ROOT = "cc_aeroworks_telemetry"
     private const val PERSISTENT_DOCK_ALIAS = "dock_alias"
-}
-
-internal object SimulatedDockAccess {
-    private const val CLASS_NAME =
-        "dev.simulated_team.simulated.content.blocks.docking_connector.DockingConnectorBlockEntity"
-
-    private data class Accessors(
-        val type: Class<*>,
-        val isLocked: Method,
-        val isExtended: Method,
-        val isRetracted: Method,
-        val hasOtherConnector: Method,
-        val getOtherConnector: Method
-    )
-
-    private val accessors: Accessors? by lazy {
-        if (!ModList.get().isLoaded("simulated")) return@lazy null
-        runCatching {
-            val type = Class.forName(CLASS_NAME)
-            Accessors(
-                type = type,
-                isLocked = type.getMethod("isLocked"),
-                isExtended = type.getMethod("isExtended"),
-                isRetracted = type.getMethod("isRetracted"),
-                hasOtherConnector = type.getMethod("hasOtherConnector"),
-                getOtherConnector = type.getMethod("getOtherConnector")
-            )
-        }.onFailure { error ->
-            CCAeroworks.LOGGER.warn("[CC-Aeroworks] Failed to initialize Simulated docking compatibility", error)
-        }.getOrNull()
-    }
-
-    fun available(): Boolean = accessors != null
-
-    fun isDock(blockEntity: BlockEntity): Boolean {
-        val current = accessors ?: return false
-        return current.type.isInstance(blockEntity) ||
-            BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(blockEntity.type).toString() == "simulated:docking_connector"
-    }
-
-    fun isLocked(blockEntity: BlockEntity): Boolean = boolean(blockEntity) { it.isLocked }
-    fun isExtended(blockEntity: BlockEntity): Boolean = boolean(blockEntity) { it.isExtended }
-    fun isRetracted(blockEntity: BlockEntity): Boolean = boolean(blockEntity) { it.isRetracted }
-    fun hasOtherConnector(blockEntity: BlockEntity): Boolean = boolean(blockEntity) { it.hasOtherConnector }
-
-    fun otherConnector(blockEntity: BlockEntity): BlockEntity? {
-        val current = accessors ?: return null
-        if (!current.type.isInstance(blockEntity)) return null
-        return runCatching { current.getOtherConnector.invoke(blockEntity) as? BlockEntity }.getOrNull()
-    }
-
-    private inline fun boolean(blockEntity: BlockEntity, method: (Accessors) -> Method): Boolean {
-        val current = accessors ?: return false
-        if (!current.type.isInstance(blockEntity)) return false
-        return runCatching { method(current).invoke(blockEntity) as Boolean }.getOrDefault(false)
-    }
 }

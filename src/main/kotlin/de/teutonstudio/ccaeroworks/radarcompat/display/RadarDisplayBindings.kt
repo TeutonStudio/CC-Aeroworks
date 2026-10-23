@@ -2,7 +2,8 @@ package de.teutonstudio.ccaeroworks.radarcompat.display
 
 import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindingExtensions
-import de.teutonstudio.ccaeroworks.radarcompat.registry.RadarModuleTypes
+import de.teutonstudio.ccaeroworks.display.DeskDisplayTier
+import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 import net.minecraft.nbt.CompoundTag
 
 object RadarDisplayBindings {
@@ -12,7 +13,7 @@ object RadarDisplayBindings {
         DisplayBindingExtensions.register(
             TYPE,
             supports = { desk, socket, _ ->
-                desk.module(socket)?.let { RadarModuleTypes.radarDisplayType(it.type()) } != null
+                desk.module(socket)?.let { CCModuleTypes.displayVariant(it.type())?.tier } == DeskDisplayTier.ADVANCED
             },
             describe = { binding ->
                 val source = source(binding)

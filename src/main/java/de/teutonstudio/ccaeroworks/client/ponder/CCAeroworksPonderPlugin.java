@@ -6,8 +6,10 @@ import net.createmod.ponder.api.registration.PonderSceneRegistrationHelper;
 import net.minecraft.resources.ResourceLocation;
 
 public class CCAeroworksPonderPlugin implements PonderPlugin {
-    private static final ResourceLocation TWO_DIGIT_DISPLAY = CCAeroworks.id("two_digit_display");
-    private static final ResourceLocation THREE_DIGIT_DISPLAY = CCAeroworks.id("three_digit_display");
+    private static final ResourceLocation SMALL_DISPLAY = CCAeroworks.id("small_display");
+    private static final ResourceLocation LARGE_DISPLAY = CCAeroworks.id("large_display");
+    private static final ResourceLocation ADVANCED_SMALL_DISPLAY = CCAeroworks.id("advanced_small_display");
+    private static final ResourceLocation ADVANCED_LARGE_DISPLAY = CCAeroworks.id("advanced_large_display");
 
     @Override public String getModId() { return CCAeroworks.MOD_ID; }
 
@@ -23,7 +25,7 @@ public class CCAeroworksPonderPlugin implements PonderPlugin {
             .addStoryBoard("computer_control_desk", ComputerControlDeskScenes::network)
             .addStoryBoard("computer_control_desk", ComputerControlDeskScenes::peripheralSearch)
             .addStoryBoard("computer_control_desk", ComputerControlDeskScenes::diagnostics);
-        helper.forComponents(TWO_DIGIT_DISPLAY, THREE_DIGIT_DISPLAY)
+        helper.forComponents(SMALL_DISPLAY, LARGE_DISPLAY, ADVANCED_SMALL_DISPLAY, ADVANCED_LARGE_DISPLAY)
             .addStoryBoard("computer_control_desk", DisplayModuleScenes::crafting)
             .addStoryBoard("computer_control_desk", DisplayModuleScenes::mounting)
             .addStoryBoard("computer_control_desk", DisplayModuleScenes::programming);

@@ -2,6 +2,9 @@ package de.teutonstudio.ccaeroworks.registry
 
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlockEntity
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleAssemblyBlockEntity
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.resources.ResourceLocation
 import net.minecraft.core.registries.Registries
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.neoforged.bus.api.IEventBus
@@ -31,6 +34,22 @@ object CCBlockEntities {
                     CCBlocks.ADVANCED_COMPUTER_CONTROL_STAND.get(),
                     CCBlocks.COMPUTER_COPYCAT_CONTROL_STAND.get(),
                     CCBlocks.ADVANCED_COMPUTER_COPYCAT_CONTROL_STAND.get()
+                ).build(null)
+            }
+        )
+
+    @JvmField
+    val CONSOLE_ASSEMBLY_SEGMENT:
+        DeferredHolder<BlockEntityType<*>, BlockEntityType<ConsoleAssemblyBlockEntity>> =
+        BLOCK_ENTITIES.register(
+            "console_assembly_segment",
+            Supplier<BlockEntityType<ConsoleAssemblyBlockEntity>> {
+                val controls = BuiltInRegistries.BLOCK.get(
+                    ResourceLocation.fromNamespaceAndPath("create", "controls")
+                )
+                BlockEntityType.Builder.of(
+                    { pos, state -> ConsoleAssemblyBlockEntity(pos, state) },
+                    controls
                 ).build(null)
             }
         )

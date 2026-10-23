@@ -44,10 +44,19 @@ object CombinedLeverController {
 
     @SubscribeEvent(priority = EventPriority.LOW)
     fun onKey(event: InputEvent.Key) {
-        if (event.action == GLFW.GLFW_REPEAT) return
-        val minecraft = Minecraft.getInstance()
-        val binding = InputConstants.Type.KEYSYM.getOrCreate(event.key).name
-        if (event.action == GLFW.GLFW_PRESS && CombinedInputCoordinator.isShiftCameraOnly(minecraft)) {
+        captureKey(event.key, event.action, Minecraft.getInstance())
+    }
+
+    /**
+     * Handles a keyboard edge before vanilla turns it into a KeyMapping click. The raw keyboard
+     * mixin uses the return value to keep an activation key exclusive to Combined control.
+     */
+    internal fun captureKey(key: Int, action: Int, minecraft: Minecraft): Boolean {
+        val binding = InputConstants.Type.KEYSYM.getOrCreate(key).name
+        if (action == GLFW.GLFW_REPEAT) {
+            return suppressedBinding == binding || target?.activationBinding == binding
+        }
+        if (action == GLFW.GLFW_PRESS && CombinedInputCoordinator.isShiftCameraOnly(minecraft)) {
             val active = target
             if (active != null) {
                 if (CombinedActivationKey.isDown(active.activationBinding, minecraft)) {
@@ -55,11 +64,12 @@ object CombinedLeverController {
                 }
                 stop(flushFinal = true)
             }
-            return
+            return false
         }
-        when (event.action) {
+        return when (action) {
             GLFW.GLFW_PRESS -> onBindingPressed(binding, minecraft)
             GLFW.GLFW_RELEASE -> onBindingReleased(binding)
+            else -> false
         }
     }
 

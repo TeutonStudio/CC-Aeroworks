@@ -46,10 +46,10 @@ object RadarNetworkControllerLookup {
             } ?: return@runCatching emptyList()
 
             buildSet {
-                network.members.forEach { member ->
-                    (lookup.invoke(data, level.dimension(), member.pos) as? BlockPos)?.let { add(it.immutable()) }
+                network.segmentPositions.forEach { segmentPos ->
+                    (lookup.invoke(data, level.dimension(), segmentPos) as? BlockPos)?.let { add(it.immutable()) }
                     Direction.entries.forEach { direction ->
-                        val candidate = member.pos.relative(direction)
+                        val candidate = segmentPos.relative(direction)
                         if (!level.isLoaded(candidate)) return@forEach
                         if (BuiltInRegistries.BLOCK.getKey(level.getBlockState(candidate).block) == NETWORK_CONTROLLER_ID) {
                             add(candidate.immutable())

@@ -8,6 +8,9 @@ import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlock
 import de.teutonstudio.ccaeroworks.computer.ConsoleComputers
 import de.teutonstudio.ccaeroworks.computer.ConsoleComputerLifecycle
 import de.teutonstudio.ccaeroworks.computer.ConsoleComputer
+import de.teutonstudio.ccaeroworks.train.TrainControlConsoleGeometry
+import de.teutonstudio.ccaeroworks.train.TrainControlConsoleIntegration
+import de.teutonstudio.ccaeroworks.train.TrainControlConsoleUpdater
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.server.level.ServerLevel
@@ -48,6 +51,7 @@ data class ConsoleMember(
 
 data class ConsoleMultiblockSnapshot(
     val anchor: BlockPos,
+    val segmentPositions: List<BlockPos>,
     val members: List<ConsoleMember>,
     val computers: List<ConsoleComputer>,
     val state: ConsoleNetworkState,
@@ -68,6 +72,7 @@ object ConsoleMultiblockResolver {
                 start.immutable(),
                 emptyList(),
                 emptyList(),
+                emptyList(),
                 ConsoleNetworkState.PARTIALLY_LOADED,
                 revision
             )
@@ -81,6 +86,7 @@ object ConsoleMultiblockResolver {
                 start.immutable(),
                 emptyList(),
                 emptyList(),
+                emptyList(),
                 ConsoleNetworkState.NONE,
                 revision
             )
@@ -88,7 +94,8 @@ object ConsoleMultiblockResolver {
 
         val facing = startState.getValue(BlockStateProperties.HORIZONTAL_FACING)
         val ceiling = booleanPropertyValue(startState, "ceiling")
-        val standGeometry = (startState.block as ConsoleDeskBlock).standGeometry()
+        if (level is ServerLevel) ConsoleAssemblyRuntime.ensureLegacyComponent(level, start)
+        val standGeometry = ConsoleAssemblyAdapters.profile(startState)?.geometry == TrainControlConsoleGeometry.STAND
         val left = facing.counterClockWise
         val right = facing.clockWise
         val positions = mutableListOf(start.immutable())
@@ -104,12 +111,13 @@ object ConsoleMultiblockResolver {
                     break
                 }
                 val state = level.getBlockState(cursor)
-                if (!compatible(state, facing, ceiling, standGeometry)) break
+                val previous = cursor.relative(direction.opposite)
+                if (!ConsoleAssemblyRuntime.connected(level, previous, cursor)) break
                 found += cursor.immutable()
                 cursor = cursor.relative(direction)
             }
             if (found.size + positions.size >= MAX_MEMBERS && level.isLoaded(cursor) &&
-                compatible(level.getBlockState(cursor), facing, ceiling, standGeometry)
+                compatibleSegment(level.getBlockState(cursor), facing, ceiling, standGeometry)
             ) {
                 tooLarge = true
             }
@@ -120,10 +128,14 @@ object ConsoleMultiblockResolver {
         positions.addAll(0, leftPositions)
         positions.addAll(scan(right))
 
-        val members = positions.mapIndexedNotNull { index, pos ->
-            val desk = level.getBlockEntity(pos) as? ConsoleBlockEntity ?: run {
+        var deskIndex = 0
+        val members = positions.mapNotNull { pos ->
+            if (!AeroworksTypes.isControlDesk(level.getBlockState(pos).block)) {
+                return@mapNotNull null
+            }
+            val desk = ConsoleAssemblyRuntime.blockEntityIfPresent(level, pos) as? ConsoleBlockEntity ?: run {
                 partiallyLoaded = true
-                return@mapIndexedNotNull null
+                return@mapNotNull null
             }
             val kind = when {
                 ConsoleComputers.get(desk)?.isAdvanced == true ->
@@ -133,19 +145,21 @@ object ConsoleMultiblockResolver {
                 else -> ConsoleMemberKind.CONTROL_DESK
             }
             val id = (desk as DeskIdentityAccess).ccaeroworks_getDeskId().toString()
-            ConsoleMember(index + 1, pos, desk, id, kind, facing)
+            deskIndex += 1
+            ConsoleMember(deskIndex, pos, desk, id, kind, facing)
         }
 
         val computers = members.mapNotNull { ConsoleComputers.get(it.desk) }
         val state = when {
             tooLarge -> ConsoleNetworkState.TOO_LARGE
-            partiallyLoaded || members.size != positions.size -> ConsoleNetworkState.PARTIALLY_LOADED
+            partiallyLoaded -> ConsoleNetworkState.PARTIALLY_LOADED
             computers.size > 1 -> ConsoleNetworkState.CONFLICT
             computers.size == 1 -> ConsoleNetworkState.ACTIVE
             else -> ConsoleNetworkState.NONE
         }
         return ConsoleMultiblockSnapshot(
             members.firstOrNull()?.pos ?: start.immutable(),
+            positions.toList(),
             members,
             computers,
             state,
@@ -155,6 +169,18 @@ object ConsoleMultiblockResolver {
 
     fun compatible(state: BlockState, facing: Direction): Boolean =
         compatible(state, facing, null, null)
+
+    fun compatibleSegment(
+        state: BlockState,
+        facing: Direction,
+        ceiling: Boolean?,
+        standGeometry: Boolean?
+    ): Boolean {
+        if (compatible(state, facing, ceiling, standGeometry)) return true
+        if (ceiling == true || standGeometry == null) return false
+        val geometry = if (standGeometry) TrainControlConsoleGeometry.STAND else TrainControlConsoleGeometry.DESK
+        return TrainControlConsoleIntegration.compatible(state, facing, geometry)
+    }
 
     private fun compatible(
         state: BlockState,
@@ -166,7 +192,8 @@ object ConsoleMultiblockResolver {
             state.hasProperty(BlockStateProperties.HORIZONTAL_FACING) &&
             state.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing &&
             (ceiling == null || booleanPropertyValue(state, "ceiling") == ceiling) &&
-            (standGeometry == null || (state.block as ConsoleDeskBlock).standGeometry() == standGeometry)
+            (standGeometry == null ||
+                (ConsoleAssemblyAdapters.profile(state)?.geometry == TrainControlConsoleGeometry.STAND) == standGeometry)
 
     private fun booleanPropertyValue(state: BlockState, name: String): Boolean? {
         val property = state.properties
@@ -191,8 +218,8 @@ object ConsoleMultiblockManager {
 
         val snapshot = ConsoleMultiblockResolver.resolve(level, pos, revision.incrementAndGet())
         val cached = Cached(snapshot)
-        snapshot.members.forEach { levelCache[it.pos] = cached }
-        if (snapshot.members.isEmpty()) levelCache[key] = cached
+        snapshot.segmentPositions.forEach { levelCache[it] = cached }
+        if (snapshot.segmentPositions.isEmpty()) levelCache[key] = cached
         return snapshot
     }
 
@@ -205,10 +232,10 @@ object ConsoleMultiblockManager {
     fun invalidate(level: Level, pos: BlockPos) {
         val levelCache = caches[level] ?: return
         val affected = levelCache.values.filterTo(hashSetOf()) { cached ->
-            cached.snapshot.members.any { member ->
-                member.pos.y == pos.y &&
-                    kotlin.math.abs(member.pos.x - pos.x) + kotlin.math.abs(member.pos.z - pos.z) <= 1
-            } || cached.snapshot.members.isEmpty() && levelCache[pos] === cached
+            cached.snapshot.segmentPositions.any { segment ->
+                segment.y == pos.y &&
+                    kotlin.math.abs(segment.x - pos.x) + kotlin.math.abs(segment.z - pos.z) <= 1
+            } || cached.snapshot.segmentPositions.isEmpty() && levelCache[pos] === cached
         }
         if (affected.isNotEmpty()) levelCache.entries.removeIf { it.value in affected }
         levelCache.remove(pos)
@@ -223,8 +250,8 @@ object ConsoleMultiblockManager {
         val maxZ = minZ + 15
         levelCache.entries.removeIf { (key, cached) ->
             key.x in (minX - 1)..(maxX + 1) && key.z in (minZ - 1)..(maxZ + 1) ||
-                cached.snapshot.members.any { member ->
-                    member.pos.x in (minX - 1)..(maxX + 1) && member.pos.z in (minZ - 1)..(maxZ + 1)
+                cached.snapshot.segmentPositions.any { segment ->
+                    segment.x in (minX - 1)..(maxX + 1) && segment.z in (minZ - 1)..(maxZ + 1)
                 }
         }
     }
@@ -232,12 +259,19 @@ object ConsoleMultiblockManager {
     @SubscribeEvent
     fun onPlace(event: BlockEvent.EntityPlaceEvent) {
         val level = event.level as? Level ?: return
-        if (!AeroworksTypes.isControlDesk(event.placedBlock.block)) return
+        if (!isNetworkSegment(event.placedBlock)) return
         invalidate(level, event.pos)
 
         val serverLevel = level as? ServerLevel ?: return
-        if (event.placedBlock.block is ComputerControlDeskBlock) return
         val player = event.entity as? Player ?: return
+        if (TrainControlConsoleIntegration.isIntegrated(event.placedBlock)) {
+            val anchor = TrainControlConsoleUpdater.anchorDesks(serverLevel, event.pos).firstOrNull() ?: return
+            serverLevel.server.execute {
+                reconcileMergedComputers(serverLevel, anchor, player)
+            }
+            return
+        }
+        if (event.placedBlock.block is ComputerControlDeskBlock) return
         val placedPos = event.pos.immutable()
 
         // A normal control desk can join two previously valid console networks. Resolve the
@@ -250,13 +284,13 @@ object ConsoleMultiblockManager {
     @SubscribeEvent
     fun onBreak(event: BlockEvent.BreakEvent) {
         val level = event.level as? Level ?: return
-        if (AeroworksTypes.isControlDesk(event.state.block)) invalidate(level, event.pos)
+        if (isNetworkSegment(event.state)) invalidate(level, event.pos)
     }
 
     @SubscribeEvent
     fun onNeighbourNotify(event: BlockEvent.NeighborNotifyEvent) {
         val level = event.level as? Level ?: return
-        if (AeroworksTypes.isControlDesk(event.state.block)) invalidate(level, event.pos)
+        if (isNetworkSegment(event.state)) invalidate(level, event.pos)
     }
 
     @SubscribeEvent
@@ -282,4 +316,7 @@ object ConsoleMultiblockManager {
     private fun reconcileMergedComputers(level: ServerLevel, placedPos: BlockPos, player: Player) {
         ConsoleComputerLifecycle.reconcile(level, placedPos)
     }
+
+    private fun isNetworkSegment(state: BlockState): Boolean =
+        AeroworksTypes.isControlDesk(state.block) || TrainControlConsoleIntegration.isIntegrated(state)
 }

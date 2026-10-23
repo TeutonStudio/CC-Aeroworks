@@ -10,18 +10,21 @@ import de.TeutonStudio.TeutonLib.api.computer.SourceView
 import de.TeutonStudio.TeutonLib.api.computer.SourceApi
 import de.TeutonStudio.TeutonLib.api.computer.SourceMethod
 import de.TeutonStudio.TeutonLib.api.computer.PeripheralSource
+import de.TeutonStudio.TeutonLib.api.computer.peripheral.PeripheralProviders
+import de.TeutonStudio.TeutonLib.api.computer.peripheral.PeripheralTargetProvider
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import dan200.computercraft.shared.peripheral.modem.wired.WiredModemPeripheral
 import dan200.computercraft.shared.peripheral.modem.wired.WiredModemElement
-import de.TeutonStudio.TeutonLib.integration.computer.StandardComputerWorkspace
 import de.teutonstudio.ccaeroworks.client.guide.ApiReferenceCatalog
 import de.TeutonStudio.TeutonLib.api.computer.ChannelView
-import de.TeutonStudio.TeutonLib.integration.computer.ComputerIntegration
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.computer.*
 import de.teutonstudio.ccaeroworks.computer.channel.ChannelRegistry
 import de.teutonstudio.ccaeroworks.computer.channel.channelGroups
 import de.teutonstudio.ccaeroworks.computer.source.*
 import de.teutonstudio.ccaeroworks.computer.wire.WireConnectionView
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.ListTag
 import net.minecraft.server.level.ServerPlayer
@@ -36,6 +39,17 @@ object DeskComputerWorkspace : ComputerWorkspace {
     fun register(bus: IEventBus) {
         bus.addListener<FMLCommonSetupEvent> { event -> event.enqueueWork {
             ComputerExtensions.registerWorkspace(ID, this)
+            PeripheralProviders.registerTargets(object : PeripheralTargetProvider {
+                override fun supports(anchor: net.minecraft.world.level.block.entity.BlockEntity): Boolean =
+                    anchor is ConsoleBlockEntity
+
+                override fun owner(anchor: net.minecraft.world.level.block.entity.BlockEntity): net.minecraft.world.level.block.entity.BlockEntity? {
+                    if (anchor !is ConsoleBlockEntity) return null
+                    val level = anchor.level ?: return null
+                    val snapshot = ConsoleMultiblockManager.resolve(level, anchor.blockPos)
+                    return if (snapshot.state != ConsoleNetworkState.ACTIVE) null else snapshot.owner?.host
+                }
+            })
             ComputerExtensions.registerPeripheralSources { context ->
                 val owner = ConsoleComputers.get(context.host()) ?: return@registerPeripheralSources emptyMap()
                 buildMap {
@@ -212,13 +226,11 @@ object DeskComputerWorkspace : ComputerWorkspace {
     private fun sources(owner: ConsoleComputer, computer: ServerComputer): Snapshot {
         val snapshot = InformationSourceSnapshotBuilder.build(owner)
         // TeutonLib is authoritative for peripheral addresses and connection metadata. Other source owners stay in Aeroworks.
-        val peripherals = ComputerIntegration.runtime(computer)?.sourceViews().orEmpty()
+        val peripherals = ComputerExtensions.sourceViews(computer)
             .filterNot { it.name.startsWith("cc_aeroworks:") && !it.name.startsWith("cc_aeroworks:link_") }
-        val runtime = ComputerIntegration.runtime(computer)
-        val connected = runtime?.peripherals().orEmpty()
         val categorizedPeripherals = peripherals.map(DeskWorkspaceProjection::categorize)
-        val peripheralEntries = if (runtime == null) emptyList() else categorizedPeripherals.map { source ->
-            StandardComputerWorkspace.sourceEntry(runtime, source, connected[source.name])
+        val peripheralEntries = categorizedPeripherals.map { source ->
+            ComputerExtensions.sourceEntry(computer, source)
         }
         val peripheralSections = DeskWorkspaceProjection.connectionGroups(categorizedPeripherals).map { connection ->
             entry("peripheral_connection:$connection", "teutonlib.computer.$connection", children =

@@ -7,6 +7,7 @@ import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess
 import de.teutonstudio.ccaeroworks.config.CCServerConfig
 import de.teutonstudio.ccaeroworks.display.DeskDisplayType
+import de.teutonstudio.ccaeroworks.display.DisplayColorSettings
 import net.createmod.catnip.render.CachedBuffers
 import net.createmod.catnip.render.SuperByteBuffer
 import net.minecraft.client.renderer.MultiBufferSource
@@ -16,7 +17,6 @@ import net.minecraft.client.renderer.texture.OverlayTexture
 object DeskDisplayRenderer {
     private const val SPACING = 0.18
     private const val PIXEL_SURFACE_Y = 2.251 / 16.0
-    private const val PIXEL_COLOR_ARGB: Int = -230909
 
     @JvmStatic
     fun render(desk: ConsoleBlockEntity, poseStack: PoseStack, buffers: MultiBufferSource, light: Int) {
@@ -65,10 +65,11 @@ object DeskDisplayRenderer {
 
                 val pose = poseStack.last()
                 // v=0 belongs to raster row 0, which historically sits on the +Z display edge.
-                vertex(consumer, pose, minX, PIXEL_SURFACE_Y, maxZ, 0.0f, 0.0f, light)
-                vertex(consumer, pose, maxX, PIXEL_SURFACE_Y, maxZ, 1.0f, 0.0f, light)
-                vertex(consumer, pose, maxX, PIXEL_SURFACE_Y, minZ, 1.0f, 1.0f, light)
-                vertex(consumer, pose, minX, PIXEL_SURFACE_Y, minZ, 0.0f, 1.0f, light)
+                val color = DisplayColorSettings.argb(display.color)
+                vertex(consumer, pose, minX, PIXEL_SURFACE_Y, maxZ, 0.0f, 0.0f, light, color)
+                vertex(consumer, pose, maxX, PIXEL_SURFACE_Y, maxZ, 1.0f, 0.0f, light, color)
+                vertex(consumer, pose, maxX, PIXEL_SURFACE_Y, minZ, 1.0f, 1.0f, light, color)
+                vertex(consumer, pose, minX, PIXEL_SURFACE_Y, minZ, 0.0f, 1.0f, light, color)
             } finally {
                 poseStack.popPose()
             }
@@ -85,10 +86,11 @@ object DeskDisplayRenderer {
         z: Double,
         u: Float,
         v: Float,
-        light: Int
+        light: Int,
+        color: Int
     ) {
         consumer.addVertex(pose, x.toFloat(), y.toFloat(), z.toFloat())
-            .setColor(PIXEL_COLOR_ARGB)
+            .setColor(color)
             .setUv(u, v)
             .setOverlay(OverlayTexture.NO_OVERLAY)
             .setLight(light)
@@ -104,7 +106,7 @@ object DeskDisplayRenderer {
             if (display.pixels != null) return@forEach
             val socket = sockets.getOrNull(display.socket) ?: return@forEach
             display.text.padEnd(display.type.width, ' ').forEachIndexed { digit, character ->
-                DeskDisplayModels.segments(character).forEach { segment ->
+                DeskDisplayModels.segments(character, display.variant.tier.colorCapable).forEach { segment ->
                     val rendered: SuperByteBuffer = CachedBuffers.partial(segment.model, desk.blockState)
                         .translate(0.5, 0.5, 0.5)
                         .rotate(rotation)
@@ -113,6 +115,7 @@ object DeskDisplayRenderer {
                         .translate(-0.5, 0.0, -0.5)
                         .translate(digitOffset(display.type.width, digit) + segment.x, 0.0, segment.z)
                     rendered.light<SuperByteBuffer>(light)
+                    if (display.variant.tier.colorCapable) rendered.color<SuperByteBuffer>(DisplayColorSettings.argb(display.color))
                     rendered.renderInto(poseStack, consumer)
                 }
             }

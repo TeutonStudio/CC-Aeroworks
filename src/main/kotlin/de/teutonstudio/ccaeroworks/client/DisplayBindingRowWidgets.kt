@@ -2,33 +2,43 @@ package de.teutonstudio.ccaeroworks.client
 
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.display.DisplayScriptCatalogState
-import net.minecraft.core.BlockPos
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import net.minecraft.network.chat.Component
 import net.minecraft.resources.ResourceLocation
+import net.neoforged.neoforge.network.PacketDistributor
+import de.teutonstudio.ccaeroworks.network.SetDisplayTouchScriptPayload
 
 internal fun scriptSourceOptions(
-    deskPos: BlockPos,
+    desk: ConsoleBlockEntity,
     socket: Int,
-    selectedPath: String
-): List<SourceSelectorOption<String>> {
+    selectedKey: String
+): List<SourceSelectorOption<DisplaySourceSelection>> {
+    val deskPos = desk.blockPos
     val entries = DisplayScriptCatalogState.get(deskPos, socket)
-    val result = ArrayList<SourceSelectorOption<String>>(entries.size + 2)
+    val extensions = DisplaySourceSelectorExtensions.options(desk, socket, selectedKey)
+    val result = ArrayList<SourceSelectorOption<DisplaySourceSelection>>(entries.size + extensions.size + 2)
     result += SourceSelectorOption(
         key = "",
-        value = "",
+        value = DisplaySourceSelection {
+            PacketDistributor.sendToServer(SetDisplayTouchScriptPayload(deskPos, socket, ""))
+        },
         presentation = SourceSelectorPresentation(
-            title = Component.literal(if (entries.isEmpty()) "Keine gültigen Skripte" else "Keine Skriptquelle"),
-            subtitle = Component.literal(if (entries.isEmpty()) "Kein kompatibles Lua-Skript gefunden" else "Standard / deaktiviert"),
+            title = Component.literal("Keine externe Steuerung"),
+            subtitle = Component.literal("Standard / deaktiviert"),
             icon = SourceSelectorIcon.Sprite(SCRIPT_ICON)
         )
     )
-    if (selectedPath.isNotBlank() && entries.none { it.path == selectedPath }) {
+    if (
+        selectedKey.isNotBlank() &&
+        entries.none { it.path == selectedKey } &&
+        extensions.none { it.key == selectedKey }
+    ) {
         result += SourceSelectorOption(
-            key = selectedPath,
-            value = selectedPath,
+            key = selectedKey,
+            value = DisplaySourceSelection {},
             presentation = SourceSelectorPresentation(
-                title = Component.literal("Fehlende Skriptquelle"),
-                subtitle = Component.literal(selectedPath),
+                title = Component.literal("Fehlende Display-Steuerung"),
+                subtitle = Component.literal(selectedKey),
                 icon = SourceSelectorIcon.Sprite(SCRIPT_ICON)
             ),
             selectable = false
@@ -37,7 +47,9 @@ internal fun scriptSourceOptions(
     entries.forEach { descriptor ->
         result += SourceSelectorOption(
             key = descriptor.path,
-            value = descriptor.path,
+            value = DisplaySourceSelection {
+                PacketDistributor.sendToServer(SetDisplayTouchScriptPayload(deskPos, socket, descriptor.path))
+            },
             presentation = SourceSelectorPresentation(
                 title = Component.literal(descriptor.name),
                 subtitle = Component.literal(descriptor.path),
@@ -45,6 +57,7 @@ internal fun scriptSourceOptions(
             )
         )
     }
+    result += extensions
     return result
 }
 

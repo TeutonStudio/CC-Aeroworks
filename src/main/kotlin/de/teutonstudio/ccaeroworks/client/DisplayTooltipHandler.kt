@@ -13,8 +13,10 @@ object DisplayTooltipHandler {
         if (!event.flags.isAdvanced) return
 
         val type = when (event.itemStack.item) {
-            CCItems.TWO_DIGIT_DISPLAY.get() -> DeskDisplayType.TWO_DIGIT
-            CCItems.THREE_DIGIT_DISPLAY.get() -> DeskDisplayType.THREE_DIGIT
+            CCItems.SMALL_DISPLAY.get() -> DeskDisplayType.TWO_DIGIT
+            CCItems.LARGE_DISPLAY.get() -> DeskDisplayType.THREE_DIGIT
+            CCItems.ADVANCED_SMALL_DISPLAY.get() -> DeskDisplayType.TWO_DIGIT
+            CCItems.ADVANCED_LARGE_DISPLAY.get() -> DeskDisplayType.THREE_DIGIT
             else -> return
         }
 

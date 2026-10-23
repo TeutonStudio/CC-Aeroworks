@@ -2,11 +2,11 @@
 
 Die Integration ist optional und wird nur aktiv, wenn Create: Radars mit der Mod-ID `create_radar` geladen ist. Unterstützt und im Entwicklungsmanifest fest eingetragen ist Create: Radars `0.4.9.4-1.21.1` für Minecraft 1.21.1.
 
-Ohne Create: Radars bleiben CC-Aeroworks und alle normalen Pultfunktionen startfähig. RadarDisplay-Rezepte und optionale Inhalte werden über `neoforge:mod_loaded` ausgeblendet. Der optionale Data-Link-Mixin ist `@Pseudo`, verwendet ein Klassennamenziel und enthält keine Create:-Radars-Typen in seiner Handler-Signatur. Auch der clientseitige Renderer-Bridge enthält Create:-Radars-Klassen ausschließlich als zur Laufzeit aufgelöste Klassennamen.
+Ohne Create: Radars bleiben CC-Aeroworks und alle normalen Pultfunktionen startfähig. Die Radar-Pseudo-Skriptquelle wird dann nicht in der Display-Steuerung angeboten. Der optionale Data-Link-Mixin ist `@Pseudo`, verwendet ein Klassennamenziel und enthält keine Create:-Radars-Typen in seiner Handler-Signatur. Auch der clientseitige Renderer-Bridge enthält Create:-Radars-Klassen ausschließlich als zur Laufzeit aufgelöste Klassennamen.
 
-## Zweck der RadarDisplays
+## Radar als Pseudo-Skript
 
-`cc_aeroworks:small_radar_display` und `cc_aeroworks:large_radar_display` machen genau das Pult, in dem sie montiert sind, zu einem Create:-Radars-Monitorendpoint.
+Es gibt keine eigenen RadarDisplay-Items. Ein kleines oder großes **erweitertes** Pultdisplay kann im gemeinsamen Dropdown `Display-Steuerung` entweder ein Lua-Skript oder einen Radar-Ingress auswählen. Die Radarquelle ist dabei ein Pseudo-Skript: Sie ersetzt die Lua-Bindung, übernimmt die vollständige Oberfläche und deaktiviert Touch, solange sie ausgewählt ist.
 
 Unterstützt werden:
 
@@ -15,23 +15,16 @@ Unterstützt werden:
 - ComputerControlDesk,
 - Advanced ComputerControlDesk.
 
-Ein Pult ohne kleines oder großes RadarDisplay ist kein gültiger nativer Monitorendpoint. Weitere RadarDisplays desselben Pultmultiblocks können einen bereits synchronisierten Ingress in der Modul-UI auswählen. Zusätzlich kann genau ein eingebetteter Computer einen eindeutigen Network Filterer aus dem aktiven Pultnetz direkt an die RadarDisplays routen.
-
-## Herstellung
-
-- `cc_aeroworks:two_digit_display` plus `create_radar:monitor` ergibt `cc_aeroworks:small_radar_display`.
-- `cc_aeroworks:three_digit_display` plus `create_radar:monitor` ergibt `cc_aeroworks:large_radar_display`.
-
-Der native Monitor wird als Herstellungskomponente verwendet. Im fertigen Aufbau übernimmt das Pult mit RadarDisplay den Monitorendpoint.
+Ein Pult ohne erweitertes Display ist kein gültiger nativer Monitorendpoint. Erweiterte Displays desselben Pultmultiblocks können einen bereits synchronisierten Ingress im selben Dropdown wie die Lua-Skripte auswählen. Zusätzlich kann genau ein eingebetteter Computer einen eindeutigen Network Filterer aus dem aktiven Pultnetz direkt an die erweiterten Displays routen.
 
 ## Nativer Aufbau
 
 1. Den Data-Link-Gegenstand zuerst auf dem Network Filterer und anschließend auf dem Radar verwenden. Ein lediglich am Radar platzierter Controller weist seiner Netzwerkgruppe keinen Radar zu.
 2. Der Spieler verwendet den Create:-Radars-Data-Link-Gegenstand auf dem Network Filterer. Das Item speichert nativ `SelectedFiltererPos`.
-3. Der Spieler verwendet dasselbe Item auf einer freien Seite des Pults, in dem ein RadarDisplay montiert ist.
+3. Der Spieler verwendet dasselbe Item auf einer freien Seite des Pults, in dem ein erweitertes Display montiert ist.
 4. Create: Radars klassifiziert das Pult als `MONITOR`, prüft die Linkreichweite und bestehende Gruppenzuordnungen und platziert den physischen Data-Link-Block.
 5. Der Originalcode ruft `NetworkData.canAttachMonitor(...)`, `attachMonitor(...)` und `addDataLinkToGroup(...)` auf, zeigt seine normalen Meldungen und bereinigt den Itemzustand.
-6. Der Data-Link-Block bleibt sichtbar am Pult und ist Eigentümer der Verbindung.
+6. Der Data-Link-Block bleibt sichtbar am Pult und ist Eigentümer der Verbindung. Danach wird am erweiterten Display im Dropdown `Display-Steuerung` der passende Radar-Ingress gewählt.
 
 Die Verbindungen Controller → Radar und Controller → Pult sind getrennte Zuordnungen. Die Quellenwahl in der Pult-UI ersetzt keine davon. `Kein Radar zugeordnet` bedeutet, dass der Pultendpoint bereits registriert ist, aber seiner nativen Netzwerkgruppe die Radarposition fehlt. Die Quellenliste zeigt den aktuellen Status; die Auswahl folgt dem vom Server bestätigten Binding. Fehlende Verbindungen, nicht geladene oder gestoppte Radars und veraltete Daten werden auch auf den Anzeigen erklärt. Auf Sable-Schiffen verwendet die Quellenwahl die projizierte Spielerreichweite.
 
@@ -39,14 +32,14 @@ Der Network Filterer muss für diesen nativen Pfad nicht angrenzend zum Pult ste
 
 ## Computergerouteter Network Controller
 
-Als Alternative zum zweiten Data Link zwischen Filterer und RadarDisplay-Pult genügt ein aktives Pultnetz mit genau einem eingebetteten Computer. CC-Aeroworks berücksichtigt dabei:
+Als Alternative zum zweiten Data Link zwischen Filterer und Display-Pult genügt ein aktives Pultnetz mit genau einem eingebetteten Computer. CC-Aeroworks berücksichtigt dabei:
 
 - einen `create_radar:network_filterer`, der unmittelbar an ein beliebiges Pultmitglied grenzt;
 - eine bereits in `NetworkData` vorhandene Filterer-Zuordnung eines Pultmitglieds.
 
 Der Computer liest die zugehörige native Gruppe und speist deren Radarposition, Filter, Zielauswahl und Tracks in denselben Snapshot- und Rendererpfad ein. Die native Verbindung **Network Filterer → Radar** bleibt zwingend erforderlich. CC-Aeroworks erzeugt keine Radarzuordnung und verändert die Gruppe nicht.
 
-Ein direkt am RadarDisplay registrierter nativer Monitorendpoint hat Vorrang. Ist kein solcher Endpoint vorhanden und sind mehrere verschiedene Network Filterer im Pultnetz sichtbar, zeigt die Anzeige `Mehrere Network Controller`, statt willkürlich eine Gruppe auszuwählen.
+Ein direkt am Display-Pult registrierter nativer Monitorendpoint hat Vorrang. Ist kein solcher Endpoint vorhanden und sind mehrere verschiedene Network Filterer im Pultnetz sichtbar, zeigt die Anzeige `Mehrere Network Controller`, statt willkürlich eine Gruppe auszuwählen.
 
 ## Minimale Erweiterungsstelle
 
@@ -54,7 +47,7 @@ CC-Aeroworks ersetzt `DataLinkBlockItem.useOn(...)` nicht. Sponge Mixin 0.8.7 be
 
 - die erste `instanceof`-Expression ist im gepinnten Runtime-JAR die native `MonitorBlockEntity`-Prüfung,
 - native `MonitorBlockEntity`-Instanzen bleiben durch den ursprünglichen booleschen Wert gültig,
-- ein `ConsoleBlockEntity` wird nur mit tatsächlich montiertem RadarDisplay zusätzlich als Monitor erkannt,
+- ein `ConsoleBlockEntity` wird nur mit tatsächlich montiertem erweitertem Display zusätzlich als Monitor erkannt,
 - Create: Radars erzeugt seinen privaten `FilterTarget(MONITOR)` weiterhin selbst.
 
 Der Mixin verwendet `@ModifyExpressionValue`, `@Expression("? instanceof ?")` und `ordinal = 0`. Der Bytecode-Vertrag lädt CurseForge-Datei `8227753` und bricht ab, falls `MonitorBlockEntity` nicht mehr die erste `INSTANCEOF`-Instruktion in `getFilterTarget(...)` ist. Damit kann der Hook nicht still auf eine spätere Typprüfung verrutschen.
@@ -79,7 +72,7 @@ Der Radar wird ausschließlich an `radarPos` aufgelöst. Beim computergerouteten
 
 ## Monitoridentische Aktualisierung
 
-Wie `MonitorBlockEntity` aktualisiert jedes RadarDisplay-Pult serverseitig im nativen Fünf-Tick-Zyklus bei `gameTime % 5 == 0` seinen Zustand. Es übernimmt Linkstatus, Radarposition, Reichweite und Betriebszustand aus dem nativen Netzwerk beziehungsweise `IRadar`.
+Wie `MonitorBlockEntity` aktualisiert jedes radar-fähige Display-Pult serverseitig im nativen Fünf-Tick-Zyklus bei `gameTime % 5 == 0` seinen Zustand. Es übernimmt Linkstatus, Radarposition, Reichweite und Betriebszustand aus dem nativen Netzwerk beziehungsweise `IRadar`.
 
 Der Detection-Filter wird mit `DetectionConfig.fromTag(group.detectionTag)` erzeugt. Jeder Track aus `IRadar.getTracks()` wird mit dem nativen `DetectionConfig.test(RadarTrack)` gefiltert. Höchstens 256 akzeptierte Tracks werden anschließend **nicht** in einen CC-Aeroworks-Tracktyp umgewandelt. Stattdessen delegiert CC-Aeroworks an `RadarTrackUtil.serializeNBTList(...)` und transportiert genau diesen nativen CompoundTag zum Client.
 
@@ -91,9 +84,9 @@ Für die Freshness-Prüfung wird der Servertick nicht direkt mit `client.level.g
 
 ## Native Monitoroberfläche statt Nachbau
 
-RadarDisplay zeichnet keine eigene Radar-Grafik mehr. Es gibt weder CC-Aeroworks-Radarringe noch einen eigenen Sweep, eigene Trackglyphen oder ein eigenes Trennungs-X.
+Die Radar-Pseudo-Skriptquelle zeichnet keine eigene Radar-Grafik. Es gibt weder CC-Aeroworks-Radarringe noch einen eigenen Sweep, eigene Trackglyphen oder ein eigenes Trennungs-X.
 
-Clientseitig erzeugt CC-Aeroworks pro sichtbarer RadarDisplay-Fläche einen **virtuellen, nicht in die Welt eingesetzten `MonitorBlockEntity`** der installierten Create:-Radars-Version. Dieser Monitor wird über seine eigene geschützte Methode `MonitorBlockEntity.read(..., clientPacket=true)` mit einem nativen Monitor-NBT befüllt:
+Clientseitig erzeugt CC-Aeroworks pro erweitertem Display mit aktiver Radarbindung einen **virtuellen, nicht in die Welt eingesetzten `MonitorBlockEntity`** der installierten Create:-Radars-Version. Dieser Monitor wird über seine eigene geschützte Methode `MonitorBlockEntity.read(..., clientPacket=true)` mit einem nativen Monitor-NBT befüllt:
 
 - `HasRadarPos` und `radarPos`,
 - `Filter`,
@@ -115,13 +108,13 @@ Anschließend ruft der Bridge reflektiv die private Methode `MonitorRenderer.ren
 - Tracklabels,
 - Winkel und Radarart aus `IRadar`.
 
-CC-Aeroworks setzt nur die Pose auf den jeweiligen Pult-Socket und skaliert die native quadratische Monitorfläche proportional auf die RadarDisplay-Fläche. Das große Display streckt den nativen Kreis nicht horizontal.
+CC-Aeroworks setzt nur die Pose auf den jeweiligen Pult-Socket und skaliert die native quadratische Monitorfläche proportional auf die erweiterte Displayfläche. Das große Display streckt den nativen Kreis nicht horizontal.
 
 ### Ein Renderpfad für Classic und Flywheel
 
 Der native Monitor verwendet direkte `VertexConsumer`-/`RenderType`-Geometrie und lässt sich nicht verlustfrei in Flywheel-`PartialModel`-Instanzen übersetzen. Deshalb wird die Radaroberfläche weder im klassischen `ConsoleRenderer` noch im `ConsoleVisual` selbst gezeichnet.
 
-Beide Renderpfade registrieren das sichtbare Pult lediglich beim `RadarOverlayRenderer`. Ein gemeinsamer `RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES`-Pass zeichnet anschließend jede RadarDisplay-Fläche genau einmal über `MonitorRenderer`. Normale programmierbare Ziffern-/Pixeldisplays verbleiben im bisherigen Classic-/Flywheel-Pfad.
+Beide Renderpfade registrieren das sichtbare Pult lediglich beim `RadarOverlayRenderer`. Ein gemeinsamer `RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES`-Pass zeichnet anschließend jede radar-gebundene erweiterte Displayfläche genau einmal über `MonitorRenderer`. Lua-gesteuerte und normale Ziffern-/Pixeldisplays verbleiben im bisherigen Classic-/Flywheel-Pfad.
 
 Dadurch gibt es nur noch eine Radarimplementierung, unabhängig davon, ob Flywheel aktiv ist.
 
@@ -176,7 +169,7 @@ Der native Renderer-Bridge loggt separat, wenn der virtuelle Monitor, sein regis
 
 Die verbindliche manuelle Matrix steht in `docs/radar-controller-test-plan.md`. Neben allen vier Pulttypen, beiden Displaygrößen, Ausrichtungen, Filteränderungen, Zielauswahl, Linkabbau, Classic/Flywheel und Start ohne Create: Radars ist nun ein direkter Referenztest Pflicht:
 
-1. echter `create_radar:monitor` und RadarDisplay hängen am selben Filterer/Radar,
+1. echter `create_radar:monitor` und ein radar-gebundenes erweitertes Display hängen am selben Filterer/Radar,
 2. Hintergrund, Grid, Sweep, Track-Sprite, Farbe, Fade und Selection müssen übereinstimmen,
 3. eine Änderung von `groundRadarColor` muss auf beiden Anzeigen erscheinen,
 4. ein Resource Pack, das `create_radar:textures/monitor_sprite/*` ersetzt, muss beide Anzeigen gleichermaßen verändern.

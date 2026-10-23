@@ -31,6 +31,28 @@ local network = peripherals.getNetwork()
 print(network.state, network.deskCount, network.peripheralCount)
 ```
 
+Integrierte Create-Zugsteuerungen und Vorrichtungs-Steuerungen verbinden Pultabschnitte, sind selbst aber kein `ControlDesk` und erhöhen `deskCount` nicht. Eine Vorrichtungs-Steuerung erscheint stattdessen als `ContraptionControl`. Direkt an einem Brückensegment platzierte Peripherals werden weiterhin dem nächstgelegenen echten Pult zugeordnet.
+
+`getInfo()`, `getState()` und `peripherals.getNetwork()` liefern zusätzlich `assemblyId`. Diese ID bezeichnet die explizite physische Reihe und bleibt von vorhandenen Desk- und Controller-IDs getrennt. Direkt benachbarte Reihen mit verschiedenen Assembly-IDs besitzen unabhängige Graphen.
+
+```lua
+local controller = peripherals.find("ContraptionControl")
+local info = controller.getInfo()
+print(info.id, info.mode, info.enabled)
+
+if info.mode == "elevator" then
+  controller.selectFloor("Maschinenraum")
+else
+  controller.setEnabled(true)
+end
+```
+
+Aliase sind `contraption_control`, `create:contraption_controls` und `cc_aeroworks:contraption_control`. Modi heißen `actors`, `doors` und `elevator`. Ein leerer Filter bedeutet alle Akteure. Nicht passende Methoden liefern einen Lua-Fehler.
+
+`peripherals.getNetwork().space` ist `world`, `sable` oder `contraption`. Mobile Peripheral-Metadaten enthalten außerdem `entity`, `localPosition` und `worldPosition`. Montage und Demontage verwenden normale Attach-/Detach-Ereignisse.
+
+Auf einer gewöhnlichen bewegten Create-Contraption bleibt außerdem die `telemetry`-API vorhanden. `telemetry.get("contraption")` enthält Position, Rotation, Geschwindigkeit und die Belegung des Mounted Storage. Nicht mitbewegte Weltziele und Drittmod-Ziele ohne registrierten `MobilePeripheralAdapter` werden nicht ersatzweise ausgeführt, sondern als `unavailable` gemeldet.
+
 Die Modulform ist gleichwertig:
 
 ```lua
@@ -173,6 +195,15 @@ while true do
   end
 end
 ```
+
+Zustandsänderungen der Vorrichtungs-Steuerung melden:
+
+```lua
+local _, address, id, mode, enabled, cause =
+  os.pullEvent("cc_aeroworks_contraption_control")
+```
+
+`cause` ist unter anderem `manual`, `redstone`, `lua` oder `elevator`.
 
 Nach einer Capability-Änderung ohne Block- oder Nachbarupdate kann der Graph explizit erneuert werden:
 

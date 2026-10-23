@@ -1,0 +1,16 @@
+{
+  "type": "create:deploying",
+  "ingredients": [
+    {
+      "item": "cc_aeroworks:advanced_small_display"
+    },
+    {
+      "item": "create:iron_sheet"
+    }
+  ],
+  "results": [
+    {
+      "id": "cc_aeroworks:advanced_large_display"
+    }
+  ]
+}

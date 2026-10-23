@@ -3,6 +3,7 @@ package de.teutonstudio.ccaeroworks.mixin
 import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindingStateAccess
+import de.teutonstudio.ccaeroworks.display.DisplayColorStateAccess
 import de.teutonstudio.ccaeroworks.display.DisplayResolutionStateAccess
 import de.teutonstudio.ccaeroworks.network.DisplayDrawPayload
 import net.minecraft.core.HolderLookup
@@ -20,7 +21,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable
 private const val DISPLAY_BINDINGS_NBT_KEY = "CCAeroworksDisplayBindings"
 
 @Mixin(value = [ConsoleBlockEntity::class], remap = false)
-abstract class ConsoleBlockEntityDisplayBindingMixin : DisplayBindingStateAccess, DisplayResolutionStateAccess {
+abstract class ConsoleBlockEntityDisplayBindingMixin : DisplayBindingStateAccess, DisplayResolutionStateAccess, DisplayColorStateAccess {
     @Unique
     private val ccaeroworks_displayPpb = linkedMapOf<Int, Int>()
 
@@ -31,6 +32,20 @@ abstract class ConsoleBlockEntityDisplayBindingMixin : DisplayBindingStateAccess
         val desk = this as ConsoleBlockEntity
         if (socket !in 0 until desk.socketCount()) return
         if (ccaeroworks_displayPpb.put(socket, ppb) == ppb) return
+        desk.setChanged()
+        desk.notifyUpdate()
+    }
+
+    @Unique
+    private val ccaeroworks_displayColors = linkedMapOf<Int, Int>()
+
+    override fun ccaeroworks_getDisplayColor(socket: Int): Int? = ccaeroworks_displayColors[socket]
+
+    override fun ccaeroworks_setDisplayColor(socket: Int, color: Int) {
+        require(color in 0..0xFFFFFF)
+        val desk = this as ConsoleBlockEntity
+        if (socket !in 0 until desk.socketCount()) return
+        if (ccaeroworks_displayColors.put(socket, color) == color) return
         desk.setChanged()
         desk.notifyUpdate()
     }
@@ -66,6 +81,9 @@ abstract class ConsoleBlockEntityDisplayBindingMixin : DisplayBindingStateAccess
         val resolutions = CompoundTag()
         ccaeroworks_displayPpb.forEach { (socket, ppb) -> resolutions.putInt(socket.toString(), ppb) }
         tag.put("CCAeroworksDisplayPpb", resolutions)
+        val colors = CompoundTag()
+        ccaeroworks_displayColors.forEach { (socket, color) -> colors.putInt(socket.toString(), color) }
+        tag.put("CCAeroworksDisplayColors", colors)
         if (ccaeroworks_displayBindings.isEmpty()) {
             tag.remove(DISPLAY_BINDINGS_NBT_KEY)
             return
@@ -98,6 +116,13 @@ abstract class ConsoleBlockEntityDisplayBindingMixin : DisplayBindingStateAccess
             val ppb = resolutions.getInt(key)
             if (socket in 0 until host.socketCount() && ppb in 16..1024) ccaeroworks_displayPpb[socket] = ppb
         }
+        ccaeroworks_displayColors.clear()
+        val colors = tag.getCompound("CCAeroworksDisplayColors")
+        colors.allKeys.forEach { key ->
+            val socket = key.toIntOrNull() ?: return@forEach
+            val color = colors.getInt(key)
+            if (socket in 0 until host.socketCount() && color in 0..0xFFFFFF) ccaeroworks_displayColors[socket] = color
+        }
         ccaeroworks_displayBindings.clear()
         if (!tag.contains(DISPLAY_BINDINGS_NBT_KEY, Tag.TAG_LIST.toInt())) return
 
@@ -122,6 +147,7 @@ abstract class ConsoleBlockEntityDisplayBindingMixin : DisplayBindingStateAccess
     ) {
         DisplayDrawPayload.invalidateDisplay(this as ConsoleBlockEntity, socket)
         ccaeroworks_displayPpb.remove(socket)
+        ccaeroworks_displayColors.remove(socket)
         ccaeroworks_displayBindings.remove(socket)
     }
 }

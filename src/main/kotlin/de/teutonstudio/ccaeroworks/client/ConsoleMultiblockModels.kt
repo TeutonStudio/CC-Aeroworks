@@ -7,7 +7,12 @@ import de.teutonstudio.ccaeroworks.computer.ComputerConsoleVariant
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockSkin
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockSkinState
 import de.teutonstudio.ccaeroworks.registry.CCBlocks
+import de.teutonstudio.ccaeroworks.train.TrainControlConsoleGeometry
+import de.teutonstudio.ccaeroworks.train.TrainControlConsoleIntegration
+import de.teutonstudio.ccaeroworks.train.ConsoleControlKind
 import dan200.computercraft.shared.computer.core.ComputerFamily
+import com.mred231.aeroworks.content.controls.console.ConsoleDeskBlock
+import com.simibubi.create.content.contraptions.actors.trainControls.ControlsBlock
 import net.minecraft.client.renderer.RenderType
 import net.minecraft.client.renderer.block.BlockModelShaper
 import net.minecraft.client.renderer.block.model.BakedQuad
@@ -20,11 +25,13 @@ import net.minecraft.client.resources.model.Material
 import net.minecraft.client.resources.model.ModelResourceLocation
 import net.minecraft.core.Direction
 import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.resources.ResourceLocation
 import net.minecraft.util.RandomSource
 import net.minecraft.world.item.ItemDisplayContext
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.level.block.state.properties.BooleanProperty
 import net.minecraft.world.level.block.state.properties.DirectionProperty
 import net.neoforged.neoforge.client.ChunkRenderTypeSet
@@ -47,12 +54,31 @@ object ConsoleMultiblockModels {
     private val ADVANCED_STAND_SKIN_MODEL = ModelResourceLocation.standalone(
         CCAeroworks.id("block/multiblock_skin_advanced_stand")
     )
+    private val TRAIN_CONTROLS_INSERTS = Direction.Plane.HORIZONTAL.associateWith { facing ->
+        ModelResourceLocation.standalone(
+            CCAeroworks.id("block/train_controls_insert_closed_${facing.name.lowercase()}")
+        )
+    }
+    private val CONTRAPTION_CONTROLS_INSERTS = listOf(
+        TrainControlConsoleGeometry.DESK,
+        TrainControlConsoleGeometry.STAND
+    ).associateWith { geometry ->
+        Direction.Plane.HORIZONTAL.associateWith { facing ->
+            ModelResourceLocation.standalone(
+                CCAeroworks.id(
+                    "block/contraption_controls_insert_${geometry.serializedName}_${facing.name.lowercase()}"
+                )
+            )
+        }
+    }
 
     fun registerAdditional(event: ModelEvent.RegisterAdditional) {
         event.register(COMPUTER_SKIN_MODEL)
         event.register(ADVANCED_SKIN_MODEL)
         event.register(COMPUTER_STAND_SKIN_MODEL)
         event.register(ADVANCED_STAND_SKIN_MODEL)
+        TRAIN_CONTROLS_INSERTS.values.forEach(event::register)
+        CONTRAPTION_CONTROLS_INSERTS.values.flatMap { it.values }.forEach(event::register)
     }
 
     fun modifyBakingResult(event: ModelEvent.ModifyBakingResult) {
@@ -125,6 +151,77 @@ object ConsoleMultiblockModels {
             }
 
             inheritItemModels(event, originalModels, variant, baseBlock, normalOverlay, advancedOverlay)
+        }
+        replaceIntegratedCreateControls(
+            event,
+            originalModels,
+            computerSprite,
+            advancedSprite,
+            computerStandSprite,
+            advancedStandSprite
+        )
+    }
+
+    private fun replaceIntegratedCreateControls(
+        event: ModelEvent.ModifyBakingResult,
+        originalModels: Map<ModelResourceLocation, BakedModel>,
+        computerSprite: TextureAtlasSprite,
+        advancedSprite: TextureAtlasSprite,
+        computerStandSprite: TextureAtlasSprite,
+        advancedStandSprite: TextureAtlasSprite
+    ) {
+        val controls = listOf(
+            ConsoleControlKind.TRAIN to ResourceLocation.fromNamespaceAndPath("create", "controls"),
+            ConsoleControlKind.CONTRAPTION to ResourceLocation.fromNamespaceAndPath("create", "contraption_controls")
+        )
+        controls.forEach { (kind, id) ->
+            val block = BuiltInRegistries.BLOCK.get(id)
+            if (TrainControlConsoleIntegration.kind(block.defaultBlockState()) != kind) {
+                CCAeroworks.LOGGER.error("[CC-Aeroworks] Create controls block {} has unexpected class {}", id, block.javaClass.name)
+                return@forEach
+            }
+            block.stateDefinition.possibleStates.forEach stateLoop@{ state ->
+            if (!TrainControlConsoleIntegration.isIntegrated(state) || state.getValue(ControlsBlock.VIRTUAL)) return@stateLoop
+            val geometry = state.getValue(TrainControlConsoleIntegration.GEOMETRY)
+            val copycat = state.getValue(TrainControlConsoleIntegration.COPYCAT)
+            val family = when {
+                geometry == TrainControlConsoleGeometry.STAND && copycat -> "copycat_control_stand"
+                geometry == TrainControlConsoleGeometry.STAND -> "control_stand"
+                copycat -> "copycat_control_desk"
+                else -> "control_desk"
+            }
+            val baseBlock = runCatching { AeroworksTypes.controlDeskBlock(family) }.getOrNull() ?: return@stateLoop
+            var baseState = baseBlock.defaultBlockState()
+                .setValue(BlockStateProperties.HORIZONTAL_FACING, state.getValue(BlockStateProperties.HORIZONTAL_FACING))
+                .setValue(ConsoleDeskBlock.OPEN_EAST, state.getValue(ConsoleDeskBlock.OPEN_EAST))
+                .setValue(ConsoleDeskBlock.OPEN_WEST, state.getValue(ConsoleDeskBlock.OPEN_WEST))
+            val ceiling = baseState.properties.filterIsInstance<BooleanProperty>().firstOrNull { it.name == "ceiling" }
+            if (ceiling != null) baseState = baseState.setValue(ceiling, false)
+            val base = originalModels[BlockModelShaper.stateToModelLocation(baseState)] ?: return@stateLoop
+            val skin = state.getValue(ConsoleMultiblockSkinState.SKIN)
+            val overlaySprite = when (skin) {
+                ConsoleMultiblockSkin.DEFAULT -> null
+                ConsoleMultiblockSkin.COMPUTER -> if (geometry == TrainControlConsoleGeometry.STAND) computerStandSprite else computerSprite
+                ConsoleMultiblockSkin.ADVANCED -> if (geometry == TrainControlConsoleGeometry.STAND) advancedStandSprite else advancedSprite
+            }
+            val chassis = if (overlaySprite == null) {
+                InheritedConsoleModel(base, baseState)
+            } else {
+                OverlayConsoleModel(base, baseState, overlaySprite)
+            }
+            val original = originalModels[BlockModelShaper.stateToModelLocation(state)] ?: base
+            val inserts = if (kind == ConsoleControlKind.CONTRAPTION) {
+                CONTRAPTION_CONTROLS_INSERTS.getValue(geometry)
+            } else {
+                TRAIN_CONTROLS_INSERTS
+            }
+            val insert = inserts[state.getValue(BlockStateProperties.HORIZONTAL_FACING)]?.let(event.models::get)
+            event.models[BlockModelShaper.stateToModelLocation(state)] = IntegratedTrainControlsModel(
+                chassis,
+                if (kind == ConsoleControlKind.TRAIN && state.getValue(ControlsBlock.OPEN)) null else insert,
+                original
+            )
+            }
         }
     }
 
@@ -238,6 +335,46 @@ private class InheritedConsoleModel(
         random: RandomSource,
         modelData: ModelData
     ): ChunkRenderTypeSet = delegate.getRenderTypes(sourceState, random, modelData)
+}
+
+private class IntegratedTrainControlsModel(
+    private val chassis: BakedModel,
+    private val insert: BakedModel?,
+    presentation: BakedModel
+) : BakedModelWrapper<BakedModel>(presentation) {
+    override fun getQuads(
+        state: BlockState?,
+        side: Direction?,
+        random: RandomSource
+    ): List<BakedQuad> = buildList {
+        addAll(chassis.getQuads(state, side, random))
+        insert?.let { addAll(it.getQuads(state, side, random)) }
+    }
+
+    override fun getQuads(
+        state: BlockState?,
+        side: Direction?,
+        random: RandomSource,
+        modelData: ModelData,
+        renderType: RenderType?
+    ): List<BakedQuad> = buildList {
+        addAll(chassis.getQuads(state, side, random, modelData, renderType))
+        insert?.let { addAll(it.getQuads(state, side, random, modelData, renderType)) }
+    }
+
+    override fun getRenderTypes(
+        state: BlockState,
+        random: RandomSource,
+        modelData: ModelData
+    ): ChunkRenderTypeSet {
+        val chassisTypes = chassis.getRenderTypes(state, random, modelData)
+        val insertTypes = insert?.getRenderTypes(state, random, modelData) ?: return chassisTypes
+        return ChunkRenderTypeSet.union(chassisTypes, insertTypes)
+    }
+
+    override fun getParticleIcon(): TextureAtlasSprite = chassis.particleIcon
+
+    override fun getParticleIcon(data: ModelData): TextureAtlasSprite = chassis.getParticleIcon(data)
 }
 
 private class OverlayConsoleModel(

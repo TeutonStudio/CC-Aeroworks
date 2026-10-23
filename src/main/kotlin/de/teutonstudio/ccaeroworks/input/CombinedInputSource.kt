@@ -8,9 +8,8 @@ import com.mred231.aeroworks.content.controls.module.MountedModule
 object CombinedInputSource {
     const val ID: String = "cc_aeroworks.combined"
     private val displayPointerModules: Set<String> = setOf(
-        "cc_aeroworks:two_digit_display",
-        "cc_aeroworks:three_digit_display",
-        "cc_aeroworks:large_radar_display"
+        "cc_aeroworks:advanced_two_digit_display",
+        "cc_aeroworks:advanced_three_digit_display"
     )
 
     /**
@@ -45,9 +44,11 @@ object CombinedInputSource {
      * their independent X/Y activation keys. They are nevertheless a separate semantic kind from
      * vehicle controls: their channels exist only to drive the local pseudo-finger interaction.
      */
-    fun isDisplayPointerModule(module: MountedModule): Boolean = moduleId(module) in displayPointerModules
+    fun isDisplayPointerModule(module: MountedModule): Boolean = isDisplayPointerModule(moduleId(module))
 
-    fun isDisplayPointerModule(moduleType: ModuleType): Boolean = moduleId(moduleType) in displayPointerModules
+    fun isDisplayPointerModule(moduleType: ModuleType): Boolean = isDisplayPointerModule(moduleId(moduleType))
+
+    internal fun isDisplayPointerModule(moduleId: String): Boolean = moduleId in displayPointerModules
 
     fun isCombinedOnly(module: MountedModule): Boolean = isDisplayPointerModule(module)
 

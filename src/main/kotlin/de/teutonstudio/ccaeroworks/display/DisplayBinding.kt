@@ -104,7 +104,7 @@ object DisplayBindings {
         return when (binding) {
             DisplayBinding.Default -> true
             is DisplayBinding.LuaHandler ->
-                (CCModuleTypes.displayType(module.type()) != null ||
+                (CCModuleTypes.isInteractiveDisplay(module.type()) ||
                     ControlScriptBindings.supports(module)) &&
                     binding.path.isNotBlank() &&
                     binding.path.length <= MAX_HANDLER_PATH_LENGTH

@@ -3,7 +3,7 @@ package de.teutonstudio.ccaeroworks.input
 import com.mojang.blaze3d.platform.InputConstants
 import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import com.mred231.aeroworks.content.controls.console.ConsoleControlClient
-import de.teutonstudio.ccaeroworks.compat.sable.SableInteractionGeometry
+import de.TeutonStudio.TeutonLib.api.sable.SubLevelInteractionGeometry
 import de.teutonstudio.ccaeroworks.config.CCClientConfig
 import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
 import de.teutonstudio.ccaeroworks.display.DeskDisplayGeometry
@@ -44,20 +44,30 @@ object DisplayCombinedInputController {
 
     @SubscribeEvent(priority = EventPriority.HIGH)
     fun onKey(event: InputEvent.Key) {
-        if (event.action == GLFW.GLFW_REPEAT) return
-        val minecraft = Minecraft.getInstance()
-        val binding = InputConstants.Type.KEYSYM.getOrCreate(event.key).name
-        if (event.action == GLFW.GLFW_PRESS && CombinedInputCoordinator.isShiftCameraOnly(minecraft)) {
+        captureKey(event.key, event.action, Minecraft.getInstance())
+    }
+
+    /**
+     * Handles a keyboard edge before vanilla turns it into a KeyMapping click. The raw keyboard
+     * mixin uses the return value to keep an activation key exclusive to Combined control.
+     */
+    internal fun captureKey(key: Int, action: Int, minecraft: Minecraft): Boolean {
+        val binding = InputConstants.Type.KEYSYM.getOrCreate(key).name
+        if (action == GLFW.GLFW_REPEAT) {
+            return binding in suppressedBindings || target?.heldBindings?.contains(binding) == true
+        }
+        if (action == GLFW.GLFW_PRESS && CombinedInputCoordinator.isShiftCameraOnly(minecraft)) {
             val active = target
             if (active != null) {
                 suppressedBindings += active.heldBindings
                 stop()
             }
-            return
+            return false
         }
-        when (event.action) {
+        return when (action) {
             GLFW.GLFW_PRESS -> onBindingPressed(binding, minecraft)
             GLFW.GLFW_RELEASE -> onBindingReleased(binding)
+            else -> false
         }
     }
 
@@ -313,7 +323,7 @@ object DisplayCombinedInputController {
 
         val network = ConsoleMultiblockManager.resolve(level, active.pos)
         return network.members.any {
-            SableInteractionGeometry.withinReach(player, level, it.pos)
+            SubLevelInteractionGeometry.withinReach(player, level, it.pos)
         }
     }
 

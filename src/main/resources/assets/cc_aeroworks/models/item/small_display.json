@@ -1,0 +1,13 @@
+{
+  "parent": "cc_aeroworks:block/module/small_display",
+  "gui_light": "front",
+  "display": {
+    "gui": {"rotation": [55, 0, 45], "translation": [-3.85, 3.85, 0], "scale": [1.4, 1.4, 1.4]},
+    "ground": {"translation": [0, 2.5, 0], "scale": [0.72, 0.72, 0.72]},
+    "fixed": {"rotation": [90, 0, 0], "translation": [0, 0, -1.5], "scale": [1.05, 1.05, 1.05]},
+    "thirdperson_righthand": {"rotation": [65, 0, 45], "translation": [0, 3, 1], "scale": [0.76, 0.76, 0.76]},
+    "thirdperson_lefthand": {"rotation": [65, 0, -45], "translation": [0, 3, 1], "scale": [0.76, 0.76, 0.76]},
+    "firstperson_righthand": {"rotation": [35, -35, 20], "translation": [1.5, 3.5, 1], "scale": [0.9, 0.9, 0.9]},
+    "firstperson_lefthand": {"rotation": [35, 35, -20], "translation": [-1.5, 3.5, 1], "scale": [0.9, 0.9, 0.9]}
+  }
+}

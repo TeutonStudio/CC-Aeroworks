@@ -46,7 +46,7 @@ object CreateRadarCompat {
             level,
             desk.blockPos
         ) {
-            "deskClass=${desk.javaClass.name} hasRadarDisplay=${RadarDeskAccess.hasRadarDisplay(desk)} " +
+            "deskClass=${desk.javaClass.name} hasRadarDisplay=${RadarDeskAccess.hasRadarCapableDisplay(desk)} " +
                 "implementsRadarState=${state != null} blockState=${desk.blockState} sockets=${desk.socketCount()} " +
                 "previous=${snapshotSummary(state?.ccaeroworks_getRadarSnapshot())}"
         }
@@ -55,7 +55,7 @@ object CreateRadarCompat {
             return
         }
 
-        if (!RadarDeskAccess.hasRadarDisplay(desk)) {
+        if (!RadarDeskAccess.hasRadarCapableDisplay(desk)) {
             lastDiagnosticByDesk.remove(desk)
             lastFailureByDesk.remove(desk)
             val previous = state.ccaeroworks_getRadarSnapshot()

@@ -1,0 +1,7 @@
+{
+  "parent": "cc_aeroworks:block/train_controls_insert_closed_south",
+  "textures": {
+    "controls": "create:block/contraption_controls",
+    "frame": "create:block/contraption_controls_frame"
+  }
+}

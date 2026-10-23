@@ -1,6 +1,6 @@
-# RadarDisplay und Create: Radars
+# Erweiterte Displays und Create: Radars
 
-Ein RadarDisplay kann über einen nativen Create:-Radars-Monitorendpoint oder über den eingebetteten Computer des Pultnetzes versorgt werden. Zusätzlich können RadarDisplays innerhalb desselben CC-Aeroworks-Pultmultiblocks den bereits synchronisierten Radar-Snapshot eines anderen RadarDisplay-Pults als Quelle auswählen.
+Radar ist kein separates Display-Item. Ein kleines oder großes erweitertes Display kann im Dropdown `Display-Steuerung` statt eines Lua-Skripts eine Radarquelle als Pseudo-Skript auswählen. Diese Quelle kann über einen nativen Create:-Radars-Monitorendpoint oder über den eingebetteten Computer des Pultnetzes versorgt werden. Displays innerhalb desselben CC-Aeroworks-Pultmultiblocks können außerdem den bereits synchronisierten Radar-Snapshot eines anderen Display-Pults auswählen.
 
 ## Unterstützte Pulte
 
@@ -9,13 +9,13 @@ Ein RadarDisplay kann über einen nativen Create:-Radars-Monitorendpoint oder ü
 - ComputerControlDesk
 - Advanced ComputerControlDesk
 
-Ein Pult ohne kleines oder großes RadarDisplay wird vom Data Link nicht als Monitor akzeptiert.
+Ein Pult ohne kleines oder großes **erweitertes** Display wird vom Data Link nicht als Monitor akzeptiert. Normale Displays bleiben reine Ausgaben und können keine Radar-Pseudo-Skriptquelle wählen.
 
 ## Verbindung einrichten
 
 1. Mit dem Data-Link-Gegenstand den Network Filterer auswählen und danach den Radar verbinden. Bloßes Angrenzen des Controllers am Radar genügt nicht.
 2. Den Create:-Radars-Data-Link-Gegenstand auf dem Network Filterer verwenden.
-3. Dasselbe Item auf einer freien Seite eines Pults mit RadarDisplay verwenden.
+3. Dasselbe Item auf einer freien Seite eines Pults mit erweitertem Display verwenden.
 4. Create: Radars prüft die Reichweite und platziert den physischen Data-Link-Block am Pult.
 5. Dieses Pult ist nun ein Radar-Ingress und synchronisiert die gefilterten Tracks seiner Netzwerkgruppe.
 
@@ -23,23 +23,23 @@ Der Network Filterer muss für diesen nativen Pfad nicht direkt neben dem Pult s
 
 ## Alternativ über den Pultcomputer
 
-Bei einem aktiven Pultnetz mit genau einem eingebetteten Computer ist kein zweiter Data Link zum RadarDisplay-Pult nötig. Dafür den Network Filterer direkt an ein Pultmitglied setzen oder eine bereits vorhandene Endpoint-Zuordnung eines Pultmitglieds verwenden. Der Filterer muss weiterhin separat per Data Link mit dem Radar verbunden sein.
+Bei einem aktiven Pultnetz mit genau einem eingebetteten Computer ist kein zweiter Data Link zum Display-Pult nötig. Dafür den Network Filterer direkt an ein Pultmitglied oder eine integrierte Create-Zugsteuerung setzen oder eine bereits vorhandene Endpoint-Zuordnung eines solchen Segments verwenden. Der Filterer muss weiterhin separat per Data Link mit dem Radar verbunden sein. Ein nativer Monitor-Data-Link darf ebenfalls direkt auf eine integrierte Zugsteuerung zielen.
 
-Der Computer routet Radarposition, Detection-Filter, Zielauswahl und native Tracks aus der Filterer-Gruppe an die RadarDisplays. Ein echter Monitorendpoint am jeweiligen Pult hat Vorrang. Sind ohne lokalen Monitorendpoint mehrere Network Filterer sichtbar, meldet das Display `Mehrere Network Controller`; es wählt nicht automatisch einen davon.
+Der Computer routet Radarposition, Detection-Filter, Zielauswahl und native Tracks aus der Filterer-Gruppe an erweiterte Displays mit gewählter Radarquelle. Ein echter Monitorendpoint am jeweiligen Pult hat Vorrang. Sind ohne lokalen Monitorendpoint mehrere Network Filterer sichtbar, meldet das Display `Mehrere Network Controller`; es wählt nicht automatisch einen davon.
 
-## Radarquelle eines Displays auswählen
+## Display-Steuerung auswählen
 
-Im Modulfenster eines RadarDisplays erscheint zusätzlich eine Quellenzeile. `local` bedeutet das bisherige Verhalten: Das Display verwendet den Snapshot des eigenen Pults. Weitere Einträge entsprechen RadarDisplay-Pulten im selben Multiblock.
+Im Modulfenster eines erweiterten Displays gibt es genau eine Quellenzeile. Sie enthält kompatible Lua-Skripte und – wenn Create: Radars geladen ist – Radar-Ingresses als Pseudo-Skripte. Die Auswahl bestimmt exklusiv, wer die Fläche steuert: Eine Radarquelle ersetzt die Lua-Bindung; normale Pixelausgabe und Touch sind bis zum Wechsel zurück auf ein Skript oder `Keine externe Steuerung` inaktiv.
 
 Die Liste zeigt Position und aktuellen Verbindungsstatus jeder Quelle. Die angezeigte Auswahl folgt der Serverbestätigung; dies funktioniert auch bei Pulten auf Sable-Schiffen. Ein anderes Display desselben Pultmultiblocks braucht keinen eigenen Data Link, wenn es einen bereits verbundenen Ingress auswählt.
 
-Die Auswahl wird pro Display-Socket gespeichert. Zwei RadarDisplays am selben Pult können daher unterschiedliche Ingresses anzeigen. Wird die Auswahl entfernt oder die alte Welt enthält noch keine Binding-Daten, bleibt automatisch `local` aktiv.
+Die Auswahl wird pro Display-Socket gespeichert. Zwei erweiterte Displays am selben Pult können daher unterschiedliche Ingresses anzeigen. Ohne Binding bleibt das Display im normalen Text-/Pixelmodus; `local` ist eine echte Radar-Pseudo-Skriptwahl und kein impliziter Fallback.
 
 Die Auswahl ist absichtlich kein Aeroworks-`ControlChannel`. Sie ist Display-Konfiguration und erscheint deshalb weder als Fahrzeugsteuerung noch als normaler Eingabekanal.
 
 ## Warum ein Radar-Ingress statt einer Kopie pro Display?
 
-Jedes direkt verbundene RadarDisplay-Pult synchronisiert seinen nativen Create:-Radars-Snapshot weiterhin genau einmal. Andere Displays referenzieren diesen bereits vorhandenen Snapshot. Dadurch werden bis zu 256 Radartracks nicht erneut pro Anzeige serialisiert und übertragen.
+Jedes direkt verbundene Pult mit erweitertem Display synchronisiert seinen nativen Create:-Radars-Snapshot weiterhin genau einmal. Andere Displays referenzieren diesen bereits vorhandenen Snapshot. Dadurch werden bis zu 256 Radartracks nicht erneut pro Anzeige serialisiert und übertragen.
 
 Der Datenfluss lautet damit:
 
@@ -96,7 +96,7 @@ desk.clearDisplayBinding("big")
 
 `getRadarSources()` liefert pro Ingress eine stabile ID für die aktuelle Multiblockstruktur, Pultindex, Pult-ID, Position, Status und, falls bekannt, die Radarposition.
 
-Große normale Desk Displays verwenden dieselbe Binding-Schicht für Touch-/Draw-Handler. Der gewünschte Skriptpfad wird über die serverseitig ermittelte Skriptauswahl gebunden; programmatisch bleibt außerdem `setDisplayTouchScript` verfügbar:
+Große erweiterte Pultanzeigen verwenden dieselbe Binding-Schicht für Touch-/Draw-Handler. Der gewünschte Skriptpfad wird über die serverseitig ermittelte Skriptauswahl gebunden; programmatisch bleibt außerdem `setDisplayTouchScript` verfügbar:
 
 ```lua
 desk.setDisplayTouchScript("big", "/ui/main.lua")
@@ -120,6 +120,6 @@ Bei Routing-Problemen zuerst `desk.getRadarSources()` und `desk.getDisplayBindin
 
 ## Optionale Abhängigkeit
 
-Ohne Create: Radars startet CC-Aeroworks weiterhin. RadarDisplay-Rezepte und optionale Ponder-Inhalte werden nicht geladen; normale Displays, Computerpulte und Steuereinheiten bleiben verfügbar.
+Ohne Create: Radars startet CC-Aeroworks weiterhin. Die Radar-Pseudo-Skripte und optionalen Ponder-Inhalte werden nicht geladen; normale und erweiterte Displays, Computerpulte und Steuereinheiten bleiben verfügbar.
 
 `Kein Radar zugeordnet` bedeutet: Der Pultendpoint ist mit dem Controller verbunden, aber die native Netzwerkgruppe hat keinen Radar. Controller → Radar separat mit dem Data-Link-Gegenstand verbinden. Die Quellenwahl allein erzeugt diese Zuordnung nicht. Beide Diagnoseschalter sind standardmäßig aus; siehe [Konfiguration](../docs/configuration.md).

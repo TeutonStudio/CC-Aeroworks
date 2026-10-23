@@ -1,7 +1,7 @@
 package de.teutonstudio.ccaeroworks.input
 
 import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
-import de.teutonstudio.ccaeroworks.compat.sable.SableInteractionGeometry
+import de.TeutonStudio.TeutonLib.api.sable.SubLevelInteractionGeometry
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockSnapshot
 import net.minecraft.client.Minecraft
@@ -116,7 +116,7 @@ object CombinedInputContext {
             if (cached.dimension == level.dimension() && level.isLoaded(cached.anchor)) {
                 val snapshot = ConsoleMultiblockManager.resolve(level, cached.anchor)
                 if (snapshot.members.any {
-                        SableInteractionGeometry.withinReach(player, level, it.pos, padding = 2.0)
+                        SubLevelInteractionGeometry.withinReach(player, level, it.pos, padding = 2.0)
                     }
                 ) {
                     return snapshot

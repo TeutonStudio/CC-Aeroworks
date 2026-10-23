@@ -7,6 +7,10 @@ import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 /** The embedded owner controls touch even when an external peripheral is listening. */
 object DisplayTouchAccess {
     fun enabled(desk: ConsoleBlockEntity): Boolean {
+        return enabledForNetwork(desk)
+    }
+
+    fun enabledForNetwork(desk: ConsoleBlockEntity): Boolean {
         val level = desk.level ?: return false
         val network = ConsoleMultiblockManager.resolve(level, desk.blockPos)
         return enabled(network.state, network.owner?.isAdvanced == true) &&

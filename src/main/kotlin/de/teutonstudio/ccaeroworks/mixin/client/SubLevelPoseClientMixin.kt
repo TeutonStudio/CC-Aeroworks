@@ -1,7 +1,7 @@
 package de.teutonstudio.ccaeroworks.mixin.client
 
 import com.mojang.blaze3d.vertex.PoseStack
-import de.teutonstudio.ccaeroworks.compat.sable.SableClientRenderPose
+import de.TeutonStudio.TeutonLib.api.sable.SubLevelRenderPose
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.phys.Vec3
 import org.spongepowered.asm.mixin.Mixin
@@ -44,7 +44,7 @@ abstract class SubLevelPoseClientMixin {
             partialTicks: Float,
             callback: CallbackInfo
         ) {
-            SableClientRenderPose.apply(
+            SubLevelRenderPose.apply(
                 poseStack,
                 blockEntity,
                 x,

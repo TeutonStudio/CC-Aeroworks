@@ -5,7 +5,7 @@ import com.mred231.aeroworks.content.controls.socket.ConsoleSocket
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
-import de.teutonstudio.ccaeroworks.network.PlayerSessionState
+import de.TeutonStudio.TeutonLib.api.network.PlayerSessionState
 import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerPlayer

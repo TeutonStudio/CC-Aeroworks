@@ -1,9 +1,12 @@
 package de.teutonstudio.ccaeroworks.multiblock
 
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
+import de.teutonstudio.ccaeroworks.train.TrainControlConsoleGeometry
+import de.teutonstudio.ccaeroworks.train.TrainControlConsoleIntegration
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.world.level.LevelAccessor
+import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.level.block.state.properties.BooleanProperty
@@ -18,17 +21,13 @@ object ConsoleDeskConnections {
         }
 
         val facing = state.getValue(BlockStateProperties.HORIZONTAL_FACING)
-        val ceiling = booleanPropertyValue(state, "ceiling")
-        val connectedWest = compatible(
-            level.getBlockState(pos.relative(facing.counterClockWise)),
-            facing,
-            ceiling
-        )
-        val connectedEast = compatible(
-            level.getBlockState(pos.relative(facing.clockWise)),
-            facing,
-            ceiling
-        )
+        val world = level as? Level
+        val connectedWest = world?.let {
+            ConsoleAssemblyRuntime.connected(it, pos, pos.relative(facing.counterClockWise))
+        } ?: false
+        val connectedEast = world?.let {
+            ConsoleAssemblyRuntime.connected(it, pos, pos.relative(facing.clockWise))
+        } ?: false
 
         return setBooleanProperty(
             setBooleanProperty(state, "open_west", connectedWest),
@@ -36,16 +35,6 @@ object ConsoleDeskConnections {
             connectedEast
         )
     }
-
-    private fun compatible(
-        state: BlockState,
-        facing: Direction,
-        ceiling: Boolean?
-    ): Boolean =
-        AeroworksTypes.isControlDesk(state.block) &&
-            state.hasProperty(BlockStateProperties.HORIZONTAL_FACING) &&
-            state.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing &&
-            (ceiling == null || booleanPropertyValue(state, "ceiling") == ceiling)
 
     private fun booleanPropertyValue(state: BlockState, name: String): Boolean? {
         val property = state.properties

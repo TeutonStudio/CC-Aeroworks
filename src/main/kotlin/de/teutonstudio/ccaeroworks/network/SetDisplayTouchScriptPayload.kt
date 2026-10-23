@@ -2,7 +2,7 @@ package de.teutonstudio.ccaeroworks.network
 
 import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
-import de.teutonstudio.ccaeroworks.compat.sable.SableInteractionGeometry
+import de.TeutonStudio.TeutonLib.api.sable.SubLevelInteractionGeometry
 import de.teutonstudio.ccaeroworks.display.ControlScriptBindings
 import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
@@ -48,17 +48,17 @@ data class SetDisplayTouchScriptPayload(
         fun handle(payload: SetDisplayTouchScriptPayload, context: IPayloadContext) {
             val player = context.player() as? ServerPlayer ?: return
             val level = player.serverLevel()
-            if (!level.hasChunkAt(payload.pos) || !SableInteractionGeometry.mayInteract(player, level, payload.pos)) return
+            if (!level.hasChunkAt(payload.pos) || !SubLevelInteractionGeometry.mayInteract(player, level, payload.pos)) return
 
             val desk = level.getBlockEntity(payload.pos) as? ConsoleBlockEntity ?: return
             if (desk.hasController() && !desk.checkUser(player.uuid)) return
-            if (!SableInteractionGeometry.withinReach(player, level, payload.pos)) return
+            if (!SubLevelInteractionGeometry.withinReach(player, level, payload.pos)) return
             if (payload.socket !in 0 until desk.socketCount()) return
 
             val module = desk.module(payload.socket) ?: return
             val displayType = CCModuleTypes.displayType(module.type())
             val control = ControlScriptBindings.supports(module)
-            if (displayType == null && !control) return
+            if ((displayType == null || !CCModuleTypes.isInteractiveDisplay(module.type())) && !control) return
             val normalized = payload.path.trim()
             val binding = if (normalized.isEmpty()) {
                 DisplayBinding.Default

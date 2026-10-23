@@ -60,6 +60,8 @@ object ApiReferenceCatalog {
         "resolve(event: table) -> (desk: handle|nil, socket: string|integer)",
         "getSize(event: table) -> table",
         "setResolution(event: table, ppb: integer) -> table",
+        "getColor(event: table) -> integer",
+        "setColor(event: table, color: integer) -> integer",
         "clear(event: table) -> void",
         "getPixel(event: table, x: integer, y: integer) -> boolean",
         "setPixel(event: table, x: integer, y: integer, enabled: boolean) -> boolean",
@@ -93,6 +95,8 @@ object ApiReferenceCatalog {
                 "setDisplayPixelBatch(socket: string|integer, points: table[], enabled?: boolean) -> integer",
                 "setDisplayPixels(socket: string|integer, rows: string[]) -> string[]",
                 "clearDisplayPixels(socket: string|integer) -> void",
+                "getDisplayColor(socket: string|integer) -> integer",
+                "setDisplayColor(socket: string|integer, color: integer) -> integer",
                 "getDisplayBinding(socket: string|integer) -> table",
                 "setDisplayTouchScript(socket: string|integer, path: string) -> table",
                 "setControlScript(socket: string|integer, path: string) -> table",
@@ -126,6 +130,8 @@ object ApiReferenceCatalog {
                 "setDisplayPixelBatch(socket: string|integer, points: table[], enabled?: boolean) -> integer",
                 "setDisplayPixels(socket: string|integer, rows: string[]) -> string[]",
                 "clearDisplayPixels(socket: string|integer) -> void",
+                "getDisplayColor(socket: string|integer) -> integer",
+                "setDisplayColor(socket: string|integer, color: integer) -> integer",
                 "getPeripherals() -> table<string,handle>",
                 "find(type: string) -> handle|table<string,handle>|nil",
                 "findAll(type: string) -> table<string,handle>",
@@ -133,6 +139,25 @@ object ApiReferenceCatalog {
             ),
             source = ApiSourceContract(
                 "src/main/kotlin/de/teutonstudio/ccaeroworks/computer/PeripheralLuaHandles.kt", "DeskLuaHandle"
+            )
+        ),
+        ApiReference(
+            "contraption_control", "ContraptionControl",
+            "LOCAL + EMBEDDED · STATIONARY + MOVING CREATE CONTRAPTION", ApiAccent.CONTROLS,
+            methods = listOf(
+                "getInfo() -> table",
+                "getState() -> table",
+                "getFilter() -> table",
+                "isEnabled() -> boolean",
+                "setEnabled(enabled: boolean) -> boolean",
+                "toggle() -> boolean",
+                "getFloors() -> table[]",
+                "getSelectedFloor() -> table",
+                "selectFloor(indexOrName: integer|string) -> table"
+            ),
+            source = ApiSourceContract(
+                "src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ContraptionControlPeripheral.kt",
+                "ContraptionControlPeripheral"
             )
         ),
         ApiReference(

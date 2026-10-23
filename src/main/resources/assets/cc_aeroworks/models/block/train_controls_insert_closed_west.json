@@ -1,0 +1,22 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "controls": "create:block/controls",
+    "frame": "create:block/controls_frame",
+    "particle": "create:block/bogey/particle"
+  },
+  "elements": [
+    {
+      "from": [7, 7, 2],
+      "to": [15, 15.05, 14],
+      "faces": {
+        "west": { "uv": [1, 14, 7, 10.05], "rotation": 180, "texture": "#frame" },
+        "east": { "uv": [1, 10.05, 7, 14], "texture": "#frame" },
+        "north": { "uv": [1, 10.05, 5, 14], "texture": "#frame" },
+        "south": { "uv": [1, 10.05, 5, 14], "texture": "#frame" },
+        "up": { "uv": [1, 13.5, 7, 9.55], "rotation": 270, "texture": "#controls" },
+        "down": { "uv": [1, 14.5, 7, 10.5], "rotation": 270, "texture": "#frame" }
+      }
+    }
+  ]
+}

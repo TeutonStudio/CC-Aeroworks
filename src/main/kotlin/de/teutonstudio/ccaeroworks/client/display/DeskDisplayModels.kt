@@ -14,6 +14,12 @@ object DeskDisplayModels {
     @JvmField
     val PIXEL: PartialModel = PartialModel.of(CCAeroworks.id("block/module/display_pixel"))
 
+    @JvmField
+    val ADVANCED_HORIZONTAL: PartialModel = PartialModel.of(CCAeroworks.id("block/module/advanced_display_segment_horizontal"))
+
+    @JvmField
+    val ADVANCED_VERTICAL: PartialModel = PartialModel.of(CCAeroworks.id("block/module/advanced_display_segment_vertical"))
+
     data class Segment(val model: PartialModel, val x: Double, val z: Double)
 
     private val segments = mapOf(
@@ -37,4 +43,12 @@ object DeskDisplayModels {
 
     @JvmStatic
     fun segments(character: Char): List<Segment> = glyphs[character].orEmpty().mapNotNull(segments::get)
+
+    @JvmStatic
+    fun segments(character: Char, advanced: Boolean): List<Segment> {
+        if (!advanced) return segments(character)
+        return segments(character).map { segment ->
+            segment.copy(model = if (segment.model === HORIZONTAL) ADVANCED_HORIZONTAL else ADVANCED_VERTICAL)
+        }
+    }
 }

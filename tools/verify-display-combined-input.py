@@ -2,10 +2,15 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+TEUTON_ROOT = ROOT.parent / "TeutonLib"
 
 
 def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
+
+
+def read_teuton(path: str) -> str:
+    return (TEUTON_ROOT / path).read_text(encoding="utf-8")
 
 
 def require(condition: bool, message: str) -> None:
@@ -19,6 +24,8 @@ control = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/CombinedLeverC
 controller = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/DisplayCombinedInputController.kt")
 target = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/DisplayCombinedTarget.kt")
 raw_mouse = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/DisplayPrimaryMouseCapture.kt")
+keyboard_capture = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/CombinedKeyboardCapture.kt")
+keyboard_guard = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/CombinedKeyboardGuardMixin.kt")
 mouse_guard = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/CombinedMouseButtonGuardMixin.kt")
 context = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/CombinedInputContext.kt")
 coordinator = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/CombinedInputCoordinator.kt")
@@ -27,12 +34,12 @@ sample = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/CombinedContr
 legacy = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/SetCombinedLeverValuePayload.kt")
 pointer = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/DisplayPointerActionPayload.kt")
 draw = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/DisplayDrawPayload.kt")
-gesture_state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/SingleGestureSessionState.kt")
+gesture_state = read_teuton("src/main/kotlin/de/TeutonStudio/TeutonLib/api/network/SingleGestureSessionState.kt")
 payloads = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/CCPayloads.kt")
 dispatcher = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/DeskDisplayInputDispatcher.kt")
 display_input = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DeskDisplayInput.kt")
 script_catalog = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DisplayScriptCatalog.kt")
-sable_geometry = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/sable/SableInteractionGeometry.kt")
+sable_geometry = read_teuton("src/main/kotlin/de/TeutonStudio/TeutonLib/api/sable/SubLevelInteractionGeometry.kt")
 peripheral = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ControlDeskPeripheralState.kt")
 override_guard = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/ConsoleBlockEntityControlOverrideMixin.kt")
 combined_ui = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ModuleScreenCombinedInputMixin.kt")
@@ -61,9 +68,11 @@ require(
     "Combined input must discover native analog axes and their mouse direction dynamically",
 )
 require(
-    '"cc_aeroworks:two_digit_display"' in source and
-    '"cc_aeroworks:three_digit_display"' in source and
-    '"cc_aeroworks:large_radar_display"' in source,
+    '"cc_aeroworks:advanced_two_digit_display"' in source and
+    '"cc_aeroworks:advanced_three_digit_display"' in source and
+    '"cc_aeroworks:two_digit_display"' not in source and
+    '"cc_aeroworks:three_digit_display"' not in source and
+    '"cc_aeroworks:large_radar_display"' not in source,
     "display pointer module classification missing",
 )
 require(
@@ -85,6 +94,28 @@ require(
     'method = ["exit(Ljava/lang/String;)V"]' in lifecycle,
     "Combined sessions must follow Aeroworks lifecycle",
 )
+
+require(
+    "DisplayCombinedInputController.captureKey(key, action, minecraft)" in keyboard_capture and
+    "CombinedLeverController.captureKey(key, action, minecraft)" in keyboard_capture and
+    "return displayConsumed || controlConsumed" in keyboard_capture,
+    "raw keyboard capture must route activation edges in display-before-control priority order",
+)
+require(
+    "@Mixin(KeyboardHandler::class)" in keyboard_guard and
+    'method = ["keyPress(JIIII)V"]' in keyboard_guard and
+    'at = [At("HEAD")]' in keyboard_guard and
+    "cancellable = true" in keyboard_guard and
+    "CombinedKeyboardCapture.capture(windowPointer, key, action)" in keyboard_guard and
+    "callback.cancel()" in keyboard_guard,
+    "Combined activation keys must be intercepted before vanilla KeyMapping routing",
+)
+require(
+    "action == GLFW.GLFW_REPEAT" in control and "target?.activationBinding == binding" in control and
+    "action == GLFW.GLFW_REPEAT" in controller and "target?.heldBindings?.contains(binding)" in controller,
+    "active keyboard bindings must consume repeat events as well as press/release edges",
+)
+require('"client.CombinedKeyboardGuardMixin"' in mixins, "raw Combined keyboard guard mixin is not registered")
 
 require(
     "@Mixin(MouseHandler::class)" in mouse_guard and
@@ -162,7 +193,7 @@ require(
     "server must resolve batched pixels, sequence through the single-slot state, preserve final delta semantics and prepend the previous endpoint",
 )
 require(
-    "SableInteractionGeometry.withinReach" in draw and "SableInteractionGeometry.mayInteract" in draw and
+    "SubLevelInteractionGeometry.withinReach" in draw and "SubLevelInteractionGeometry.mayInteract" in draw and
     "STALE_GESTURE_TICKS" in draw,
     "draw stream must retain Sable-aware validation and bounded stale server state",
 )
@@ -211,18 +242,18 @@ require(
 )
 
 require(
-    "Sable.HELPER.distanceSquaredWithSubLevels" in sable_geometry and
-    "Sable.HELPER.projectOutOfSubLevel" in sable_geometry,
-    "display interaction geometry must project reach and mayInteract through Sable",
+    "SubLevelGeometry.distanceSquared" in sable_geometry and
+    "SubLevelGeometry.projectToWorld" in sable_geometry,
+    "display interaction geometry must use TeutonLib's Sable-aware world geometry",
 )
 require(
-    "SableInteractionGeometry.withinReach" in pointer and
-    "SableInteractionGeometry.mayInteract" in pointer,
+    "SubLevelInteractionGeometry.withinReach" in pointer and
+    "SubLevelInteractionGeometry.mayInteract" in pointer,
     "server tap packets must use Sable-aware interaction validation",
 )
 require(
-    "SableInteractionGeometry.withinReach" in controller and
-    "SableInteractionGeometry.withinReach" in context,
+    "SubLevelInteractionGeometry.withinReach" in controller and
+    "SubLevelInteractionGeometry.withinReach" in context,
     "client display pointer watchdog/context must use Sable-aware reach",
 )
 require(

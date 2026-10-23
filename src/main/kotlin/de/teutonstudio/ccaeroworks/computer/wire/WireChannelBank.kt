@@ -4,6 +4,9 @@ import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.computer.ConsoleComputer
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
+import de.TeutonStudio.TeutonLib.api.computer.channel.SignalBackend
+import de.TeutonStudio.TeutonLib.api.computer.channel.SignalBank
+import de.TeutonStudio.TeutonLib.api.computer.channel.SignalDefinition
 import net.minecraft.core.Direction
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.core.BlockPos
@@ -12,10 +15,7 @@ import net.neoforged.fml.ModList
 import java.util.UUID
 
 /** Persistent channel definition. Runtime signal state is intentionally not persisted. */
-data class WireChannelDefinition(
-    val id: UUID,
-    val name: String
-)
+typealias WireChannelDefinition = SignalDefinition
 
 data class WireConnectionView(
     val x: Int,
@@ -44,16 +44,7 @@ private data class WireChannelState(
     var pulseEndTick: Long? = null
 )
 
-interface WireBackend {
-    val name: String
-
-    fun setValue(channel: String, value: Int)
-
-    fun removeChannel(channel: String)
-
-    fun renameChannel(oldName: String, newName: String, value: Int)
-
-    fun connectionCount(channel: String): Int
+interface WireBackend : SignalBackend {
 
     /** Read-only DBW topology lookup used by the channel GUI for any logical desk source. */
     fun connectionTargets(sourcePos: BlockPos, channel: String): List<WireConnectionView> = emptyList()
@@ -62,11 +53,6 @@ interface WireBackend {
         throw IllegalStateException("Drive By Wire is not available")
     }
 
-    fun clearSignals()
-
-    fun close() {
-        clearSignals()
-    }
 }
 
 private object NoWireBackend : WireBackend {
@@ -104,139 +90,45 @@ private object WireBackends {
 class WireChannelBank(
     private val owner: ConsoleComputer
 ) {
-    private val definitions = mutableListOf<WireChannelDefinition>()
-    private val states = hashMapOf<UUID, WireChannelState>()
     private var backend: WireBackend? = null
-    private var outputEnabled: Boolean = false
+    private var computerOn: Boolean = false
+    private val signals = SignalBank(
+        clock = { (owner.level as? ServerLevel)?.gameTime ?: 0L },
+        authority = { computerOn && (owner.level as? ServerLevel)?.let(::ownsActiveNetwork) == true },
+        backendFactory = ::backend,
+        changed = owner::markWireChannelsChanged,
+        validName = ::isValidName,
+        maxChannels = MAX_CHANNELS,
+        maxPulseTicks = MAX_PULSE_TICKS,
+        subject = "Wire channel"
+    )
 
-    fun channelNames(): List<String> = definitions.map(WireChannelDefinition::name)
+    fun channelNames(): List<String> = signals.channelNames()
 
-    fun encodedDefinitions(): String = definitions.joinToString("\n") {
-        "${it.id}|${it.name}"
-    }
+    fun encodedDefinitions(): String = signals.encodedDefinitions()
 
-    fun loadEncodedDefinitions(encoded: String?) {
-        definitions.clear()
-        states.clear()
-        if (encoded.isNullOrBlank()) return
+    fun loadEncodedDefinitions(encoded: String?) = signals.loadEncodedDefinitions(encoded)
 
-        val seenNames = hashSetOf<String>()
-        val seenIds = hashSetOf<UUID>()
-        encoded.lineSequence().forEach { line ->
-            if (definitions.size >= MAX_CHANNELS) return@forEach
-            val split = line.split('|', limit = 2)
-            if (split.size != 2) return@forEach
-            val id = runCatching { UUID.fromString(split[0]) }.getOrNull() ?: return@forEach
-            val name = split[1]
-            if (!isValidName(name) || !seenNames.add(name) || !seenIds.add(id)) return@forEach
-            val definition = WireChannelDefinition(id, name)
-            definitions += definition
-            states[id] = WireChannelState()
-        }
-    }
+    fun addChannel(rawName: String): WireChannelDefinition = signals.addChannel(rawName)
 
-    fun addChannel(rawName: String): WireChannelDefinition {
-        val name = checkedName(rawName)
-        if (definitions.any { it.name == name }) {
-            throw IllegalArgumentException("Wire channel '$name' already exists")
-        }
-        if (definitions.size >= MAX_CHANNELS) {
-            throw IllegalStateException("A ComputerControlDesk supports at most $MAX_CHANNELS wire channels")
-        }
-
-        val definition = WireChannelDefinition(UUID.randomUUID(), name)
-        definitions += definition
-        states[definition.id] = WireChannelState()
-        changed()
-        return definition
-    }
-
-    fun removeChannel(rawName: String): WireChannelDefinition =
-        removeChannel(definition(rawName).id)
-
-    fun removeChannel(id: UUID): WireChannelDefinition {
-        val definition = definition(id)
-        val state = states[definition.id] ?: WireChannelState()
-        state.pulseEndTick = null
-        if (state.value != 0) {
-            state.value = 0
-            backend().setValue(definition.name, 0)
-        }
-        backend().removeChannel(definition.name)
-        definitions.remove(definition)
-        states.remove(definition.id)
-        changed()
-        return definition
-    }
+    fun removeChannel(rawName: String): WireChannelDefinition = signals.removeChannel(rawName)
+    fun removeChannel(id: UUID): WireChannelDefinition = signals.removeChannel(id)
 
     fun renameChannel(rawOldName: String, rawNewName: String): WireChannelDefinition =
-        renameChannel(definition(rawOldName).id, rawNewName)
+        signals.renameChannel(rawOldName, rawNewName)
+    fun renameChannel(id: UUID, rawNewName: String): WireChannelDefinition = signals.renameChannel(id, rawNewName)
 
-    fun renameChannel(id: UUID, rawNewName: String): WireChannelDefinition {
-        val oldDefinition = definition(id)
-        val newName = checkedName(rawNewName)
-        if (definitions.any { it.name == newName && it.id != oldDefinition.id }) {
-            throw IllegalArgumentException("Wire channel '$newName' already exists")
-        }
-        if (oldDefinition.name == newName) return oldDefinition
+    fun exists(rawName: String): Boolean = signals.exists(rawName)
 
-        val state = states[oldDefinition.id] ?: WireChannelState()
-        backend().renameChannel(oldDefinition.name, newName, state.value)
-        val replacement = oldDefinition.copy(name = newName)
-        val index = definitions.indexOf(oldDefinition)
-        definitions[index] = replacement
-        changed()
-        return replacement
-    }
+    fun value(rawName: String): Int = signals.value(rawName)
 
-    fun exists(rawName: String): Boolean {
-        val name = rawName.trim()
-        return definitions.any { it.name == name }
-    }
+    fun setValue(rawName: String, value: Int) = signals.setValue(rawName, value)
 
-    fun value(rawName: String): Int {
-        val definition = definition(rawName)
-        return states[definition.id]?.value ?: 0
-    }
+    fun pulse(rawName: String, durationTicks: Int, value: Int) = signals.pulse(rawName, durationTicks, value)
 
-    fun setValue(rawName: String, value: Int) {
-        requireOutputEnabled()
-        require(value in 0..15) { "Wire signal must be between 0 and 15" }
-        val definition = definition(rawName)
-        val state = states.getOrPut(definition.id, ::WireChannelState)
-        state.pulseEndTick = null
-        if (state.value == value) return
-        state.value = value
-        backend().setValue(definition.name, value)
-    }
+    fun reset(rawName: String) = signals.reset(rawName)
 
-    fun pulse(rawName: String, durationTicks: Int, value: Int) {
-        requireOutputEnabled()
-        require(durationTicks in 1..MAX_PULSE_TICKS) {
-            "Wire pulse duration must be between 1 and $MAX_PULSE_TICKS ticks"
-        }
-        require(value in 1..15) { "Wire pulse value must be between 1 and 15" }
-        val level = owner.level as? ServerLevel
-            ?: throw IllegalStateException("ComputerControlDesk is not in a server level")
-        val definition = definition(rawName)
-        val state = states.getOrPut(definition.id, ::WireChannelState)
-        state.value = value
-        state.pulseEndTick = level.gameTime + durationTicks
-        backend().setValue(definition.name, value)
-    }
-
-    fun reset(rawName: String) {
-        val definition = definition(rawName)
-        val state = states.getOrPut(definition.id, ::WireChannelState)
-        state.pulseEndTick = null
-        if (state.value == 0) return
-        state.value = 0
-        backend().setValue(definition.name, 0)
-    }
-
-    fun resetAll() {
-        resetAllInternal()
-    }
+    fun resetAll() = signals.resetAll()
 
     fun connectionTargets(sourcePos: BlockPos, channel: String): List<WireConnectionView> =
         backend().connectionTargets(sourcePos, channel)
@@ -248,14 +140,13 @@ class WireChannelBank(
         val activeBackend = backend()
         return WireChannelBankView(
             backend = activeBackend.name,
-            enabled = outputEnabled,
-            channels = definitions.map { definition ->
-                val state = states[definition.id] ?: WireChannelState()
+            enabled = signals.isOutputEnabled(),
+            channels = signals.definitions().map { definition ->
                 val targets = activeBackend.connectionTargets(owner.blockPos, definition.name)
                 WireChannelView(
                     id = definition.id,
                     name = definition.name,
-                    value = state.value,
+                    value = signals.value(definition.name),
                     connections = targets.size,
                     connected = targets.isNotEmpty(),
                     targets = targets
@@ -265,20 +156,20 @@ class WireChannelBank(
     }
 
     fun describeChannels(): Map<String, Any> = linkedMapOf<String, Any>().apply {
-        definitions.forEach { definition ->
+        signals.definitions().forEach { definition ->
             put(definition.name, describeChannel(definition.name))
         }
     }
 
     fun describeChannel(rawName: String): Map<String, Any> {
-        val definition = definition(rawName)
-        val state = states[definition.id] ?: WireChannelState()
+        val definition = signals.definitions().firstOrNull { it.name == rawName.trim() }
+            ?: throw NoSuchElementException("Unknown wire channel '${rawName.trim()}'")
         val activeBackend = backend()
         val targets = activeBackend.connectionTargets(owner.blockPos, definition.name)
         return linkedMapOf(
             "id" to definition.id.toString(),
             "name" to definition.name,
-            "value" to state.value,
+            "value" to signals.value(definition.name),
             "backend" to activeBackend.name,
             "connected" to targets.isNotEmpty(),
             "connections" to targets.size,
@@ -290,85 +181,28 @@ class WireChannelBank(
                     "side" to target.side
                 )
             },
-            "enabled" to outputEnabled
+            "enabled" to signals.isOutputEnabled()
         )
     }
 
     fun backendName(): String = backend().name
 
-    fun isOutputEnabled(): Boolean = outputEnabled
+    fun isOutputEnabled(): Boolean = signals.isOutputEnabled()
 
     fun tick(computerOn: Boolean) {
-        val level = owner.level as? ServerLevel ?: return
-        val enabledNow = computerOn && ownsActiveNetwork(level)
-        if (!enabledNow) {
-            if (outputEnabled || states.values.any { it.value != 0 || it.pulseEndTick != null }) {
-                resetAllInternal()
-            }
-            outputEnabled = false
-            return
-        }
-
-        outputEnabled = true
-        val now = level.gameTime
-        definitions.forEach { definition ->
-            val state = states[definition.id] ?: return@forEach
-            val pulseEnd = state.pulseEndTick ?: return@forEach
-            if (now < pulseEnd) return@forEach
-            state.pulseEndTick = null
-            if (state.value != 0) {
-                state.value = 0
-                backend().setValue(definition.name, 0)
-            }
-        }
+        this.computerOn = computerOn
+        signals.tick()
     }
 
     fun shutdown() {
-        resetAllInternal()
-        backend?.close()
+        signals.close()
         backend = null
-        outputEnabled = false
-    }
-
-    private fun resetAllInternal() {
-        states.values.forEach { state ->
-            state.value = 0
-            state.pulseEndTick = null
-        }
-        backend?.clearSignals()
+        computerOn = false
     }
 
     private fun ownsActiveNetwork(level: ServerLevel): Boolean {
         val snapshot = ConsoleMultiblockManager.resolve(level, owner.blockPos)
         return snapshot.state == ConsoleNetworkState.ACTIVE && snapshot.owner === owner
-    }
-
-    private fun requireOutputEnabled() {
-        if (!outputEnabled) {
-            throw IllegalStateException("Wire outputs are disabled until the ComputerControlDesk owns an ACTIVE console network")
-        }
-    }
-
-    private fun definition(rawName: String): WireChannelDefinition {
-        val name = rawName.trim()
-        return definitions.firstOrNull { it.name == name }
-            ?: throw NoSuchElementException("Unknown wire channel '$name'")
-    }
-
-    private fun definition(id: UUID): WireChannelDefinition =
-        definitions.firstOrNull { it.id == id }
-            ?: throw NoSuchElementException("Unknown wire channel '$id'")
-
-    private fun checkedName(rawName: String): String {
-        val name = rawName.trim()
-        require(isValidName(name)) {
-            "Invalid wire channel '$name'. Use lowercase letters, digits, '_' or '-', starting with a letter"
-        }
-        return name
-    }
-
-    private fun changed() {
-        owner.markWireChannelsChanged()
     }
 
     private fun backend(): WireBackend {

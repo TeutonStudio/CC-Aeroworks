@@ -9,6 +9,8 @@ import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes;
 import de.teutonstudio.ccaeroworks.computer.ConsoleComputers;
 import de.teutonstudio.ccaeroworks.config.CCServerConfig;
 import de.teutonstudio.ccaeroworks.display.*;
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleAssemblyPlacement;
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleAssemblyRuntime;
 import de.teutonstudio.ccaeroworks.registry.CCItems;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -25,6 +27,25 @@ import org.joml.Vector3f;
 @GameTestHolder("cc_aeroworks")
 @PrefixGameTestTemplate(false)
 public final class DisplayGameTests {
+    private static ConsoleBlockEntity placeDesk(
+        GameTestHelper h,
+        BlockPos pos,
+        Direction facing,
+        BlockPos target
+    ) {
+        var absolute = h.absolutePos(pos);
+        ConsoleAssemblyPlacement.capture(
+            h.getLevel(),
+            absolute,
+            target == null ? null : h.absolutePos(target),
+            false
+        );
+        h.setBlock(pos, AeroworksTypes.INSTANCE.controlDeskBlock("control_desk").defaultBlockState()
+            .setValue(BlockStateProperties.HORIZONTAL_FACING, facing));
+        ConsoleAssemblyRuntime.INSTANCE.initializePlaced(h.getLevel(), absolute, null);
+        return (ConsoleBlockEntity) h.getBlockEntity(pos);
+    }
+
     private static void assertExternalTouch(GameTestHelper h, ConsoleBlockEntity desk, boolean expected) {
         var received = new java.util.ArrayList<String>();
         var computer = (dan200.computercraft.api.peripheral.IComputerAccess) java.lang.reflect.Proxy.newProxyInstance(
@@ -42,7 +63,7 @@ public final class DisplayGameTests {
         peripheral.attach(computer);
         try {
             // Deliberately bypass client geometry: the dispatcher must still enforce the tier.
-            var forged = new DeskDisplayTouch(0, "front_left", "cc_aeroworks:two_digit_display", 1, 1, 14, 14, 0.0, 0.0);
+            var forged = new DeskDisplayTouch(0, "front_left", "cc_aeroworks:advanced_two_digit_display", 1, 1, 14, 14, 0.0, 0.0);
             de.teutonstudio.ccaeroworks.computer.DeskDisplayInputDispatcher.dispatch(desk, forged,
                 de.teutonstudio.ccaeroworks.network.DisplayPointerAction.TAP);
             h.assertTrue(received.contains("monitor_touch") == expected, "External touch bypassed owner capability");
@@ -62,15 +83,11 @@ public final class DisplayGameTests {
             CCServerConfig.displayMaxIndividualPpb.set(256);
             CCServerConfig.displayUseGlobalResolution.set(false);
             BlockPos origin = new BlockPos(2, 2, 2);
-            h.setBlock(origin, AeroworksTypes.INSTANCE.controlDeskBlock("control_desk").defaultBlockState()
-                .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.EAST));
-            ConsoleBlockEntity desk = (ConsoleBlockEntity) h.getBlockEntity(origin);
-            h.assertTrue(desk.mount(0, new ItemStack(CCItems.TWO_DIGIT_DISPLAY.get())), "Small display mount failed");
-            h.assertTrue(desk.mount(1, new ItemStack(CCItems.TWO_DIGIT_DISPLAY.get())), "Second small display mount failed");
-            h.setBlock(origin.north(), AeroworksTypes.INSTANCE.controlDeskBlock("control_desk").defaultBlockState()
-                .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.EAST));
-            ConsoleBlockEntity largeDesk = (ConsoleBlockEntity) h.getBlockEntity(origin.north());
-            h.assertTrue(largeDesk.mount(2, new ItemStack(CCItems.THREE_DIGIT_DISPLAY.get())), "Large display mount failed");
+            ConsoleBlockEntity desk = placeDesk(h, origin, Direction.EAST, null);
+            h.assertTrue(desk.mount(0, new ItemStack(CCItems.ADVANCED_SMALL_DISPLAY.get())), "Advanced small display mount failed");
+            h.assertTrue(desk.mount(1, new ItemStack(CCItems.ADVANCED_SMALL_DISPLAY.get())), "Second advanced small display mount failed");
+            ConsoleBlockEntity largeDesk = placeDesk(h, origin.north(), Direction.EAST, origin);
+            h.assertTrue(largeDesk.mount(2, new ItemStack(CCItems.ADVANCED_LARGE_DISPLAY.get())), "Advanced large display mount failed");
             var api = AeroworksDeskService.INSTANCE;
             api.setDisplayResolution(desk, 1, 16.0);
             api.setDisplayResolution(desk, 0, 32.0);
@@ -89,6 +106,8 @@ public final class DisplayGameTests {
             h.assertTrue(api.getDisplaySize(desk, 1).get("ppb") == 16, "Other slot setting was lost");
             h.assertTrue(api.getModule(desk, 0).get("pixelWidth").equals(28), "Module size ignores individual PPB");
             h.assertTrue(api.getDisplay(desk, 0).get("pixelHeight").equals(28), "Display description size mismatch");
+            api.setDisplayColor(desk, 0, 0x3366CC);
+            h.assertTrue(api.getDisplayColor(desk, 0) == 0x3366CC, "Advanced display color was not applied");
             try {
                 api.setDisplayResolution(desk, 0, 64.5);
                 h.fail("Fractional density was accepted");
@@ -122,7 +141,11 @@ public final class DisplayGameTests {
                 ConsoleBlockEntity surface = slot == 2 ? largeDesk : desk;
                 var size = api.getDisplaySize(surface, slot);
                 var touch = DeskDisplayGeometry.touch(surface, slot, 1.0, 1.0);
-                h.assertTrue(touch != null && touch.getX() == size.get("width") && touch.getY() == size.get("height"), "Touch does not match slot raster");
+                h.assertTrue(
+                    touch != null && touch.getX() == size.get("width") && touch.getY() == size.get("height"),
+                    "Touch does not match slot " + slot + " raster: expected " + size.get("width") + "x" + size.get("height") +
+                        ", got " + (touch == null ? "null" : touch.getX() + "x" + touch.getY())
+                );
                 var transform = DeskDisplayGeometry.moduleTransform(surface, slot);
                 Vector3f from = transform.transformPosition(new Vector3f(.5f, 1f, .5f));
                 Vector3f to = transform.transformPosition(new Vector3f(.5f, -1f, .5f));
@@ -133,9 +156,7 @@ public final class DisplayGameTests {
             }
             // A member without its own computer inherits the active owner's capability.
             BlockPos neighbor = origin.north(2);
-            h.setBlock(neighbor, AeroworksTypes.INSTANCE.controlDeskBlock("control_desk").defaultBlockState()
-                .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.EAST));
-            ConsoleBlockEntity member = (ConsoleBlockEntity) h.getBlockEntity(neighbor);
+            ConsoleBlockEntity member = placeDesk(h, neighbor, Direction.EAST, origin.north());
             h.assertTrue(DisplayTouchAccess.INSTANCE.enabled(member), "Advanced owner did not enable member touch");
             ConsoleComputers.INSTANCE.install(member, new ItemStack(ModRegistry.Items.COMPUTER_NORMAL.get()));
             h.assertTrue(!DisplayTouchAccess.INSTANCE.enabled(desk), "Conflicting owners enabled touch");
@@ -146,10 +167,20 @@ public final class DisplayGameTests {
             h.assertTrue(DisplayBindings.INSTANCE.get(desk, 0) instanceof DisplayBinding.LuaHandler, "Computer replacement lost binding");
             desk.dismount(0);
             h.assertTrue(((DisplayResolutionStateAccess)desk).ccaeroworks_getDisplayPpb(0) == null, "Dismount retained slot PPB");
-            desk.mount(0, new ItemStack(CCItems.TWO_DIGIT_DISPLAY.get()));
+            h.assertTrue(((DisplayColorStateAccess)desk).ccaeroworks_getDisplayColor(0) == null, "Dismount retained slot color");
+            desk.mount(0, new ItemStack(CCItems.SMALL_DISPLAY.get()));
             h.assertTrue(api.getDisplaySize(desk, 0).get("ppb") == 256, "Replacement display inherited old PPB");
             h.assertTrue(api.getDisplaySize(desk, 1).get("ppb") == 16, "Dismount changed another slot");
             h.assertTrue(AeroworksDeskAccess.display(largeDesk, 2).getPartsPerBlock() == 64, "Other slot changed");
+            try {
+                api.setDisplayColor(desk, 0, 0xFFFFFF);
+                h.fail("Normal display accepted a programmable color");
+            } catch (LuaException expected) { }
+            ConsoleComputers.INSTANCE.remove(desk);
+            ConsoleComputers.INSTANCE.install(desk, new ItemStack(ModRegistry.Items.COMPUTER_ADVANCED.get()));
+            h.assertTrue(DisplayTouchAccess.INSTANCE.enabled(desk), "Advanced computer capability was not restored");
+            h.assertTrue(DeskDisplayGeometry.touch(desk, 0, .5, .5) == null, "Normal display accepted touch");
+            assertExternalTouch(h, desk, false);
             h.succeed();
         } finally {
             CCServerConfig.displayUseGlobalResolution.set(global);

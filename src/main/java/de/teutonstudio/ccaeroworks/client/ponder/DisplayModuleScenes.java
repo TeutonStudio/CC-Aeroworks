@@ -1,6 +1,7 @@
 package de.teutonstudio.ccaeroworks.client.ponder;
 
 import com.simibubi.create.foundation.ponder.CreateSceneBuilder;
+import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity;
 import de.teutonstudio.ccaeroworks.registry.CCItems;
 import net.createmod.catnip.math.Pointing;
 import net.createmod.ponder.api.PonderPalette;
@@ -22,6 +23,8 @@ public class DisplayModuleScenes {
         ResourceLocation.fromNamespaceAndPath("computercraft", "monitor_normal");
     private static final ResourceLocation ADVANCED_MONITOR =
         ResourceLocation.fromNamespaceAndPath("computercraft", "monitor_advanced");
+    private static final ResourceLocation IRON_SHEET =
+        ResourceLocation.fromNamespaceAndPath("create", "iron_sheet");
 
     public static void crafting(SceneBuilder builder, SceneBuildingUtil util) {
         CreateSceneBuilder scene = new CreateSceneBuilder(builder);
@@ -52,7 +55,7 @@ public class DisplayModuleScenes {
         scene.idle(85);
         scene.effects().indicateSuccess(depot);
 
-        PonderDeskSetup.mount(scene, smallResultDesk, 2, new ItemStack(CCItems.TWO_DIGIT_DISPLAY.get()));
+        PonderDeskSetup.mount(scene, smallResultDesk, 2, new ItemStack(CCItems.SMALL_DISPLAY.get()));
         PonderDeskSetup.setDisplayText(scene, smallResultDesk, 2, "42");
         scene.world().showSection(util.select().position(smallResultDesk), Direction.DOWN);
         scene.effects().indicateSuccess(smallResultDesk);
@@ -68,17 +71,24 @@ public class DisplayModuleScenes {
         scene.idle(85);
         scene.effects().indicateSuccess(depot);
 
-        PonderDeskSetup.mount(scene, largeResultDesk, 2, new ItemStack(CCItems.THREE_DIGIT_DISPLAY.get()));
-        PonderDeskSetup.setDisplayText(scene, largeResultDesk, 2, "123");
+        PonderDeskSetup.mount(scene, largeResultDesk, 2, new ItemStack(CCItems.ADVANCED_SMALL_DISPLAY.get()));
+        PonderDeskSetup.setDisplayText(scene, largeResultDesk, 2, "99");
         scene.world().showSection(util.select().position(largeResultDesk), Direction.DOWN);
         scene.effects().indicateSuccess(largeResultDesk);
         scene.idle(55);
 
+        scene.overlay().showControls(util.vector().topOf(depot), Pointing.DOWN, 45)
+            .withItem(itemStack(IRON_SHEET));
+        scene.world().modifyBlockEntity(largeResultDesk, ConsoleBlockEntity.class, desk -> {
+            desk.dismount(2);
+            desk.mount(2, new ItemStack(CCItems.ADVANCED_LARGE_DISPLAY.get()));
+        });
+        PonderDeskSetup.setDisplayText(scene, largeResultDesk, 2, "123");
         scene.overlay().showText(80)
             .attachKeyFrame()
             .colored(PonderPalette.GREEN)
             .text(PonderText.get("display_crafting", "text_3"))
-            .pointAt(util.vector().topOf(smallResultDesk))
+            .pointAt(util.vector().topOf(largeResultDesk))
             .placeNearTarget();
         scene.idle(90);
 
@@ -108,11 +118,11 @@ public class DisplayModuleScenes {
         scene.idle(20);
 
         scene.overlay().showControls(util.vector().topOf(left), Pointing.DOWN, 45)
-            .withItem(CCItems.TWO_DIGIT_DISPLAY.get().getDefaultInstance())
+            .withItem(CCItems.SMALL_DISPLAY.get().getDefaultInstance())
             .rightClick();
         scene.idle(35);
-        PonderDeskSetup.mount(scene, left, 0, new ItemStack(CCItems.TWO_DIGIT_DISPLAY.get()));
-        PonderDeskSetup.mount(scene, left, 1, new ItemStack(CCItems.TWO_DIGIT_DISPLAY.get()));
+        PonderDeskSetup.mount(scene, left, 0, new ItemStack(CCItems.SMALL_DISPLAY.get()));
+        PonderDeskSetup.mount(scene, left, 1, new ItemStack(CCItems.SMALL_DISPLAY.get()));
         PonderDeskSetup.setDisplayText(scene, left, 0, "12");
         PonderDeskSetup.setDisplayText(scene, left, 1, "34");
         scene.effects().indicateSuccess(left);
@@ -125,10 +135,10 @@ public class DisplayModuleScenes {
         scene.idle(85);
 
         scene.overlay().showControls(util.vector().topOf(middle), Pointing.DOWN, 45)
-            .withItem(CCItems.TWO_DIGIT_DISPLAY.get().getDefaultInstance())
+            .withItem(CCItems.SMALL_DISPLAY.get().getDefaultInstance())
             .rightClick();
         scene.idle(30);
-        PonderDeskSetup.mount(scene, middle, 2, new ItemStack(CCItems.TWO_DIGIT_DISPLAY.get()));
+        PonderDeskSetup.mount(scene, middle, 2, new ItemStack(CCItems.SMALL_DISPLAY.get()));
         PonderDeskSetup.setDisplayText(scene, middle, 2, "56");
         scene.effects().indicateSuccess(middle);
         scene.overlay().showText(75)
@@ -139,7 +149,7 @@ public class DisplayModuleScenes {
         scene.idle(85);
 
         scene.overlay().showControls(util.vector().topOf(left), Pointing.DOWN, 45)
-            .withItem(CCItems.THREE_DIGIT_DISPLAY.get().getDefaultInstance())
+            .withItem(CCItems.LARGE_DISPLAY.get().getDefaultInstance())
             .rightClick();
         scene.effects().indicateRedstone(left);
         scene.overlay().showText(70)
@@ -151,10 +161,10 @@ public class DisplayModuleScenes {
         scene.idle(80);
 
         scene.overlay().showControls(util.vector().topOf(right), Pointing.DOWN, 45)
-            .withItem(CCItems.THREE_DIGIT_DISPLAY.get().getDefaultInstance())
+            .withItem(CCItems.LARGE_DISPLAY.get().getDefaultInstance())
             .rightClick();
         scene.idle(30);
-        PonderDeskSetup.mount(scene, right, 2, new ItemStack(CCItems.THREE_DIGIT_DISPLAY.get()));
+        PonderDeskSetup.mount(scene, right, 2, new ItemStack(CCItems.LARGE_DISPLAY.get()));
         PonderDeskSetup.setDisplayText(scene, right, 2, "789");
         scene.effects().indicateSuccess(right);
         scene.overlay().showText(75)
@@ -180,7 +190,7 @@ public class DisplayModuleScenes {
         scene.world().setBlock(middle, PonderDeskSetup.normalDesk(), false);
         scene.world().setBlock(right, PonderDeskSetup.normalDesk(), false);
         PonderDeskSetup.installComputer(scene, computer, true);
-        PonderDeskSetup.mount(scene, right, 2, new ItemStack(CCItems.THREE_DIGIT_DISPLAY.get()));
+        PonderDeskSetup.mount(scene, right, 2, new ItemStack(CCItems.LARGE_DISPLAY.get()));
         PonderDeskSetup.clearDisplay(scene, right, 2);
         scene.world().showSection(util.select().fromTo(computer, right), Direction.DOWN);
         scene.idle(20);

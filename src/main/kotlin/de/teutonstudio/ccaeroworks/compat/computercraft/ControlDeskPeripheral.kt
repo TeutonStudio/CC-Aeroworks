@@ -12,6 +12,7 @@ import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskService
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskIdentityAccess
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskInputSnapshot
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleAssemblyStateAccess
 import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
 import de.teutonstudio.ccaeroworks.display.DisplayBindingService
 import java.lang.ref.WeakReference
@@ -51,7 +52,7 @@ open class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral 
     fun getInfo(): Map<String, Any> {
         val desk = desk()
         val pos = desk.blockPos
-        return linkedMapOf(
+        return linkedMapOf<String, Any>(
             "id" to (desk as DeskIdentityAccess).ccaeroworks_getDeskId().toString(),
             "type" to type,
             "x" to pos.x,
@@ -59,7 +60,11 @@ open class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral 
             "z" to pos.z,
             "dimension" to desk.level!!.dimension().location().toString(),
             "loaded" to true
-        )
+        ).apply {
+            (desk as? ConsoleAssemblyStateAccess)?.ccaeroworks_getAssemblyId()?.let {
+                put("assemblyId", it.toString())
+            }
+        }
     }
 
     @LuaFunction(mainThread = true)
@@ -145,6 +150,14 @@ open class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral 
     @LuaFunction(mainThread = true)
     fun clearDisplayPixels(arguments: IArguments) =
         AeroworksDeskService.clearDisplayPixels(desk(), arguments.get(0))
+
+    @LuaFunction(mainThread = true)
+    fun getDisplayColor(arguments: IArguments): Int =
+        AeroworksDeskService.getDisplayColor(desk(), arguments.get(0))
+
+    @LuaFunction(mainThread = true)
+    fun setDisplayColor(arguments: IArguments): Int =
+        AeroworksDeskService.setDisplayColor(desk(), arguments.get(0), arguments.get(1))
 
     @LuaFunction(mainThread = true)
     fun getDisplayBinding(arguments: IArguments): Map<String, Any> =

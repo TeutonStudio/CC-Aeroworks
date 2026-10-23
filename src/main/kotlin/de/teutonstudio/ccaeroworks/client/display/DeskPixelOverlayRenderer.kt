@@ -2,7 +2,7 @@ package de.teutonstudio.ccaeroworks.client.display
 
 import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskAccess
-import de.teutonstudio.ccaeroworks.compat.sable.SableClientRenderPose
+import de.TeutonStudio.TeutonLib.api.sable.SubLevelRenderPose
 import net.minecraft.client.Minecraft
 import net.minecraft.client.renderer.LevelRenderer
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent
@@ -67,7 +67,7 @@ object DeskPixelOverlayRenderer {
 
             poseStack.pushPose()
             try {
-                val renderPose = SableClientRenderPose.apply(
+                val renderPose = SubLevelRenderPose.apply(
                     poseStack,
                     desk,
                     desk.blockPos.x.toDouble(),

@@ -4,16 +4,15 @@ import com.mred231.aeroworks.content.controls.module.ModuleMenu
 import com.mred231.aeroworks.content.controls.module.ModuleScreen
 import com.mred231.aeroworks.content.controls.socket.ConsoleSocket
 import de.teutonstudio.ccaeroworks.client.ModuleScreenRowGeometry
+import de.teutonstudio.ccaeroworks.client.DisplaySourceSelection
+import de.teutonstudio.ccaeroworks.client.DisplaySourceSelectorExtensions
 import de.teutonstudio.ccaeroworks.client.SourceSelectorOverlayOwner
 import de.teutonstudio.ccaeroworks.client.SourceSelectorWidget
 import de.teutonstudio.ccaeroworks.client.scriptSourceOptions
 import de.teutonstudio.ccaeroworks.display.ControlScriptBindings
-import de.teutonstudio.ccaeroworks.display.DeskDisplayType
-import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
 import de.teutonstudio.ccaeroworks.display.DisplayScriptCatalogState
 import de.teutonstudio.ccaeroworks.network.RequestDisplayScriptCatalogPayload
-import de.teutonstudio.ccaeroworks.network.SetDisplayTouchScriptPayload
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
@@ -36,7 +35,7 @@ abstract class ModuleScreenDisplayBindingMixin(
 ) : AbstractContainerScreen<ModuleMenu>(menu, inventory, title), SourceSelectorOverlayOwner {
     @Unique private var ccaeroworks_nativeContentHeight: Int = -1
     @Unique private var ccaeroworks_extensionRows: Int = 0
-    @Unique private var ccaeroworks_scriptDropdown: SourceSelectorWidget<String>? = null
+    @Unique private var ccaeroworks_scriptDropdown: SourceSelectorWidget<DisplaySourceSelection>? = null
     @Unique private var ccaeroworks_scriptCatalogRequested: Boolean = false
 
     @Inject(method = ["init()V"], at = [At("HEAD")])
@@ -51,7 +50,7 @@ abstract class ModuleScreenDisplayBindingMixin(
     @Inject(method = ["init()V"], at = [At("TAIL")])
     private fun ccaeroworks_addDisplayBindingRows(callback: CallbackInfo) {
         val module = (this as ModuleScreenInvoker).ccaeroworks_module() ?: return
-        if (CCModuleTypes.displayType(module.type()) == null &&
+        if (!CCModuleTypes.isInteractiveDisplay(module.type()) &&
             !ControlScriptBindings.supports(module)) return
         val holder = menu.contentHolder as? ConsoleSocket ?: return
         if (!holder.valid()) return
@@ -116,7 +115,7 @@ abstract class ModuleScreenDisplayBindingMixin(
         }
         val holder = menu.contentHolder as? ConsoleSocket ?: return
         val desk = holder.be()
-        val currentPath = (DisplayBindings.get(desk, socket) as? DisplayBinding.LuaHandler)?.path.orEmpty()
+        val currentKey = DisplaySourceSelectorExtensions.selectedKey(DisplayBindings.get(desk, socket))
         val invoker = this as ModuleScreenInvoker
         ccaeroworks_scriptDropdown = addRenderableWidget(
   SourceSelectorWidget(
@@ -130,11 +129,35 @@ abstract class ModuleScreenDisplayBindingMixin(
       BINDING_ROW_WIDTH,
       ModuleScreenRowGeometry.EXTENSION_ROW_HEIGHT,
       font,
-      currentPath,
-      { selectedPath -> scriptSourceOptions(deskPos, socket, selectedPath) },
-      { path -> PacketDistributor.sendToServer(SetDisplayTouchScriptPayload(deskPos, socket, path)) },
-      Component.literal("Skriptquelle")
+      currentKey,
+      { selectedKey -> scriptSourceOptions(desk, socket, selectedKey) },
+      { selection -> selection.apply() },
+      Component.literal(
+          if (desk.module(socket)?.let { CCModuleTypes.isInteractiveDisplay(it.type()) } == true) {
+              "Display-Steuerung"
+          } else {
+              "Skriptquelle"
+          }
+      )
   )
+        )
+    }
+
+    @Inject(method = ["render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V"], at = [At("HEAD")])
+    private fun ccaeroworks_syncDisplayBindingSelection(
+        graphics: GuiGraphics,
+        mouseX: Int,
+        mouseY: Int,
+        partialTick: Float,
+        callback: CallbackInfo
+    ) {
+        val module = (this as ModuleScreenInvoker).ccaeroworks_module() ?: return
+        val holder = menu.contentHolder as? ConsoleSocket ?: return
+        if (!holder.valid()) return
+        val desk = holder.be()
+        val socket = (0 until desk.socketCount()).firstOrNull { desk.module(it) === module } ?: return
+        ccaeroworks_scriptDropdown?.setSelectedKey(
+            DisplaySourceSelectorExtensions.selectedKey(DisplayBindings.get(desk, socket))
         )
     }
 }

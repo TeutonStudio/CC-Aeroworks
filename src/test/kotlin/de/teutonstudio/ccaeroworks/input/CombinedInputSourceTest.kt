@@ -44,6 +44,18 @@ class CombinedInputSourceTest {
         assertEquals(CombinedInputSource.MouseAxis.Y, CombinedInputSource.mouseAxis(axis("pedal", horizontal = false)))
     }
 
+    @Test
+    fun `advanced small and large displays support pointer input`() {
+        for (moduleId in listOf(
+            "cc_aeroworks:advanced_two_digit_display",
+            "cc_aeroworks:advanced_three_digit_display"
+        )) {
+            assertTrue(CombinedInputSource.isDisplayPointerModule(moduleId), moduleId)
+        }
+        assertTrue(!CombinedInputSource.isDisplayPointerModule("cc_aeroworks:two_digit_display"))
+        assertTrue(!CombinedInputSource.isDisplayPointerModule("cc_aeroworks:three_digit_display"))
+    }
+
     private fun axis(id: String, horizontal: Boolean) = ControlChannel.Axis(
         id,
         "test.$id",

@@ -8,6 +8,7 @@ import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.computer.ComputerConsoleAccess
 import de.teutonstudio.ccaeroworks.computer.ConsoleComputer
 import de.teutonstudio.ccaeroworks.config.CCServerConfig
+import de.TeutonStudio.TeutonLib.api.simulated.SimulatedDockingConnector
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.neoforged.bus.api.SubscribeEvent
@@ -326,7 +327,7 @@ internal class TelemetryComputerRuntime(
 
     private fun localDockBlockEntity(dock: DockSnapshot): BlockEntity =
         level().getBlockEntity(dock.pos)
-            ?.takeIf(SimulatedDockAccess::isDock)
+            ?.takeIf(SimulatedDockingConnector::isConnector)
             ?: throw LuaException("Dock '${dock.alias ?: dock.id}' is no longer loaded")
 
     private fun remoteTarget(dock: DockSnapshot, requireLocked: Boolean = true): BlockEntity? {

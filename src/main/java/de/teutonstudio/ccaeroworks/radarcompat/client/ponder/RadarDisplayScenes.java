@@ -3,7 +3,7 @@ package de.teutonstudio.ccaeroworks.radarcompat.client.ponder;
 import com.simibubi.create.foundation.ponder.CreateSceneBuilder;
 import de.teutonstudio.ccaeroworks.client.ponder.PonderDeskSetup;
 import de.teutonstudio.ccaeroworks.client.ponder.PonderText;
-import de.teutonstudio.ccaeroworks.radarcompat.registry.RadarItems;
+import de.teutonstudio.ccaeroworks.registry.CCItems;
 import net.createmod.catnip.math.Pointing;
 import net.createmod.ponder.api.PonderPalette;
 import net.createmod.ponder.api.scene.SceneBuilder;
@@ -33,7 +33,7 @@ public class RadarDisplayScenes {
         BlockPos physicalLink = desk.above();
         scene.world().setBlock(filterer, blockState(NETWORK_FILTERER_ID), false);
         scene.world().setBlock(desk, PonderDeskSetup.normalDesk(), false);
-        PonderDeskSetup.mount(scene, desk, 2, new ItemStack(RadarItems.LARGE_RADAR_DISPLAY.get()));
+        PonderDeskSetup.mount(scene, desk, 2, new ItemStack(CCItems.ADVANCED_LARGE_DISPLAY.get()));
         scene.world().showSection(util.select().position(filterer), Direction.DOWN);
         scene.world().showSection(util.select().position(desk), Direction.DOWN);
         scene.idle(20);
@@ -98,8 +98,8 @@ public class RadarDisplayScenes {
         BlockPos physicalLink = linkedDesk.above();
         scene.world().setBlock(linkedDesk, PonderDeskSetup.normalDesk(), false);
         scene.world().setBlock(unlinkedDesk, PonderDeskSetup.normalDesk(), false);
-        PonderDeskSetup.mount(scene, linkedDesk, 2, new ItemStack(RadarItems.LARGE_RADAR_DISPLAY.get()));
-        PonderDeskSetup.mount(scene, unlinkedDesk, 2, new ItemStack(RadarItems.SMALL_RADAR_DISPLAY.get()));
+        PonderDeskSetup.mount(scene, linkedDesk, 2, new ItemStack(CCItems.ADVANCED_LARGE_DISPLAY.get()));
+        PonderDeskSetup.mount(scene, unlinkedDesk, 2, new ItemStack(CCItems.ADVANCED_SMALL_DISPLAY.get()));
         scene.world().setBlock(physicalLink, blockState(DATA_LINK_ID), false);
         scene.world().showSection(util.select().fromTo(linkedDesk, unlinkedDesk), Direction.DOWN);
         scene.world().showSection(util.select().position(physicalLink), Direction.DOWN);

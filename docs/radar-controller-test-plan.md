@@ -28,7 +28,7 @@ Vor dem Sichttest müssen Serverzustand, Clienttransport und nativer MonitorRend
 | Native Payload | Client erhält `tracks` als Create:-Radars-`RadarTrackUtil`-CompoundTag | Keine CC-Aeroworks-eigene Track-/Sprite-Rekonstruktion |
 | Native Renderer | Log nach `Native Create: Radars monitor rendering failed` prüfen | Keine Meldung; virtueller Monitor und registrierter `MonitorRenderer` sind verwendbar |
 | Ressourcen | Clientlog nach `missing texture`, `missing model` durchsuchen | Keine Missing-Texture-/Missing-Model-Meldung |
-| Referenzmonitor | echten `create_radar:monitor` neben RadarDisplay betreiben | Hintergrund, Grid, Sweep und Tracks stimmen überein |
+| Referenzmonitor | echten `create_radar:monitor` neben einem radar-gebundenen erweiterten Display betreiben | Hintergrund, Grid, Sweep und Tracks stimmen überein |
 | Kontakt | Spieler/Mob in Reichweite erzeugen | Nativer Kontakt erscheint auf beiden Anzeigen |
 
 ## Data-Link- und Netzwerkvertrag
@@ -36,19 +36,17 @@ Vor dem Sichttest müssen Serverzustand, Clienttransport und nativer MonitorRend
 | Fall | Schritte | Erwartung |
 | --- | --- | --- |
 | Filterer auswählen | Data Link auf Network Filterer verwenden | Item speichert nativ die Filterer-Auswahl und zeigt die native Meldung |
-| Normales Pult ohne RadarDisplay | Dasselbe Item auf Pult verwenden | Kein Monitorziel; nativer Fehler; kein Data-Link-Block |
-| Advanced Pult ohne RadarDisplay | Dasselbe Item auf Pult verwenden | Kein Monitorziel; nativer Fehler; kein Data-Link-Block |
-| ComputerControlDesk ohne RadarDisplay | Dasselbe Item auf Pult verwenden | Kein Monitorziel; nativer Fehler; kein Data-Link-Block |
-| Advanced ComputerControlDesk ohne RadarDisplay | Dasselbe Item auf Pult verwenden | Kein Monitorziel; nativer Fehler; kein Data-Link-Block |
-| Pult mit kleinem RadarDisplay | Filterer wählen, danach Pult anklicken | Create: Radars platziert physischen Data-Link-Block und meldet Erfolg |
-| Pult mit großem RadarDisplay | Filterer wählen, danach Pult anklicken | Identischer nativer Monitorpfad |
+| Pult nur mit normalem Display | Dasselbe Item auf Pult verwenden | Kein Monitorziel; nativer Fehler; kein Data-Link-Block |
+| Pult ohne Display | Dasselbe Item auf Pult verwenden | Kein Monitorziel; nativer Fehler; kein Data-Link-Block |
+| Pult mit kleinem erweitertem Display | Filterer wählen, danach Pult anklicken und Radarquelle im gemeinsamen Dropdown wählen | Create: Radars platziert den physischen Data-Link-Block; Radar ersetzt die Lua-Bindung |
+| Pult mit großem erweitertem Display | Filterer wählen, danach Pult anklicken und Radarquelle wählen | Identischer nativer Monitorpfad |
 | Linkreichweite | Pult beziehungsweise Filterer außerhalb der nativen Reichweite | Native Reichweitenmeldung; kein Block und keine Endpointregistrierung |
 | Fremde Gruppe | Bereits anderweitig registrierten Endpoint mit zweitem Filterer verbinden | `canAttachMonitor` lehnt nativ ab |
 | NetworkData | Aktiven Aufbau prüfen | `getFiltererForEndpoint(dimension, deskPos)` liefert den gewählten Filterer |
 | monitorEndpoints | Zugehörige Gruppe prüfen | `monitorEndpoints` enthält exakt die Pultposition |
 | Physischer Link vorhanden | Welt speichern/laden, Linkblock stehen lassen | Endpoint bleibt registriert |
 | Link entfernen | Physischen Data-Link-Block abbauen | Native Zuordnung verschwindet; native Radaroberfläche verschwindet innerhalb von fünf Ticks |
-| Mehrere Endpoints | Zwei RadarDisplay-Pulte jeweils mit eigenem Data Link an dieselbe Gruppe | Beide Positionen stehen in `monitorEndpoints`; keine Snapshotverteilung ohne Link |
+| Mehrere Endpoints | Zwei Pulte mit erweitertem Display jeweils mit eigenem Data Link an dieselbe Gruppe | Beide Positionen stehen in `monitorEndpoints`; mehrere Displays dürfen denselben Ingress als Pseudo-Skript wählen |
 | Kein Nachbarschaftspfad | Network Filterer weit entfernt, aber innerhalb Linkreichweite | Verbindung funktioniert ohne angrenzenden Controller |
 
 ## Datenauflösung und Filter
@@ -91,11 +89,11 @@ Erwartung:
 - native quadratische Monitorfläche bleibt proportional und wird nicht horizontal verzerrt,
 - Nord/Ost/Süd/West entsprechen der Orientierung eines gleich ausgerichteten nativen Monitors,
 - Sweepwinkel kommt aus `IRadar.getGlobalAngle()` beziehungsweise nativer Radarart, nicht aus einem CC-Aeroworks-Timer,
-- kleines und großes RadarDisplay zeigen denselben Netzwerkzustand passend zentriert/skaliert.
+- kleines und großes erweitertes Display zeigen mit Radarbindung denselben Netzwerkzustand passend zentriert/skaliert.
 
 ## Referenztest gegen echten Create:-Radars-Monitor
 
-Für diese Tests werden ein echter `create_radar:monitor` und ein RadarDisplay-Pult über eigene physische Data Links mit **derselben NetworkData-Gruppe und demselben Radar** verbunden.
+Für diese Tests werden ein echter `create_radar:monitor` und ein Pult mit radar-gebundenem erweitertem Display über eigene physische Data Links mit **derselben NetworkData-Gruppe und demselben Radar** verbunden.
 
 | Test | Erwartung |
 | --- | --- |
@@ -118,7 +116,7 @@ Für diese Tests werden ein echter `create_radar:monitor` und ein RadarDisplay-P
 | Flywheel | Flywheel aktivieren | Native `ConsoleVisual`-Steuereinheiten plus derselbe gemeinsame Radar-Overlay-Pass sichtbar |
 | Einmaliges Rendering | Beide Pfade beobachten | keine doppelte Radarfläche/Z-Fighting; Overlay zeichnet je Pultfläche einmal |
 | Missing-Texture-Regression | beide Renderpfade laden | keine schwarz-pinke Fläche; Create:-Radars-Sprites werden direkt durch `MonitorRenderer` benutzt, nicht als Blockatlas-PartialModels |
-| ComputerControlDesk | normales Computerpult mit Hebel/Joystick und RadarDisplay | Steuereinheiten bleiben sichtbar; Radaroverlay liegt korrekt auf dem Socket |
+| ComputerControlDesk | normales Computerpult mit Hebel/Joystick und radar-gebundenem erweitertem Display | Steuereinheiten bleiben sichtbar; Radaroverlay liegt korrekt auf dem Socket |
 | Advanced ComputerControlDesk | Advanced-Variante wiederholen | identisches Verhalten über gemeinsamen BlockEntity-Typ |
 | Linkabbau bei Flywheel | aktiven Data Link entfernen | Overlay verschwindet; keine stale Flywheel-Radarinstanz existiert |
 | Heartbeat ohne Inhaltsänderung | aktiven Radar beobachten | kein unnötiges Neubauen eigener Radarinstanzen, da es keine solchen Instanzen mehr gibt |
@@ -160,12 +158,12 @@ python3 tools/verify-radar-link.py
 Für jeden nicht ausgeführten Fall ausdrücklich `NICHT GETESTET` notieren. Der PR bleibt Draft, solange nicht mindestens folgende Kette im Entwicklungsclient bestätigt ist:
 
 1. Filterer auswählen.
-2. Pult mit RadarDisplay verbinden.
+2. Pult mit erweitertem Display verbinden und Radar-Ingress im gemeinsamen Dropdown auswählen.
 3. Physischer Data-Link-Block sichtbar.
 4. Serverlog meldet `status=ACTIVE`.
 5. Clientlog empfängt `status=ACTIVE`.
 6. Nativer `create_radar:monitor` wird als Referenz mit derselben Gruppe verbunden.
-7. RadarDisplay zeigt denselben Hintergrund, Grid und Sweep wie der Referenzmonitor.
+7. Das radar-gebundene Display zeigt denselben Hintergrund, Grid und Sweep wie der Referenzmonitor.
 8. Spieler oder Mob erzeugen; derselbe native Track erscheint auf beiden Anzeigen.
 9. Detection-Filter ändert beide Anzeigen gleich.
 10. Zielmarkierung/Fade/Label vergleichen.

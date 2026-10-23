@@ -71,7 +71,7 @@ object InformationSourceSnapshotBuilder {
                     x = node.pos.x,
                     y = node.pos.y,
                     z = node.pos.z,
-                    side = node.side.name.lowercase(),
+                    side = node.side?.name?.lowercase().orEmpty(),
                     details = node.types.sorted().joinToString(", ").take(120)
                 )
             }

@@ -6,6 +6,21 @@ import org.junit.jupiter.api.Test
 
 class PeripheralTypeNamesTest {
     @Test
+    fun `contraption control aliases resolve to one type`() {
+        val aliases = PeripheralTypeNames.aliases(
+            listOf(
+                "ContraptionControl",
+                "contraption_control",
+                "create:contraption_controls",
+                "cc_aeroworks:contraption_control"
+            )
+        )
+        listOf("ContraptionControl", "contraption-control", "create:contraption_controls",
+            "cc_aeroworks:contraption_control").forEach { query ->
+            assertTrue(PeripheralTypeNames.lookupKeys(query).any(aliases::contains))
+        }
+    }
+    @Test
     fun `namespaced ender modem exposes full path and compact aliases`() {
         val aliases = PeripheralTypeNames.aliases(
             listOf("advanced_peripherals:ender_modem")

@@ -24,13 +24,13 @@ object ConsoleMultiblockDisplayBounds {
         }
 
         var bounds: AABB? = null
-        for (member in network.members) {
-            val state = level.getBlockState(member.pos)
-            val shape = state.getShape(level, member.pos)
+        for (segmentPos in network.segmentPositions) {
+            val state = level.getBlockState(segmentPos)
+            val shape = state.getShape(level, segmentPos)
             val memberBounds = if (shape.isEmpty) {
-                AABB(member.pos)
+                AABB(segmentPos)
             } else {
-                shape.bounds().move(member.pos)
+                shape.bounds().move(segmentPos)
             }
 
             val current = bounds

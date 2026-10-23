@@ -7,12 +7,15 @@ import com.mojang.math.Axis
 import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import com.mred231.aeroworks.content.controls.module.ModulePartRender
 import com.mred231.aeroworks.content.controls.module.ModulePartials
+import com.simibubi.create.content.contraptions.actors.contraptionControls.ContraptionControlsBlockEntity
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockSnapshot
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import net.createmod.catnip.render.CachedBuffers
 import net.createmod.catnip.render.SuperByteBuffer
+import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
+import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.client.renderer.RenderType
 import net.minecraft.core.Direction
 import net.minecraft.world.level.block.state.BlockState
@@ -82,7 +85,7 @@ object ConsoleMultiblockPreviewRenderer {
     ): Boolean {
         val level = console.level ?: return false
         val snapshot = ConsoleMultiblockManager.resolve(level, console.blockPos)
-        if (snapshot.members.size <= 1) return false
+        if (snapshot.segmentPositions.size <= 1) return false
         if (snapshot.state == ConsoleNetworkState.PARTIALLY_LOADED ||
             snapshot.state == ConsoleNetworkState.TOO_LARGE
         ) {
@@ -92,7 +95,7 @@ object ConsoleMultiblockPreviewRenderer {
         val preview = previewFor(snapshot)
         val scene = preview.scene
         val layout = preview.layout
-        if (scene.members.size <= 1) return false
+        if (scene.segments.size <= 1) return false
 
         val centerX = windowLeft + AEROWORKS_WINDOW_WIDTH + PREVIEW_OFFSET_X
         val centerY = windowTop + PREVIEW_BASE_Y + PREVIEW_OFFSET_Y
@@ -109,6 +112,11 @@ object ConsoleMultiblockPreviewRenderer {
             centerY.toFloat() + PREVIEW_VERTICAL_BIAS,
             layout
         )
+        val perspectiveBuffers = object : MultiBufferSource {
+            override fun getBuffer(type: RenderType): VertexConsumer = PerspectiveVertexConsumer(
+                buffers.getBuffer(type), centerX.toFloat(), centerY.toFloat() + PREVIEW_VERTICAL_BIAS, layout
+            )
+        }
 
         // Keep the model transform in camera space. Catnip's SuperByteBuffer applies this pose
         // on the CPU before calling VertexConsumer.addVertex(), so the perspective divide has
@@ -124,15 +132,18 @@ object ConsoleMultiblockPreviewRenderer {
             cameraPose.mulPose(Axis.YP.rotationDegrees(layout.yaw))
             cameraPose.translate(-layout.centerX, -layout.centerY, -layout.centerZ)
 
-            scene.members.forEach { member ->
+            scene.segments.forEach { segment ->
                 cameraPose.pushPose()
                 try {
-                    cameraPose.translate(member.x, member.y, member.z)
-                    val state = normalizedPreviewState(member.desk.blockState)
-                    val deskBuffer = CachedBuffers.block(state)
-                    deskBuffer.light<SuperByteBuffer>(FULL_BRIGHT)
-                    deskBuffer.renderInto(cameraPose, perspectiveConsumer)
-                    renderModules(member.desk, state, cameraPose, perspectiveConsumer)
+                    cameraPose.translate(segment.x, segment.y, segment.z)
+                    val state = normalizedPreviewState(segment.state)
+                    val blockBuffer = CachedBuffers.block(state)
+                    blockBuffer.light<SuperByteBuffer>(FULL_BRIGHT)
+                    blockBuffer.renderInto(cameraPose, perspectiveConsumer)
+                    segment.desk?.let { renderModules(it, state, cameraPose, perspectiveConsumer) }
+                    segment.contraptionControl?.let {
+                        renderContraptionControlState(it, cameraPose, perspectiveBuffers)
+                    }
                 } finally {
                     cameraPose.popPose()
                 }
@@ -183,6 +194,30 @@ object ConsoleMultiblockPreviewRenderer {
         }
     }
 
+    /** Let Create's own BER draw the live filter, button and indicator over our insert model. */
+    private fun renderContraptionControlState(
+        controls: ContraptionControlsBlockEntity,
+        poseStack: PoseStack,
+        buffers: MultiBufferSource
+    ) {
+        val sourceFacing = controls.blockState.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING)
+        poseStack.pushPose()
+        try {
+            poseStack.translate(0.5, 0.0, 0.5)
+            poseStack.mulPose(Axis.YP.rotationDegrees(canonicalFacing.toYRot() - sourceFacing.toYRot()))
+            poseStack.translate(-0.5, 0.0, -0.5)
+            val minecraft = Minecraft.getInstance()
+            minecraft.blockEntityRenderDispatcher.render(
+                controls,
+                minecraft.timer.getGameTimeDeltaPartialTick(true),
+                poseStack,
+                buffers
+            )
+        } finally {
+            poseStack.popPose()
+        }
+    }
+
     private fun normalizedPreviewState(source: BlockState): BlockState {
         var state = source
         val facing = state.properties
@@ -219,15 +254,18 @@ object ConsoleMultiblockPreviewRenderer {
 
     private fun buildScene(snapshot: ConsoleMultiblockSnapshot): Scene {
         val first = snapshot.members.first()
-        val origin = first.pos
+        val level = first.desk.level ?: return Scene(emptyList(), Bounds.EMPTY)
+        val origin = snapshot.segmentPositions.first()
         val facing = first.facing
         val right = facing.clockWise
-        val members = snapshot.members.map { member ->
-            val dx = member.pos.x - origin.x
-            val dy = member.pos.y - origin.y
-            val dz = member.pos.z - origin.z
-            LocalMember(
-                desk = member.desk,
+        val segments = snapshot.segmentPositions.map { pos ->
+            val dx = pos.x - origin.x
+            val dy = pos.y - origin.y
+            val dz = pos.z - origin.z
+            LocalSegment(
+                desk = snapshot.memberAt(pos)?.desk,
+                contraptionControl = level.getBlockEntity(pos) as? ContraptionControlsBlockEntity,
+                state = level.getBlockState(pos),
                 x = (dx * right.stepX + dz * right.stepZ).toDouble(),
                 y = dy.toDouble(),
                 // World-forward maps to canonical NORTH, hence the sign inversion.
@@ -241,15 +279,15 @@ object ConsoleMultiblockPreviewRenderer {
         var maxX = Double.NEGATIVE_INFINITY
         var maxY = Double.NEGATIVE_INFINITY
         var maxZ = Double.NEGATIVE_INFINITY
-        members.forEach { member ->
-            minX = min(minX, member.x)
-            minY = min(minY, member.y)
-            minZ = min(minZ, member.z)
-            maxX = max(maxX, member.x + 1.0)
-            maxY = max(maxY, member.y + 1.0)
-            maxZ = max(maxZ, member.z + 1.0)
+        segments.forEach { segment ->
+            minX = min(minX, segment.x)
+            minY = min(minY, segment.y)
+            minZ = min(minZ, segment.z)
+            maxX = max(maxX, segment.x + 1.0)
+            maxY = max(maxY, segment.y + 1.0)
+            maxZ = max(maxZ, segment.z + 1.0)
         }
-        return Scene(members, Bounds(minX, minY, minZ, maxX, maxY, maxZ))
+        return Scene(segments, Bounds(minX, minY, minZ, maxX, maxY, maxZ))
     }
 
     private fun layoutFor(scene: Scene): Layout {
@@ -340,10 +378,10 @@ object ConsoleMultiblockPreviewRenderer {
         var minProjectedY = Double.POSITIVE_INFINITY
         var maxProjectedY = Double.NEGATIVE_INFINITY
 
-        scene.members.forEach { member ->
-            for (x in doubleArrayOf(member.x, member.x + 1.0)) {
-                for (y in doubleArrayOf(member.y, member.y + 1.0)) {
-                    for (z in doubleArrayOf(member.z, member.z + 1.0)) {
+        scene.segments.forEach { segment ->
+            for (x in doubleArrayOf(segment.x, segment.x + 1.0)) {
+                for (y in doubleArrayOf(segment.y, segment.y + 1.0)) {
+                    for (z in doubleArrayOf(segment.z, segment.z + 1.0)) {
                         val localX = x - centerX
                         val localY = y - centerY
                         val localZ = z - centerZ
@@ -434,14 +472,16 @@ object ConsoleMultiblockPreviewRenderer {
         }
     }
 
-    private data class LocalMember(
-        val desk: ConsoleBlockEntity,
+    private data class LocalSegment(
+        val desk: ConsoleBlockEntity?,
+        val contraptionControl: ContraptionControlsBlockEntity?,
+        val state: BlockState,
         val x: Double,
         val y: Double,
         val z: Double
     )
 
-    private data class Scene(val members: List<LocalMember>, val bounds: Bounds)
+    private data class Scene(val segments: List<LocalSegment>, val bounds: Bounds)
 
     private data class Bounds(
         val minX: Double,
@@ -451,6 +491,10 @@ object ConsoleMultiblockPreviewRenderer {
         val maxY: Double,
         val maxZ: Double
     ) {
+        companion object {
+            val EMPTY = Bounds(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        }
+
         val width: Double get() = maxX - minX
         val height: Double get() = maxY - minY
         val depth: Double get() = maxZ - minZ

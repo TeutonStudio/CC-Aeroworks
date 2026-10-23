@@ -38,8 +38,8 @@ require("ConsoleMultiblockDisplayBounds.resolve" in telemetry_target,
 # Bounds must come from the canonical multiblock resolver, not from a second scan.
 require("ConsoleMultiblockManager.resolve" in bounds,
         "Display Link bounds must reuse the canonical ControlDesk multiblock resolver")
-require("state.getShape(level, member.pos)" in bounds,
-        "Display Link bounds must include each desk's actual selection shape")
+require("for (segmentPos in network.segmentPositions)" in bounds and "state.getShape(level, segmentPos)" in bounds,
+        "Display Link bounds must include each physical segment's actual selection shape")
 require("AABB(" in bounds and "minOf(" in bounds and "maxOf(" in bounds,
         "Display Link bounds must merge member boxes into one exterior AABB")
 require("ConsoleNetworkState.PARTIALLY_LOADED" in bounds and "ConsoleNetworkState.TOO_LARGE" in bounds,

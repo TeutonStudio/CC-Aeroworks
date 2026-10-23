@@ -1,14 +1,14 @@
 {
   "cc_aeroworks.ponder.desk_network.header": "Install and share a desk computer",
   "cc_aeroworks.ponder.desk_network.text_1": "Sneak-use an ordinary console and place a CC:Tweaked computer in the shared slot.",
-  "cc_aeroworks.ponder.desk_network.text_2": "Adjacent, equally facing desks form one row while retaining their positions, modules and attachments.",
+  "cc_aeroworks.ponder.desk_network.text_2": "Adjacent, equally facing desks form one row. Create Train and Contraption Controls inherit the floor desk or stand chassis and skin and may be mixed while bridging it.",
   "cc_aeroworks.ponder.desk_network.text_3": "Every desk shows the same slot. If its host is removed, the computer moves to a remaining desk.",
   "cc_aeroworks.ponder.desk_network.text_4": "The row now has one owner computer and one searchable network.",
   "cc_aeroworks.ponder.desk_network.text_5": "Sneak-use opens the overview; Computer opens the terminal and the shared workspace tabs.",
   "cc_aeroworks.ponder.desk_network.text_6": "Removing the final desk drops the computer with its ID, label and files intact.",
 
   "cc_aeroworks.ponder.peripheral_search.header": "Discover sources, peripherals and channels",
-  "cc_aeroworks.ponder.peripheral_search.text_1": "Direct attachments are recorded with the desk position and side where they are connected.",
+  "cc_aeroworks.ponder.peripheral_search.text_1": "Direct attachments on desks or integrated Create controls are exposed by the shared multiblock. Contraption Controls additionally appear as ContraptionControl.",
   "cc_aeroworks.ponder.peripheral_search.text_2": "Remote desks keep their own addresses, so equal peripheral types remain distinguishable.",
   "cc_aeroworks.ponder.peripheral_search.text_3": "Sources lists peripherals, telemetry and optional radar inputs in one refreshable view.",
   "cc_aeroworks.ponder.peripheral_search.text_4": "peripherals.find(type) returns the direct handle when there is exactly one match.",
@@ -25,9 +25,9 @@
   "cc_aeroworks.ponder.desk_diagnostics.text_6": "Computer shutdown, invalid topology or a removed module releases every affected override automatically.",
 
   "cc_aeroworks.ponder.display_crafting.header": "Manufacture desk displays",
-  "cc_aeroworks.ponder.display_crafting.text_1": "Press a Normal Monitor into the compact two-digit display.",
-  "cc_aeroworks.ponder.display_crafting.text_2": "Press an Advanced Monitor into the wider three-digit display.",
-  "cc_aeroworks.ponder.display_crafting.text_3": "Both results are flat mounted modules, not standalone monitor blocks.",
+  "cc_aeroworks.ponder.display_crafting.text_1": "Press a Normal Monitor into the small display-only module.",
+  "cc_aeroworks.ponder.display_crafting.text_2": "Press an Advanced Monitor into the small color and touch display.",
+  "cc_aeroworks.ponder.display_crafting.text_3": "Use a Deployer to apply an Iron Sheet to either small display and obtain the large variant of the same tier.",
   "cc_aeroworks.ponder.display_crafting.text_4": "With Create: Radars loaded, deploy its monitor onto the matching display to make a radar variant.",
 
   "cc_aeroworks.ponder.display_mounting.header": "Choose a display socket",
@@ -45,17 +45,17 @@
   "cc_aeroworks.ponder.display_programming.text_6": "An Advanced computer enables touch, draw streams and bound scripts on that display.",
 
   "cc_aeroworks.ponder.radar_controller.header": "Link a desk radar endpoint",
-  "cc_aeroworks.ponder.radar_controller.text_1": "Mount a small or large Radar Display in the desk that should receive the radar picture.",
+  "cc_aeroworks.ponder.radar_controller.text_1": "Mount a small or large advanced display in the desk that should receive the radar picture.",
   "cc_aeroworks.ponder.radar_controller.text_2": "Use the Create: Radars Data Link on the Network Filterer first to store the source network.",
-  "cc_aeroworks.ponder.radar_controller.text_3": "Use the same Data Link on the Radar Display desk; an ordinary display is not a valid endpoint.",
+  "cc_aeroworks.ponder.radar_controller.text_3": "Use the same Data Link on the desk with an advanced display; a normal display is not a valid endpoint.",
   "cc_aeroworks.ponder.radar_controller.text_4": "Create: Radars checks range and places the physical Data Link block on the desk.",
-  "cc_aeroworks.ponder.radar_controller.text_5": "The desk now behaves as a native monitor endpoint for that filtered radar network.",
+  "cc_aeroworks.ponder.radar_controller.text_5": "Choose the radar ingress as a pseudo-script under Display controller; it replaces the Lua script there.",
 
-  "cc_aeroworks.ponder.radar_direct.header": "Read and recover a radar display",
+  "cc_aeroworks.ponder.radar_direct.header": "Control an advanced display with radar",
   "cc_aeroworks.ponder.radar_direct.text_1": "The connected desk resolves its Network Filterer and radar through Create: Radars NetworkData.",
   "cc_aeroworks.ponder.radar_direct.text_2": "Sweep and contacts follow the group's DetectionConfig and selected target.",
   "cc_aeroworks.ponder.radar_direct.text_3": "The large display also shows the native contact legend and selection marker.",
-  "cc_aeroworks.ponder.radar_direct.text_4": "Every Radar Display desk needs its own physical Data Link, even in one desk row.",
+  "cc_aeroworks.ponder.radar_direct.text_4": "Other advanced displays in the same desk row may select the same synchronized radar ingress.",
   "cc_aeroworks.ponder.radar_direct.text_5": "Breaking that link removes the endpoint and replaces stale contacts with the disconnected state.",
   "cc_aeroworks.ponder.radar_direct.text_6": "Restore the physical Data Link to reconnect; the live sweep and contacts return automatically."
 }

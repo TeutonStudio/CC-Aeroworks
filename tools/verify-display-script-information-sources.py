@@ -23,7 +23,6 @@ catalog = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DisplayScrip
 diagnostics = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/DisplayScriptDiagnostics.kt")
 access = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ComputerConsoleAccess.kt")
 handler = read("src/main/resources/data/computercraft/lua/rom/autorun/cc_aeroworks_display_handlers.lua")
-mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/AbstractComputerScreenSwitchMixin.kt")
 
 require('InformationSourceKind("display_script", "DISPLAY SCRIPTS"' in state,
         "information source model must expose a DISPLAY SCRIPTS core category")
@@ -75,7 +74,7 @@ require("InformationSourceKinds.CORE" in widget and "snapshot.sources.map { it.k
 for section in ("IMPORTS", "REACTIVE", "OBSERVED", "TOUCH"):
     require(f'"{section}' in widget,
             f"display script tree is missing {section} diagnostics")
-require("ccaeroworks_workspace?.tick()" in mixin,
-        "information source page must keep refreshing while visible")
+require(not (ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/AbstractComputerScreenSwitchMixin.kt").exists(),
+        "Aeroworks must leave workspace polling to TeutonLib's shared computer-screen controller")
 
 print("Validated display script source category, extensible compatibility kinds, static Lua metadata, runtime dependency observation, touch diagnostics, bounded payloads, and expandable UI.")

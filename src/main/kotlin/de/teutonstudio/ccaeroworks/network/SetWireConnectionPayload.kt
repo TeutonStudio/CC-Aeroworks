@@ -2,7 +2,7 @@ package de.teutonstudio.ccaeroworks.network
 
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.drivebywire.NativeDriveByWireChannels
-import de.teutonstudio.ccaeroworks.compat.sable.SableInteractionGeometry
+import de.TeutonStudio.TeutonLib.api.sable.SubLevelInteractionGeometry
 import de.teutonstudio.ccaeroworks.computer.ControlDeskUiSwitchState
 import de.teutonstudio.ccaeroworks.computer.channel.ChannelRegistry
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
@@ -46,10 +46,10 @@ data class SetWireConnectionPayload(val channelId: String, val target: BlockPos,
                 val level = player.serverLevel()
                 val network = ConsoleMultiblockManager.resolve(level, owner.blockPos)
                 check(network.state == ConsoleNetworkState.ACTIVE && network.owner === owner) { "Console network is not active" }
-                check(network.members.any { SableInteractionGeometry.withinReach(player, level, it.pos) }) { "Console is out of reach" }
+                check(network.members.any { SubLevelInteractionGeometry.withinReach(player, level, it.pos) }) { "Console is out of reach" }
                 check(network.members.none { it.desk.hasController() && !it.desk.checkUser(player.uuid) }) { "Console is in use" }
                 check(level.isInWorldBounds(payload.target) && level.hasChunkAt(payload.target)) { "Target block is not loaded or outside world bounds" }
-                check(SableInteractionGeometry.mayInteract(player, level, payload.target)) { "Cannot modify this target" }
+                check(SubLevelInteractionGeometry.mayInteract(player, level, payload.target)) { "Cannot modify this target" }
                 check(network.members.none { it.pos == payload.target }) { "Select a target outside this console" }
                 if (payload.add) check(!level.getBlockState(payload.target).isAir) { "Target block is empty" }
                 val channel = ChannelRegistry.findById(owner, payload.channelId) ?: error("Channel is no longer available")
@@ -58,13 +58,13 @@ data class SetWireConnectionPayload(val channelId: String, val target: BlockPos,
                     owner.blockPos to (channel.wireName ?: error("Channel has no wire output"))
                 } else {
                     val member = network.members.firstOrNull { it.id == control.deskId } ?: error("Source desk is missing")
-                    check(SableInteractionGeometry.mayInteract(player, level, member.pos)) { "Cannot modify this source" }
+                    check(SubLevelInteractionGeometry.mayInteract(player, level, member.pos)) { "Cannot modify this source" }
                     val native = NativeDriveByWireChannels.channels(member.desk).firstOrNull {
                         it.socket == control.socket && it.channelId == control.nativeChannel && it.sign == control.sign
                     } ?: error("Channel has no wire output")
                     member.pos to native.id
                 }
-                check(SableInteractionGeometry.mayInteract(player, level, sourcePos)) { "Cannot modify this source" }
+                check(SubLevelInteractionGeometry.mayInteract(player, level, sourcePos)) { "Cannot modify this source" }
                 owner.wireBank.changeConnection(sourcePos, nativeChannel, payload.target, payload.side, payload.add, player)
             }
             PacketDistributor.sendToPlayer(player, WireConnectionResultPayload(

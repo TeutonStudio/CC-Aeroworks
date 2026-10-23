@@ -2,10 +2,15 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+TEUTON_ROOT = ROOT.parent / "TeutonLib"
 
 
 def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
+
+
+def read_teuton(path: str) -> str:
+    return (TEUTON_ROOT / path).read_text(encoding="utf-8")
 
 
 def require(condition: bool, message: str) -> None:
@@ -20,9 +25,9 @@ target = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/DisplayCombined
 controller = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/DisplayCombinedInputController.kt")
 capture = read("src/main/kotlin/de/teutonstudio/ccaeroworks/input/DisplayPrimaryMouseCapture.kt")
 payload = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/DisplayDrawPayload.kt")
-gesture_state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/SingleGestureSessionState.kt")
+gesture_state = read_teuton("src/main/kotlin/de/TeutonStudio/TeutonLib/api/network/SingleGestureSessionState.kt")
 gesture_test = read("src/test/kotlin/de/teutonstudio/ccaeroworks/network/SingleGestureSessionStateTest.kt")
-budget = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/PlayerTickBudget.kt")
+budget = read_teuton("src/main/kotlin/de/TeutonStudio/TeutonLib/api/network/PlayerTickBudget.kt")
 budget_test = read("src/test/kotlin/de/teutonstudio/ccaeroworks/network/PlayerTickBudgetTest.kt")
 model = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DeskDisplayInput.kt")
 pixels = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DeskDisplayPixels.kt")

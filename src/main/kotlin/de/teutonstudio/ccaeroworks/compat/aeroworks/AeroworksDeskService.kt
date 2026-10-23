@@ -11,6 +11,9 @@ import de.teutonstudio.ccaeroworks.config.CCServerConfig
 import de.teutonstudio.ccaeroworks.display.DeskDisplayFormatter
 import de.teutonstudio.ccaeroworks.display.DeskDisplayPixels
 import de.teutonstudio.ccaeroworks.display.DeskDisplayState
+import de.teutonstudio.ccaeroworks.display.DisplayColorSettings
+import de.teutonstudio.ccaeroworks.display.DisplayColorStateAccess
+import de.teutonstudio.ccaeroworks.display.DisplayTouchAccess
 import de.teutonstudio.ccaeroworks.display.DisplayResolutionSettings
 import de.teutonstudio.ccaeroworks.display.DisplayResolutionStateAccess
 
@@ -57,11 +60,11 @@ object AeroworksDeskService {
     }
 
     fun getDisplays(desk: ConsoleBlockEntity): List<Map<String, Any>> =
-        AeroworksDeskAccess.displays(desk).map(::describeDisplay)
+        AeroworksDeskAccess.displays(desk).map { describeDisplay(desk, it) }
 
     @Throws(LuaException::class)
     fun getDisplay(desk: ConsoleBlockEntity, rawSocket: Any?): Map<String, Any> =
-        describeDisplay(requiredDisplay(desk, parseSocket(desk, rawSocket)))
+        describeDisplay(desk, requiredDisplay(desk, parseSocket(desk, rawSocket)))
 
     @Throws(LuaException::class)
     fun setDisplayText(desk: ConsoleBlockEntity, rawSocket: Any?, text: String): String {
@@ -216,6 +219,29 @@ object AeroworksDeskService {
         AeroworksDeskAccess.setDisplayPixels(desk, socket, DeskDisplayPixels.blank(display.resolution.width, display.resolution.height))
     }
 
+    @Throws(LuaException::class)
+    fun getDisplayColor(desk: ConsoleBlockEntity, rawSocket: Any?): Int =
+        requiredDisplay(desk, parseSocket(desk, rawSocket)).color
+
+    @Throws(LuaException::class)
+    fun setDisplayColor(desk: ConsoleBlockEntity, rawSocket: Any?, rawColor: Any?): Int {
+        val socket = parseSocket(desk, rawSocket)
+        val display = requiredDisplay(desk, socket)
+        if (!display.variant.tier.colorCapable) {
+            throw LuaException("Display at socket $socket is not an advanced color display")
+        }
+        val color = try {
+            DisplayColorSettings.validate(rawColor)
+        } catch (error: IllegalArgumentException) {
+            throw LuaException(error.message ?: "Invalid display color")
+        }
+        val state = desk as? DisplayColorStateAccess
+            ?: throw LuaException("Display color state is unavailable")
+        state.ccaeroworks_setDisplayColor(socket, color)
+        AeroworksDeskAccess.invalidate(desk, socket)
+        return color
+    }
+
     fun snapshotInputs(desk: ConsoleBlockEntity): Map<Int, DeskInputSnapshot> {
         val result = linkedMapOf<Int, DeskInputSnapshot>()
         (0 until desk.socketCount()).forEach { socket ->
@@ -284,10 +310,15 @@ object AeroworksDeskService {
         )
     }
 
-    private fun describeDisplay(display: DeskDisplayState): Map<String, Any> = linkedMapOf(
+    private fun describeDisplay(desk: ConsoleBlockEntity, display: DeskDisplayState): Map<String, Any> = linkedMapOf(
         "socket" to display.socket,
         "socketName" to DeskSockets.name(display.socket),
-        "id" to "${CCAeroworks.MOD_ID}:${display.type.modulePath}",
+        "id" to "${CCAeroworks.MOD_ID}:${display.variant.modulePath}",
+        "tier" to display.variant.tier.serializedName,
+        "touchCapable" to display.variant.tier.touchCapable,
+        "touchEnabled" to (display.variant.tier.touchCapable && DisplayTouchAccess.enabledForNetwork(desk)),
+        "colorCapable" to display.variant.tier.colorCapable,
+        "color" to display.color,
         "width" to display.type.width,
         "text" to display.text,
         "mode" to if (display.pixels == null) "text" else "pixels",

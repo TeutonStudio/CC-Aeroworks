@@ -21,8 +21,8 @@ object DisplayBindingService {
     @Throws(LuaException::class)
     fun setTouchScript(desk: ConsoleBlockEntity, rawSocket: Any?, path: String): Map<String, Any> {
         val socket = AeroworksDeskService.parseSocket(desk, rawSocket)
-        if (desk.module(socket)?.let { CCModuleTypes.displayType(it.type()) } == null) {
-            throw LuaException("Touch scripts require a Desk Display")
+        if (desk.module(socket)?.let { CCModuleTypes.isInteractiveDisplay(it.type()) } != true) {
+            throw LuaException("Touch scripts require an advanced Desk Display")
         }
         val normalized = path.trim()
         TouchInputDiagnostics.info(
@@ -37,7 +37,7 @@ object DisplayBindingService {
                 "binding",
                 "set rejected desk=${desk.blockPos.toShortString()} socket=$socket path='$normalized': display binding does not support Lua handlers"
             )
-            throw LuaException("Touch scripts require a Desk Display")
+            throw LuaException("Touch scripts require an advanced Desk Display")
         }
         val stored = DisplayBindings.get(desk, socket)
         TouchInputDiagnostics.info(

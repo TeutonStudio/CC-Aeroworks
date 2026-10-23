@@ -89,9 +89,9 @@ def main() -> int:
 
     for token in (
         "subLevel.plot.loadedChunks",
-        "SimulatedDockAccess.isDock",
-        "getMethod(\"isLocked\")",
-        "getMethod(\"getOtherConnector\")",
+        "SimulatedDockingConnector.isConnector",
+        "SimulatedDockingConnector.isLocked",
+        "SimulatedDockingConnector.otherConnector",
         "Capabilities.ItemHandler.BLOCK",
         "Capabilities.FluidHandler.BLOCK",
         "Capabilities.EnergyStorage.BLOCK",
@@ -99,6 +99,8 @@ def main() -> int:
     ):
         require(token in dock, f"Dock compatibility is missing token: {token}")
     require("import dev.simulated_team" not in dock, "Simulated compatibility must remain runtime-optional")
+    require("java.lang.reflect" not in dock,
+            "Aeroworks must use TeutonLib's dependency-safe Simulated facade instead of a second reflective accessor")
 
     for key in (
         "maxSourcesPerEndpoint", "maxListEntries", "staleAfterTicks",

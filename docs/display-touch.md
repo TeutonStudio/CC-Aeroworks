@@ -1,12 +1,12 @@
 # Touch-Eingaben auf Pultanzeigen
 
-Kleine und große Pultanzeigen sowie die große Radaranzeige verwenden den kombinierten Display-Eingabemodus. Während die konfigurierte Display-Bedienungstaste gehalten wird, bewegt die Maus einen virtuellen Finger auf der Displayfläche. Linksklick erzeugt `tap`, Rechtsklick startet eine `draw`-Geste und Loslassen beendet sie mit `isEnd = true`.
+Erweiterte kleine und große Pultanzeigen verwenden den kombinierten Display-Eingabemodus. Normale Pultanzeigen sind reine Ausgaben. Während die konfigurierte Display-Bedienungstaste gehalten wird, bewegt die Maus einen virtuellen Finger auf der Displayfläche. Linksklick erzeugt `tap`, Rechtsklick startet eine `draw`-Geste und Loslassen beendet sie mit `isEnd = true`. Ist über die optionale Create:-Radars-Kompatibilität eine Radarquelle als Pseudo-Skript gewählt, besitzt sie die Oberfläche exklusiv und Touch bleibt bis zum Quellenwechsel aus.
 
 Die primären Maustasten werden weiterhin über Raw-`MouseHandler`, NeoForge-Fallback und direktes GLFW-Polling abgesichert. Die Bewegung des virtuellen Fingers wird dagegen höherfrequent im Player-Turn-Pfad erfasst und erst anschließend tickweise zum Server gebündelt.
 
-Touch benötigt einen erweiterten Computer im aktiven Pultverbund. Normale Computer, fehlende Computer und inaktive oder widersprüchliche Verbünde erlauben keine Touch-Ereignisse, auch nicht für externe Peripherals. Skriptzuweisungen bleiben beim Computerwechsel erhalten. Kleine Displays besitzen dieselben X/Y-Bedienkanäle wie große Displays.
+Touch benötigt sowohl ein erweitertes Display als auch einen erweiterten Computer im aktiven Pultverbund. Normale Displays, normale oder fehlende Computer und inaktive oder widersprüchliche Verbünde erlauben keine Touch-Ereignisse, auch nicht für externe Peripherals. Skriptzuweisungen bleiben beim Computerwechsel erhalten. Kleine erweiterte Displays besitzen dieselben X/Y-Bedienkanäle wie große erweiterte Displays.
 
-Mit deaktiviertem `display.useGlobalResolution` kann `desk.setDisplayResolution(socket, ppb)` die individuelle Pixeldichte setzen. Der Helper `display.setResolution(event, ppb)` ist auch über `touchdisplay` verfügbar. Die Rückgabe enthält `width`, `height`, `ppb`; die neue Dichte muss ganzzahlig zwischen 16 und `display.maxIndividualPpb` liegen. Bei einer tatsächlichen Änderung wird das Bild geleert. Eine laufende Geste muss nach Computer- oder Auflösungswechsel neu gestartet werden. Radar-Displays behalten ihre eigene Auflösungslogik.
+Mit deaktiviertem `display.useGlobalResolution` kann `desk.setDisplayResolution(socket, ppb)` die individuelle Pixeldichte setzen. Der Helper `display.setResolution(event, ppb)` ist auch über `touchdisplay` verfügbar. Die Rückgabe enthält `width`, `height`, `ppb`; die neue Dichte muss ganzzahlig zwischen 16 und `display.maxIndividualPpb` liegen. Bei einer tatsächlichen Änderung wird das Bild geleert. Eine laufende Geste muss nach Computer-, Auflösungs- oder Quellenwechsel neu gestartet werden.
 
 ## Draw-Datenmodell
 

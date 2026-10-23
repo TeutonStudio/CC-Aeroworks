@@ -56,9 +56,11 @@ object GuideBookContent {
             GuideEntry.Heading("Embedded desk handle"), GuideEntry.Api("desk_handle"),
             GuideEntry.Code(listOf(
                 "local net = peripherals.getNetwork()", "local desks = peripherals.find(\"ControlDesk\")",
+                "local controller = peripherals.find(\"ContraptionControl\")",
                 "local modem = peripherals.find(\"endermodem\")", "local all = peripherals.findAll(\"endermodem\")",
                 "local tree = peripherals.getTree()"
-            )), GuideEntry.Note("guide.cc_aeroworks.network.note")
+            )), GuideEntry.Heading("Create Contraption Control"), GuideEntry.Api("contraption_control"),
+            GuideEntry.Note("guide.cc_aeroworks.network.note")
         )),
         GuideSection(GuideSectionId.MODULES, tr("guide.cc_aeroworks.tab.modules"), tr("guide.cc_aeroworks.modules.title"), listOf(
             GuideEntry.Text("guide.cc_aeroworks.modules.text"),
@@ -127,6 +129,7 @@ object GuideBookContent {
             GuideEntry.Heading("Control / network"),
             GuideEntry.Code(listOf(
                 "cc_aeroworks_control_override", "cc_aeroworks_control_release",
+                "cc_aeroworks_contraption_control",
                 "cc_aeroworks_peripheral_attached", "cc_aeroworks_peripheral_detached"
             )),
             GuideEntry.Heading("Telemetry / docking"),

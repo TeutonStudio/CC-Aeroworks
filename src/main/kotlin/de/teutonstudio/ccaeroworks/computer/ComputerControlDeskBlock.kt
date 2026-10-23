@@ -17,6 +17,11 @@ import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.storage.loot.LootParams
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams
+import net.minecraft.world.level.BlockGetter
+import net.minecraft.world.phys.Vec3
+import net.minecraft.world.phys.shapes.CollisionContext
+import net.minecraft.world.phys.shapes.VoxelShape
+import com.mred231.aeroworks.content.controls.console.DeskSkin
 
 enum class ComputerConsoleVariant(
     val aeroworksPath: String,
@@ -35,6 +40,30 @@ class ComputerControlDeskBlock(
     val family: ComputerFamily,
     val variant: ComputerConsoleVariant = ComputerConsoleVariant.DESK
 ) : CopycatConsoleDeskBlock(properties, consoleType) {
+    override fun standGeometry(): Boolean = variant.standGeometry
+
+    override fun getShape(
+        state: BlockState,
+        level: BlockGetter,
+        pos: BlockPos,
+        context: CollisionContext
+    ): VoxelShape = projectedBaseState(state).getShape(level, pos, context)
+
+    override fun zoneAt(state: BlockState, pos: BlockPos, hit: Vec3): DeskSkin.Zone =
+        AeroworksTypes.controlDeskBlock(variant.aeroworksPath).zoneAt(projectedBaseState(state), pos, hit)
+
+    private fun projectedBaseState(source: BlockState): BlockState {
+        var target = AeroworksTypes.controlDeskBlock(variant.aeroworksPath).defaultBlockState()
+        source.properties.forEach { property -> target = copyProperty(source, target, property) }
+        return target
+    }
+
+    private fun <T : Comparable<T>> copyProperty(
+        source: BlockState,
+        target: BlockState,
+        property: net.minecraft.world.level.block.state.properties.Property<T>
+    ): BlockState = if (target.hasProperty(property)) target.setValue(property, source.getValue(property)) else target
+
     override fun getBlockEntityClass(): Class<ConsoleBlockEntity> = ConsoleBlockEntity::class.java
 
     override fun getBlockEntityType(): BlockEntityType<out ConsoleBlockEntity> =

@@ -2,7 +2,7 @@ package de.teutonstudio.ccaeroworks.network
 
 import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import de.teutonstudio.ccaeroworks.CCAeroworks
-import de.teutonstudio.ccaeroworks.compat.sable.SableInteractionGeometry
+import de.TeutonStudio.TeutonLib.api.sable.SubLevelInteractionGeometry
 import de.teutonstudio.ccaeroworks.display.ControlScriptBindings
 import de.teutonstudio.ccaeroworks.display.DeskDisplayType
 import de.teutonstudio.ccaeroworks.display.DisplayScriptCatalog
@@ -48,7 +48,7 @@ data class RequestDisplayScriptCatalogPayload(
             val module = desk.module(payload.socket) ?: return
             val displayType = CCModuleTypes.displayType(module.type())
             val control = ControlScriptBindings.supports(module)
-            if (displayType == null && !control) return
+            if ((displayType == null || !CCModuleTypes.isInteractiveDisplay(module.type())) && !control) return
             val owner = DisplayScriptCatalog.ownerFor(desk) ?: return
             val entries = if (control) DisplayScriptCatalog.scanControls(owner, force = true)
             else DisplayScriptCatalog.scan(owner, force = true).filter { it.supports(displayType!!) }
@@ -115,10 +115,10 @@ data class DisplayScriptCatalogPayload(
 
 private fun validateDesk(player: ServerPlayer, pos: BlockPos, socket: Int): ConsoleBlockEntity? {
     val level = player.serverLevel()
-    if (!level.hasChunkAt(pos) || !SableInteractionGeometry.mayInteract(player, level, pos)) return null
+    if (!level.hasChunkAt(pos) || !SubLevelInteractionGeometry.mayInteract(player, level, pos)) return null
     val desk = level.getBlockEntity(pos) as? ConsoleBlockEntity ?: return null
     if (desk.hasController() && !desk.checkUser(player.uuid)) return null
-    if (!SableInteractionGeometry.withinReach(player, level, pos)) return null
+    if (!SubLevelInteractionGeometry.withinReach(player, level, pos)) return null
     if (socket !in 0 until desk.socketCount()) return null
     return desk
 }

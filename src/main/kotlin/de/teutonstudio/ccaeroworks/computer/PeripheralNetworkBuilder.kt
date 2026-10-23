@@ -3,8 +3,12 @@ package de.teutonstudio.ccaeroworks.computer
 import dan200.computercraft.api.lua.LuaException
 import dan200.computercraft.api.peripheral.IPeripheral
 import dan200.computercraft.api.peripheral.PeripheralCapability
+import com.simibubi.create.content.contraptions.actors.contraptionControls.ContraptionControlsBlockEntity
+import de.teutonstudio.ccaeroworks.compat.computercraft.ControlDeskPeripheralRegistry
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleAssemblyRuntime
+import de.teutonstudio.ccaeroworks.train.TrainControlConsoleIntegration
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.server.level.ServerLevel
@@ -19,7 +23,7 @@ internal object PeripheralNetworkBuilder {
         val snapshot = ConsoleMultiblockManager.resolve(level, owner.blockPos)
         when (snapshot.state) {
             ConsoleNetworkState.TOO_LARGE ->
-                throw LuaException("The control desk network exceeds 64 desks")
+                throw LuaException("The control desk network exceeds 64 desks or physical bridge segments")
             ConsoleNetworkState.PARTIALLY_LOADED ->
                 throw LuaException("The control desk network is only partially loaded")
             ConsoleNetworkState.CONFLICT ->
@@ -31,14 +35,36 @@ internal object PeripheralNetworkBuilder {
         }
 
         val dimension = level.dimension().location().toString()
-        val deskPositions = snapshot.members.mapTo(hashSetOf()) { it.pos }
         val desks = snapshot.members.map { member -> DeskNetworkNode(member, address(member.pos)) }
-        val networkId = stableNetworkId(dimension, desks)
+        val segments = snapshot.segmentPositions
+        val segmentPositions = segments.toHashSet()
+        val desksByPos = desks.associateBy { it.pos }
+        val networkId = ConsoleAssemblyRuntime.id(level, snapshot.anchor)?.toString()
+            ?: stableNetworkId(dimension, desks)
         val peripherals = mutableListOf<PeripheralNetworkNode>()
-        for (desk in desks) {
+        for ((segmentIndex, segmentPos) in segments.withIndex()) {
+            val desk = desksByPos[segmentPos] ?: nearestDesk(segments, segmentIndex, desksByPos) ?: continue
+            val segmentState = level.getBlockState(segmentPos)
+            if (TrainControlConsoleIntegration.isContraptionControls(segmentState)) {
+                val blockEntity = level.getBlockEntity(segmentPos) as? ContraptionControlsBlockEntity
+                if (blockEntity != null) {
+                    val peripheral = ControlDeskPeripheralRegistry.contraptionControl(blockEntity)
+                    val types = linkedSetOf(peripheral.type).apply { addAll(peripheral.additionalTypes) }
+                    peripherals += PeripheralNetworkNode(
+                        desk = desk,
+                        pos = segmentPos.immutable(),
+                        side = null,
+                        address = peripheral.address,
+                        target = peripheral,
+                        primaryType = peripheral.type,
+                        types = types,
+                        aliases = PeripheralTypeNames.aliases(types)
+                    )
+                }
+            }
             for (side in SCAN_DIRECTIONS) {
-                val targetPos = desk.pos.relative(side)
-                if (targetPos in deskPositions || !level.isLoaded(targetPos)) continue
+                val targetPos = segmentPos.relative(side)
+                if (targetPos in segmentPositions || !level.isLoaded(targetPos)) continue
                 val peripheral = level.getCapability(
                     PeripheralCapability.get(),
                     targetPos,
@@ -58,7 +84,11 @@ internal object PeripheralNetworkBuilder {
                     desk = desk,
                     pos = targetPos.immutable(),
                     side = side,
-                    address = "${desk.address}/${side.name.lowercase(Locale.ROOT)}",
+                    address = if (segmentPos == desk.pos) {
+                        "${desk.address}/${side.name.lowercase(Locale.ROOT)}"
+                    } else {
+                        "${desk.address}/segment_${address(segmentPos)}/${side.name.lowercase(Locale.ROOT)}"
+                    },
                     target = peripheral,
                     primaryType = peripheral.type,
                     types = types,
@@ -77,6 +107,17 @@ internal object PeripheralNetworkBuilder {
     }
 
     fun address(pos: BlockPos): String = "${pos.x},${pos.y},${pos.z}"
+
+    private fun nearestDesk(
+        segments: List<BlockPos>,
+        segmentIndex: Int,
+        desksByPos: Map<BlockPos, DeskNetworkNode>
+    ): DeskNetworkNode? = desksByPos.entries
+        .minWithOrNull(compareBy<Map.Entry<BlockPos, DeskNetworkNode>>(
+            { kotlin.math.abs(segments.indexOf(it.key) - segmentIndex) },
+            { it.value.member.index }
+        ))
+        ?.value
 
     private val SCAN_DIRECTIONS = listOf(
         Direction.NORTH,

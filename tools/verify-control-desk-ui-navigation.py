@@ -9,9 +9,8 @@ def require(condition: bool, message: str) -> None:
 module = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ModuleScreenSwitchMixin.kt")
 overview = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ConsoleScreenSwitchMixin.kt")
 overview_accessor = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ConsoleScreenAccessor.kt")
-computer = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/AbstractComputerScreenSwitchMixin.kt")
-computer_accessor = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/AbstractComputerScreenAccessor.kt")
 workspace = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/teutonlib/DeskComputerWorkspace.kt")
+workspace_client = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/teutonlib/DeskComputerWorkspaceClient.kt")
 state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/ControlDeskUiSwitchState.kt")
 switch_payload = read("src/main/kotlin/de/teutonstudio/ccaeroworks/network/SwitchControlDeskUiPayload.kt")
 client_nav = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/ControlDeskUiClientNavigation.kt")
@@ -19,7 +18,6 @@ aero_buttons = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/ControlD
 guide_screen = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/GuideBookScreen.kt")
 guide_content = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/guide/GuideBookContent.kt")
 creative_sections = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/creative/AeroworksCreativeSections.kt")
-cc_sidebar = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/ControlDeskComputerSidebar.kt")
 source_builder = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/source/InformationSourceSnapshotBuilder.kt")
 source_extensions = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/source/InformationSourceExtensions.kt")
 radar_compat = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/RadarCompat.kt")
@@ -58,43 +56,29 @@ require("switchToComputer(player, payload.anchorPos)" in switch_payload and "val
 require("snapshot.members.any" in state, "range validation must accept any member of same multiblock")
 require("reopenExactClientControls" in state and "socket.reopenModuleMenu()" in state and "ConsoleScreenOpener.open(console)" in client_nav, "return navigation must preserve exact native Aeroworks context")
 
-# One native screen uses the shared TeutonLib controller, with an authoritative addon backend.
-require("ComputerSidebarTabs.tab" in cc_sidebar and "controlsButton" in cc_sidebar, "Controls must use shared native sidebar rendering")
-require("ComputerSidebarTabs.standardTab" in computer, "Terminal must use TeutonLib's shared Standard tab")
-require(
-    "var index = 0" in computer and
-    computer.index("ComputerSidebarTabs.standardTab") < computer.index("ControlDeskComputerSidebar.controlsButton") < computer.index('listOf(1 to "sources", 2 to "channels")'),
-    "sidebar order must be Standard, optional Controls, Sources, Channels",
-)
-require('listOf(1 to "sources", 2 to "channels")' in computer, "sidebar order must be Sources then Channels")
-require("ComputerPanels.workspace" in computer and "WorkspacePanels.Host" in computer, "computer must host TeutonLib panels")
-require("terminal?.visible = page == 0" in computer and "terminal?.active = page == 0" in computer, "terminal must stop receiving input on other pages")
-show_body = computer[computer.index("@Unique private fun ccaeroworks_show"):computer.index("@Unique private fun ccaeroworks_applyFocus")]
-require(
-    "ccaeroworks_applyFocus()" not in show_body and
-    '@Inject(method = ["mouseClicked(DDI)Z"], at = [At("TAIL")])' in computer,
-    "workspace text focus must be applied after Minecraft finishes focusing the clicked sidebar tab",
-)
-require(
-    'ccaeroworks_activeTextInput()' in computer and
-    'filterIsInstance<EditBox>()' in computer and
-    'it.isFocused && it.visible && it.active' in computer and
-    'focused !== textInput' in computer and
-    'setFocused(textInput)' in computer and
-    'options.keyInventory.matches(key, scan)' in computer and
-    'GLFW_KEY_ESCAPE' in computer,
-    "active text input must own screen focus and retain the inventory character while Escape remains navigation",
-)
-require("companion object" not in computer, "Mixin must not emit static helper state")
-require("ccaeroworks_workspace?.tick()" in computer and "takeRequestedFocus()" in computer, "shared refresh/focus lifecycle missing")
+# TeutonLib owns the one native computer-screen controller. Aeroworks only registers its
+# workspace identity, controls tab and domain actions through the public client descriptor.
+require("ComputerWorkspaceClientDescriptor" in workspace_client and
+        "ComputerWorkspaceClients.register(this)" in workspace_client,
+        "Aeroworks must register a public TeutonLib workspace descriptor")
+require("menu.displayStack.has(CCDataComponents.DESK_ID.get())" in workspace_client,
+        "workspace matching must remain an Aeroworks adapter concern")
+require("ComputerWorkspaceClientTab(" in workspace_client and
+        "ControlDeskUiClientNavigation.reopenControls()" in workspace_client,
+        "Controls must be contributed as a descriptor tab with native return navigation")
+require("current.showTerminal.run()" in workspace_client,
+        "Controls navigation must restore terminal state before returning to Aeroworks")
+require(not (ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/AbstractComputerScreenSwitchMixin.kt").exists() and
+        not (ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/AbstractComputerScreenAccessor.kt").exists(),
+        "Aeroworks must not restore global CC computer-screen mixins")
 require("ComputerExtensions.registerWorkspace" in workspace and "getServerComputer() === computer" in workspace, "workspace must resolve the actual running desk computer")
 require("menu.computer === computer" in workspace and "menu.stillValid(player)" in workspace and "computer.checkUsable(player)" in workspace, "server workspace must validate the current menu and access")
 for action in ("add_wire", "add_group", "rename_wire", "remove_wire", "rename_group", "remove_group", "bind", "rename_binding", "unbind", "targets"):
     require('"' + action + '"' in workspace, f"workspace action missing: {action}")
 require("ChannelRegistry.snapshot(owner)" in workspace and "owner.wireBank" in workspace and "owner.channelGroups()" in workspace, "addon channel storage must remain authoritative")
 require("InformationSourceKinds.CORE + snapshot.sources.map { it.kind }" in workspace and "collapsed = true" in workspace, "shared sources must retain extensible collapsible categories")
-require("connections(channel.id, channel.connections)" in workspace and "WireConnectionScreen" in computer, "DbW targets must remain visible/editable")
-require("ComputerIntegration.runtime(computer)?.sourceViews()" in workspace, "peripheral addresses must come from TeutonLib runtime")
+require("connections(channel.id, channel.connections)" in workspace and "WireConnectionScreen" in workspace_client, "DbW targets must remain visible/editable")
+require("ComputerExtensions.sourceViews(computer)" in workspace, "peripheral addresses must come from TeutonLib's public runtime API")
 require("registerChannelAuthority" in workspace, "pult computers must not create a second writable channel bank")
 require("TelemetryRuntime.describeSources(owner.host)" in source_builder, "Display Link sources must come from TelemetryRuntime")
 require("PeripheralNetworkBuilder.build(owner)" in source_builder, "storage must come from peripheral graph")
@@ -102,7 +86,7 @@ require("InformationSourceExtensions.sources(owner)" in source_builder, "optiona
 require("CopyOnWriteArrayList" in source_extensions and "fun register(" in source_extensions, "information source extension registry must remain safe and explicit")
 require("InformationSourceExtensions.register(RadarInformationSources::sources)" in radar_compat, "radar compat must register its information-source provider")
 require("RadarSourceRegistry.sources(owner.host)" in radar_sources, "radar Data Links must come from the isolated radar registry")
-require("RadarNetworkControllerLookup.controllerFor" in radar_sources, "radar controllers must use isolated topology lookup")
+require("RadarNetworkControllerLookup.controllersFor" in radar_sources, "radar controllers must use isolated topology lookup")
 require("RadarSourceRegistry" not in source_builder and "RadarNetworkControllerLookup" not in source_builder, "base information-source builder must not depend directly on radar compat")
 require("activeComputerDesk(player)" in source_payload and "InformationSourceSnapshotBuilder.build(owner)" in source_payload, "Sources snapshot must use validated session")
 require("RequestInformationSourceSnapshotPayload.TYPE" in payloads and "InformationSourceSnapshotPayload.TYPE" in payloads, "Sources payloads must be registered")
@@ -113,7 +97,9 @@ for path in (
     "src/main/resources/assets/cc_aeroworks/textures/gui/sprites/buttons/control_desk_controls_hover.png",
 ): require((ROOT / path).is_file(), f"missing sidebar icon: {path}")
 
-for registered in ('"client.ConsoleScreenAccessor"','"client.ConsoleScreenSwitchMixin"','"client.AbstractComputerScreenAccessor"'):
+for registered in ('"client.ConsoleScreenAccessor"','"client.ConsoleScreenSwitchMixin"'):
     require(registered in mixins, f"missing UI mixin {registered}")
+require("AbstractComputerScreen" not in mixins,
+        "Aeroworks mixin configuration must not target CC's global computer screen")
 require("python3 tools/verify-control-desk-ui-navigation.py" in workflow, "workflow must enforce UI navigation contract")
 print("Validated Computer/API Aeroworks navigation, explicit ComputerControlDesk UI context, keyboard-safe channel/group editing, Standard/Controls/Sources/Channels ordering and authoritative optional information sources.")
