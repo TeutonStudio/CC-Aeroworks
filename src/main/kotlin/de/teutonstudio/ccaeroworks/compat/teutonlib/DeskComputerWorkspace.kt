@@ -42,7 +42,7 @@ object DeskComputerWorkspace : ComputerWorkspace {
                     PeripheralNetworkBuilder.build(owner).peripherals.forEach { node ->
                         // The owner's direct sides already come from CC; retain the graph addresses of other desks.
                         if (node.desk.pos != owner.blockPos && !node.address.startsWith("cc_aeroworks:link_"))
-                            put(node.address, PeripheralSource(node.target, "local", node.pos.toShortString()))
+                            put(node.address, PeripheralSource(node.target, "cable_network", node.pos.toShortString()))
                         val element = (node.target as? WiredModemPeripheral)?.node?.element as? WiredModemElement
                         element?.remotePeripherals?.forEach { (name, peripheral) ->
                             val pos = (peripheral.target as? net.minecraft.world.level.block.entity.BlockEntity)?.blockPos
@@ -216,13 +216,18 @@ object DeskComputerWorkspace : ComputerWorkspace {
             .filterNot { it.name.startsWith("cc_aeroworks:") && !it.name.startsWith("cc_aeroworks:link_") }
         val runtime = ComputerIntegration.runtime(computer)
         val connected = runtime?.peripherals().orEmpty()
-        val peripheralEntries = if (runtime == null) emptyList() else peripherals.map { source ->
+        val categorizedPeripherals = peripherals.map(DeskWorkspaceProjection::categorize)
+        val peripheralEntries = if (runtime == null) emptyList() else categorizedPeripherals.map { source ->
             StandardComputerWorkspace.sourceEntry(runtime, source, connected[source.name])
+        }
+        val peripheralSections = DeskWorkspaceProjection.connectionGroups(categorizedPeripherals).map { connection ->
+            entry("peripheral_connection:$connection", "teutonlib.computer.$connection", children =
+                categorizedPeripherals.zip(peripheralEntries).filter { (source, _) -> source.connection == connection }.map { it.second })
         }
         val kinds = (InformationSourceKinds.CORE + snapshot.sources.map { it.kind }).distinctBy { it.id }.sortedBy { it.order }
         val sections = kinds.filter { it != InformationSourceKinds.DISPLAY_SCRIPT && (it != InformationSourceKinds.STORAGE || peripherals.isEmpty()) }.map { kind ->
             entry("source_kind:${kind.id}", kind.title, children = snapshot.sources.filter { it.kind == kind }.map { source ->
-                entry("source:${source.id}", source.label, source.status, children = listOf(
+                entry("source:${source.id}", source.label, DeskWorkspaceProjection.sourceDetail(source), children = listOf(
                     entry("source:${source.id}/position", "${source.x}, ${source.y}, ${source.z} ${source.side}"),
                     entry("source:${source.id}/detail", source.details)),
                     metadata = apiMetadata(source.label, listOf(source.kind.id), when (source.kind) {
@@ -258,7 +263,7 @@ object DeskComputerWorkspace : ComputerWorkspace {
                     listOf("display") + if ("TOUCH" in script.roles) listOf("touchdisplay") else emptyList()))
         }
         return Snapshot("teutonlib.computer.sources", "${snapshot.sources.size} sources · ${scripts.size} scripts",
-            sections + entry("section:peripherals", "ui.cc_aeroworks.workspace.peripherals", children = peripheralEntries) +
+            sections + entry("section:peripherals", "ui.cc_aeroworks.workspace.peripherals", children = peripheralSections) +
                 entry("source_kind:display_script", "DISPLAY SCRIPTS", children = scripts), emptyList())
     }
 }

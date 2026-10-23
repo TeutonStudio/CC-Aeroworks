@@ -161,5 +161,9 @@
   "ui.cc_aeroworks.workspace.controls": "Steuermodule",
   "ui.cc_aeroworks.workspace.wires": "Wire-Kanäle",
   "ui.cc_aeroworks.workspace.groups": "Benutzergruppen",
-  "ui.cc_aeroworks.workspace.peripherals": "Peripheriegeräte"
+  "ui.cc_aeroworks.workspace.peripherals": "Peripheriegeräte",
+  "teutonlib.computer.adjacent": "Benachbart",
+  "teutonlib.computer.cable_network": "Kabelnetzwerk",
+  "teutonlib.computer.modem_network": "Modem-Netzwerk",
+  "teutonlib.computer.peripheral_link": "Peripheral Link"
 }
