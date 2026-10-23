@@ -1,0 +1,9 @@
+{
+  "type": "create:pressing",
+  "ingredients": [
+    { "item": "create:controls" }
+  ],
+  "results": [
+    { "id": "cc_aeroworks:train_controls" }
+  ]
+}

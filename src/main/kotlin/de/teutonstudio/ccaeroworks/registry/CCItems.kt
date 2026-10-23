@@ -30,6 +30,12 @@ object CCItems {
         Supplier { ModuleItem(CCModuleTypes.THREE_DIGIT, Item.Properties()) }
     )
 
+    @JvmField
+    val TRAIN_CONTROLS: DeferredItem<ModuleItem> = ITEMS.register(
+        "train_controls",
+        Supplier { ModuleItem(CCModuleTypes.TRAIN_CONTROLS, Item.Properties()) }
+    )
+
 
     @JvmField
     val COMPUTER_CONTROL_DESK: DeferredItem<BlockItem> = ITEMS.register(

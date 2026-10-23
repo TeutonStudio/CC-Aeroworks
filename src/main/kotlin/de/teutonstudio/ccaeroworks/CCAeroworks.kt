@@ -21,6 +21,7 @@ import de.teutonstudio.ccaeroworks.registry.CCItems
 import de.teutonstudio.ccaeroworks.registry.CCModuleTypes
 import de.teutonstudio.ccaeroworks.registry.CCRecipeSerializers
 import de.teutonstudio.ccaeroworks.telemetry.TelemetryComputerRuntimes
+import de.teutonstudio.ccaeroworks.train.TrainControlIntegration
 import net.minecraft.resources.ResourceLocation
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.bus.api.IEventBus
@@ -28,6 +29,7 @@ import net.neoforged.fml.ModContainer
 import net.neoforged.fml.common.Mod
 import net.neoforged.fml.config.ModConfig
 import net.neoforged.fml.event.config.ModConfigEvent
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent
 import net.neoforged.fml.loading.FMLEnvironment
 import net.neoforged.neoforge.common.NeoForge
 import org.slf4j.Logger
@@ -44,6 +46,7 @@ class CCAeroworks(modEventBus: IEventBus, modContainer: ModContainer) {
         de.teutonstudio.ccaeroworks.registry.CCMenus.register(modEventBus)
         CCRecipeSerializers.register(modEventBus)
         CCDisplayTargets.register(modEventBus)
+        modEventBus.addListener<FMLCommonSetupEvent>(TrainControlIntegration::commonSetup)
         ControlDeskPeripheralRegistry.register(modEventBus)
         CCPayloads.register(modEventBus)
         modEventBus.addListener { event: ModConfigEvent.Reloading ->

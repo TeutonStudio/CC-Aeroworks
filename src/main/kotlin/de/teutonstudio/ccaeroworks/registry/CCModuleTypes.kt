@@ -4,6 +4,7 @@ import com.mred231.aeroworks.AeroworksSocketTypes
 import com.mred231.aeroworks.content.controls.module.ModulePart
 import com.mred231.aeroworks.content.controls.module.ModuleType
 import com.mred231.aeroworks.content.controls.module.ModuleTypes
+import com.mred231.aeroworks.content.controls.channel.ControlChannel
 import com.mred231.aeroworks.content.controls.socket.SocketType
 import com.mred231.aeroworks.content.controls.socket.SocketTypes
 import de.teutonstudio.ccaeroworks.CCAeroworks
@@ -36,6 +37,41 @@ object CCModuleTypes {
         DeskDisplayType.THREE_DIGIT,
         DeskDisplayType.THREE_DIGIT.modulePath,
         interactive = true
+    )
+
+    /**
+     * A console-mounted replacement for Create's full-block train controls.
+     *
+     * The two ordinary Aeroworks axes make the object useful as a desk control while stationary.
+     * On an assembled Create train, the moving-console integration hands input to Create's native
+     * train controller instead; this preserves Create's driving, junction and dismount semantics.
+     */
+    @JvmField
+    val TRAIN_CONTROLS: ModuleType = ModuleTypes.register(
+        CCAeroworks.id("train_controls"),
+        ModuleType.builder(AeroworksSocketTypes.LARGE)
+            .summary("item.cc_aeroworks.train_controls")
+            .axis(
+                ControlChannel.axis("speed", "module.cc_aeroworks.train_controls.channel.speed")
+                    .springBack(true, true)
+                    .keys("key.keyboard.w", "key.keyboard.s")
+                    .independentHud()
+            )
+            .axis(
+                ControlChannel.axis("steering", "module.cc_aeroworks.train_controls.channel.steering")
+                    .springBack(true, true)
+                    .keys("key.keyboard.d", "key.keyboard.a")
+                    .horizontalHud()
+            )
+            .part(ModulePart.builder(CCAeroworks.id("block/module/train_controls_base")))
+            .part(
+                ModulePart.builder(CCAeroworks.id("block/module/train_controls_throttle"))
+                    .rotate("speed", Vec3(1.0, 0.0, 0.0), 3.0f, Vec3(0.34375, 0.1875, 0.5625))
+            )
+            .part(
+                ModulePart.builder(CCAeroworks.id("block/module/train_controls_steering"))
+                    .rotate("steering", Vec3(1.0, 0.0, 0.0), 3.0f, Vec3(0.65625, 0.1875, 0.5625))
+            )
     )
 
 

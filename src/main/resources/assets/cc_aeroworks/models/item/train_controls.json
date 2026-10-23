@@ -1,0 +1,72 @@
+{
+  "parent": "minecraft:block/block",
+  "render_type": "minecraft:cutout_mipped",
+  "textures": {
+    "controls": "cc_aeroworks:block/module/train_controls",
+    "particle": "cc_aeroworks:block/module/train_controls"
+  },
+  "elements": [
+    {
+      "from": [2, 4.5, 5],
+      "to": [14, 5, 12],
+      "faces": {
+        "down": { "uv": [0, 9, 12, 16], "texture": "#controls" }, "up": { "uv": [0, 9, 12, 16], "texture": "#controls" },
+        "north": { "uv": [0, 9, 12, 9.5], "texture": "#controls" }, "south": { "uv": [0, 9, 12, 9.5], "texture": "#controls" },
+        "west": { "uv": [0, 9, 7, 9.5], "texture": "#controls" }, "east": { "uv": [0, 9, 7, 9.5], "texture": "#controls" }
+      }
+    },
+    {
+      "from": [2.5, 5, 5.5],
+      "to": [13.5, 8, 11.5],
+      "rotation": { "angle": -22.5, "axis": "x", "origin": [8, 5, 11.5] },
+      "faces": {
+        "down": { "uv": [0, 0, 11, 6], "texture": "#controls" }, "up": { "uv": [0, 0, 11, 6], "texture": "#controls" },
+        "north": { "uv": [0, 6, 11, 9], "texture": "#controls" }, "south": { "uv": [0, 6, 11, 9], "texture": "#controls" },
+        "west": { "uv": [12, 0, 16, 6], "texture": "#controls" }, "east": { "uv": [12, 0, 16, 6], "texture": "#controls" }
+      }
+    },
+    {
+      "from": [5, 7.5, 8],
+      "to": [6, 13.5, 9],
+      "rotation": { "angle": -22.5, "axis": "x", "origin": [5.5, 8, 9] },
+      "faces": {
+        "down": { "uv": [12, 6, 13, 7], "texture": "#controls" }, "up": { "uv": [12, 6, 13, 7], "texture": "#controls" },
+        "north": { "uv": [12, 6, 13, 12], "texture": "#controls" }, "south": { "uv": [12, 6, 13, 12], "texture": "#controls" },
+        "west": { "uv": [12, 6, 13, 12], "texture": "#controls" }, "east": { "uv": [12, 6, 13, 12], "texture": "#controls" }
+      }
+    },
+    {
+      "from": [4.25, 12.5, 7.25],
+      "to": [6.75, 14.5, 9.75],
+      "faces": {
+        "down": { "uv": [13, 6, 16, 9], "texture": "#controls" }, "up": { "uv": [13, 6, 16, 9], "texture": "#controls" },
+        "north": { "uv": [13, 6, 16, 9], "texture": "#controls" }, "south": { "uv": [13, 6, 16, 9], "texture": "#controls" },
+        "west": { "uv": [13, 6, 16, 9], "texture": "#controls" }, "east": { "uv": [13, 6, 16, 9], "texture": "#controls" }
+      }
+    },
+    {
+      "from": [10, 7.5, 8],
+      "to": [11, 13.5, 9],
+      "rotation": { "angle": 22.5, "axis": "x", "origin": [10.5, 8, 9] },
+      "faces": {
+        "down": { "uv": [12, 6, 13, 7], "texture": "#controls" }, "up": { "uv": [12, 6, 13, 7], "texture": "#controls" },
+        "north": { "uv": [12, 6, 13, 12], "texture": "#controls" }, "south": { "uv": [12, 6, 13, 12], "texture": "#controls" },
+        "west": { "uv": [12, 6, 13, 12], "texture": "#controls" }, "east": { "uv": [12, 6, 13, 12], "texture": "#controls" }
+      }
+    },
+    {
+      "from": [9.25, 12.5, 7.25],
+      "to": [11.75, 14.5, 9.75],
+      "faces": {
+        "down": { "uv": [13, 9, 16, 12], "texture": "#controls" }, "up": { "uv": [13, 9, 16, 12], "texture": "#controls" },
+        "north": { "uv": [13, 9, 16, 12], "texture": "#controls" }, "south": { "uv": [13, 9, 16, 12], "texture": "#controls" },
+        "west": { "uv": [13, 9, 16, 12], "texture": "#controls" }, "east": { "uv": [13, 9, 16, 12], "texture": "#controls" }
+      }
+    }
+  ],
+  "display": {
+    "gui": { "rotation": [30, 225, 0], "scale": [0.9, 0.9, 0.9] },
+    "ground": { "translation": [0, 2, 0], "scale": [0.5, 0.5, 0.5] },
+    "fixed": { "rotation": [0, 180, 0], "scale": [0.75, 0.75, 0.75] }
+  }
+}

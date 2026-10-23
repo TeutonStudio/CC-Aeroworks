@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.9 — 2026-10-23
+
+- Added a compact train-control module for large Aeroworks console sockets. Create trains now recognize a correctly mounted module during assembly and use Create's native driving interaction while the ordinary Aeroworks speed and junction axes remain available on stationary desks.
+- Added dedicated block and item models with a custom Create/Aeroworks-inspired pixel texture, colored throttle and junction handles, a pressing recipe and German and English names.
+
 ## 1.4.8 — 2026-10-23
 
 - Updated the required TeutonLib version to 1.3.4 and placed the computer tabs in the order Standard, optional Controls, Sources and Channels.

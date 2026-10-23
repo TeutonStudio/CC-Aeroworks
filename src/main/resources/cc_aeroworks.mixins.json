@@ -17,6 +17,7 @@
     "ConsoleBlockComputerRemovalMixin",
     "ConsoleBlockBundledComputerMixin",
     "ConsoleBlockEntityDisplayBindingMixin",
+    "CarriageContraptionTrainControlsMixin",
     "compat.ConsoleWireChannelsDisplayFilterMixin",
     "compat.DriveByWireSignalFilterMixin"
   ],
