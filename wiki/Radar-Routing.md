@@ -1,6 +1,6 @@
 # RadarDisplay und Create: Radars
 
-Ein RadarDisplay macht das Aeroworks-Pult, in dem es montiert ist, weiterhin zu einem nativen Create:-Radars-Monitorendpoint. Diese direkte Verbindung ist die lokale Standardquelle des Displays. Zusätzlich können RadarDisplays innerhalb desselben CC-Aeroworks-Pultmultiblocks den bereits synchronisierten Radar-Snapshot eines anderen RadarDisplay-Pults als Quelle auswählen.
+Ein RadarDisplay kann über einen nativen Create:-Radars-Monitorendpoint oder über den eingebetteten Computer des Pultnetzes versorgt werden. Zusätzlich können RadarDisplays innerhalb desselben CC-Aeroworks-Pultmultiblocks den bereits synchronisierten Radar-Snapshot eines anderen RadarDisplay-Pults als Quelle auswählen.
 
 ## Unterstützte Pulte
 
@@ -19,7 +19,13 @@ Ein Pult ohne kleines oder großes RadarDisplay wird vom Data Link nicht als Mon
 4. Create: Radars prüft die Reichweite und platziert den physischen Data-Link-Block am Pult.
 5. Dieses Pult ist nun ein Radar-Ingress und synchronisiert die gefilterten Tracks seiner Netzwerkgruppe.
 
-Der Network Filterer muss nicht direkt neben dem Pult stehen. Für jede unabhängige Create:-Radars-Gruppe wird weiterhin ein eigener nativer Monitorendpoint benötigt. Mehrere Pulte können als unterschiedliche Radar-Ingresses in demselben CC-Aeroworks-Multiblock stehen.
+Der Network Filterer muss für diesen nativen Pfad nicht direkt neben dem Pult stehen. Mehrere Pulte können als unterschiedliche Radar-Ingresses in demselben CC-Aeroworks-Multiblock stehen.
+
+## Alternativ über den Pultcomputer
+
+Bei einem aktiven Pultnetz mit genau einem eingebetteten Computer ist kein zweiter Data Link zum RadarDisplay-Pult nötig. Dafür den Network Filterer direkt an ein Pultmitglied setzen oder eine bereits vorhandene Endpoint-Zuordnung eines Pultmitglieds verwenden. Der Filterer muss weiterhin separat per Data Link mit dem Radar verbunden sein.
+
+Der Computer routet Radarposition, Detection-Filter, Zielauswahl und native Tracks aus der Filterer-Gruppe an die RadarDisplays. Ein echter Monitorendpoint am jeweiligen Pult hat Vorrang. Sind ohne lokalen Monitorendpoint mehrere Network Filterer sichtbar, meldet das Display `Mehrere Network Controller`; es wählt nicht automatisch einen davon.
 
 ## Radarquelle eines Displays auswählen
 
@@ -50,7 +56,7 @@ Create: Radars Gruppe B -> Data Link -> Desk B -> Snapshot B
 
 ## Was Create: Radars weiterhin selbst erledigt
 
-CC-Aeroworks ergänzt nur die Monitor-Zielklassifizierung und die interne Display-Routing-Schicht. Der originale Data-Link-Ablauf bleibt verantwortlich für:
+CC-Aeroworks ergänzt die Monitor-Zielklassifizierung, den computergerouteten Controllerpfad und die interne Display-Routing-Schicht. Der originale Data-Link-Ablauf bleibt verantwortlich für:
 
 - `SelectedFiltererPos` im Item,
 - maximale Linkreichweite,
@@ -65,7 +71,7 @@ CC-Aeroworks registriert ein Display nicht künstlich bei mehreren Create:-Radar
 
 ## Angezeigte Daten
 
-Jeder Radar-Ingress liest alle fünf Ticks seine eigene Endpoint-Zuordnung aus `NetworkData`. Er übernimmt:
+Jeder Radar-Ingress liest alle fünf Ticks seine Endpoint- oder computergeroutete Filterer-Zuordnung aus `NetworkData`. Er übernimmt:
 
 - Radarposition und Radarzentrum,
 - Reichweite und Betriebszustand,
@@ -102,7 +108,7 @@ Für Touch-/Draw-Beispiele siehe `examples/cc/touch-test.lua` sowie `docs/displa
 
 ## Trennen
 
-Der physische Data-Link-Block ist Teil der Verbindung. Beim Abbau entfernt Create: Radars den Monitorendpoint aus `NetworkData`. Der betreffende Ingress leert seinen Snapshot im nächsten Fünf-Tick-Zyklus. Displays, die diesen Ingress ausgewählt haben, zeigen damit ebenfalls den getrennten Zustand, ohne automatisch auf eine andere Quelle umzuschalten.
+Beim nativen Monitorpfad ist der physische Data-Link-Block Teil der Verbindung. Beim Abbau entfernt Create: Radars den Monitorendpoint aus `NetworkData`. Beim computergerouteten Pfad endet die Versorgung, sobald der Filterer nicht mehr am Pultnetz sichtbar ist, der eingebettete Computer fehlt oder die native Filterer-Radar-Verbindung getrennt wird.
 
 Bei fehlender Verbindung, fehlender Radarzuordnung, ungeladenem oder gestopptem Radar, ungültiger Reichweite, veralteten Daten oder einem erkannten API-Fehler erscheint ein Statushinweis. Bei einer aktiven Verbindung zeigt die Oberfläche Hintergrund, Kreis, Sweep, Kontaktpunkte und gegebenenfalls die Zielmarkierung.
 

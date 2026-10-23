@@ -148,6 +148,7 @@
   "radar_status.cc_aeroworks.radar_not_loaded": "Radar not loaded",
   "radar_status.cc_aeroworks.radar_stopped": "Radar stopped",
   "radar_status.cc_aeroworks.invalid_range": "Invalid radar range",
+  "radar_status.cc_aeroworks.multiple_controllers": "Multiple network controllers",
   "radar_status.cc_aeroworks.api_error": "Radar API error",
   "radar_status.cc_aeroworks.active": "Active",
   "radar_status.cc_aeroworks.waiting": "Waiting for radar data",

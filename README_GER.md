@@ -156,7 +156,7 @@ Details:
 
 Die Radar-Integration ist vollständig unter `de.teutonstudio.ccaeroworks.radarcompat` isoliert und wird nur aktiviert, wenn Create: Radars geladen ist. Damit bleibt der Basismod unabhängig von Radar-Klassen und Radar-Registrierungen.
 
-Mit der unterstützten Create:-Radars-Laufzeit werden eine kleine und eine große Radaranzeige freigeschaltet. Die Anzeige wird als echtes Aeroworks-Pultmodul gerendert und kann einen nativen Create:-Radars-Data-Link-Endpunkt verwenden.
+Mit der unterstützten Create:-Radars-Laufzeit werden eine kleine und eine große Radaranzeige freigeschaltet. Die Anzeige wird als echtes Aeroworks-Pultmodul gerendert und kann einen nativen Create:-Radars-Data-Link-Endpunkt oder den von einem eingebetteten Pultcomputer gerouteten Network Filterer verwenden.
 
 Radarquelle, eingebetteter Computer und Anzeige dürfen an verschiedenen Pulten desselben Pultnetzes liegen. Die konkrete Quellenwahl kann über den Radar-`ControlDesk`-Adapter ausgelesen und gesetzt werden.
 

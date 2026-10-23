@@ -121,7 +121,7 @@ object CreateRadarCompat {
                 "instanceClass=${networkData.javaClass.name} identity=${System.identityHashCode(networkData)}"
             }
 
-            val filtererPos = invokePublic(
+            val localFiltererPos = invokePublic(
                 networkData,
                 "getFiltererForEndpoint",
                 level.dimension(),
@@ -132,8 +132,44 @@ object CreateRadarCompat {
                 level,
                 desk.blockPos
             ) {
-                "getFiltererForEndpoint(dimension=${level.dimension().location()}, endpoint=${desk.blockPos}) -> $filtererPos"
+                "getFiltererForEndpoint(dimension=${level.dimension().location()}, endpoint=${desk.blockPos}) -> $localFiltererPos"
             }
+
+            val localGroup = localFiltererPos?.let { position ->
+                invokePublic(networkData, "getGroup", level.dimension(), position)
+            }
+            val localMonitorEndpoints = localGroup?.let { group ->
+                readField(group, "monitorEndpoints") as? Collection<*>
+                    ?: throw IllegalStateException("NetworkData.Group.monitorEndpoints is not a collection")
+            }.orEmpty()
+            val localIsMonitorEndpoint = desk.blockPos in localMonitorEndpoints
+            val computerControllers = RadarNetworkControllerLookup.controllersFor(desk, networkData)
+            val route = selectRadarControllerRoute(
+                localFilterer = localFiltererPos,
+                localIsMonitorEndpoint = localIsMonitorEndpoint,
+                computerControllers = computerControllers
+            )
+            RadarTrace.event(
+                "S11_CONTROLLER_ROUTE",
+                level,
+                desk.blockPos
+            ) {
+                "localFilterer=$localFiltererPos localIsMonitor=$localIsMonitorEndpoint " +
+                    "computerControllers=$computerControllers selected=${route.filtererPos} " +
+                    "nativeMonitor=${route.nativeMonitorEndpoint} ambiguous=${route.ambiguous}"
+            }
+            if (route.ambiguous) {
+                return tracedResult(
+                    level,
+                    desk,
+                    RadarDisplaySnapshot.disconnected(level.gameTime, RadarLinkStatus.MULTIPLE_CONTROLLERS),
+                    null,
+                    null,
+                    "computer route is ambiguous because multiple network controllers are available"
+                )
+            }
+
+            val filtererPos = route.filtererPos
             if (filtererPos == null) {
                 return tracedResult(
                     level,
@@ -141,15 +177,12 @@ object CreateRadarCompat {
                     RadarDisplaySnapshot.disconnected(level.gameTime, RadarLinkStatus.NOT_LINKED),
                     null,
                     null,
-                    "endpoint is not registered"
+                    "neither a native monitor endpoint nor a computer-routed network controller is available"
                 )
             }
 
-            val group = invokePublic(
-                networkData,
-                "getGroup",
-                level.dimension(),
-                filtererPos
+            val group = if (filtererPos == localFiltererPos) localGroup else invokePublic(
+                networkData, "getGroup", level.dimension(), filtererPos
             )
             RadarTrace.event(
                 "S12_GROUP_LOOKUP",
@@ -185,17 +218,9 @@ object CreateRadarCompat {
                 level,
                 desk.blockPos
             ) {
-                "count=${monitorEndpoints.size} containsDesk=${desk.blockPos in monitorEndpoints} endpoints=${monitorEndpoints.take(64)}"
-            }
-            if (desk.blockPos !in monitorEndpoints) {
-                return tracedResult(
-                    level,
-                    desk,
-                    RadarDisplaySnapshot.disconnected(level.gameTime, RadarLinkStatus.NOT_LINKED),
-                    filtererPos,
-                    null,
-                    "group does not contain the desk endpoint"
-                )
+                "count=${monitorEndpoints.size} containsDesk=${desk.blockPos in monitorEndpoints} " +
+                    "route=${if (route.nativeMonitorEndpoint) "native-monitor" else "computer-controller"} " +
+                    "endpoints=${monitorEndpoints.take(64)}"
             }
 
             val detectionTag = (readField(group, "detectionTag") as? CompoundTag)?.copy()
@@ -364,7 +389,11 @@ object CreateRadarCompat {
                 ),
                 filtererPos,
                 radarPos,
-                "endpoint registered; native MonitorBlockEntity payload synchronized"
+                if (route.nativeMonitorEndpoint) {
+                    "native monitor endpoint registered; native MonitorBlockEntity payload synchronized"
+                } else {
+                    "embedded computer routed Network Controller group; native MonitorBlockEntity payload synchronized"
+                }
             )
         } catch (throwable: Throwable) {
             val cause = unwrapInvocationException(throwable)

@@ -3,10 +3,8 @@ package de.teutonstudio.ccaeroworks.radarcompat.computer.source
 import de.teutonstudio.ccaeroworks.computer.ConsoleComputer
 import de.teutonstudio.ccaeroworks.computer.source.InformationSourceKind
 import de.teutonstudio.ccaeroworks.computer.source.InformationSourceView
-import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
 import de.teutonstudio.ccaeroworks.radarcompat.createradar.RadarNetworkControllerLookup
 import de.teutonstudio.ccaeroworks.radarcompat.display.RadarSourceRegistry
-import net.minecraft.core.BlockPos
 
 object RadarInformationSources {
     private val RADAR_DATA_LINK = InformationSourceKind("radar_data_link", "RADAR DATA LINKS", 100)
@@ -22,16 +20,11 @@ object RadarInformationSources {
                 details = radar?.let { "radar ${it.x},${it.y},${it.z}" }.orEmpty()
             ))
         }
-        val level = owner.level ?: return@buildList
-        val network = ConsoleMultiblockManager.resolve(level, owner.blockPos)
-        val seen = hashSetOf<BlockPos>()
-        network.members.forEach { member ->
-            val controller = RadarNetworkControllerLookup.controllerFor(member.desk) ?: return@forEach
-            if (!seen.add(controller)) return@forEach
+        RadarNetworkControllerLookup.controllersFor(owner.host).forEach { controller ->
             add(InformationSourceView(
                 id = "radar_controller:${controller.asLong()}", kind = RADAR_NETWORK_CONTROLLER,
-                label = "Radar network controller", status = "linked",
-                x = controller.x, y = controller.y, z = controller.z, side = "", details = "via desk ${member.index}"
+                label = "Radar network controller", status = "available",
+                x = controller.x, y = controller.y, z = controller.z, side = "", details = "computer-routed"
             ))
         }
     }

@@ -15,7 +15,7 @@ Unterstützt werden:
 - ComputerControlDesk,
 - Advanced ComputerControlDesk.
 
-Ein Pult ohne kleines oder großes RadarDisplay ist kein gültiger Monitorendpoint. Eine Verbindung wird nicht automatisch auf benachbarte Pulte oder ein komplettes Pultnetz verteilt. Jeder unabhängige Radar-Ingress erhält einen physischen Create:-Radars-Data-Link-Block. Weitere RadarDisplays desselben Pultmultiblocks können diesen Ingress in der Modul-UI auswählen; sie benötigen dafür keinen eigenen Data Link.
+Ein Pult ohne kleines oder großes RadarDisplay ist kein gültiger nativer Monitorendpoint. Weitere RadarDisplays desselben Pultmultiblocks können einen bereits synchronisierten Ingress in der Modul-UI auswählen. Zusätzlich kann genau ein eingebetteter Computer einen eindeutigen Network Filterer aus dem aktiven Pultnetz direkt an die RadarDisplays routen.
 
 ## Herstellung
 
@@ -35,7 +35,18 @@ Der native Monitor wird als Herstellungskomponente verwendet. Im fertigen Aufbau
 
 Die Verbindungen Controller → Radar und Controller → Pult sind getrennte Zuordnungen. Die Quellenwahl in der Pult-UI ersetzt keine davon. `Kein Radar zugeordnet` bedeutet, dass der Pultendpoint bereits registriert ist, aber seiner nativen Netzwerkgruppe die Radarposition fehlt. Die Quellenliste zeigt den aktuellen Status; die Auswahl folgt dem vom Server bestätigten Binding. Fehlende Verbindungen, nicht geladene oder gestoppte Radars und veraltete Daten werden auch auf den Anzeigen erklärt. Auf Sable-Schiffen verwendet die Quellenwahl die projizierte Spielerreichweite.
 
-Der Network Filterer muss nicht angrenzend zum Pult stehen. CC-Aeroworks sucht weder benachbarte Controller noch Radarblöcke.
+Der Network Filterer muss für diesen nativen Pfad nicht angrenzend zum Pult stehen.
+
+## Computergerouteter Network Controller
+
+Als Alternative zum zweiten Data Link zwischen Filterer und RadarDisplay-Pult genügt ein aktives Pultnetz mit genau einem eingebetteten Computer. CC-Aeroworks berücksichtigt dabei:
+
+- einen `create_radar:network_filterer`, der unmittelbar an ein beliebiges Pultmitglied grenzt;
+- eine bereits in `NetworkData` vorhandene Filterer-Zuordnung eines Pultmitglieds.
+
+Der Computer liest die zugehörige native Gruppe und speist deren Radarposition, Filter, Zielauswahl und Tracks in denselben Snapshot- und Rendererpfad ein. Die native Verbindung **Network Filterer → Radar** bleibt zwingend erforderlich. CC-Aeroworks erzeugt keine Radarzuordnung und verändert die Gruppe nicht.
+
+Ein direkt am RadarDisplay registrierter nativer Monitorendpoint hat Vorrang. Ist kein solcher Endpoint vorhanden und sind mehrere verschiedene Network Filterer im Pultnetz sichtbar, zeigt die Anzeige `Mehrere Network Controller`, statt willkürlich eine Gruppe auszuwählen.
 
 ## Minimale Erweiterungsstelle
 
@@ -52,7 +63,7 @@ Es gibt keine reflektive Konstruktion privater Create:-Radars-Zielobjekte, keine
 
 ## Autoritativer Netzwerkzustand
 
-Serverseitig ist `NetworkData` die einzige Verbindungsquelle. Für ein verbundenes Pult gilt:
+Serverseitig ist `NetworkData` die einzige Verbindungsquelle. Für ein nativ verbundenes Pult gilt:
 
 ```text
 NetworkData.getFiltererForEndpoint(level.dimension(), deskPos) == filtererPos
@@ -64,7 +75,7 @@ Die zugehörige Gruppe enthält `deskPos` in `monitorEndpoints`. Aus dieser Grup
 - `detectionTag`,
 - `selectedTargetId`.
 
-Der Radar wird ausschließlich an `radarPos` aufgelöst. CC-Aeroworks speichert keine Controllerposition und verteilt keinen Controller-Snapshot an ein Pultnetz.
+Der Radar wird ausschließlich an `radarPos` aufgelöst. Beim computergerouteten Pfad liefert stattdessen der eindeutige, vom aktiven Pultnetz sichtbare Filterer den Gruppenschlüssel. Der resultierende Snapshot bleibt flüchtig; CC-Aeroworks führt weiterhin keine parallele Netzwerkdatenbank.
 
 ## Monitoridentische Aktualisierung
 

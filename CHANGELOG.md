@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.10 — 2026-10-23
+
+- Added computer-routed Create: Radars input. An active console network with one embedded computer can read one Network Filterer placed directly against any member desk, or already exposed through a desk endpoint, and feed its native filtered radar snapshot to RadarDisplays without a second monitor Data Link. Native monitor endpoints retain priority; ambiguous controller networks show an explicit status.
+
 ## 1.4.9 — 2026-10-23
 
 - Added a compact train-control module for large Aeroworks console sockets. Create trains now recognize a correctly mounted module during assembly and use Create's native driving interaction while the ordinary Aeroworks speed and junction axes remain available on stationary desks.

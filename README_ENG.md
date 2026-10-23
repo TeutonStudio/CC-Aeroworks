@@ -80,7 +80,7 @@ With optional Create: Simulated, docking connectors can relay telemetry from a s
 
 ## Optional Create: Radars integration
 
-Radar-specific code is isolated under `de.teutonstudio.ccaeroworks.radarcompat` and activates only when Create: Radars is present. Supported radar displays are native Aeroworks desk modules and can use Create: Radars Data Link endpoints. Radar source, embedded computer, and display may be located on different desks of the same network.
+Radar-specific code is isolated under `de.teutonstudio.ccaeroworks.radarcompat` and activates only when Create: Radars is present. Supported radar displays are native Aeroworks desk modules and can use Create: Radars Data Link endpoints or a Network Filterer routed by the embedded desk computer. Radar source, embedded computer, and display may be located on different desks of the same network.
 
 See [`docs/create-radars-integration.md`](docs/create-radars-integration.md).
 

@@ -12,6 +12,7 @@ enum class RadarLinkStatus {
     RADAR_NOT_LOADED,
     RADAR_STOPPED,
     INVALID_RANGE,
+    MULTIPLE_CONTROLLERS,
     API_ERROR,
     ACTIVE;
 
