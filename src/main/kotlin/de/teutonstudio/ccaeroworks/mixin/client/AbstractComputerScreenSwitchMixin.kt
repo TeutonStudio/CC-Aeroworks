@@ -72,7 +72,6 @@ abstract class AbstractComputerScreenSwitchMixin(menu: AbstractComputerMenu, inv
         val terminal = (this as AbstractComputerScreenAccessor).ccaeroworks_getTerminal()
         terminal?.visible = page == 0; terminal?.active = page == 0
         setFocused(if (page == 0) terminal else null)
-        ccaeroworks_applyFocus()
     }
     @Unique private fun ccaeroworks_applyFocus() {
         val workspace = ccaeroworks_workspace ?: return
@@ -89,11 +88,13 @@ abstract class AbstractComputerScreenSwitchMixin(menu: AbstractComputerMenu, inv
     @Inject(method = ["keyPressed(III)Z"], at = [At("HEAD")], cancellable = true)
     private fun ccaeroworks_workspaceKeys(key: Int, scan: Int, modifiers: Int, callback: CallbackInfoReturnable<Boolean>) {
         if ((ccaeroworks_workspace?.page() ?: 0) == 0) return
+        val textInput = ccaeroworks_activeTextInput()
+        if (textInput != null && focused !== textInput) setFocused(textInput)
         if (key == GLFW.GLFW_KEY_ESCAPE) { if (ccaeroworks_workspace?.closeSourceApi() != true) ccaeroworks_show(0); callback.returnValue = true }
-        else if (ccaeroworks_isEditingText() && minecraft!!.options.keyInventory.matches(key, scan)) callback.returnValue = true
+        else if (textInput != null && minecraft!!.options.keyInventory.matches(key, scan)) callback.returnValue = true
     }
 
-    /** Keep container hotkeys out of every active text input hosted by this screen. */
-    @Unique private fun ccaeroworks_isEditingText(): Boolean =
-        children().filterIsInstance<EditBox>().any { it.isFocused && it.visible && it.active }
+    /** Keep screen focus and widget focus aligned before routing text and container hotkeys. */
+    @Unique private fun ccaeroworks_activeTextInput(): EditBox? =
+        children().filterIsInstance<EditBox>().firstOrNull { it.isFocused && it.visible && it.active }
 }

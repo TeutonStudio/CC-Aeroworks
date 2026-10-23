@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.7 — 2026-10-23
+
+- Fixed channel, wire, group and binding name fields losing keyboard focus after opening the Channels tab. Text entry now works immediately and remains protected from the inventory hotkey.
+
 ## 1.4.6 — 2026-10-22
 
 - Fixed the inventory key closing the computer screen when its character was typed into channel, wire, group or binding name fields. Active text fields now retain the character, while Escape continues to navigate back.
