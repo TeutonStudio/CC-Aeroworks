@@ -29,7 +29,7 @@ local desk = peripheral.find("ControlDesk")
 assert(desk, "Kein ControlDesk verbunden")
 ```
 
-Zusätzliche Typnamen sind `control_desk`, `cc_aeroworks:control_desk` und `cc_aeroworks_control_desk`.
+Zusätzliche Typnamen sind `control_desk`, `cc_aeroworks:control_desk` und `cc_aeroworks_control_desk`. Mit einem CC: Terminals-Gerät im gemeinsamen Reihenslot kommt der Typ `terminal` hinzu.
 
 ### Methoden
 
@@ -59,9 +59,35 @@ setDisplayTouchScript(socket, path)
 clearDisplayBinding(socket)
 ```
 
+`getInfo()` enthält neben ID, Position und Dimension die Felder `device` und `programmable`. `device` ist `none`, `computer`, `advanced_computer`, `terminal` oder `advanced_terminal`; nur die beiden Computerwerte setzen `programmable=true`.
+
+Ist CC: Terminals 0.1.1 geladen und ein Terminal eingesetzt, stellt dasselbe Peripheral außerdem die Standard-Terminalmethoden bereit:
+
+```text
+write(text)
+scroll(lines)
+getCursorPos()
+setCursorPos(x, y)
+getCursorBlink()
+setCursorBlink(blink)
+getSize()
+clear()
+clearLine()
+getTextColour() / getTextColor()
+setTextColour(colour) / setTextColor(colour)
+getBackgroundColour() / getBackgroundColor()
+setBackgroundColour(colour) / setBackgroundColor(colour)
+isColour() / isColor()
+blit(text, textColours, backgroundColours)
+setPaletteColour(...) / setPaletteColor(...)
+getPaletteColour(colour) / getPaletteColor(colour)
+```
+
+Die von CC: Terminals erzeugten Tastaturereignisse (`terminal_key`, `terminal_char`, `terminal_paste` usw.) und bei der erweiterten Stufe Mausereignisse (`terminal_mouse_*`) gehen an den verbundenen Computer. Ohne eingesetztes Terminal schlagen diese Methoden gezielt fehl.
+
 `setDisplayResolution(socket, ppb)` setzt bei deaktivierter Serveroption `display.useGlobalResolution` die individuelle Pixeldichte und liefert `{width, height, ppb}`. Erlaubt sind ganze Werte von 16 bis `display.maxIndividualPpb` (Standard 256). Eine Änderung leert das Pixelbild, derselbe Wert erhält es. Globale Vorgabe, ungültiger Slot oder ungültige Dichte führen zu einem Lua-Fehler. Diese Funktion steht auch am eingebetteten Desk-Handle bereit; `display.setResolution(event, ppb)` und `touchdisplay.setResolution(event, ppb)` leiten sie weiter.
 
-Touch und Draw erfordern ein erweitertes kleines oder großes Display und zusätzlich einen erweiterten Computer im aktiven Pultverbund. Normale Displays sowie normale oder fehlende Computer erzeugen auch für externe Peripherals keine Displayeingaben. Erweiterte Displays bieten außerdem `getDisplayColor(socket)` und `setDisplayColor(socket, 0xRRGGBB)`; die Farbe wird pro Slot gespeichert und beim Ausbau entfernt.
+Touch und Draw erfordern ein erweitertes kleines oder großes Display und zusätzlich einen erweiterten Computer oder ein erweitertes CC: Terminals-Terminal im aktiven Pultverbund. Normale Displays sowie normale oder fehlende Slot-Geräte erzeugen auch für externe Peripherals keine Displayeingaben. Erweiterte Displays bieten außerdem `getDisplayColor(socket)` und `setDisplayColor(socket, 0xRRGGBB)`; die Farbe wird pro Slot gespeichert und beim Ausbau entfernt.
 
 Wenn Create: Radars geladen ist, kann dasselbe Binding eines erweiterten Displays statt eines Lua-Skripts einen Network-Controller-/Data-Link-Ingress als Radar-Pseudo-Skript enthalten. Es gibt keine separaten Radar-Display-Items. Während dieses Extension-Binding aktiv ist, besitzt die Radarquelle die Bildausgabe exklusiv; Touch-/Draw-Ereignisse werden weiterhin ausgeliefert. Ein `tap` auf einen sichtbaren Kontakt wählt ihn außerdem nativ am Network Filterer aus.
 

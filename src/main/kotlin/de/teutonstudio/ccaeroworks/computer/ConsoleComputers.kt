@@ -3,6 +3,7 @@ package de.teutonstudio.ccaeroworks.computer
 import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import dan200.computercraft.shared.ModRegistry
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleNetworkState
 import net.minecraft.world.item.ItemStack
 
 /** Implemented on every Aeroworks console, including compatibility-only legacy consoles. */
@@ -14,6 +15,13 @@ interface ConsoleComputerAccess {
 object ConsoleComputers {
     @JvmStatic
     fun get(value: Any?): ConsoleComputer? = (value as? ConsoleComputerAccess)?.ccaeroworks_computer()
+
+    fun resolve(host: ConsoleBlockEntity): ConsoleComputer? {
+        get(host)?.let { return it }
+        val level = host.level ?: return null
+        val snapshot = ConsoleMultiblockManager.resolve(level, host.blockPos)
+        return snapshot.owner.takeIf { snapshot.state == ConsoleNetworkState.ACTIVE }
+    }
 
     fun accepts(stack: ItemStack): Boolean = stack.`is`(ModRegistry.Items.COMPUTER_NORMAL.get()) ||
         stack.`is`(ModRegistry.Items.COMPUTER_ADVANCED.get())

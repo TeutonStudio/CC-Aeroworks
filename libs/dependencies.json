@@ -83,6 +83,20 @@
       "notes": "Optional compatibility runtime. CC-Aeroworks remains compatible with 0.2.9 and adds verified 0.3.x support."
     },
     {
+      "name": "CC: Terminals",
+      "modId": "ccterminals",
+      "version": "0.1.1",
+      "required": false,
+      "filenamePattern": "(?i)^ccterminals[^/]*1\\.21\\.1[^/]*0\\.1\\.1[^/]*\\.jar$",
+      "filenameExamples": [
+        "ccterminals-1.21.1-forge-0.1.1.jar"
+      ],
+      "sha256": "3c3b9b8b19491b0efbe6989ce5fa9605e3df360c4b7176a5cc8e124cac7d654f",
+      "downloadUrl": "https://cdn.modrinth.com/data/mbjglPPW/versions/3VT1i1B2/ccterminals-1.21.1-forge-0.1.1.jar",
+      "source": "Official CC: Terminals Modrinth release",
+      "notes": "Optional operator-terminal integration. Normal terminals provide keyboard and monochrome output; advanced terminals add colour and mouse input."
+    },
+    {
       "name": "Create: Radars",
       "modId": "create_radar",
       "version": "0.4.9.4-1.21.1",

@@ -462,6 +462,44 @@ public final class ConsoleComputerGameTests {
     }
 
     @GameTest(template = "empty_console")
+    public static void advancedOperatorTerminalIsSharedAndPersists(GameTestHelper h) throws Exception {
+        if (!net.neoforged.fml.ModList.get().isLoaded("ccterminals")) {
+            h.succeed();
+            return;
+        }
+        ConsoleBlockEntity first = desk(h, ORIGIN, "control_desk");
+        ConsoleBlockEntity second = desk(h, ORIGIN.east(), "control_desk");
+        var terminalItem = BuiltInRegistries.ITEM.get(
+            ResourceLocation.fromNamespaceAndPath("ccterminals", "terminal_advanced")
+        );
+        ItemStack source = new ItemStack(terminalItem);
+        source.set(ModRegistry.DataComponents.TERMINAL_SIZE.get(), new TerminalSize(42, 17));
+        check(h, ConsoleDevices.INSTANCE.accepts(source), "Advanced CC: Terminals item was rejected by the shared slot");
+        ConsoleTerminals.INSTANCE.install(second, source, null);
+
+        ConsoleMultiblockManager.INSTANCE.invalidate(h.getLevel(), first.getBlockPos());
+        var snapshot = ConsoleMultiblockManager.INSTANCE.resolve(h.getLevel(), first.getBlockPos());
+        check(h, snapshot.getState() == ConsoleNetworkState.TERMINAL, "Terminal-only row did not enter operator mode");
+        check(h, snapshot.getTerminal() != null && snapshot.getTerminal().isAdvanced(), "Advanced terminal tier was lost");
+        check(h, ConsoleTerminals.INSTANCE.resolve(first) == snapshot.getTerminal(), "Shared terminal was not visible from every desk");
+        var peripheral = new de.teutonstudio.ccaeroworks.compat.computercraft.ControlDeskPeripheral(first);
+        check(h, peripheral.getAdditionalTypes().contains("terminal"), "ControlDesk peripheral did not advertise terminal type");
+        check(h, "advanced_terminal".equals(peripheral.getInfo().get("device")), "Peripheral info lost the terminal tier");
+        check(h, Boolean.FALSE.equals(peripheral.getInfo().get("programmable")), "Operator terminal was reported as programmable");
+
+        snapshot.getTerminal().termMethods().getTerminal().write("operator");
+        var saved = second.saveWithFullMetadata(h.getLevel().registryAccess());
+        second.loadWithComponents(saved, h.getLevel().registryAccess());
+        var restored = ConsoleTerminals.get(second);
+        check(h, restored != null && restored.isAdvanced(), "Terminal did not survive desk NBT round-trip");
+        check(h, restored.termMethods().getTerminal().getWidth() == 42, "Terminal width component was not restored");
+        check(h, restored.termMethods().getTerminal().getHeight() == 17, "Terminal height component was not restored");
+        check(h, restored.termMethods().getTerminal().getLine(0).toString().startsWith("operator"),
+            "Terminal display buffer was not restored");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty_console")
     public static void transferToLargerPieceAndDropLast(GameTestHelper h) {
         ConsoleBlockEntity left = desk(h, ORIGIN, "control_desk");
         ConsoleBlockEntity host = desk(h, ORIGIN.east(), "control_desk");

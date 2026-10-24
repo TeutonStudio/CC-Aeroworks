@@ -1,11 +1,11 @@
 # CC-Aeroworks
 
-CC-Aeroworks verbindet **Create: Aeroworks Control Desks** mit **CC:Tweaked** und macht aus einer Reihe von Steuerungspulten ein programmierbares Cockpit-Netzwerk. Die Mod ergänzt gemeinsame Computerslots in normalen Steuereinheiten, adressierbare Desk-Peripherals, eine netzwerkweite Lua-API, programmierbare Displays, Touch-/Draw-Eingabe, Create-Telemetrie, steuerbare Kanäle und optionale Create:-Radars-Anzeigen.
+CC-Aeroworks verbindet **Create: Aeroworks Control Desks** mit **CC:Tweaked** und macht aus einer Reihe von Steuerungspulten ein programmierbares Cockpit-Netzwerk. Die Mod ergänzt gemeinsame Geräteslots für Computer oder geschützte Bedienterminals, adressierbare Desk-Peripherals, eine netzwerkweite Lua-API, programmierbare Displays, Touch-/Draw-Eingabe, Create-Telemetrie, steuerbare Kanäle und optionale Create:-Radars-Anzeigen.
 
 ## Kernfunktionen
 
-- lineare Netzwerke aus normalen Aeroworks-Pulten mit einem gemeinsamen Computerslot;
-- normaler oder erweiterter CC:Tweaked-Computer direkt im Pult;
+- lineare Netzwerke aus normalen Aeroworks-Pulten mit einem gemeinsamen Geräteslot;
+- normaler/erweiterter CC:Tweaked-Computer oder optionales CC: Terminals-Bedienterminal direkt im Pult;
 - jedes Pult bleibt ein eigenes `ControlDesk`-Peripheral mit eigener Position, Modulen und Displays;
 - globale APIs für eingebettete Computer: `peripherals`, `channels`, `controls`, `wires` und `telemetry`;
 - kleine und große programmierbare Displaymodule mit Text-, Zahlen- und Pixelmodus;
@@ -35,13 +35,15 @@ Ein externer CC:Tweaked-Computer oder ein Wired Modem arbeitet mit dem direkt an
 
 Beispiel: [`examples/cc/local-desk.lua`](examples/cc/local-desk.lua)
 
-## Computer in Steuereinheiten
+## Computer und Bedienterminals in Steuereinheiten
 
-Schleichen + Rechtsklick öffnet die Modulübersicht jeder normalen Steuereinheit, auch ohne Module. Sie enthält das Spielerinventar und einen gemeinsamen Computerslot für die gesamte Reihe. Setze einen normalen oder erweiterten CC:Tweaked-Computer ein; der Computerknopf öffnet anschließend das Terminal. Einsetzen und Entnehmen unterstützen Shift-Klick. Ein normaler Rechtsklick bedient weiterhin montierte Steuerobjekte.
+Schleichen + Rechtsklick öffnet die Modulübersicht jeder normalen Steuereinheit, auch ohne Module. Sie enthält das Spielerinventar und einen gemeinsamen Geräteslot für die gesamte Reihe. Dieser nimmt einen normalen/erweiterten CC:Tweaked-Computer oder bei installierter Mod CC: Terminals 0.1.1 ein normales/erweitertes Terminal auf. Der Computer-/Terminalknopf öffnet die jeweilige Oberfläche. Einsetzen und Entnehmen unterstützen Shift-Klick. Ein normaler Rechtsklick bedient weiterhin montierte Steuerobjekte.
 
-Pro Reihe gibt es höchstens einen Computer. Beim Abbau seines Trägers wandert er in das größere verbleibende Reststück, bei Gleichstand nach links. Die letzte Steuereinheit droppt den Computer zusätzlich zum Pult. Computer-ID, Dateien, Label, Terminalgröße, Kapazität sowie Wire-Kanäle und Kanalgruppen bleiben erhalten. Pultmodule, Materialien und Desk-IDs bleiben an ihren jeweiligen Steuereinheiten.
+Ein Terminal führt kein CraftOS aus und besitzt keine lokal änderbaren Programme. Ein über Peripheral Link oder direkt verbundener, geschützter Computer findet das Pult zusätzlich als `terminal`, zeichnet über die CC-Terminal-API und erhält `terminal_*`-Ereignisse. Normal bedeutet monochrom mit Tastatur; erweitert ergänzt Farbe und Maus. Die Stufe erweitert also die Ein-/Ausgabe, nicht die Benutzerrechte.
 
-Das bisherige Kombinationsrezept entfällt. Alte Computerpulte werden beim Laden, alte Computerpultitems beim Platzieren automatisch übernommen. Beim Verbinden belegter Reihen bleibt bevorzugt ein erweiterter Computer, danach der erste in Reihenfolge; zusätzliche Computer werden mitsamt Daten ausgeworfen.
+Pro Reihe gibt es höchstens ein Slot-Gerät. Beim Abbau seines Trägers wandert es in das größere verbleibende Reststück, bei Gleichstand nach links. Die letzte Steuereinheit droppt das Gerät zusätzlich zum Pult. Beim Computer bleiben ID, Dateien, Label, Terminalgröße, Kapazität sowie Wire-Kanäle und Kanalgruppen erhalten. Pultmodule, Materialien und Desk-IDs bleiben an ihren jeweiligen Steuereinheiten.
+
+Das bisherige Kombinationsrezept entfällt. Alte Computerpulte werden beim Laden, alte Computerpultitems beim Platzieren automatisch übernommen. Beim Verbinden belegter Reihen bleibt ein Computer vor einem Terminal, innerhalb derselben Geräteart die erweiterte Stufe und danach das erste Gerät in Reihenfolge; zusätzliche Geräte werden ausgeworfen.
 
 ## Lua- und Peripheral-API
 
@@ -118,7 +120,7 @@ print(size.width, size.height, size.ppb) -- kleines Display: 14, 14, 32
 
 ### Display-Skripte und Touch
 
-Nur erweiterte kleine und große Displays können ein Skript als Eingabe-/Touch-Handler binden. Zusätzlich muss im aktiven Pultverbund ein erweiterter CC:Tweaked-Computer eingesetzt sein. Normale Displays sowie normale oder fehlende Computer erzeugen keine Touch-Ereignisse. `setDisplayColor(socket, 0xRRGGBB)` setzt die gespeicherte Text-/Pixelfarbe eines erweiterten Displays; `getDisplayColor` liest sie. In Display-Skripten stehen dieselben Aufrufe als `display.setColor(event, color)` und `display.getColor(event)` bereit. Der kombinierte Display-Eingabemodus friert die Kamera ein und bewegt einen halbtransparenten 3D-Zeiger orthogonal über die Displayfläche.
+Nur erweiterte kleine und große Displays können ein Skript als Eingabe-/Touch-Handler binden. Zusätzlich muss im aktiven Pultverbund ein erweiterter CC:Tweaked-Computer oder ein erweitertes CC: Terminals-Terminal eingesetzt sein. Normale Displays sowie normale oder fehlende Slot-Geräte erzeugen keine Touch-Ereignisse. `setDisplayColor(socket, 0xRRGGBB)` setzt die gespeicherte Text-/Pixelfarbe eines erweiterten Displays; `getDisplayColor` liest sie. In Display-Skripten stehen dieselben Aufrufe als `display.setColor(event, color)` und `display.getColor(event)` bereit. Der kombinierte Display-Eingabemodus friert die Kamera ein und bewegt einen halbtransparenten 3D-Zeiger orthogonal über die Displayfläche.
 
 Aktuell erzeugt die Mausbedienung:
 
@@ -231,6 +233,7 @@ Die ausführliche externe Referenz liegt unter [`docs/cc-peripheral-api.md`](doc
 - CC:Tweaked API-Baseline 1.120.2
 - Sable 2.0.5
 - Drive By Wire 0.2.9-0.3.x optional
+- CC: Terminals 0.1.1 optional
 - Create: Simulated 1.3.2 optional
 - Create: Radars 0.4.9.4-1.21.1 optional
 - Create Big Cannons 5.11.7 optional
@@ -275,6 +278,7 @@ Ein alternatives Mod-Verzeichnis kann mit `-Pmod_dependency_dir=/pfad/zu/mods` a
 ## Dokumentation
 
 - [Lua- und Peripheral-API](docs/cc-peripheral-api.md)
+- [Geschützte Bedienstationen mit CC: Terminals](docs/operator-terminals.md)
 - [Programmierbare Displays](wiki/Programmierbare-Displays.md)
 - [Display-Touch](docs/display-touch.md)
 - [Wire-Channels](docs/wire-channels.md)

@@ -52,4 +52,27 @@ object ControlDeskPeripheralRegistry {
         synchronized(contraptionControls) {
             contraptionControls.getOrPut(blockEntity) { ContraptionControlPeripheral(blockEntity) }
         }
+
+    fun terminalInstalled(blockEntity: ConsoleBlockEntity, terminal: de.teutonstudio.ccaeroworks.computer.ConsoleTerminal) {
+        affected(blockEntity).forEach { (desk, peripheral) ->
+            peripheral.terminalInstalled(terminal)
+            dan200.computercraft.shared.platform.PlatformHelper.get().invalidateComponent(desk)
+        }
+    }
+
+    fun terminalRemoved(blockEntity: ConsoleBlockEntity, terminal: de.teutonstudio.ccaeroworks.computer.ConsoleTerminal) {
+        affected(blockEntity).forEach { (desk, peripheral) ->
+            peripheral.terminalRemoved(terminal)
+            dan200.computercraft.shared.platform.PlatformHelper.get().invalidateComponent(desk)
+        }
+    }
+
+    private fun affected(blockEntity: ConsoleBlockEntity): List<Pair<ConsoleBlockEntity, ControlDeskPeripheral>> {
+        val level = blockEntity.level ?: return emptyList()
+        val members = de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
+            .resolve(level, blockEntity.blockPos).members.mapTo(hashSetOf()) { it.desk }
+        return synchronized(peripherals) {
+            peripherals.entries.filter { it.key in members }.map { it.key to it.value }
+        }
+    }
 }

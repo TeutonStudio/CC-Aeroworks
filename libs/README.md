@@ -27,6 +27,7 @@ gradlew.bat -Pmod_dependency_dir=C:\mods\cc-aeroworks verifyModDependencies
 | CC: Tweaked | `computercraft` | 1.120.2 | erforderlich |
 | Sable | `sable` | 2.0.5 | erforderlich |
 | Drive By Wire | `drivebywire` | 0.3.0 | optional; 0.2.9 bleibt unterstützt |
+| CC: Terminals | `ccterminals` | 0.1.1 | optional; nicht programmierbare Bedienstation im Pult-/Stand-Slot |
 | Create: Radars | `create_radar` | 0.4.9.4-1.21.1 | automatisch für Entwicklungsruns |
 | Create Big Cannons | `createbigcannons` | 5.11.7 | optional, automatisch für Entwicklungsruns |
 | Ritchie's Projectile Library | `ritchiesprojectilelib` | 2.1.2 | CBC-Laufzeitbibliothek, automatisch für Entwicklungsruns |

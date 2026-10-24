@@ -18,23 +18,23 @@ class ConsoleInventoryMenu(id: Int, val inventory: Inventory, val anchor: BlockP
     AbstractContainerMenu(CCMenus.CONSOLE_INVENTORY.get(), id) {
     private fun snapshot() = ConsoleMultiblockManager.resolve(inventory.player.level(), anchor)
     private fun editable(): Boolean = host != null && !host.isRemoved &&
-        snapshot().state in listOf(ConsoleNetworkState.NONE, ConsoleNetworkState.ACTIVE)
+        snapshot().state in listOf(ConsoleNetworkState.NONE, ConsoleNetworkState.ACTIVE, ConsoleNetworkState.TERMINAL)
 
     private val computerInventory: Container = if (host == null) SimpleContainer(1) else object : Container {
         override fun getContainerSize() = 1
         override fun isEmpty() = getItem(0).isEmpty
-        override fun getItem(slot: Int): ItemStack = snapshot().owner?.item() ?: ItemStack.EMPTY
+        override fun getItem(slot: Int): ItemStack = snapshot().deviceHost?.let(ConsoleDevices::item) ?: ItemStack.EMPTY
         override fun removeItem(slot: Int, amount: Int): ItemStack {
             if (amount <= 0 || !editable()) return ItemStack.EMPTY
-            return snapshot().owner?.host?.let(ConsoleComputers::remove) ?: ItemStack.EMPTY
+            return snapshot().deviceHost?.let(ConsoleDevices::remove) ?: ItemStack.EMPTY
         }
         override fun removeItemNoUpdate(slot: Int) = removeItem(slot, 1)
         override fun setItem(slot: Int, stack: ItemStack) {
             if (!editable()) return
             if (stack.isEmpty) { removeItem(slot, 1); return }
-            if (!ConsoleComputers.accepts(stack)) return
-            snapshot().owner?.host?.let(ConsoleComputers::remove)
-            ConsoleComputers.install(host, stack.copyWithCount(1))
+            if (!ConsoleDevices.accepts(stack)) return
+            snapshot().deviceHost?.let(ConsoleDevices::remove)
+            ConsoleDevices.install(host, stack.copyWithCount(1))
         }
         override fun setChanged() {}
         override fun stillValid(player: Player) = this@ConsoleInventoryMenu.stillValid(player)
@@ -43,7 +43,7 @@ class ConsoleInventoryMenu(id: Int, val inventory: Inventory, val anchor: BlockP
 
     init {
         addSlot(object : Slot(computerInventory, 0, 206, 20) {
-            override fun mayPlace(stack: ItemStack) = ConsoleComputers.accepts(stack) && (host == null || editable())
+            override fun mayPlace(stack: ItemStack) = ConsoleDevices.accepts(stack) && (host == null || editable())
             override fun mayPickup(player: Player) = host == null || editable()
             override fun getMaxStackSize() = 1
         })
@@ -74,7 +74,7 @@ class ConsoleInventoryMenu(id: Int, val inventory: Inventory, val anchor: BlockP
         if (index == 0) {
             if (!moveItemStackTo(stack, 1, slots.size, true)) return ItemStack.EMPTY
         } else {
-            if (!ConsoleComputers.accepts(stack) || !moveItemStackTo(stack, 0, 1, false)) return ItemStack.EMPTY
+            if (!ConsoleDevices.accepts(stack) || !moveItemStackTo(stack, 0, 1, false)) return ItemStack.EMPTY
         }
         if (stack.isEmpty) slot.setByPlayer(ItemStack.EMPTY) else slot.setChanged()
         slot.onTake(player, stack)

@@ -34,7 +34,7 @@ object ControlDeskUiSwitchState {
     private val sessions = PlayerSessionState<UUID, Session>({ it }, SESSION_TTL_TICKS)
 
     @Volatile
-    private var clientComputerAvailable: Boolean = false
+    private var clientDeviceAvailable: Boolean = false
 
     @Volatile
     private var clientReturnMode: ClientReturnMode = ClientReturnMode.NONE
@@ -47,11 +47,12 @@ object ControlDeskUiSwitchState {
 
     fun remember(event: PlayerInteractEvent.RightClickBlock) {
         val snapshot = ConsoleMultiblockManager.resolve(event.level, event.pos)
-        val computerAvailable = ConsoleComputers.get(event.level.getBlockEntity(event.pos)) != null ||
-            (snapshot.state == ConsoleNetworkState.ACTIVE && snapshot.owner != null)
+        val directHost = event.level.getBlockEntity(event.pos) as? ConsoleBlockEntity
+        val deviceAvailable = directHost?.let(ConsoleDevices::get) != null ||
+            snapshot.deviceHost != null
 
         if (event.level.isClientSide) {
-            clientComputerAvailable = computerAvailable
+            clientDeviceAvailable = deviceAvailable
             return
         }
 
@@ -89,25 +90,24 @@ object ControlDeskUiSwitchState {
 
         val level = console.level
         if (level == null) {
-            clientComputerAvailable = false
+            clientDeviceAvailable = false
             return
         }
 
         val snapshot = ConsoleMultiblockManager.resolve(level, console.blockPos)
-        clientComputerAvailable = ConsoleComputers.get(console) != null ||
-            (snapshot.state == ConsoleNetworkState.ACTIVE && snapshot.owner != null)
+        clientDeviceAvailable = ConsoleDevices.get(console) != null || snapshot.deviceHost != null
     }
 
     @JvmStatic
     fun clearClientControlsContext() {
-        clientComputerAvailable = false
+        clientDeviceAvailable = false
         clientReturnMode = ClientReturnMode.NONE
         clientControlsSocket = null
         clientControlsConsole = null
     }
 
     @JvmStatic
-    fun clientCanSwitchToComputer(): Boolean = clientComputerAvailable
+    fun clientCanSwitchToComputer(): Boolean = clientDeviceAvailable
 
     @JvmStatic
     fun clientCanReturnToControls(): Boolean {
@@ -149,11 +149,15 @@ object ControlDeskUiSwitchState {
      */
     @JvmStatic
     fun switchToComputer(player: ServerPlayer, anchorPos: BlockPos): Boolean {
-        val owner = validateAnchorAndResolveOwner(player, anchorPos) ?: return false
+        val host = validateAnchorAndResolveOwner(player, anchorPos) ?: return false
         val level = player.serverLevel()
         sessions.put(player.uuid, Session(level.dimension(), anchorPos.immutable()), level.gameTime)
-        val direct = ConsoleComputers.get(level.getBlockEntity(anchorPos))
-        return if (direct != null) direct.openTerminal(player, direct = true) else owner.openTerminal(player)
+        val directHost = level.getBlockEntity(anchorPos) as? ConsoleBlockEntity
+        val directComputer = ConsoleComputers.get(directHost)
+        if (directComputer != null) return directComputer.openTerminal(player, direct = true)
+        val directTerminal = ConsoleTerminals.get(directHost)
+        if (directTerminal != null) return directTerminal.open(player, direct = true)
+        return ConsoleComputers.get(host)?.openTerminal(player) ?: ConsoleTerminals.get(host)?.open(player) ?: false
     }
 
     /** Legacy fallback retained for callers which already established a validated server session. */
@@ -166,22 +170,22 @@ object ControlDeskUiSwitchState {
     private fun validateAnchorAndResolveOwner(
         player: ServerPlayer,
         anchorPos: BlockPos
-    ): ConsoleComputer? {
+    ): ConsoleBlockEntity? {
         val level = player.serverLevel()
         if (!level.hasChunkAt(anchorPos) || !level.mayInteract(player, anchorPos)) return null
         if (!AeroworksTypes.isControlDesk(level.getBlockState(anchorPos).block)) return null
 
         val snapshot = ConsoleMultiblockManager.resolve(level, anchorPos)
-        val direct = ConsoleComputers.get(level.getBlockEntity(anchorPos))
-        val owner = direct ?: snapshot.owner ?: return null
-        if (direct == null && snapshot.state != ConsoleNetworkState.ACTIVE) return null
+        val direct = level.getBlockEntity(anchorPos) as? ConsoleBlockEntity
+        val host = direct?.takeIf { ConsoleDevices.get(it) != null } ?: snapshot.deviceHost ?: return null
+        if (host !== direct && snapshot.state !in listOf(ConsoleNetworkState.ACTIVE, ConsoleNetworkState.TERMINAL)) return null
 
         val maximumDistance = player.blockInteractionRange() + 1.0
         val maxDistanceSqr = maximumDistance * maximumDistance
         val inRange = player.distanceToSqr(anchorPos.center) <= maxDistanceSqr ||
             snapshot.members.any { player.distanceToSqr(it.pos.center) <= maxDistanceSqr }
         if (!inRange) return null
-        return owner
+        return host
     }
 
     private fun resolveOwner(player: ServerPlayer, pos: BlockPos): ConsoleComputer? {

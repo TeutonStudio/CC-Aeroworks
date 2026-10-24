@@ -2,6 +2,7 @@ package de.teutonstudio.ccaeroworks.compat.computercraft
 
 import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
 import dan200.computercraft.api.lua.IArguments
+import dan200.computercraft.api.lua.Coerced
 import dan200.computercraft.api.lua.LuaException
 import dan200.computercraft.api.lua.LuaFunction
 import dan200.computercraft.api.lua.ObjectLuaTable
@@ -15,7 +16,11 @@ import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskInputSnapshot
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleAssemblyStateAccess
 import de.teutonstudio.ccaeroworks.debug.TouchInputDiagnostics
 import de.teutonstudio.ccaeroworks.display.DisplayBindingService
+import de.teutonstudio.ccaeroworks.computer.ConsoleComputers
+import de.teutonstudio.ccaeroworks.computer.ConsoleTerminal
+import de.teutonstudio.ccaeroworks.computer.ConsoleTerminals
 import java.lang.ref.WeakReference
+import java.nio.ByteBuffer
 
 open class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral {
     private val blockEntity = WeakReference(blockEntity)
@@ -24,20 +29,22 @@ open class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral 
 
     override fun getType(): String = "ControlDesk"
 
-    override fun getAdditionalTypes(): Set<String> = setOf(
+    override fun getAdditionalTypes(): Set<String> = linkedSetOf(
         "control_desk",
         "cc_aeroworks:control_desk",
         CCAeroworks.PERIPHERAL_TYPE
-    )
+    ).apply { if (validDesk()?.let(ConsoleTerminals::resolve) != null) add("terminal") }
 
     override fun getTarget(): Any? = validDesk()
 
     override fun attach(computer: IComputerAccess) {
         computers.add(computer)
+        validDesk()?.let(ConsoleTerminals::resolve)?.peripheral()?.attach(computer)
         ControlDeskPeripheralState.activate(this)
     }
 
     override fun detach(computer: IComputerAccess) {
+        validDesk()?.let(ConsoleTerminals::resolve)?.peripheral()?.detach(computer)
         computers.remove(computer)
         if (!computers.hasComputers()) {
             lastInputs = null
@@ -52,6 +59,8 @@ open class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral 
     fun getInfo(): Map<String, Any> {
         val desk = desk()
         val pos = desk.blockPos
+        val computer = ConsoleComputers.resolve(desk)
+        val terminal = ConsoleTerminals.resolve(desk)
         return linkedMapOf<String, Any>(
             "id" to (desk as DeskIdentityAccess).ccaeroworks_getDeskId().toString(),
             "type" to type,
@@ -59,7 +68,15 @@ open class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral 
             "y" to pos.y,
             "z" to pos.z,
             "dimension" to desk.level!!.dimension().location().toString(),
-            "loaded" to true
+            "loaded" to true,
+            "device" to when {
+                computer?.isAdvanced == true -> "advanced_computer"
+                computer != null -> "computer"
+                terminal?.isAdvanced == true -> "advanced_terminal"
+                terminal != null -> "terminal"
+                else -> "none"
+            },
+            "programmable" to (computer != null)
         ).apply {
             (desk as? ConsoleAssemblyStateAccess)?.ccaeroworks_getAssemblyId()?.let {
                 put("assemblyId", it.toString())
@@ -190,6 +207,40 @@ open class ControlDeskPeripheral(blockEntity: ConsoleBlockEntity) : IPeripheral 
             "desk=${currentDesk.blockPos.toShortString()} socket=$socket $message"
         )
     }
+
+    internal fun terminalInstalled(terminal: ConsoleTerminal) {
+        computers.forEach { terminal.peripheral().attach(it) }
+    }
+
+    internal fun terminalRemoved(terminal: ConsoleTerminal) {
+        computers.forEach { terminal.peripheral().detach(it) }
+    }
+
+    private fun terminalMethods() = validDesk()?.let(ConsoleTerminals::resolve)?.termMethods()
+        ?: throw LuaException("No CC: Terminals terminal is installed in this control desk network")
+
+    @LuaFunction fun write(text: Coerced<String>) = terminalMethods().write(text)
+    @LuaFunction fun scroll(lines: Int) = terminalMethods().scroll(lines)
+    @LuaFunction fun getCursorPos(): Array<Any> = terminalMethods().cursorPos
+    @LuaFunction fun setCursorPos(x: Int, y: Int) = terminalMethods().setCursorPos(x, y)
+    @LuaFunction fun getCursorBlink(): Boolean = terminalMethods().cursorBlink
+    @LuaFunction fun setCursorBlink(blink: Boolean) = terminalMethods().setCursorBlink(blink)
+    @LuaFunction fun getSize(): Array<Any> = terminalMethods().size
+    @LuaFunction fun clear() = terminalMethods().clear()
+    @LuaFunction fun clearLine() = terminalMethods().clearLine()
+    @LuaFunction("getTextColour", "getTextColor") fun getTextColour(): Int = terminalMethods().textColour
+    @LuaFunction("setTextColour", "setTextColor") fun setTextColour(colour: Int) = terminalMethods().setTextColour(colour)
+    @LuaFunction("getBackgroundColour", "getBackgroundColor")
+    fun getBackgroundColour(): Int = terminalMethods().backgroundColour
+    @LuaFunction("setBackgroundColour", "setBackgroundColor")
+    fun setBackgroundColour(colour: Int) = terminalMethods().setBackgroundColour(colour)
+    @LuaFunction("isColour", "isColor") fun isColour(): Boolean = terminalMethods().isColour
+    @LuaFunction fun blit(text: ByteBuffer, textColour: ByteBuffer, backgroundColour: ByteBuffer) =
+        terminalMethods().blit(text, textColour, backgroundColour)
+    @LuaFunction("setPaletteColour", "setPaletteColor")
+    fun setPaletteColour(arguments: IArguments) = terminalMethods().setPaletteColour(arguments)
+    @LuaFunction("getPaletteColour", "getPaletteColor")
+    fun getPaletteColour(colour: Int): Array<Any> = terminalMethods().getPaletteColour(colour)
 
     internal fun validDesk(): ConsoleBlockEntity? = blockEntity.get()?.takeIf {
         !it.isRemoved && it.level != null && it.level?.isLoaded(it.blockPos) == true

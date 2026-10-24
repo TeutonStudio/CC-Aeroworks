@@ -48,7 +48,7 @@ object ConsoleComputerLifecycle {
     fun removing(level: ServerLevel, pos: BlockPos, old: BlockState, replacement: BlockState) {
         if (old.block === replacement.block) return
         val host = level.getBlockEntity(pos) as? ConsoleBlockEntity ?: return
-        if (host in migrating || ConsoleComputers.get(host) == null) return
+        if (host in migrating || ConsoleDevices.get(host) == null) return
         val facing = old.getValue(BlockStateProperties.HORIZONTAL_FACING)
         val rowId = (host as? de.teutonstudio.ccaeroworks.multiblock.ConsoleAssemblyStateAccess)
             ?.ccaeroworks_getAssemblyId()
@@ -74,9 +74,9 @@ object ConsoleComputerLifecycle {
         val left = scan(facing.counterClockWise)
         val right = scan(facing.clockWise)
         val target = ComputerTransferSelection.target(left, right)
-        val stack = ConsoleComputers.remove(host)
-        if (target != null && (left + right).none { ConsoleComputers.get(it) != null }) {
-            ConsoleComputers.install(target, stack)
+        val stack = ConsoleDevices.remove(host)
+        if (target != null && (left + right).none { ConsoleDevices.get(it) != null }) {
+            ConsoleDevices.install(target, stack)
         } else Block.popResource(level, pos, stack)
         ConsoleMultiblockManager.invalidate(level, pos)
         ConsoleMultiblockSkinUpdater.scheduleRefresh(level, pos)
@@ -85,14 +85,30 @@ object ConsoleComputerLifecycle {
     fun reconcile(level: ServerLevel, pos: BlockPos): Boolean {
         ConsoleMultiblockManager.invalidate(level, pos)
         val snapshot = ConsoleMultiblockManager.resolve(level, pos)
-        if (snapshot.computers.size < 2) return false
-        val keep = snapshot.computers.minWithOrNull(compareBy<ConsoleComputer>(
-            { if (it.isAdvanced) 0 else 1 }, { snapshot.memberAt(it.blockPos)?.index ?: Int.MAX_VALUE }
+        val devices = snapshot.members.mapNotNull { member ->
+            val computer = ConsoleComputers.get(member.desk)
+            val terminal = ConsoleTerminals.get(member.desk)
+            when {
+                computer != null -> InstalledDevice(member.desk, computer.isAdvanced, true, member.index)
+                terminal != null -> InstalledDevice(member.desk, terminal.isAdvanced, false, member.index)
+                else -> null
+            }
+        }
+        if (devices.size < 2) return false
+        val keep = devices.minWithOrNull(compareBy<InstalledDevice>(
+            { if (it.computer) 0 else 1 }, { if (it.advanced) 0 else 1 }, { it.index }
         )) ?: return false
-        snapshot.computers.filter { it !== keep }.forEach {
-            Block.popResource(level, it.blockPos, ConsoleComputers.remove(it.host))
+        devices.filter { it !== keep }.forEach {
+            Block.popResource(level, it.host.blockPos, ConsoleDevices.remove(it.host))
         }
         ConsoleMultiblockManager.invalidate(level, pos)
         return true
     }
+
+    private data class InstalledDevice(
+        val host: ConsoleBlockEntity,
+        val advanced: Boolean,
+        val computer: Boolean,
+        val index: Int
+    )
 }

@@ -100,7 +100,24 @@ object ApiReferenceCatalog {
                 "getDisplayBinding(socket: string|integer) -> table",
                 "setDisplayTouchScript(socket: string|integer, path: string) -> table",
                 "setControlScript(socket: string|integer, path: string) -> table",
-                "clearDisplayBinding(socket: string|integer) -> table"
+                "clearDisplayBinding(socket: string|integer) -> table",
+                "write(text: string) -> void [CC: Terminals]",
+                "scroll(lines: integer) -> void [CC: Terminals]",
+                "getCursorPos() -> (x: integer, y: integer) [CC: Terminals]",
+                "setCursorPos(x: integer, y: integer) -> void [CC: Terminals]",
+                "getCursorBlink() -> boolean [CC: Terminals]",
+                "setCursorBlink(blink: boolean) -> void [CC: Terminals]",
+                "getSize() -> (width: integer, height: integer) [CC: Terminals]",
+                "clear() -> void [CC: Terminals]",
+                "clearLine() -> void [CC: Terminals]",
+                "getTextColour() -> integer [CC: Terminals]",
+                "setTextColour(colour: integer) -> void [CC: Terminals]",
+                "getBackgroundColour() -> integer [CC: Terminals]",
+                "setBackgroundColour(colour: integer) -> void [CC: Terminals]",
+                "isColour() -> boolean [CC: Terminals]",
+                "blit(text: string, textColours: string, backgroundColours: string) -> void [CC: Terminals]",
+                "setPaletteColour(colour: integer, red: number, green: number, blue: number) -> void [CC: Terminals]",
+                "getPaletteColour(colour: integer) -> (red: number, green: number, blue: number) [CC: Terminals]"
             ),
             source = ApiSourceContract(
                 "src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ControlDeskPeripheral.kt",
@@ -270,7 +287,7 @@ object ApiReferenceCatalog {
             moduleName = "display", methods = displayMethods
         ),
         ApiReference(
-            "touchdisplay", "touchdisplay", "DISPLAY SCRIPT · MODULE · ADVANCED COMPUTER", ApiAccent.TOUCH,
+            "touchdisplay", "touchdisplay", "DISPLAY SCRIPT · MODULE · ADVANCED COMPUTER / TERMINAL", ApiAccent.TOUCH,
             moduleName = "touchdisplay",
             methods = displayMethods + listOf(
                 "isTap(event: table) -> boolean",

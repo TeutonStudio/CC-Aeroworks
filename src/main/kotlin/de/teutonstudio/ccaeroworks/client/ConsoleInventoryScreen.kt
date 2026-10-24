@@ -34,7 +34,7 @@ class ConsoleInventoryScreen(menu: ConsoleInventoryMenu, inventory: Inventory, t
     private fun rebuildOverview() {
         // Preserve the native 198x153 layout. Its left/top match this container's left/top.
         overview?.init(minecraft!!, width - 38, height - 96)
-        computerAvailable = minecraft?.level?.let { ConsoleMultiblockManager.resolve(it, menu.anchor).owner != null } == true
+        computerAvailable = minecraft?.level?.let { ConsoleMultiblockManager.resolve(it, menu.anchor).deviceHost != null } == true
     }
 
     override fun containerTick() {
@@ -43,7 +43,7 @@ class ConsoleInventoryScreen(menu: ConsoleInventoryMenu, inventory: Inventory, t
         val host = level.getBlockEntity(menu.anchor) as? ConsoleBlockEntity
         if (host == null || host.isRemoved) { onClose(); return }
         ControlDeskUiSwitchState.rememberClientOverview(host)
-        val available = ConsoleMultiblockManager.resolve(level, menu.anchor).owner != null
+        val available = ConsoleMultiblockManager.resolve(level, menu.anchor).deviceHost != null
         if (available != computerAvailable) rebuildOverview()
     }
 

@@ -22,10 +22,10 @@ object ConsoleMultiblockSkinState {
 
     @JvmStatic
     fun forMembers(members: Iterable<ConsoleMember>): ConsoleMultiblockSkin = when {
-        members.any { it.kind == ConsoleMemberKind.ADVANCED_COMPUTER } ->
+        members.any { it.kind == ConsoleMemberKind.ADVANCED_COMPUTER || it.kind == ConsoleMemberKind.ADVANCED_TERMINAL } ->
             ConsoleMultiblockSkin.ADVANCED
 
-        members.any { it.kind == ConsoleMemberKind.COMPUTER } ->
+        members.any { it.kind == ConsoleMemberKind.COMPUTER || it.kind == ConsoleMemberKind.TERMINAL } ->
             ConsoleMultiblockSkin.COMPUTER
 
         else -> ConsoleMultiblockSkin.DEFAULT

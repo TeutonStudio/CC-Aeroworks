@@ -87,6 +87,13 @@ Adds optional Create: Radars integration and radar display modules to CC-Aerowor
     versionRange="[0.2.9,0.4)"
     ordering="AFTER"
     side="BOTH"
+[[dependencies.${mod_id}]]
+    modId="ccterminals"
+    type="optional"
+    reason="Allows a non-programmable normal or advanced operator terminal in the shared desk/stand device slot."
+    versionRange="[0.1.1,0.2)"
+    ordering="AFTER"
+    side="BOTH"
 
 [[dependencies.${radarcompat_mod_id}]]
     modId="${mod_id}"

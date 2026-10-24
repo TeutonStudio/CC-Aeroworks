@@ -39,10 +39,13 @@ class IndividualDisplayResolutionTest {
     }
 
     @Test
-    fun onlyAnActiveAdvancedOwnerEnablesTouch() {
+    fun onlyAnAdvancedComputerOrOperatorTerminalEnablesTouch() {
         for (state in ConsoleNetworkState.entries) {
             assertFalse(DisplayTouchAccess.enabled(state, false))
-            assertEquals(state == ConsoleNetworkState.ACTIVE, DisplayTouchAccess.enabled(state, true))
+            assertEquals(
+                state == ConsoleNetworkState.ACTIVE || state == ConsoleNetworkState.TERMINAL,
+                DisplayTouchAccess.enabled(state, true)
+            )
         }
     }
 

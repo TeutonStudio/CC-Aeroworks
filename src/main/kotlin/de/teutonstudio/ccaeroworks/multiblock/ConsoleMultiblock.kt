@@ -8,6 +8,8 @@ import de.teutonstudio.ccaeroworks.computer.ComputerControlDeskBlock
 import de.teutonstudio.ccaeroworks.computer.ConsoleComputers
 import de.teutonstudio.ccaeroworks.computer.ConsoleComputerLifecycle
 import de.teutonstudio.ccaeroworks.computer.ConsoleComputer
+import de.teutonstudio.ccaeroworks.computer.ConsoleTerminal
+import de.teutonstudio.ccaeroworks.computer.ConsoleTerminals
 import de.teutonstudio.ccaeroworks.train.TrainControlConsoleGeometry
 import de.teutonstudio.ccaeroworks.train.TrainControlConsoleIntegration
 import de.teutonstudio.ccaeroworks.train.TrainControlConsoleUpdater
@@ -29,6 +31,7 @@ import java.util.concurrent.atomic.AtomicLong
 enum class ConsoleNetworkState {
     NONE,
     ACTIVE,
+    TERMINAL,
     CONFLICT,
     TOO_LARGE,
     PARTIALLY_LOADED
@@ -37,7 +40,9 @@ enum class ConsoleNetworkState {
 enum class ConsoleMemberKind {
     CONTROL_DESK,
     COMPUTER,
-    ADVANCED_COMPUTER
+    ADVANCED_COMPUTER,
+    TERMINAL,
+    ADVANCED_TERMINAL
 }
 
 data class ConsoleMember(
@@ -54,11 +59,22 @@ data class ConsoleMultiblockSnapshot(
     val segmentPositions: List<BlockPos>,
     val members: List<ConsoleMember>,
     val computers: List<ConsoleComputer>,
+    val terminals: List<ConsoleTerminal>,
     val state: ConsoleNetworkState,
     val revision: Long
 ) {
     val owner: ConsoleComputer?
         get() = computers.singleOrNull()
+
+    val terminal: ConsoleTerminal?
+        get() = terminals.singleOrNull()
+
+    val deviceHost: ConsoleBlockEntity?
+        get() = when {
+            computers.size == 1 && terminals.isEmpty() -> computers.single().host
+            terminals.size == 1 && computers.isEmpty() -> terminals.single().host
+            else -> null
+        }
 
     fun memberAt(pos: BlockPos): ConsoleMember? = members.firstOrNull { it.pos == pos }
 }
@@ -73,6 +89,7 @@ object ConsoleMultiblockResolver {
                 emptyList(),
                 emptyList(),
                 emptyList(),
+                emptyList(),
                 ConsoleNetworkState.PARTIALLY_LOADED,
                 revision
             )
@@ -84,6 +101,7 @@ object ConsoleMultiblockResolver {
         ) {
             return ConsoleMultiblockSnapshot(
                 start.immutable(),
+                emptyList(),
                 emptyList(),
                 emptyList(),
                 emptyList(),
@@ -142,6 +160,8 @@ object ConsoleMultiblockResolver {
                     ConsoleMemberKind.ADVANCED_COMPUTER
 
                 ConsoleComputers.get(desk) != null -> ConsoleMemberKind.COMPUTER
+                ConsoleTerminals.get(desk)?.isAdvanced == true -> ConsoleMemberKind.ADVANCED_TERMINAL
+                ConsoleTerminals.get(desk) != null -> ConsoleMemberKind.TERMINAL
                 else -> ConsoleMemberKind.CONTROL_DESK
             }
             val id = (desk as DeskIdentityAccess).ccaeroworks_getDeskId().toString()
@@ -150,11 +170,14 @@ object ConsoleMultiblockResolver {
         }
 
         val computers = members.mapNotNull { ConsoleComputers.get(it.desk) }
+        val terminals = members.mapNotNull { ConsoleTerminals.get(it.desk) }
+        val deviceCount = computers.size + terminals.size
         val state = when {
             tooLarge -> ConsoleNetworkState.TOO_LARGE
             partiallyLoaded -> ConsoleNetworkState.PARTIALLY_LOADED
-            computers.size > 1 -> ConsoleNetworkState.CONFLICT
+            deviceCount > 1 -> ConsoleNetworkState.CONFLICT
             computers.size == 1 -> ConsoleNetworkState.ACTIVE
+            terminals.size == 1 -> ConsoleNetworkState.TERMINAL
             else -> ConsoleNetworkState.NONE
         }
         return ConsoleMultiblockSnapshot(
@@ -162,6 +185,7 @@ object ConsoleMultiblockResolver {
             positions.toList(),
             members,
             computers,
+            terminals,
             state,
             revision
         )

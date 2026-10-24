@@ -46,6 +46,11 @@ repositories {
         url = 'https://maven.blamejared.com'
         content { includeGroup('mezz.jei') }
     }
+    maven {
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+        content { includeGroup('maven.modrinth') }
+    }
     exclusiveContent {
         forRepository {
             maven {
@@ -146,6 +151,9 @@ dependencies {
     // Drive By Wire is optional at runtime, but its isolated compatibility backend is compiled
     // with the main source set and therefore needs the supported 0.3.0 API on the compile classpath.
     compileOnly("curse.maven:drive-by-wire-with-sable-1520378:${drive_by_wire_curse_file_id}")
+    // CC: Terminals is optional at runtime. Its official Modrinth artifact supplies the isolated
+    // integration API even when the configured local runtime intentionally omits the mod.
+    compileOnly("maven.modrinth:cc-terminals:0.1.1")
     implementation fileTree(
         dir: modDependencyDirectory,
         include: ['*.jar'],

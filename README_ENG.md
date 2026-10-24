@@ -1,11 +1,11 @@
 # CC-Aeroworks
 
-CC-Aeroworks connects **Create: Aeroworks Control Desks** with **CC:Tweaked**, turning a row of control desks into a programmable cockpit network. It adds embedded computer desks, addressable desk peripherals, network-wide Lua APIs, programmable displays with touch/draw input, Create telemetry, control channels, and optional Create: Radars integration.
+CC-Aeroworks connects **Create: Aeroworks Control Desks** with **CC:Tweaked**, turning a row of control desks into a programmable cockpit network. It adds shared device slots for computers or protected operator terminals, addressable desk peripherals, network-wide Lua APIs, programmable displays with touch/draw input, Create telemetry, control channels, and optional Create: Radars integration.
 
 ## Core features
 
-- Linear networks of ordinary Aeroworks desks with one shared computer slot.
-- Normal or advanced CC:Tweaked computers embedded directly into a desk.
+- Linear networks of ordinary Aeroworks desks with one shared device slot.
+- A normal/advanced CC:Tweaked computer or optional CC: Terminals operator terminal embedded directly into a desk.
 - Every desk remains an individual `ControlDesk` peripheral with its own position, modules, inputs, and displays.
 - Embedded-computer APIs: `peripherals`, `channels`, `controls`, `wires`, and `telemetry`.
 - Small and large programmable display modules supporting text, numbers, and pixel rasters.
@@ -45,13 +45,15 @@ Example: [`examples/cc/network-basics.lua`](examples/cc/network-basics.lua)
 
 The previous global `aeroworks` API and the old network-wide desk/display facades are no longer part of the public contract.
 
-## Shared computer slot
+## Shared computer / terminal slot
 
-Sneak + right-click any ordinary console to open its module overview, including empty consoles. The overview includes your inventory and the row’s shared computer slot. Insert a normal or advanced CC:Tweaked computer, then use the Computer button to open its terminal. Insertion and extraction support shift-click.
+Sneak + right-click any ordinary console to open its module overview, including empty consoles. The overview includes your inventory and the row’s shared device slot. It accepts a normal/advanced CC:Tweaked computer or, with CC: Terminals 0.1.1 installed, a normal/advanced terminal. The Computer / Terminal button opens the corresponding interface. Insertion and extraction support shift-click.
 
-Breaking the computer’s host moves it into the larger remaining piece, preferring left on a tie. Breaking the last console drops the computer separately. Computer ID, files, label, terminal size, capacity, wire channels and channel groups are retained. Modules, skins and desk IDs stay with their original consoles.
+A terminal runs no local CraftOS instance and has no user-editable programs. A protected computer connected through Peripheral Link or directly finds the desk as an additional `terminal` peripheral, draws through the standard terminal API, and receives `terminal_*` events. Normal means monochrome output and keyboard input; advanced adds colour and mouse input. The tier expands I/O, not permissions.
 
-The combined-block recipe is retired. Existing computer desks migrate automatically when loaded; legacy items migrate when placed. Joining occupied rows keeps an advanced computer first, then the first in row order, and ejects extras with their data.
+Breaking the slot device’s host moves it into the larger remaining piece, preferring left on a tie. Breaking the last console drops the device separately. Computer ID, files, label, terminal size, capacity, wire channels and channel groups are retained for computers. Modules, skins and desk IDs stay with their original consoles.
+
+The combined-block recipe is retired. Existing computer desks migrate automatically when loaded; legacy items migrate when placed. Joining occupied rows prefers a computer over a terminal, then the advanced tier within the same device kind, and finally row order; extra devices are ejected.
 
 ## Control APIs
 
@@ -77,7 +79,7 @@ print(size.width, size.height, size.ppb) -- small display: 14, 14, 32
 
 `display.maxIndividualPpb` limits individual density (default 256, configurable from 16 to 1024). Unconfigured slots use the smaller of `display.ppb` and this limit. The Lua function accepts whole numbers from 16 to the limit and raises an error in global mode. Changing density clears the pixel raster; setting the same density preserves pixels. Slot settings survive restarts and global mode, and are removed when the module is dismounted. `getDisplaySize` always reports the effective dimensions.
 
-Both advanced display sizes support touch only while the active console network also contains an advanced CC:Tweaked computer. Normal displays and normal or absent computers disable touch, including events sent to external peripherals. `setDisplayColor(socket, 0xRRGGBB)` changes an advanced display's text/pixel color and `getDisplayColor` reads it. Bindings survive computer replacement. Running gestures are discarded after computer or resolution changes. `require("display").setResolution(event, ppb)` provides the equivalent helper for display scripts; `touchdisplay` inherits it.
+Both advanced display sizes support touch only while the active console network also contains an advanced CC:Tweaked computer or advanced CC: Terminals terminal. Normal displays and normal or absent slot devices disable touch, including events sent to external peripherals. `setDisplayColor(socket, 0xRRGGBB)` changes an advanced display's text/pixel color and `getDisplayColor` reads it. Bindings survive computer replacement. Running gestures are discarded after computer or resolution changes. `require("display").setResolution(event, ppb)` provides the equivalent helper for display scripts; `touchdisplay` inherits it.
 
 Programs should query the current size through the display API rather than hard-coding these values. Pixel state is packed and rendered through cached dynamic textures, so high PPB values do not require one rendered model instance per logical pixel.
 
@@ -100,6 +102,7 @@ See [`docs/create-radars-integration.md`](docs/create-radars-integration.md).
 ## Documentation
 
 - Public Lua/peripheral API: [`docs/cc-peripheral-api.md`](docs/cc-peripheral-api.md)
+- Protected operator terminals: [`docs/operator-terminals.md`](docs/operator-terminals.md)
 - Peripheral tree: [`docs/peripheral-tree.md`](docs/peripheral-tree.md)
 - Display touch/draw: [`docs/display-touch.md`](docs/display-touch.md)
 - Telemetry: [`docs/telemetry.md`](docs/telemetry.md)
@@ -118,6 +121,7 @@ See [`docs/create-radars-integration.md`](docs/create-radars-integration.md).
 - CC:Tweaked API baseline 1.120.2
 - Sable 2.0.5 required
 - Drive By Wire 0.2.9-0.3.x optional
+- CC: Terminals 0.1.1 optional
 - Create: Simulated optional
 - Create: Radars optional
 
