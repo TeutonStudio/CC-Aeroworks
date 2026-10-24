@@ -63,7 +63,7 @@ clearDisplayBinding(socket)
 
 Touch und Draw erfordern ein erweitertes kleines oder großes Display und zusätzlich einen erweiterten Computer im aktiven Pultverbund. Normale Displays sowie normale oder fehlende Computer erzeugen auch für externe Peripherals keine Displayeingaben. Erweiterte Displays bieten außerdem `getDisplayColor(socket)` und `setDisplayColor(socket, 0xRRGGBB)`; die Farbe wird pro Slot gespeichert und beim Ausbau entfernt.
 
-Wenn Create: Radars geladen ist, kann dasselbe Binding eines erweiterten Displays statt eines Lua-Skripts einen Network-Controller-/Data-Link-Ingress als Radar-Pseudo-Skript enthalten. Es gibt keine separaten Radar-Display-Items. Während dieses Extension-Binding aktiv ist, besitzt die Radarquelle die Oberfläche exklusiv und Touch wird nicht ausgeliefert.
+Wenn Create: Radars geladen ist, kann dasselbe Binding eines erweiterten Displays statt eines Lua-Skripts einen Network-Controller-/Data-Link-Ingress als Radar-Pseudo-Skript enthalten. Es gibt keine separaten Radar-Display-Items. Während dieses Extension-Binding aktiv ist, besitzt die Radarquelle die Bildausgabe exklusiv; Touch-/Draw-Ereignisse werden weiterhin ausgeliefert. Ein `tap` auf einen sichtbaren Kontakt wählt ihn außerdem nativ am Network Filterer aus.
 
 `setDisplayPixelBatch(socket, points, enabled?)` erwartet eine Liste aus `{x=..., y=...}` mit 1-basierten Displaykoordinaten. Alle Punkte werden in einer einzigen Kopie des gepackten Rasters angewendet; das Display wird höchstens einmal persistiert. Der Rückgabewert ist die Anzahl tatsächlich geänderter Pixel.
 

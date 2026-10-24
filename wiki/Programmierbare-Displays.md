@@ -122,7 +122,7 @@ Erlaubt sind ganze PPB von 16 bis `display.maxIndividualPpb` (Standard 256; Admi
 
 Kleine und große **erweiterte** Displays unterstützen Touch mit einem erweiterten Computer im aktiven Pultverbund. Normale Displays sowie normale oder fehlende Computer deaktivieren Touch, einschließlich der Ereignisse an externe Peripherals. Skriptzuweisungen bleiben beim Computerwechsel erhalten.
 
-Im Modulfenster legt das gemeinsame Dropdown `Display-Steuerung` exklusiv fest, wer das erweiterte Display übernimmt. Normalerweise ist dies ein kompatibles Lua-Skript. Mit geladener Create:-Radars-Kompatibilität erscheinen dort zusätzlich Network-Controller-/Data-Link-Ingresses als Pseudo-Skripte. Eine Radarwahl ersetzt die Lua-Bindung und deaktiviert die normale Pixeloberfläche samt Touch, bis wieder ein Skript oder `Keine externe Steuerung` gewählt wird. Separate Radar-Display-Items existieren nicht.
+Im Modulfenster legt das gemeinsame Dropdown `Display-Steuerung` exklusiv fest, wer die Bildausgabe des erweiterten Displays übernimmt. Normalerweise ist dies ein kompatibles Lua-Skript. Mit geladener Create:-Radars-Kompatibilität erscheinen dort zusätzlich Network-Controller-/Data-Link-Ingresses als Pseudo-Skripte. Eine Radarwahl ersetzt die Lua-Bindung und deaktiviert die normale Pixeloberfläche, nicht jedoch Touch. Ein Tap auf einen sichtbaren Radar-Kontakt wählt das native Ziel für Network Filterer, Auto Yaw und Auto Pitch. Separate Radar-Display-Items existieren nicht.
 
 Touchereignisse liefern weiterhin `x`, `y`, `width` und `height` im aktuellen Pixelraster. Bei 256 PPB besitzt ein großes Display also `160x112` statt eines groben historischen Rasters.
 

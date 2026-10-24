@@ -1,6 +1,6 @@
 # Touch-Eingaben auf Pultanzeigen
 
-Erweiterte kleine und große Pultanzeigen verwenden den kombinierten Display-Eingabemodus. Normale Pultanzeigen sind reine Ausgaben. Während die konfigurierte Display-Bedienungstaste gehalten wird, bewegt die Maus einen virtuellen Finger auf der Displayfläche. Linksklick erzeugt `tap`, Rechtsklick startet eine `draw`-Geste und Loslassen beendet sie mit `isEnd = true`. Ist über die optionale Create:-Radars-Kompatibilität eine Radarquelle als Pseudo-Skript gewählt, besitzt sie die Oberfläche exklusiv und Touch bleibt bis zum Quellenwechsel aus.
+Erweiterte kleine und große Pultanzeigen verwenden den kombinierten Display-Eingabemodus. Normale Pultanzeigen sind reine Ausgaben. Während die konfigurierte Display-Bedienungstaste gehalten wird, bewegt die Maus einen virtuellen Finger auf der Displayfläche. Linksklick erzeugt `tap`, Rechtsklick startet eine `draw`-Geste und Loslassen beendet sie mit `isEnd = true`. Ist über die optionale Create:-Radars-Kompatibilität eine Radarquelle als Pseudo-Skript gewählt, besitzt sie nur die Bildausgabe exklusiv. Touch bleibt aktiv; ein `tap` auf einen sichtbaren Kontakt übernimmt zusätzlich die native Zielauswahl für Network Filterer, Auto Yaw und Auto Pitch.
 
 Die primären Maustasten werden weiterhin über Raw-`MouseHandler`, NeoForge-Fallback und direktes GLFW-Polling abgesichert. Die Bewegung des virtuellen Fingers wird dagegen höherfrequent im Player-Turn-Pfad erfasst und erst anschließend tickweise zum Server gebündelt.
 

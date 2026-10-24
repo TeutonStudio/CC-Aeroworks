@@ -448,6 +448,18 @@ Ein Fall ist nur `PASS`, wenn alle Schritte und Erwartungen erfüllt sind. Ein H
 
 **Erwartung:** Kamera und Maussteuerung werden sofort freigegeben; keine weiteren Pakete werden gesendet.
 
+### `COMBINED-KEYBOARD-01` Exklusive Tastensteuerung
+
+**Profile:** `BASE-CLIENT`
+
+**Schritte:** Per Rechtsklick die Pultsteuerung betreten, noch keinen Combined-Auslöser halten und
+nacheinander `E`, `I` sowie einen beliebigen Mod-Menü-Hotkey als Pultbelegung prüfen. Anschließend
+`Escape` und die konfigurierte Freie-Kamera-Taste prüfen.
+
+**Erwartung:** Gewöhnliche Tasten und Menü-Hotkeys öffnen keinen Bildschirm, sondern erreichen die
+Pultsteuerung bereits vor dem Combined-Auslöser. `Escape` beendet den Steuerungsmodus; die
+Freie-Kamera-Taste bleibt verfügbar.
+
 ---
 
 ## Sable
@@ -531,4 +543,4 @@ Ein Fall ist nur `PASS`, wenn alle Schritte und Erwartungen erfüllt sind. Ein H
 5. Globalen Modus aktivieren und wieder deaktivieren: individuelle Werte bleiben gespeichert. Obergrenze senken: wirksame individuelle Werte werden begrenzt. Display ausbauen und ersetzen: Slot verwendet wieder den Standard.
 6. Ohne Computer und mit normalem Computer: weder kleine noch große Displays erlauben Touch/Draw. Auch externe Peripherals empfangen keine Displayeingaben. Mit erweitertem Computer funktionieren beide Größen auf allen Mitgliedern des aktiven Verbunds.
 7. Während einer Draw-Geste den Computer oder die Auflösung wechseln: alte Fortsetzungen werden verworfen; eine neue Geste funktioniert mit dem aktuellen Raster. Gespeicherte Skriptzuweisungen bleiben beim Computerwechsel erhalten.
-8. Zeiger, Eckpixel und Draw-Pfad bei gedrehten Pulten, auf Ständern und auf bewegten Sable-Unterwelten visuell prüfen. Bei gewähltem Radar-Pseudo-Skript verschwinden Zeiger und Touch vollständig.
+8. Zeiger, Eckpixel und Draw-Pfad bei gedrehten Pulten, auf Ständern und auf bewegten Sable-Unterwelten visuell prüfen. Bei gewähltem Radar-Pseudo-Skript bleibt der Zeiger auf kleinen und großen erweiterten Displays aktiv; ein Tap auf einen sichtbaren Kontakt aktualisiert `selectedTargetId` und die angeschlossenen Auto-Yaw-/Auto-Pitch-Endpunkte.

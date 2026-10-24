@@ -8,7 +8,8 @@ import net.minecraft.nbt.CompoundTag
 
 data class ExtensionBindingHandler(
     val supports: (ConsoleBlockEntity, Int, DisplayBinding.Extension) -> Boolean,
-    val describe: (DisplayBinding.Extension) -> Map<String, Any>
+    val describe: (DisplayBinding.Extension) -> Map<String, Any>,
+    val onInput: (ConsoleBlockEntity, DeskDisplayInput, DisplayBinding.Extension) -> Unit
 )
 
 sealed interface DisplayBinding {
@@ -56,10 +57,11 @@ object DisplayBindingExtensions {
     fun register(
         type: String,
         supports: (ConsoleBlockEntity, Int, DisplayBinding.Extension) -> Boolean,
-        describe: (DisplayBinding.Extension) -> Map<String, Any>
+        describe: (DisplayBinding.Extension) -> Map<String, Any>,
+        onInput: (ConsoleBlockEntity, DeskDisplayInput, DisplayBinding.Extension) -> Unit = { _, _, _ -> }
     ) {
         require(type.isNotBlank() && type != "default" && type != "lua_handler")
-        check(handlers.putIfAbsent(type, ExtensionBindingHandler(supports, describe)) == null) {
+        check(handlers.putIfAbsent(type, ExtensionBindingHandler(supports, describe, onInput)) == null) {
             "Display binding extension '$type' is already registered"
         }
     }
@@ -69,6 +71,14 @@ object DisplayBindingExtensions {
 
     internal fun describe(binding: DisplayBinding.Extension): Map<String, Any> =
         handlers[binding.type]?.describe?.invoke(binding) ?: linkedMapOf("type" to binding.type)
+
+    internal fun dispatchInput(
+        desk: ConsoleBlockEntity,
+        input: DeskDisplayInput,
+        binding: DisplayBinding.Extension
+    ) {
+        handlers[binding.type]?.onInput?.invoke(desk, input, binding)
+    }
 }
 
 object DisplayBindings {

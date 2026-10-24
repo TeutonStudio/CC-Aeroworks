@@ -92,6 +92,8 @@ def main() -> int:
     desk_render_access = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/aeroworks/AeroworksDeskAccess.kt")
     touch_geometry = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DeskDisplayGeometry.kt")
     radar_bindings = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/display/RadarDisplayBindings.kt")
+    input_dispatcher = read("src/main/kotlin/de/teutonstudio/ccaeroworks/computer/DeskDisplayInputDispatcher.kt")
+    target_selection = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/display/RadarTargetSelection.kt")
 
     require(
         not (ROOT / "src/main/kotlin/de/teutonstudio/ccaeroworks/client/display/RadarSurfaceRenderer.kt").exists(),
@@ -101,8 +103,12 @@ def main() -> int:
             "radar pseudo-scripts must be restricted to advanced displays")
     require("is DisplayBinding.Extension" in desk_render_access,
             "extension ownership must suppress the ordinary display renderer")
-    require("is DisplayBinding.Extension" in touch_geometry,
-            "extension ownership must suppress ordinary display touch")
+    require("DisplayBinding.Extension" not in touch_geometry,
+            "extension ownership must not suppress advanced-display touch geometry")
+    require("DisplayBindingExtensions.dispatchInput" in input_dispatcher,
+            "extension bindings must receive resolved display input")
+    for token in ("S30_TOUCH_SELECT", "projectRadarContact", "receiveSelectedTargetFromMonitor"):
+        require(token in target_selection, f"native radar touch selection is missing: {token}")
 
     for token in (
         "enum class RadarLinkStatus",

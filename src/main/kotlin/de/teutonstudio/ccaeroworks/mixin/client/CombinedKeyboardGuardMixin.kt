@@ -8,14 +8,15 @@ import org.spongepowered.asm.mixin.injection.Inject
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo
 
 /**
- * Intercepts Combined activation keys before vanilla creates normal KeyMapping clicks from them.
+ * Intercepts ControlDesk keyboard input before vanilla creates normal KeyMapping clicks from it.
  * InputEvent.Key is posted only after vanilla key processing, so an event-bus listener alone
- * cannot prevent bindings such as chat or an emote wheel from reacting to the same press.
+ * cannot reserve keys such as inventory or mod-menu bindings while control focus is waiting for a
+ * Combined activation edge.
  */
-@Mixin(KeyboardHandler::class)
+@Mixin(value = [KeyboardHandler::class], priority = 1100)
 abstract class CombinedKeyboardGuardMixin {
     @Inject(method = ["keyPress(JIIII)V"], at = [At("HEAD")], cancellable = true)
-    private fun ccaeroworks_captureCombinedActivationKey(
+    private fun ccaeroworks_captureCombinedKeyboardInput(
         windowPointer: Long,
         key: Int,
         scanCode: Int,
@@ -23,7 +24,7 @@ abstract class CombinedKeyboardGuardMixin {
         modifiers: Int,
         callback: CallbackInfo
     ) {
-        if (CombinedKeyboardCapture.capture(windowPointer, key, action)) {
+        if (CombinedKeyboardCapture.capture(windowPointer, key, scanCode, action)) {
             callback.cancel()
         }
     }

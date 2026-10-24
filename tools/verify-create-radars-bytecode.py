@@ -62,6 +62,9 @@ SERIALIZE_TRACKS_DESCRIPTOR = (
 DESERIALIZE_TRACKS_DESCRIPTOR = (
     "(Lnet/minecraft/nbt/CompoundTag;)Ljava/util/List;"
 )
+RECEIVE_SELECTED_TARGET_DESCRIPTOR = (
+    "(Lcom/happysg/radar/block/radar/track/RadarTrack;Ljava/util/List;)V"
+)
 MONITOR_INTERNAL_NAME = "com/happysg/radar/block/monitor/MonitorBlockEntity"
 
 MONITOR_TEXTURES = (
@@ -325,6 +328,7 @@ def main() -> int:
         filterer = javap(jar, filterer_class)
         for token in ("detectionTag", "radarPos", "selectedTargetId"):
             require(token in filterer, f"NetworkFiltererBlockEntity bytecode missing {token}")
+        method_section(filterer, "receiveSelectedTargetFromMonitor", RECEIVE_SELECTED_TARGET_DESCRIPTOR)
 
         detection = javap(jar, DETECTION_CONFIG)
         method_section(detection, "fromTag")

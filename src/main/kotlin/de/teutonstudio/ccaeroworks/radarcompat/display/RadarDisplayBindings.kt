@@ -25,6 +25,9 @@ object RadarDisplayBindings {
                     "y" to source.ingressPos.y,
                     "z" to source.ingressPos.z
                 )
+            },
+            onInput = { desk, input, binding ->
+                source(binding)?.let { RadarTargetSelection.handle(desk, it, input) }
             }
         )
     }

@@ -8,6 +8,7 @@ import de.teutonstudio.ccaeroworks.radarcompat.compat.aeroworks.RadarDeskAccess
 import de.teutonstudio.ccaeroworks.radarcompat.createradar.RadarTrace
 import de.teutonstudio.ccaeroworks.radarcompat.display.RadarDisplaySnapshot
 import de.teutonstudio.ccaeroworks.radarcompat.display.RadarDisplayType
+import de.teutonstudio.ccaeroworks.radarcompat.display.RadarDisplayOrientation
 import net.minecraft.client.Minecraft
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.core.BlockPos
@@ -22,14 +23,11 @@ import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.Property
 import net.neoforged.fml.ModList
-import org.joml.Quaternionf
-import org.joml.Vector3f
 import java.lang.reflect.Constructor
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.util.WeakHashMap
-import kotlin.math.abs
 
 /**
  * Draws RadarDisplay modules with Create: Radars' own MonitorRenderer.
@@ -49,8 +47,6 @@ object CreateRadarNativeMonitorRenderer {
 
     private const val NATIVE_BACKGROUND_DEPTH = 0.94
     private const val MODULE_SURFACE_Y = 2.12 / 16.0
-    private const val SMALL_SURFACE_SIZE = 0.39f
-    private const val LARGE_SURFACE_SIZE = 0.40f
 
     private var contract: Contract? = null
     private var contractResolutionAttempted = false
@@ -190,7 +186,7 @@ object CreateRadarNativeMonitorRenderer {
                 }
                 continue
             }
-            val facing = effectiveFacing(desk, surface.socket)
+            val facing = RadarDisplayOrientation.effectiveFacing(desk, surface.socket)
             RadarTrace.periodic(
                 "D16_SOCKET_TRANSFORM",
                 level,
@@ -284,21 +280,7 @@ object CreateRadarNativeMonitorRenderer {
         poseStack.translate(-0.5, 0.0, -0.5)
     }
 
-    private fun surfaceScale(type: RadarDisplayType): Float = when (type) {
-        RadarDisplayType.SMALL -> SMALL_SURFACE_SIZE
-        RadarDisplayType.LARGE -> LARGE_SURFACE_SIZE
-    }
-
-    private fun effectiveFacing(desk: ConsoleBlockEntity, socketIndex: Int): Direction {
-        val socket = desk.sockets().getOrNull(socketIndex) ?: return Direction.NORTH
-        val rotation = Quaternionf(ConsoleBlock.rotationFor(desk.blockState)).mul(socket.orientation())
-        val forward = rotation.transform(Vector3f(0.0f, 0.0f, -1.0f))
-        return if (abs(forward.x) > abs(forward.z)) {
-            if (forward.x >= 0.0f) Direction.EAST else Direction.WEST
-        } else {
-            if (forward.z >= 0.0f) Direction.SOUTH else Direction.NORTH
-        }
-    }
+    private fun surfaceScale(type: RadarDisplayType): Float = type.nativeSurfaceScale.toFloat()
 
     private fun virtualMonitor(
         native: Contract,

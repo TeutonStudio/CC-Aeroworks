@@ -6,7 +6,7 @@ Ohne Create: Radars bleiben CC-Aeroworks und alle normalen Pultfunktionen startf
 
 ## Radar als Pseudo-Skript
 
-Es gibt keine eigenen RadarDisplay-Items. Ein kleines oder großes **erweitertes** Pultdisplay kann im gemeinsamen Dropdown `Display-Steuerung` entweder ein Lua-Skript oder einen Radar-Ingress auswählen. Die Radarquelle ist dabei ein Pseudo-Skript: Sie ersetzt die Lua-Bindung, übernimmt die vollständige Oberfläche und deaktiviert Touch, solange sie ausgewählt ist.
+Es gibt keine eigenen RadarDisplay-Items. Ein kleines oder großes **erweitertes** Pultdisplay kann im gemeinsamen Dropdown `Display-Steuerung` entweder ein Lua-Skript oder einen Radar-Ingress auswählen. Die Radarquelle ist dabei ein Pseudo-Skript: Sie ersetzt die Lua-Bindung und übernimmt die Bildausgabe, lässt die Touch-Eingabe des erweiterten Displays aber aktiv. Ein Antippen eines sichtbaren Kontakts wird gegen die native Monitorprojektion aufgelöst und über `NetworkFiltererBlockEntity.receiveSelectedTargetFromMonitor(...)` ausgewählt. Damit erhalten insbesondere Auto Yaw und Auto Pitch dasselbe Ziel wie bei einem echten Create:-Radars-Monitor.
 
 Unterstützt werden:
 

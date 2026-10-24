@@ -156,9 +156,6 @@ object DeskDisplayGeometry {
         val module = desk.module(socket) ?: return null
         val displayVariant = CCModuleTypes.displayVariant(module.type())
         if (displayVariant != null && !displayVariant.tier.touchCapable) return null
-        // Extension bindings own the complete surface. In particular, the Radar compatibility
-        // pseudo-script renders native radar output and must not also dispatch Lua touch events.
-        if (DisplayBindings.get(desk, socket) is DisplayBinding.Extension) return null
         val displayType = displayVariant?.type
         val type = displayType ?: InteractiveDisplayExtensions.displayType(module.type()) ?: return null
         // Third-party interactive module types retain their own fixed raster.

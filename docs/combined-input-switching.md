@@ -67,6 +67,12 @@ Ownership ist nicht preemptiv. Eine zweite Combined-Taste kann eine aktive Sessi
 Tastendruck übernehmen. Shift beendet die Session und gibt die Maus unmittelbar an die Kamera
 zurück.
 
+Bereits während des gesamten per Rechtsklick betretenen Pult-Steuerungsmodus fängt der rohe
+Tastaturpfad gewöhnliche Tastenbelegungen vor Minecrafts `KeyMapping`-Verarbeitung ab. Das gilt
+auch, solange noch kein Combined-Auslöser gehalten wird. Inventar-, Menü- und Mod-Hotkeys wie `E`
+oder `I` bleiben dadurch als Steuertasten nutzbar. Native Aeroworks-Belegungen werden weiterhin an
+das Pult geleitet; `Escape` und die konfigurierte Freie-Kamera-Taste bleiben unbeansprucht.
+
 Aeroworks' eigener `feedMouseDelta`-Pfad bleibt während einer Combined-Session unterdrückt. Somit
 wird jedes physische Mausdelta nur einmal verarbeitet.
 
@@ -177,3 +183,13 @@ wiederverwendet werden. Ohne Tiebreaker wird kein zufälliges Modul übernommen.
 2. Shift drücken.
 
 Erwartung: finales Sample wird übertragen, Focus endet und die Maus steuert sofort wieder die Kamera.
+
+### Fremde Tastenbelegungen
+
+1. Per Rechtsklick die Pultsteuerung betreten, aber noch keine Combined-Taste drücken.
+2. Nacheinander `E`, `I` und einen Mod-Menü-Hotkey als konfigurierte Pulttasten prüfen.
+3. Danach `Escape` und die Freie-Kamera-Taste prüfen.
+
+Erwartung: Kein Bildschirm öffnet sich; `E`, `I` und der Mod-Hotkey erreichen die Pultsteuerung.
+`Escape` verlässt den Steuerungsmodus, die Freie-Kamera-Taste verhält sich weiterhin wie von
+Aeroworks vorgesehen.

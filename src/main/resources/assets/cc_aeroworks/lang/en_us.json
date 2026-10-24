@@ -82,7 +82,7 @@
   "guide.cc_aeroworks.controls.title": "Controls and settings",
   "guide.cc_aeroworks.controls.text": "A normal right-click operates Aeroworks controls. Right-click a horizontal desk side with a Create Wrench to open the control overview. Combined can be selected there for each supported axis.",
   "guide.cc_aeroworks.controls.input": "In Combined mode click the centre field, capture a key or mouse button, then look at the module, hold the key and move the mouse.",
-  "guide.cc_aeroworks.controls.note": "Releasing the key, opening a menu, losing focus or losing the target ends combined control immediately.",
+  "guide.cc_aeroworks.controls.note": "After entering desk control, ordinary key bindings are reserved even before a Combined trigger is held, so keys such as E or I remain usable controls. Escape exits; the free-camera key remains available.",
   "guide.cc_aeroworks.errors.title": "Network states and diagnosis",
   "guide.cc_aeroworks.errors.text": "active means one embedded owner. conflict, partially loaded networks and networks over 64 physical segments reject global graph access. A missing type produces nil and is not itself an error.",
   "guide.cc_aeroworks.errors.warning": "find changes its return shape when the match count changes. Use findAll whenever code must always iterate a collection.",

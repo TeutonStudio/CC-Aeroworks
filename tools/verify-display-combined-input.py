@@ -98,17 +98,24 @@ require(
 require(
     "DisplayCombinedInputController.captureKey(key, action, minecraft)" in keyboard_capture and
     "CombinedLeverController.captureKey(key, action, minecraft)" in keyboard_capture and
-    "return displayConsumed || controlConsumed" in keyboard_capture,
+    "ConsoleControlClient.isActive() && minecraft.screen == null" in keyboard_capture and
+    "routedConsumption = displayConsumed || controlConsumed" in keyboard_capture,
     "raw keyboard capture must route activation edges in display-before-control priority order",
 )
 require(
-    "@Mixin(KeyboardHandler::class)" in keyboard_guard and
+    "controlFocusBefore && key != GLFW.GLFW_KEY_ESCAPE && !freeCameraKey" in keyboard_capture and
+    "AeroworksKeys.isFreeCameraKey(input)" in keyboard_capture and
+    "ConsoleControlClient.handleKey(input, action == GLFW.GLFW_PRESS)" in keyboard_capture,
+    "ControlDesk focus must reserve ordinary keys before Combined activation while preserving native controls",
+)
+require(
+    "@Mixin(value = [KeyboardHandler::class], priority = 1100)" in keyboard_guard and
     'method = ["keyPress(JIIII)V"]' in keyboard_guard and
     'at = [At("HEAD")]' in keyboard_guard and
     "cancellable = true" in keyboard_guard and
-    "CombinedKeyboardCapture.capture(windowPointer, key, action)" in keyboard_guard and
+    "CombinedKeyboardCapture.capture(windowPointer, key, scanCode, action)" in keyboard_guard and
     "callback.cancel()" in keyboard_guard,
-    "Combined activation keys must be intercepted before vanilla KeyMapping routing",
+    "ControlDesk keyboard input must be intercepted before vanilla KeyMapping routing",
 )
 require(
     "action == GLFW.GLFW_REPEAT" in control and "target?.activationBinding == binding" in control and

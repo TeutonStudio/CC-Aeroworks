@@ -82,7 +82,7 @@
   "guide.cc_aeroworks.controls.title": "Steuerung und Einstellungen",
   "guide.cc_aeroworks.controls.text": "Ein normaler Rechtsklick bedient Aeroworks-Steuerungen. Mit einem Create-Schraubenschlüssel auf einer horizontalen Pultseite öffnet sich die Steuerungsübersicht. Dort kann Kombiniert pro Achse gewählt werden.",
   "guide.cc_aeroworks.controls.input": "Im Modus Kombiniert das mittlere Feld anklicken, Taste oder Maustaste erfassen, anschließend das Modul ansehen, die Taste halten und die Maus bewegen.",
-  "guide.cc_aeroworks.controls.note": "Loslassen, Menüöffnung, Fokusverlust oder ein ungültiges Ziel beendet die kombinierte Steuerung sofort.",
+  "guide.cc_aeroworks.controls.note": "Nach Betreten der Pultsteuerung sind normale Tastenbelegungen schon vor dem Combined-Auslöser reserviert, damit etwa E oder I als Steuertasten nutzbar bleiben. Escape beendet; die Freie-Kamera-Taste bleibt verfügbar.",
   "guide.cc_aeroworks.errors.title": "Netzwerkzustände und Diagnose",
   "guide.cc_aeroworks.errors.text": "active bedeutet einen eingebetteten Besitzer. conflict, teilweise geladene Netze und Netze mit mehr als 64 physischen Segmenten verweigern den globalen Graphzugriff. Ein fehlender Typ liefert nil und ist kein Fehler.",
   "guide.cc_aeroworks.errors.warning": "find ändert seine Rückgabeform mit der Trefferzahl. Verwende findAll, wenn Code immer über eine Sammlung iterieren muss.",

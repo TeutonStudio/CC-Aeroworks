@@ -8,6 +8,7 @@ import de.teutonstudio.ccaeroworks.display.DeskDisplayInput
 import de.teutonstudio.ccaeroworks.display.DeskDisplayTouch
 import de.teutonstudio.ccaeroworks.display.DisplayBinding
 import de.teutonstudio.ccaeroworks.display.DisplayBindings
+import de.teutonstudio.ccaeroworks.display.DisplayBindingExtensions
 import de.teutonstudio.ccaeroworks.display.DisplayTouchAccess
 import de.teutonstudio.ccaeroworks.display.InteractiveDisplayExtensions
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockManager
@@ -39,6 +40,11 @@ object DeskDisplayInputDispatcher {
 
         ControlDeskPeripheralState.queueDisplayInput(desk, input)
 
+        val binding = DisplayBindings.get(desk, touch.socket)
+        if (binding is DisplayBinding.Extension) {
+            DisplayBindingExtensions.dispatchInput(desk, input, binding)
+        }
+
         val level = desk.level
         if (level == null) {
             TouchInputDiagnostics.warn("dispatch", "stop desk=$deskPos: desk has no level")
@@ -64,7 +70,6 @@ object DeskDisplayInputDispatcher {
             return
         }
 
-        val binding = DisplayBindings.get(desk, touch.socket)
         val handlerPath = (binding as? DisplayBinding.LuaHandler)?.path.orEmpty()
         TouchInputDiagnostics.info(
             "dispatch",

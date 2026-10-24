@@ -29,7 +29,7 @@ Der Computer routet Radarposition, Detection-Filter, Zielauswahl und native Trac
 
 ## Display-Steuerung auswählen
 
-Im Modulfenster eines erweiterten Displays gibt es genau eine Quellenzeile. Sie enthält kompatible Lua-Skripte und – wenn Create: Radars geladen ist – Radar-Ingresses als Pseudo-Skripte. Die Auswahl bestimmt exklusiv, wer die Fläche steuert: Eine Radarquelle ersetzt die Lua-Bindung; normale Pixelausgabe und Touch sind bis zum Wechsel zurück auf ein Skript oder `Keine externe Steuerung` inaktiv.
+Im Modulfenster eines erweiterten Displays gibt es genau eine Quellenzeile. Sie enthält kompatible Lua-Skripte und – wenn Create: Radars geladen ist – Radar-Ingresses als Pseudo-Skripte. Die Auswahl bestimmt exklusiv die Bildausgabe: Eine Radarquelle ersetzt die Lua-Bindung und unterdrückt die normale Pixelausgabe. Touch bleibt auf erweiterten Displays aktiv; ein Kontakt-Tap wird an die native Zielauswahl des Network Filterers weitergereicht und steuert damit auch Auto Yaw und Auto Pitch.
 
 Die Liste zeigt Position und aktuellen Verbindungsstatus jeder Quelle. Die angezeigte Auswahl folgt der Serverbestätigung; dies funktioniert auch bei Pulten auf Sable-Schiffen. Ein anderes Display desselben Pultmultiblocks braucht keinen eigenen Data Link, wenn es einen bereits verbundenen Ingress auswählt.
 

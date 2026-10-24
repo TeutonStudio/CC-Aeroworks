@@ -42,6 +42,11 @@ Beim ersten Wechsel auf **Kombiniert** wird eine leere Belegung mit `K` vorbeleg
 
 Während die kombinierte Steuerung aktiv ist, wird die normale Kameradrehung unterdrückt. Die Mausbewegung steuert stattdessen das Modul.
 
+Sobald die Pultsteuerung per Rechtsklick betreten wurde, werden andere Tastenbelegungen bereits vor
+dem Drücken eines Combined-Auslösers abgefangen. Dadurch bleiben beispielsweise `E` und `I` als
+Steuertasten nutzbar, statt Inventar oder Mod-Menüs zu öffnen. **Escape** verlässt die Pultsteuerung;
+die konfigurierte Freie-Kamera-Taste bleibt verfügbar.
+
 ## Achsenverhalten
 
 ### Lever
@@ -80,7 +85,7 @@ Die Auswahl verwendet den vorhandenen Aeroworks-Modulraycast. Dadurch bleiben De
 Die aktive Steuerung endet, sobald eine der folgenden Bedingungen eintritt:
 
 - Aktivierungstaste wird losgelassen
-- GUI oder Menü wird geöffnet
+- GUI oder Menü wird auf anderem Weg geöffnet
 - Minecraft-Fenster verliert den Fokus
 - Spieler stirbt oder wird ersetzt
 - Spieler wechselt die Dimension
