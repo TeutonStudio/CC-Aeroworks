@@ -29,6 +29,7 @@ gradlew.bat -Pmod_dependency_dir=C:\mods\cc-aeroworks verifyModDependencies
 | Drive By Wire | `drivebywire` | 0.3.0 | optional; 0.2.9 bleibt unterstützt |
 | CC: Terminals | `ccterminals` | 0.1.1 | optional; nicht programmierbare Bedienstation im Pult-/Stand-Slot |
 | Create: Radars | `create_radar` | 0.4.9.4-1.21.1 | automatisch für Entwicklungsruns |
+| Create: Train Functionality | `create_train_functionality` | 0.1.47 | optional, automatisch für Entwicklungsruns |
 | Create Big Cannons | `createbigcannons` | 5.11.7 | optional, automatisch für Entwicklungsruns |
 | Ritchie's Projectile Library | `ritchiesprojectilelib` | 2.1.2 | CBC-Laufzeitbibliothek, automatisch für Entwicklungsruns |
 | Just Enough Items | `jei` | 19.39.0.372 | Entwicklungswerkzeug, automatisch nur für `runClient` |
@@ -43,6 +44,8 @@ create-aeronautics-bundled-1.21.1-1.3.2.jar
 Create Aeronautics benötigt neben Create auch Sable zur Laufzeit. Sable ist daher für den Baseline-Client und -Server ein Pflichtartefakt.
 
 Create: Radars benötigt in der verwendeten 1.21.1-Laufzeit Create Big Cannons. CBC benötigt wiederum Ritchie's Projectile Library. `runClient` und die übrigen lokalen Gradle-Runtime-Classpaths lösen deshalb alle drei Artefakte automatisch über CurseMaven als `localRuntime` auf. Versionen und CurseForge-Datei-IDs sind in `gradle.properties` festgelegt.
+
+Die optionale Kompatibilität mit Create: Train Functionality ist wegen des internen Dashboard-Controller-Lesepfads exakt auf Version 0.1.47 festgelegt. Gradle löst das offizielle Artefakt für lokale Laufzeiten über CurseMaven auf; ein zusätzliches lokales CTF-JAR wird aus dem allgemeinen `fileTree` ausgeschlossen, damit es nicht doppelt geladen wird.
 
 JEI wird zusätzlich über das offizielle BlameJared-Maven und Neat über CurseMaven ausschließlich in den zusätzlichen Runtime-Classpath von `runClient` geladen. `19.39.0.372` ist die höchste veröffentlichte JEI-Version vor der Anhebung der NeoForge-Mindestversion auf `21.1.238` und bleibt damit mit der Projektbasis NeoForge `21.1.234` kompatibel. JEI ermöglicht die manuelle Kontrolle der Crafting- und Create-Verarbeitungsrezepte; Neat ergänzt Lebensleisten über Kreaturen. Beide sind reine Entwicklungswerkzeuge und keine veröffentlichten CC-Aeroworks-Abhängigkeiten.
 
@@ -78,7 +81,7 @@ CC:Tweaked 1.119.0 wird als untere unterstützte Version in einem **separaten** 
 ./gradlew runClient
 ```
 
-Fehlt ein Pflichtartefakt oder passen mehrere Dateien auf dasselbe Muster, bricht `verifyModDependencies` mit einer gezielten Meldung ab. Optionale lokale Artefakte werden geprüft, sobald eine passende JAR vorhanden ist. Create: Radars, Create Big Cannons, Ritchie's Projectile Library, JEI und Neat benötigen für `runClient` keine lokalen Dateien.
+Fehlt ein Pflichtartefakt oder passen mehrere Dateien auf dasselbe Muster, bricht `verifyModDependencies` mit einer gezielten Meldung ab. Optionale lokale Artefakte werden geprüft, sobald eine passende JAR vorhanden ist. Create: Radars, Create: Train Functionality, Create Big Cannons, Ritchie's Projectile Library, JEI und Neat benötigen für `runClient` keine lokalen Dateien.
 
 ## TeutonLib-Computeroberfläche
 

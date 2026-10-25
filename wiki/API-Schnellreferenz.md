@@ -11,6 +11,20 @@
 
 Die alte globale `aeroworks`-API und die netzwerkweiten `getDesk...`-Methoden sind nicht Teil des neuen Vertrags.
 
+## Dashboard Controller (optionales Create: Train Functionality 0.1.47)
+
+```lua
+local zug = peripheral.find("DashboardController")
+zug.setThrottle(0.75) -- -1 rückwärts, +1 vorwärts
+zug.setSteer(-1)      -- -1 links, +1 rechts
+zug.setBrake(false)
+zug.setStation(true)
+local zustand = zug.getState()
+local info = zug.getInfo()
+```
+
+`setThrottle` und `setSteer` akzeptieren ausschließlich endliche Werte von `-1` bis `1`. Im Redstone-Link-Frequenzmodus sind die Setter nicht verfügbar. Die Werte werden beim Trennen des letzten Computers, Entladen des Controllers oder Serverneustart neutralisiert.
+
 ## Lokales `ControlDesk`
 
 ```lua

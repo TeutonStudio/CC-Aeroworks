@@ -20,6 +20,10 @@ catalog = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DisplayScrip
 catalog_state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/display/DisplayScriptCatalogState.kt")
 widgets = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/DisplayBindingRowWidgets.kt")
 radar_widgets = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/client/RadarSourceOptions.kt")
+ctf_bindings = read("src/main/kotlin/de/teutonstudio/ccaeroworks/ctfcompat/control/TrainControlBinding.kt")
+ctf_widgets = read("src/main/kotlin/de/teutonstudio/ccaeroworks/ctfcompat/client/DashboardSourceOptions.kt")
+ctf_payload = read("src/main/kotlin/de/teutonstudio/ccaeroworks/ctfcompat/network/DashboardSourcePayloads.kt")
+ctf_payloads = read("src/main/kotlin/de/teutonstudio/ccaeroworks/ctfcompat/network/CtfPayloads.kt")
 selector = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/SourceSelectorWidget.kt")
 access = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/compat/aeroworks/RadarDeskAccess.kt")
 state_mixin = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/ConsoleBlockEntityDisplayBindingMixin.kt")
@@ -85,6 +89,28 @@ require('"client.ModuleScreenDisplayBindingMixin"' in mixins,
         "shared display binding UI mixin must be registered")
 require("RadarModuleScreenMixin" not in radar_mixins,
         "radar compat must not add a second display-source row")
+
+# Train controls reuse the same exclusive binding and selector, with server-validated channel rows.
+require('const val TYPE = "create_train_functionality_dashboard"' in ctf_bindings and
+        "DisplayBindingExtensions.register" in ctf_bindings,
+        "CTF train bindings must use the generic exclusive DisplayBinding extension")
+require("TrainControlBinding(availableId, emptyMap())" in ctf_widgets,
+        "selecting a Dashboard Controller must begin with no automatic channel assignments")
+require("DisplaySourceSelectorExtensions.registerRows" in ctf_widgets and
+        "TrainControlBindings.supports(kind, it)" in ctf_widgets,
+        "CTF compatibility must contribute per-channel rows filtered by channel kind")
+require("DashboardControllerLookup.resolve" in ctf_payload and
+        "resolution.controllerId != payload.controllerId" in ctf_payload,
+        "CTF binding updates must revalidate current server topology and controller identity")
+require("module.channels().firstOrNull" in ctf_payload and
+        "TrainControlBindings.supports(channel.kind(), function)" in ctf_payload,
+        "CTF binding updates must reject unknown channels and invalid function kinds")
+for payload_type in (
+    "RequestDashboardSourcePayload.TYPE",
+    "DashboardSourceStatusPayload.TYPE",
+    "SetDashboardSourcePayload.TYPE",
+):
+    require(payload_type in ctf_payloads, f"CTF payload registration is missing {payload_type}")
 
 # Script sources are discovered from the embedded computer instead of accepting arbitrary typed paths.
 require("createRootMount()" in catalog, "script catalog must scan the embedded computer root mount")

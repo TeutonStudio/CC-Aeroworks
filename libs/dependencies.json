@@ -107,6 +107,19 @@
       "notes": "Optional runtime for Radar Displays registered as native monitor endpoints through the Network Filterer and physical Data Link flow. Gradle resolves CurseForge file 8227753 for local development runs."
     },
     {
+      "name": "Create: Train Functionality",
+      "modId": "create_train_functionality",
+      "version": "0.1.47",
+      "required": false,
+      "filenamePattern": "(?i)^create[-_ ]?train[-_ ]?functionality[^/]*0\\.1\\.47[^/]*\\.jar$",
+      "filenameExamples": [
+        "create_train_functionality-0.1.47.jar"
+      ],
+      "sha256": null,
+      "source": "Official Create: Train Functionality distribution page",
+      "notes": "Optional Dashboard Controller source and CC:Tweaked peripheral integration. Gradle resolves CurseForge file 9314888 for local development runs."
+    },
+    {
       "name": "Create: Diesel Generators",
       "modId": "createdieselgenerators",
       "version": "1.3.15",

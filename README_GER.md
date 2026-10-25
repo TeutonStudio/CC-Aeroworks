@@ -1,6 +1,6 @@
 # CC-Aeroworks
 
-CC-Aeroworks verbindet **Create: Aeroworks Control Desks** mit **CC:Tweaked** und macht aus einer Reihe von Steuerungspulten ein programmierbares Cockpit-Netzwerk. Die Mod ergänzt gemeinsame Geräteslots für Computer oder geschützte Bedienterminals, adressierbare Desk-Peripherals, eine netzwerkweite Lua-API, programmierbare Displays, Touch-/Draw-Eingabe, Create-Telemetrie, steuerbare Kanäle und optionale Create:-Radars-Anzeigen.
+CC-Aeroworks verbindet **Create: Aeroworks Control Desks** mit **CC:Tweaked** und macht aus einer Reihe von Steuerungspulten ein programmierbares Cockpit-Netzwerk. Die Mod ergänzt gemeinsame Geräteslots für Computer oder geschützte Bedienterminals, adressierbare Desk-Peripherals, eine netzwerkweite Lua-API, programmierbare Displays, Touch-/Draw-Eingabe, Create-Telemetrie, steuerbare Kanäle sowie optionale Create:-Radars- und Create:-Train-Functionality-Integration.
 
 ## Kernfunktionen
 
@@ -12,6 +12,7 @@ CC-Aeroworks verbindet **Create: Aeroworks Control Desks** mit **CC:Tweaked** un
 - Touch-/Draw-Eingabe auf erweiterten kleinen und großen Displays mit erweitertem Computer über einen frei beweglichen 3D-Zeiger;
 - Create Display Links als strukturierte Informationsquellen für Tank-, Lager- und weitere Telemetriedaten;
 - optionale Create:-Radars-Kompatibilität mit nativen Data-Link-Endpunkten;
+- optionale Create:-Train-Functionality-Kompatibilität mit expliziten Zugkanälen und einem CC:Tweaked-Dashboard-Controller-Peripheral;
 - integriertes Manual/API-Nachschlagewerk und lokalisierte Create-Ponder-Erklärungen.
 
 ## Pultnetzwerke
@@ -52,6 +53,7 @@ Die öffentliche API ist in [`docs/cc-peripheral-api.md`](docs/cc-peripheral-api
 | Oberfläche | Verfügbarkeit | Zweck |
 |---|---|---|
 | `ControlDesk` | lokales Peripheral | Module, Inputs, Displays und Display-Bindings eines einzelnen Pults |
+| `DashboardController` | lokales Peripheral, CTF 0.1.47 | Schub, Gleisrichtung, Bremse und Bahnhofshalt |
 | `peripherals` | eingebetteter Computer | gesamtes Pultnetz und angrenzende CC:Tweaked-Peripherals |
 | `channels` | eingebetteter Computer | bevorzugte High-Level-Steuerung über stabile Pfade |
 | `controls` | eingebetteter Computer | native Aeroworks-Control-Overrides im Bereich `-15..15` |
@@ -177,6 +179,12 @@ Radarquelle, eingebetteter Computer und Anzeige dürfen an verschiedenen Pulten 
 
 Details stehen in [`docs/create-radars-integration.md`](docs/create-radars-integration.md).
 
+## Optionale Create:-Train-Functionality-Kompatibilität
+
+Mit exakt Create: Train Functionality 0.1.47 wird ein Dashboard Controller unter einem beliebigen Segment derselben Pultzeile als zusätzliche, exklusive Modulquelle angeboten. Nach der Auswahl bleiben die Modulkanäle zunächst unzugeordnet; Achsen können Schub oder Gleisrichtung und Achsen beziehungsweise Pedale zusätzlich Bremse liefern, Buttons Bremse oder „Nächster Bahnhof“. Mehrere Controller, eine unvollständig geladene Zeile oder der Frequenzmodus suspendieren vorhandene Zuordnungen, ohne sie zu löschen.
+
+Jeder Controller ist außerdem ein CC:Tweaked-Peripheral vom Primärtyp `DashboardController`. Seine Lua-Werte werden mit den gebundenen Pultkanälen deterministisch zusammengeführt; sie sind absichtlich flüchtig und werden bei Lifecycle- oder Moduswechseln neutralisiert. Die vollständige Schnittstelle steht in [`docs/cc-peripheral-api.md`](docs/cc-peripheral-api.md#create-train-functionality-dashboard-controller).
+
 ## Beispielskripte
 
 Die ausführbaren Lua-Beispiele liegen gesammelt unter [`examples/cc/`](examples/cc/). Der dortige [`README`](examples/cc/README.md) trennt kurze API-Einstiege, interaktive Beispiele und Diagnoseprogramme und nennt jeweils Laufzeitumgebung und Seiteneffekte.
@@ -236,6 +244,7 @@ Die ausführliche externe Referenz liegt unter [`docs/cc-peripheral-api.md`](doc
 - CC: Terminals 0.1.1 optional
 - Create: Simulated 1.3.2 optional
 - Create: Radars 0.4.9.4-1.21.1 optional
+- Create: Train Functionality 0.1.47 optional; andere Versionen werden bewusst nicht geladen
 - Create Big Cannons 5.11.7 optional
 - Ritchie's Projectile Library 2.1.2 für die unterstützte Radar-Laufzeit
 

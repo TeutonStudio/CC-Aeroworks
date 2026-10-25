@@ -147,6 +147,8 @@ internal class SourceSelectorWidget<T>(
         selectedKey = key
     }
 
+    fun selectionKey(): String = selectedKey
+
     private fun renderPopup(
         graphics: GuiGraphics,
         mouseX: Int,

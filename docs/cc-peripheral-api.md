@@ -9,11 +9,29 @@ Es gibt zwei grundsätzlich verschiedene Zugriffsarten:
 
 Die frühere globale API `aeroworks` gehört **nicht** mehr zum öffentlichen Vertrag.
 
+## Create: Train Functionality Dashboard Controller
+
+Mit der optionalen Kompatibilität für `create_train_functionality` 0.1.47 wird jeder Dashboard Controller als `DashboardController` bereitgestellt. Zusätzliche Typnamen sind `dashboard_controller`, `create_train_functionality:dashboard_controller` und `cc_aeroworks:dashboard_controller`.
+
+```lua
+local controller = peripheral.find("DashboardController")
+controller.setThrottle(0.75) -- -1 rückwärts, +1 vorwärts
+controller.setSteer(-1)      -- -1 links, +1 rechts
+controller.setBrake(false)
+controller.setStation(true)
+print(textutils.serialize(controller.getState()))
+```
+
+`setThrottle` und `setSteer` verlangen endliche Werte in `[-1, 1]`. `setBrake` und `setStation` akzeptieren boolesche Werte. Die Werte bleiben bis zur nächsten Änderung aktiv und werden beim Trennen des letzten Computers, beim Entladen des Controllers oder beim Serverneustart neutralisiert. Im Redstone-Link-Frequenzmodus schlagen Setter fehl. `getInfo()` liefert die stabile Controller-ID, Adresse, Position, Dimension, Ausrichtung, Modus und – falls vorhanden – die Pult-Assembly-ID.
+
+Alternativ kann ein Aeroworks-Steuermodul den Dashboard Controller in seiner Quellenzeile auswählen und einzelne Kanäle Schub, Lenkung, Bremse oder nächstem Bahnhof zuordnen. Dafür muss genau ein Controller im Panelmodus direkt unter der gemeinsamen Pultzeile stehen; integrierte Create-Steuersegmente zählen zu dieser Zeile.
+
 ## Verfügbarkeit
 
 | Oberfläche | Externer CC-Computer | Eingebetteter Computer | Modul |
 |---|---:|---:|---|
 | `ControlDesk` | ja | über normale Peripheral-Wege | - |
+| `DashboardController` | ja, mit CTF 0.1.47 | über normale Peripheral-Wege | - |
 | `peripherals` | nein | ja | `cc_aeroworks.peripherals` |
 | `channels` | nein | ja, bevorzugt | `cc_aeroworks.channels` |
 | `controls` | nein | ja | `cc_aeroworks.controls` |

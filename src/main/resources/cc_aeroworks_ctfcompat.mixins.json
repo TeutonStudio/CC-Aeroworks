@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "de.teutonstudio.ccaeroworks.ctfcompat.mixin",
+  "plugin": "de.teutonstudio.ccaeroworks.ctfcompat.mixin.CtfCompatMixinPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "DashboardControlMixin",
+    "DashboardControllerBlockEntityMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

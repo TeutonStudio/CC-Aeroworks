@@ -20,6 +20,15 @@ description='''
 Adds optional Create: Radars integration and radar display modules to CC-Aeroworks.
 '''
 
+[[mods]]
+modId="${ctfcompat_mod_id}"
+version="${mod_version}"
+displayName="CC-Aeroworks: Create Train Functionality Compatibility"
+authors="TeutonStudio"
+description='''
+Adds optional Dashboard Controller sources and a CC:Tweaked peripheral for Create: Train Functionality.
+'''
+
 [[dependencies.${mod_id}]]
     modId="neoforge"
     type="required"
@@ -101,6 +110,20 @@ Adds optional Create: Radars integration and radar display modules to CC-Aerowor
     versionRange="[${mod_version}]"
     ordering="AFTER"
     side="BOTH"
+
+[[dependencies.${ctfcompat_mod_id}]]
+    modId="${mod_id}"
+    type="required"
+    versionRange="[${mod_version}]"
+    ordering="AFTER"
+    side="BOTH"
+[[dependencies.${ctfcompat_mod_id}]]
+    modId="create_train_functionality"
+    type="optional"
+    reason="Activates Dashboard Controller source and peripheral compatibility."
+    versionRange="[0.1.47]"
+    ordering="AFTER"
+    side="BOTH"
 [[dependencies.${radarcompat_mod_id}]]
     modId="createbigcannons"
     type="optional"
@@ -120,3 +143,5 @@ Adds optional Create: Radars integration and radar display modules to CC-Aerowor
 config="cc_aeroworks.mixins.json"
 [[mixins]]
 config="cc_aeroworks_radarcompat.mixins.json"
+[[mixins]]
+config="cc_aeroworks_ctfcompat.mixins.json"

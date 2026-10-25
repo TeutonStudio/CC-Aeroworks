@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.5.2 — 2026-10-25
+
+- Fixed Dashboard Controllers missing from the control-module script/source dropdown despite being detected as peripherals. Initial discovery and cache refresh now request controller status without overflowing the monotonic timer.
+
+## 1.5.1 — 2026-10-25
+
+- Added optional Create: Train Functionality 0.1.47 compatibility: Dashboard Controllers are CC:Tweaked peripherals, explicitly mapped Aeroworks channels replace CTF's automatic desk interpretation, and controllers below ordinary or integrated desk-row segments participate in one deterministic train-control source.
 - Reserved ordinary keyboard bindings for the entire right-click ControlDesk focus, including the idle phase before a Combined trigger is held. Keys such as `E` or `I` can now serve as controls without opening inventory or mod menus; native Aeroworks bindings are forwarded while Escape and the configured free-camera key remain available.
 - Integrated Create Contraption Controls as native Desk/Stand row segments alongside Train Controls, with exact block classification, mixed bridging, orphan fallback, dedicated insert models, native filter/button rendering, and preserved Create state.
 - Replaced implicit neighbour merging with persistent UUID assemblies, Create-style end placement arrows, sneak-to-separate placement, symmetric desk/control recruitment, exact copper-stand classification, and a hard 64-segment admission limit.

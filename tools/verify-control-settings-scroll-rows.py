@@ -29,6 +29,7 @@ combined = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/Module
 bindings = read("src/main/kotlin/de/teutonstudio/ccaeroworks/mixin/client/ModuleScreenDisplayBindingMixin.kt")
 presentations = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/DisplayBindingRowWidgets.kt")
 radar_presentations = read("src/main/kotlin/de/teutonstudio/ccaeroworks/radarcompat/client/RadarSourceOptions.kt")
+ctf_presentations = read("src/main/kotlin/de/teutonstudio/ccaeroworks/ctfcompat/client/DashboardSourceOptions.kt")
 overlay_extensions = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/SourceSelectorOverlayExtensions.kt")
 source_extensions = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/DisplaySourceSelectorExtensions.kt")
 selector = read("src/main/kotlin/de/teutonstudio/ccaeroworks/client/SourceSelectorWidget.kt")
@@ -107,8 +108,11 @@ require("setRowPosition(rowLeft, rowTop, visible, listTop, listBottom)" in bindi
         "source selector placement must include viewport bounds for clipping and hit testing")
 require("AeroworksGuiTextures.MODULE_ROW" not in bindings,
         "source selector must not reuse the native control row with Redstone/radio slots")
-require(bindings.count("ccaeroworks_extensionRows = 1") == 1,
-        "all Lua and pseudo-script sources must consume exactly one extension row")
+require("ccaeroworks_extensionRows = 1 + ccaeroworks_extraDropdowns.size" in bindings,
+        "the source owner must account for the exclusive selector and every dynamic channel row")
+require("ccaeroworks_extraDropdowns.clear()" in bindings and
+        "ccaeroworks_addExtraRows(desk, socket)" in bindings,
+        "rebuilds must discard and recreate dynamic Dashboard Controller channel rows")
 require("topPos + imageHeight" not in bindings and "leftPos + (imageWidth" not in bindings,
         "configuration rows must not return to inventory-overlapping absolute placement")
 
@@ -127,6 +131,12 @@ require("DisplaySourceSelectorExtensions.options" in presentations and
         "radar pseudo-scripts must extend the core option list")
 require("CopyOnWriteArrayList" in source_extensions and "selectedKey" in source_extensions,
         "pseudo-script selections must expose server-confirmed keys")
+require("DisplaySourceExtraRowsExtension" in source_extensions and
+        "registerRows" in source_extensions,
+        "optional integrations must expose dynamic rows through the generic selector registry")
+require("DisplaySourceSelectorExtensions.registerRows" in ctf_presentations and
+        "module.channels().map" in ctf_presentations,
+        "Dashboard Controller mappings must render one source row per stable module channel")
 require("mouseScrolled" in selector and "MAX_VISIBLE_OPTIONS = 5" in selector,
         "shared dropdown must have bounded independent scrolling")
 require("POPUP_ROW_HEIGHT = 30" in selector,

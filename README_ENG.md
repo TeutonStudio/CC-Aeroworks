@@ -1,6 +1,6 @@
 # CC-Aeroworks
 
-CC-Aeroworks connects **Create: Aeroworks Control Desks** with **CC:Tweaked**, turning a row of control desks into a programmable cockpit network. It adds shared device slots for computers or protected operator terminals, addressable desk peripherals, network-wide Lua APIs, programmable displays with touch/draw input, Create telemetry, control channels, and optional Create: Radars integration.
+CC-Aeroworks connects **Create: Aeroworks Control Desks** with **CC:Tweaked**, turning a row of control desks into a programmable cockpit network. It adds shared device slots for computers or protected operator terminals, addressable desk peripherals, network-wide Lua APIs, programmable displays with touch/draw input, Create telemetry, control channels, and optional Create: Radars and Create: Train Functionality integration.
 
 ## Core features
 
@@ -12,6 +12,7 @@ CC-Aeroworks connects **Create: Aeroworks Control Desks** with **CC:Tweaked**, t
 - Touch and continuous draw input on advanced small and large displays with an advanced computer through the combined 3D pointer input mode.
 - Create Display Links exposed as structured telemetry sources.
 - Optional Create: Radars support isolated in the `cc_aeroworks_radarcompat` module.
+- Optional Create: Train Functionality 0.1.47 support isolated in `cc_aeroworks_ctfcompat`.
 - An in-game manual/API reference and localized Create Ponder scenes.
 
 ## Desk networks and peripherals
@@ -99,6 +100,12 @@ Radar-specific code is isolated under `de.teutonstudio.ccaeroworks.radarcompat` 
 
 See [`docs/create-radars-integration.md`](docs/create-radars-integration.md).
 
+## Optional Create: Train Functionality integration
+
+With exactly Create: Train Functionality 0.1.47 installed, a Dashboard Controller directly below any segment of a desk row becomes an exclusive module source. Selecting it starts with no automatic assignments. Axis channels may drive throttle or track direction, axes and pedals may also brake, and buttons may brake or request the next-station stop. Multiple controllers, an incompletely loaded row, or frequency mode suspend stored assignments without deleting them.
+
+Each controller is also a CC:Tweaked peripheral with primary type `DashboardController`. Its transient Lua throttle, steering, brake, and station values are merged deterministically with explicitly bound desk channels and reset on the documented lifecycle transitions. See [`docs/cc-peripheral-api.md`](docs/cc-peripheral-api.md#create-train-functionality-dashboard-controller) for the full API.
+
 ## Documentation
 
 - Public Lua/peripheral API: [`docs/cc-peripheral-api.md`](docs/cc-peripheral-api.md)
@@ -124,5 +131,6 @@ See [`docs/create-radars-integration.md`](docs/create-radars-integration.md).
 - CC: Terminals 0.1.1 optional
 - Create: Simulated optional
 - Create: Radars optional
+- Create: Train Functionality 0.1.47 optional; other versions are intentionally unsupported
 
 Repository contract checks live under [`tools/`](tools/). The protected integration profile performs dependency verification, unit tests, a full Gradle build, and a dedicated-server smoke test before a release artifact is accepted.

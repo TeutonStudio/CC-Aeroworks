@@ -178,6 +178,23 @@ object ApiReferenceCatalog {
             )
         ),
         ApiReference(
+            "dashboard_controller", "DashboardController",
+            "LOCAL + EMBEDDED · CREATE: TRAIN FUNCTIONALITY", ApiAccent.CONTROLS,
+            requiredMod = "create_train_functionality",
+            methods = listOf(
+                "setThrottle(value: number[-1..1]) -> number",
+                "setSteer(value: number[-1..1]) -> number",
+                "setBrake(active: boolean) -> boolean",
+                "setStation(active: boolean) -> boolean",
+                "getState() -> table",
+                "getInfo() -> table"
+            ),
+            source = ApiSourceContract(
+                "src/main/kotlin/de/teutonstudio/ccaeroworks/ctfcompat/computer/DashboardControllerPeripheral.kt",
+                "DashboardControllerPeripheral"
+            )
+        ),
+        ApiReference(
             "peripherals", "peripherals", "EMBEDDED · GLOBAL + MODULE", ApiAccent.PERIPHERALS,
             moduleName = "cc_aeroworks.peripherals",
             methods = listOf(

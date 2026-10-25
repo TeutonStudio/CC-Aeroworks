@@ -154,11 +154,15 @@ dependencies {
     // CC: Terminals is optional at runtime. Its official Modrinth artifact supplies the isolated
     // integration API even when the configured local runtime intentionally omits the mod.
     compileOnly("maven.modrinth:cc-terminals:0.1.1")
+    // Create: Train Functionality is optional. Its public Dashboard Controller types are used only
+    // by the isolated compatibility module and are pinned because the readPanel bridge is internal.
+    compileOnly("curse.maven:create-train-functionality-1724970:${create_train_functionality_curse_file_id}")
     implementation fileTree(
         dir: modDependencyDirectory,
         include: ['*.jar'],
         exclude: [
             'create_radar-*.jar', 'create-radar-*.jar', 'create_radars-*.jar', 'create-radars-*.jar',
+            'create_train_functionality-*.jar', 'create-train-functionality-*.jar',
             'createdieselgenerators-*.jar', 'create-diesel-generators-*.jar',
             'createbigcannons-*.jar', 'create-big-cannons-*.jar',
             'ritchiesprojectilelib-*.jar', 'ritchies-projectile-lib-*.jar',
@@ -172,6 +176,7 @@ dependencies {
     compileOnly("mezz.jei:jei-${minecraft_version}-common-api:${jei_version}")
     compileOnly("mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}")
     localRuntime("curse.maven:create-radars-1152836:${create_radars_curse_file_id}")
+    localRuntime("curse.maven:create-train-functionality-1724970:${create_train_functionality_curse_file_id}")
     localRuntime("curse.maven:create-diesel-generators-869316:${create_diesel_generators_curse_file_id}")
     localRuntime("curse.maven:create-big-cannons-646668:${create_big_cannons_curse_file_id}")
     localRuntime("curse.maven:ritchies-projectile-library-1279407:${ritchies_projectile_lib_curse_file_id}")
@@ -193,6 +198,7 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
             loader_version_range   : loader_version_range,
             mod_id                 : mod_id,
             radarcompat_mod_id     : radarcompat_mod_id,
+            ctfcompat_mod_id       : ctfcompat_mod_id,
             mod_name               : mod_name,
             mod_license            : mod_license,
             mod_version            : mod_version,

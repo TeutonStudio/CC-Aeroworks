@@ -31,7 +31,21 @@ import de.teutonstudio.ccaeroworks.train.TrainControlConsoleIntegration;
 import de.teutonstudio.ccaeroworks.train.TrainControlConsoleUpdater;
 import de.teutonstudio.ccaeroworks.train.ConsoleControlKind;
 import de.teutonstudio.ccaeroworks.contraption.ContraptionControlIdentityAccess;
+import de.teutonstudio.ccaeroworks.ctfcompat.DashboardControllerIdentityAccess;
+import de.teutonstudio.ccaeroworks.ctfcompat.computer.DashboardControllerPeripheral;
+import de.teutonstudio.ccaeroworks.ctfcompat.computer.DashboardControllerPeripheralRegistry;
+import de.teutonstudio.ccaeroworks.ctfcompat.control.DashboardControllerLookup;
+import de.teutonstudio.ccaeroworks.ctfcompat.control.DashboardSourceStatus;
+import de.teutonstudio.ccaeroworks.ctfcompat.control.TrainControlBinding;
+import de.teutonstudio.ccaeroworks.ctfcompat.control.TrainControlBindings;
+import de.teutonstudio.ccaeroworks.ctfcompat.control.TrainControlBridge;
+import de.teutonstudio.ccaeroworks.ctfcompat.control.TrainFunction;
+import de.teutonstudio.ccaeroworks.display.DisplayBindings;
 import com.simibubi.create.content.contraptions.actors.contraptionControls.ContraptionControlsBlockEntity;
+import createtrainfunctionality.DashboardControllerBlockEntity;
+import createtrainfunctionality.DashboardControllerBlock;
+import createtrainfunctionality.StickerContent;
+import dan200.computercraft.api.peripheral.PeripheralCapability;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
@@ -54,6 +68,7 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.UUID;
+import java.util.Map;
 
 /** Runs only through NeoForge's GameTest harness; exercises real mixed-in console entities. */
 @GameTestHolder("cc_aeroworks")
@@ -119,6 +134,14 @@ public final class ConsoleComputerGameTests {
     }
 
     private static void check(GameTestHelper h, boolean condition, String message) { h.assertTrue(condition, message); }
+
+    private static net.minecraft.world.level.block.entity.BlockEntity dashboardController(
+        GameTestHelper h,
+        BlockPos belowSegment
+    ) {
+        h.setBlock(belowSegment, StickerContent.DASHBOARD_CONTROLLER.get().defaultBlockState());
+        return h.getBlockEntity(belowSegment);
+    }
 
     private static List<ControlTransmitter> transmitters(ConsoleBlockEntity desk) {
         try {
@@ -381,6 +404,109 @@ public final class ConsoleComputerGameTests {
         check(h, snapshot.getState() == ConsoleNetworkState.ACTIVE, "Mixed native controls did not bridge the row");
         check(h, snapshot.getSegmentPositions().size() == 4, "Mixed controls were not counted as physical segments");
         check(h, snapshot.getMembers().size() == 2, "A native control became a desk member");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty_console")
+    public static void dashboardControllerRequiresExplicitChannelBindings(GameTestHelper h) {
+        ConsoleBlockEntity targetDesk = desk(h, ORIGIN, "control_desk");
+        var yokeItem = BuiltInRegistries.ITEM.get(ResourceLocation.fromNamespaceAndPath("aeroworks", "yoke_module"));
+        check(h, targetDesk.mount(2, new ItemStack(yokeItem)), "Yoke module did not mount");
+        var module = targetDesk.module(2);
+        check(h, module.setValue("pitch", -15), "Could not set yoke pitch");
+        check(h, module.setValue("turn", -15), "Could not set yoke turn");
+
+        var controller = (DashboardControllerBlockEntity)dashboardController(h, ORIGIN.below());
+        var resolution = DashboardControllerLookup.INSTANCE.resolve(h.getLevel(), targetDesk.getBlockPos());
+        check(h, resolution.getStatus() == DashboardSourceStatus.AVAILABLE, "Dashboard Controller was not resolved");
+        var peripheral = h.getLevel().getCapability(
+            PeripheralCapability.get(), controller.getBlockPos(), Direction.UP
+        );
+        check(h, peripheral != null && peripheral.getType().equals("DashboardController"),
+            "Dashboard Controller peripheral capability is missing");
+        var dashboardPeripheral = (DashboardControllerPeripheral)peripheral;
+
+        UUID id = ((DashboardControllerIdentityAccess)controller).ccaeroworks_getDashboardControllerId();
+        var savedController = controller.saveWithFullMetadata(h.getLevel().registryAccess());
+        controller.loadWithComponents(savedController, h.getLevel().registryAccess());
+        check(h, ((DashboardControllerIdentityAccess)controller).ccaeroworks_getDashboardControllerId().equals(id),
+            "Dashboard Controller identity did not survive NBT reload");
+
+        var unbound = TrainControlBridge.read(h.getLevel(), controller.getBlockPos(), controller);
+        check(h, unbound != null && unbound.throttle() == 0.0f && unbound.steer() == 0,
+            "Unbound Aeroworks channels leaked through CTF's legacy automatic reader");
+
+        dashboardPeripheral.setThrottle(0.5);
+        dashboardPeripheral.setSteer(-1.0);
+        dashboardPeripheral.setBrake(true);
+        dashboardPeripheral.setStation(true);
+        var lua = TrainControlBridge.read(h.getLevel(), controller.getBlockPos(), controller);
+        check(h, lua != null && lua.throttle() == 0.5f && lua.steer() == 1,
+            "Dashboard Controller Lua axes did not reach the CTF adapter");
+        check(h, lua.brake() && lua.station(), "Dashboard Controller Lua buttons did not reach the CTF adapter");
+        check(h, dashboardPeripheral.getState().get("available").equals(true),
+            "Dashboard Controller state did not report availability");
+        check(h, dashboardPeripheral.getInfo().get("assemblyId") != null,
+            "Dashboard Controller info did not expose the row assembly ID");
+        DashboardControllerPeripheralRegistry.reset(controller);
+
+        check(h, DisplayBindings.INSTANCE.set(targetDesk, 2, TrainControlBindings.INSTANCE.extension(
+            new TrainControlBinding(id, Map.of(
+                "pitch", TrainFunction.THROTTLE,
+                "turn", TrainFunction.STEER
+            ))
+        )), "Explicit train binding was rejected");
+        var bound = TrainControlBridge.read(h.getLevel(), controller.getBlockPos(), controller);
+        check(h, bound != null && bound.throttle() == 1.0f, "Bound pitch did not become forward throttle");
+        check(h, bound.steer() == 1, "Bound left turn did not use CTF's internal left steering sign");
+        targetDesk.dismount(2);
+        h.succeed();
+    }
+
+    @GameTest(template = "empty_console")
+    public static void dashboardControllerBelowIntegratedSegmentBelongsToDeskRow(GameTestHelper h) {
+        ConsoleBlockEntity ownerDesk = desk(h, ORIGIN, "control_desk");
+        control(h, ORIGIN.east(), integratedContraptionControls(TrainControlConsoleGeometry.DESK), ORIGIN);
+        var controller = (DashboardControllerBlockEntity)dashboardController(h, ORIGIN.east().below());
+        var resolution = DashboardControllerLookup.INSTANCE.resolve(h.getLevel(), ownerDesk.getBlockPos());
+        check(h, resolution.getStatus() == DashboardSourceStatus.AVAILABLE,
+            "Controller below integrated Contraption Control was not available");
+        check(h, resolution.getController() == controller, "Integrated segment resolved the wrong controller");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty_console")
+    public static void multipleDashboardControllersSuspendDeskRow(GameTestHelper h) {
+        ConsoleBlockEntity ownerDesk = desk(h, ORIGIN, "control_desk");
+        control(h, ORIGIN.east(), integratedControls(TrainControlConsoleGeometry.DESK), ORIGIN);
+        dashboardController(h, ORIGIN.below());
+        dashboardController(h, ORIGIN.east().below());
+        var resolution = DashboardControllerLookup.INSTANCE.resolve(h.getLevel(), ownerDesk.getBlockPos());
+        check(h, resolution.getStatus() == DashboardSourceStatus.AMBIGUOUS,
+            "Multiple Dashboard Controllers did not suspend the desk row");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty_console")
+    public static void dashboardControllerFrequencyModeFallsBackToCtf(GameTestHelper h) {
+        ConsoleBlockEntity ownerDesk = desk(h, ORIGIN, "control_desk");
+        var controller = (DashboardControllerBlockEntity)dashboardController(h, ORIGIN.below());
+        var peripheral = DashboardControllerPeripheralRegistry.peripheral(controller);
+        peripheral.setThrottle(1.0);
+
+        h.setBlock(
+            ORIGIN.below(),
+            controller.getBlockState().setValue(DashboardControllerBlock.FREQUENCY, true)
+        );
+        controller = (DashboardControllerBlockEntity)h.getBlockEntity(ORIGIN.below());
+        var resolution = DashboardControllerLookup.INSTANCE.resolve(h.getLevel(), ownerDesk.getBlockPos());
+        check(h, resolution.getStatus() == DashboardSourceStatus.FREQUENCY,
+            "Frequency-mode Dashboard Controller was not suspended");
+        check(h, TrainControlBridge.read(h.getLevel(), controller.getBlockPos(), controller) == null,
+            "Frequency mode did not fall back to CTF's original readPanel path");
+        peripheral = DashboardControllerPeripheralRegistry.peripheral(controller);
+        check(h, ((Number)peripheral.getState().get("throttle")).doubleValue() == 0.0,
+            "Frequency-mode transition did not neutralize Lua control state");
         h.succeed();
     }
 
