@@ -22,6 +22,9 @@ Sable 2.0.5, Create: Aeroworks 1.5.0 und TeutonLib 1.5.0.
 - Python-Werkzeuge kompilieren; Gradle-Bootstrap mit `javac --release 21` kompiliert.
 - `git diff --check` ohne Fehler.
 - Release-JAR enthält Version 1.5.3, 392 originale PNG-Icons und den CC0-Lizenzhinweis.
+- Die CI stellt die TeutonLib-Prüfquellen über einen eigenen Checkout bereit, gepinnt auf
+  `724674c7ac3ca69d232a8c250256e05a17a399b6` (1.5.0). Beide Display-Prüfskripte akzeptieren
+  `TEUTONLIB_SOURCE_DIR`, sodass auf dem Runner kein lokales Nachbarprojekt vorausgesetzt wird.
 
 ## Artefakt
 

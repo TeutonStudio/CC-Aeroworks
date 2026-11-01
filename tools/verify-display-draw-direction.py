@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import os
 
 ROOT = Path(__file__).resolve().parents[1]
-TEUTON_ROOT = ROOT.parent / "TeutonLib"
+TEUTON_ROOT = Path(os.environ.get("TEUTONLIB_SOURCE_DIR", str(ROOT.parent / "TeutonLib")))
 
 
 def read(path: str) -> str:
