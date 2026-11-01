@@ -6,6 +6,7 @@ import com.simibubi.create.content.redstone.link.RedstoneLinkNetworkHandler;
 import com.mred231.aeroworks.content.controls.channel.ControlTransmitter;
 import com.mred231.aeroworks.content.controls.console.ConsoleBlock;
 import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity;
+import com.mred231.aeroworks.content.controls.console.ConsoleGroup;
 import dan200.computercraft.shared.ModRegistry;
 import dan200.computercraft.shared.computer.core.ComputerFamily;
 import dan200.computercraft.shared.computer.core.TerminalSize;
@@ -163,7 +164,7 @@ public final class ConsoleComputerGameTests {
     public static void nativeTrainControlsBridgeDeskMultiblock(GameTestHelper h) {
         ConsoleBlockEntity ownerDesk = desk(h, ORIGIN, "control_desk");
         control(h, ORIGIN.east(), integratedControls(TrainControlConsoleGeometry.DESK), ORIGIN);
-        desk(h, ORIGIN.east(2), "control_desk");
+        ConsoleBlockEntity farDesk = desk(h, ORIGIN.east(2), "control_desk");
         ConsoleComputers.INSTANCE.install(ownerDesk, computer(false));
 
         BlockPos controlsPos = h.absolutePos(ORIGIN.east());
@@ -174,6 +175,10 @@ public final class ConsoleComputerGameTests {
         check(h, snapshot.getMembers().size() == 2, "Train Controls became an addressable desk member");
         check(h, snapshot.memberAt(controlsPos) == null, "Train Controls exposed a desk API node");
         check(h, snapshot.getOwner() != null, "Embedded computer ownership was lost across Train Controls");
+        check(h, ConsoleGroup.of(ownerDesk).equals(List.of(ownerDesk, farDesk)),
+            "Native controls/HUD omitted the desk beyond the Train Controls bridge");
+        check(h, ConsoleGroup.of(farDesk).equals(ConsoleGroup.of(ownerDesk)),
+            "Native HUD/input socket order depends on which desk started the session");
         h.succeed();
     }
 
@@ -249,6 +254,10 @@ public final class ConsoleComputerGameTests {
         check(h, right.getSegmentPositions().size() == 2, "Right row crossed into an adjacent UUID row");
         check(h, !ConsoleAssemblyRuntime.connected(h.getLevel(), b.getBlockPos(), c.getBlockPos()),
             "Adjacent different UUIDs opened a row connection");
+        check(h, ConsoleGroup.of(a).equals(List.of(a, b)),
+            "Native controls/HUD included a neighbouring independent row");
+        check(h, ConsoleGroup.of(d).equals(List.of(c, d)),
+            "Native controls/HUD lost canonical member order for the right-hand row");
         h.succeed();
     }
 

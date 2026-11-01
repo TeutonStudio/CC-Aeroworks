@@ -111,6 +111,44 @@ dieselbe Latest-Wins-Semantik.
 Serverseitige Reichweitenprüfung erfolgt gegen irgendein Mitglied desselben ControlDesk-Multiblocks,
 nicht ausschließlich gegen den Block, auf dem das Zielmodul montiert ist.
 
+## Belegungen im Steuerungs-HUD
+
+Das HUD zeigt die eingeblendeten Achsen und Knopfkanäle aller Steuermodule der aktiven
+Pultreihe, einschließlich Kanälen auf aufgesetzten Untermodulen. Pro montiertem
+Steuerobjekt gibt es genau ein Widget: beispielsweise teilen sich Joystick und
+angebaute Knöpfe ihre Anzeige. Auch unabhängige Achsen eines Throttle-Moduls bleiben
+gemeinsam in diesem Widget. Modul-Icon und die Kurzangabe `Pult:Socket` ordnen die
+Anzeige zu; ein benutzerdefinierter Modulname erscheint zusätzlich. Die HUD-Einstellung
+pro Kanal gilt weiterhin; reine Ausgabemodule ohne Steuerkanäle erhalten kein Widget.
+
+Die native Aeroworks-Steuergruppe verwendet auf Client und Server dieselben kanonischen
+Multiblock-Mitglieder wie CC-Aeroworks. Damit werden auch Pulte hinter integrierten
+Create-Steuerungen erfasst; unmittelbar benachbarte, separat gebildete Reihen bleiben
+getrennt. Socket-Adressen, Eingaberouting und HUD-Werte verwenden dieselbe Reihenfolge.
+
+Kenney Input Prompts 1.5A (CC0) stellen Tastatur, Maustasten, Scrollrichtungen und
+getrennte Maus-/Controllerachsen dar. Controllerbelegungen verwenden die Xbox-Symbole
+der nativen Aeroworks-Eingaben. Rohe Joysticks erhalten generische Symbole mit ihrer
+Achsen-, Knopf- oder Hat-Nummer. Tastaturbuchstaben folgen der vom Client angezeigten
+Belegung; fehlende Zeichen bleiben als beschriftetes Ersatzsymbol erkennbar.
+
+Kombinierte Achsen zeigen das negative/Outline-Tastensymbol neben der Mausachse;
+das Wort `halten` entfällt. Eine gemeinsame Taste für beide sichtbaren X/Y-Achsen
+erscheint einmal mit dem Symbol für freie Mausbewegung. Unterschiedliche Tasten und
+einzeln eingeblendete Achsen bleiben getrennt. Richtungspfeile kennzeichnen digitale
+Achsenbelegungen. Knopfkanäle zeigen ihre Belegung und einen Zustandsindikator; mehrere
+Knöpfe erhalten kurze Nummern. Aktive Knöpfe verwenden ebenfalls die negative Variante,
+sofern im Paket vorhanden.
+
+Die Symbolgruppen fließen nebeneinander in kurze Zeilen, sodass angebaute Knöpfe bei
+ausreichendem Platz direkt neben der Achsenbelegung stehen. Knopffelder nutzen mehrere
+Spalten. Eingabesymbole sind 16 Pixel groß, Achsenfelder 28 statt 44 Pixel. Mehrere
+Widgets umbrechen bei Bedarf und werden bei Platzmangel gemeinsam oberhalb der Hotbar
+eingepasst.
+
+Die Original-PNGs liegen unter `textures/gui/input/`, der mitgelieferte Lizenzhinweis
+unter `META-INF/licenses/kenney-input-prompts.txt`.
+
 ## CC:Tweaked-Ereignisse
 
 Direkt angeschlossene `ControlDesk`-Peripherals erhalten Combined-Eingabeänderungen unmittelbar im
@@ -176,6 +214,34 @@ gescannt.
 
 Erwartung: Zuerst entscheidet das direkt anvisierte Modul, danach darf die letzte eindeutige Auswahl
 wiederverwendet werden. Ohne Tiebreaker wird kein zufälliges Modul übernommen.
+
+### Display-HUD
+
+1. Kleine und große erweiterte Displays im selben Pultverbund mit einem erweiterten Computer montieren.
+2. Zunächst dieselbe Taste für X/Y konfigurieren, danach zwei unterschiedliche Tasten.
+3. Den Pointer bis zu allen vier Displayrändern bewegen und anschließend die Taste loslassen.
+4. Bei individueller Auflösung die PPB ändern und erneut bedienen.
+5. Das zweite Display auf einem anderen Pultmitglied bedienen; außerdem nur eine HUD-Achse einschalten.
+
+Erwartung: Die HUD-Fläche hat das Seitenverhältnis des jeweiligen Displays. Die Pixelwerte laufen
+von `1` bis zur aktuellen Breite/Höhe und folgen nur dem tatsächlich bedienten Display. Der
+Marker bleibt innerhalb der Fläche und verschwindet beim Loslassen. Die gemeinsame Taste steht
+einmal als negatives Tastensymbol mit Maus-X/Y-Icon im HUD, getrennte Tasten erscheinen mit ihrer jeweiligen
+Mausachse. Ausgeblendete HUD-Achsen zeigen keine Koordinaten oder Belegung.
+
+### Kombinierte und kompakte Modul-Widgets
+
+1. Joystick oder Yoke mit angebautem Knopf montieren und beide im HUD einblenden.
+2. Einen Mehrfach-Throttle und ein Knopffeld auf anderen Sockets ergänzen.
+3. Einzelne Achsen und Knöpfe ausblenden sowie unterschiedliche Aktivierungstasten setzen.
+4. Knöpfe betätigen und mit kleiner Fenstergröße beziehungsweise großer GUI-Skalierung prüfen.
+
+Erwartung: Pro Socket bleibt genau ein Widget sichtbar. Der Anbauknopf steht bei seinem
+Joystick, unabhängige Throttle-Achsen bleiben beim selben Modul. Belegungen stehen nach
+Möglichkeit nebeneinander, Knopffelder in mehreren Spalten. Gehaltene Aktivierungstasten
+verwenden negative Symbole ohne ausgeschriebenes `halten`. Knopfzustände gehören auch
+nach dem Ausblenden anderer Kanäle zum richtigen Kanal. Ausgeblendete Inhalte belegen
+keinen Platz und Nachbarmodule bleiben getrennt.
 
 ### Shift
 

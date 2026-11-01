@@ -6,6 +6,8 @@ Die primären Maustasten werden weiterhin über Raw-`MouseHandler`, NeoForge-Fal
 
 Touch benötigt sowohl ein erweitertes Display als auch einen erweiterten Computer im aktiven Pultverbund. Normale Displays, normale oder fehlende Computer und inaktive oder widersprüchliche Verbünde erlauben keine Touch-Ereignisse, auch nicht für externe Peripherals. Skriptzuweisungen bleiben beim Computerwechsel erhalten. Kleine erweiterte Displays besitzen dieselben X/Y-Bedienkanäle wie große erweiterte Displays.
 
+Das Steuerungs-HUD stellt die Displayfläche kompakt in ihrem Seitenverhältnis dar. Ohne aktive Display-Geste zeigt es die Pixelbereiche `X: 1..Breite` und `Y: 1..Höhe`, während der Bedienung die aktuelle Pixelposition relativ zur Auflösung. Die Werte berücksichtigen die individuelle Pixeldichte. Die konfigurierten Aktivierungstasten erscheinen als negative/Outline-Icons neben den Mausachsen-Symbolen; eine gemeinsame X/Y-Taste erscheint einmal, unterschiedliche Tasten erscheinen getrennt. Die beiden Achsen lassen sich unabhängig aktivieren. Zugehörige Anbauknöpfe bleiben im selben Modul-Widget.
+
 Mit deaktiviertem `display.useGlobalResolution` kann `desk.setDisplayResolution(socket, ppb)` die individuelle Pixeldichte setzen. Der Helper `display.setResolution(event, ppb)` ist auch über `touchdisplay` verfügbar. Die Rückgabe enthält `width`, `height`, `ppb`; die neue Dichte muss ganzzahlig zwischen 16 und `display.maxIndividualPpb` liegen. Bei einer tatsächlichen Änderung wird das Bild geleert. Eine laufende Geste muss nach Computer-, Auflösungs- oder Quellenwechsel neu gestartet werden.
 
 ## Draw-Datenmodell
