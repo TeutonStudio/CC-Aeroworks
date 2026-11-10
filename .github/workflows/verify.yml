@@ -38,7 +38,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: TeutonStudio/TeutonLib
-          ref: 724674c7ac3ca69d232a8c250256e05a17a399b6 # v1.5.0
+          ref: 15f1a2a17b5a2dd09e6874aad8d001682ec3e07f # v1.6.0
           path: .ci/teutonlib
           persist-credentials: false
 

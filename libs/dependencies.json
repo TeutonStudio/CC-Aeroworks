@@ -57,16 +57,15 @@
     {
       "name": "Sable",
       "modId": "sable",
-      "version": "2.0.5",
+      "version": "2.0.6",
       "required": true,
-      "filenamePattern": "(?i)^sable[^/]*2\\.0\\.5[^/]*\\.jar$",
+      "filenamePattern": "(?i)^sable[^/]*2\\.0\\.6[^/]*\\.jar$",
       "filenameExamples": [
-        "sable-neoforge-1.21.1-2.0.5.jar"
+        "sable-neoforge-1.21.1-2.0.6.jar"
       ],
-      "sha256": "c8710f85bc780bbf523e6726ceaaf76dd0b8c61479db497b382c6bb34317e7ab",
-      "downloadUrl": "https://cdn.modrinth.com/data/T9PomCSv/versions/U678xqle/sable-neoforge-1.21.1-2.0.5.jar",
+      "sha256": "9c199157843bf953a47dff625fc5bb41c01a90538d35ad18e6996bbcb8a617c2",
       "source": "Official Sable distribution page",
-      "notes": "Required runtime dependency of Create: Aeronautics and used by the static and moving ship compatibility tests."
+      "notes": "Required runtime dependency of Create: Aeronautics. TeutonLib 1.6.0 requires Sable 2.0.6 or newer."
     },
     {
       "name": "Drive By Wire",
@@ -187,14 +186,14 @@
     {
       "name": "TeutonLib",
       "modId": "teutonlib",
-      "version": "1.5.0",
+      "version": "1.6.0",
       "required": true,
-      "filenamePattern": "(?i)^teutonlib-1\\.5\\.0\\.jar$",
+      "filenamePattern": "(?i)^teutonlib-1\\.6\\.0\\.jar$",
       "filenameExamples": [
-        "teutonlib-1.5.0.jar"
+        "teutonlib-1.6.0.jar"
       ],
-      "sha256": "de3aa4755af06502d3d2489d5c8bf5d16a3d600ca35db757937210df3fb110c0",
-      "source": "Local coordinated TeutonLib 1.5.0 release artifact",
+      "sha256": "2f05d48595633db4ec42d1b0b2b742839d3d5ea26d24d26ae6dc4bc56b97e4d7",
+      "source": "Local coordinated TeutonLib 1.6.0 release artifact",
       "notes": "Required on client and server. Provides the shared workspace, world geometry and bounded network session APIs."
     }
   ]

@@ -233,13 +233,13 @@ Die ausführliche externe Referenz liegt unter [`docs/cc-peripheral-api.md`](doc
 
 - Minecraft 1.21.1
 - NeoForge 21.1.234+
-- TeutonLib 1.5.0 (Pflicht auf Client und Server; gemeinsame Computer-, Geometrie- und Netzwerkbasis)
+- TeutonLib 1.6.x ab 1.6.0 (Pflicht auf Client und Server; gemeinsame Computer-, Geometrie- und Netzwerkbasis)
 - Java 21
 - Kotlin 2.4.0 / KotlinForForge NeoForge 5.12.0
 - Create 6.0.10 mit Ponder API 1.0.82
 - Aeronautics 1.3.2 / Aeroworks 1.5.0
 - CC:Tweaked API-Baseline 1.120.2
-- Sable 2.0.5
+- Sable 2.0.6
 - Drive By Wire 0.2.9-0.3.x optional
 - CC: Terminals 0.1.1 optional
 - Create: Simulated 1.3.2 optional

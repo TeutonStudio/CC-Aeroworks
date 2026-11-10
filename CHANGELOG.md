@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.4 — 2026-11-10
+
+- Updated the required TeutonLib version and verified build baseline to 1.6.0; the supported runtime range is `[1.6.0,1.7.0)`.
+- Raised the required Sable version to 2.0.6 to match TeutonLib 1.6.0 and updated the pinned CI verification sources.
+
 ## 1.5.2 — 2026-10-25
 
 - Fixed Dashboard Controllers missing from the control-module script/source dropdown despite being detected as peripherals. Initial discovery and cache refresh now request controller status without overflowing the monotonic timer.

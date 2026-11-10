@@ -120,13 +120,13 @@ Each controller is also a CC:Tweaked peripheral with primary type `DashboardCont
 
 - Minecraft 1.21.1
 - NeoForge 21.1.234+
-- TeutonLib 1.5.0 (required on client and server; shared computer, geometry and network foundation)
+- TeutonLib 1.6.x starting at 1.6.0 (required on client and server; shared computer, geometry and network foundation)
 - Java 21
 - Kotlin 2.4.0 / KotlinForForge NeoForge 5.12.0
 - Create 6.0.10
 - Aeronautics 1.3.2 / Aeroworks 1.5.0
 - CC:Tweaked API baseline 1.120.2
-- Sable 2.0.5 required
+- Sable 2.0.6 required
 - Drive By Wire 0.2.9-0.3.x optional
 - CC: Terminals 0.1.1 optional
 - Create: Simulated optional

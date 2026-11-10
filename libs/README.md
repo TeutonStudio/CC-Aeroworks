@@ -20,12 +20,12 @@ gradlew.bat -Pmod_dependency_dir=C:\mods\cc-aeroworks verifyModDependencies
 
 | Mod | Mod-ID | Version | Status |
 |---|---|---:|---|
-| TeutonLib | `teutonlib` | 1.5.0 | erforderlich, Client und Server |
+| TeutonLib | `teutonlib` | 1.6.0 | erforderlich, Client und Server |
 | Create | `create` | 6.0.10 | erforderlich |
 | Create: Aeronautics | `aeronautics` | 1.3.2 | erforderlich |
 | Create: Aeroworks | `aeroworks` | 1.5.0 | erforderlich |
 | CC: Tweaked | `computercraft` | 1.120.2 | erforderlich |
-| Sable | `sable` | 2.0.5 | erforderlich |
+| Sable | `sable` | 2.0.6 | erforderlich |
 | Drive By Wire | `drivebywire` | 0.3.0 | optional; 0.2.9 bleibt unterstützt |
 | CC: Terminals | `ccterminals` | 0.1.1 | optional; nicht programmierbare Bedienstation im Pult-/Stand-Slot |
 | Create: Radars | `create_radar` | 0.4.9.4-1.21.1 | automatisch für Entwicklungsruns |
@@ -55,7 +55,7 @@ Die maschinenlesbaren Dateimuster und bekannte offizielle Beispieldateinamen ste
 
 ## Prüfsummen
 
-`dependencies.json` unterstützt pro Artefakt eine feste SHA-256-Prüfsumme. TeutonLib 1.5.0 ist auf die SHA-256 des koordiniert gebauten Release-Artefakts festgelegt. Andere Felder bleiben `null`, weil verschiedene offizielle Distributionsplattformen identische Modversionen mit unterschiedlich benannten oder neu signierten Dateien ausliefern können. Sobald die vom Team verwendeten Zielartefakte festgelegt sind, werden deren SHA-256-Werte eingetragen und damit verbindlich.
+`dependencies.json` unterstützt pro Artefakt eine feste SHA-256-Prüfsumme. TeutonLib 1.6.0 ist auf die SHA-256 des koordiniert gebauten Release-Artefakts festgelegt. Andere Felder bleiben `null`, weil verschiedene offizielle Distributionsplattformen identische Modversionen mit unterschiedlich benannten oder neu signierten Dateien ausliefern können. Sobald die vom Team verwendeten Zielartefakte festgelegt sind, werden deren SHA-256-Werte eingetragen und damit verbindlich.
 
 ```bash
 sha256sum libs/*.jar
@@ -85,6 +85,8 @@ Fehlt ein Pflichtartefakt oder passen mehrere Dateien auf dasselbe Muster, brich
 
 ## TeutonLib-Computeroberfläche
 
-TeutonLib **1.5.0** stellt die gemeinsamen Standard-/Quellen-/Kanalreiter, Sable-Weltgeometrie und Netzwerk-Sitzungshelfer bereit. Lege die Release-JAR `teutonlib-1.5.0.jar` in das konfigurierte Modverzeichnis. Alternativ baue das benachbarte TeutonLib-Projekt mit `./gradlew build` und kopiere diese JAR aus `build/libs/`; die Sources-JAR gehört nicht auf den Mod-Classpath. Ältere TeutonLib-Versionen genügen den aktuellen Integrations-APIs nicht.
+TeutonLib **1.6.0** stellt die gemeinsamen Standard-/Quellen-/Kanalreiter, Sable-Weltgeometrie und Netzwerk-Sitzungshelfer bereit. Lege die Release-JAR `teutonlib-1.6.0.jar` in das konfigurierte Modverzeichnis. Alternativ baue das benachbarte TeutonLib-Projekt mit `./gradlew build` und kopiere diese JAR aus `build/libs/`; die Sources-JAR gehört nicht auf den Mod-Classpath. Ältere TeutonLib-Versionen genügen den aktuellen Integrations-APIs nicht.
 
 Die gemeinsame Basis ist NeoForge **21.1.234**. Auf Pultcomputern bleiben Aeroworks-Kanäle, Gruppen, DbW-Ziele und Lua-APIs maßgeblich. Es wird kein zweiter beschreibbarer TeutonLib-Kanalbestand angelegt. Die bestehende Kanalspeicherung benötigt keine Migration. Siehe [Integration und Abnahme](../docs/teutonlib-computer-ui.md).
+
+Die veröffentlichte Laufzeit unterstützt TeutonLib `[1.6.0,1.7.0)`. Das lokale Build-Manifest ist auf die API-Basis 1.6.0 mit fester SHA-256 gepinnt.

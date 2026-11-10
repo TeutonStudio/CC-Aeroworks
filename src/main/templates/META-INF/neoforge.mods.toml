@@ -68,7 +68,7 @@ Adds optional Dashboard Controller sources and a CC:Tweaked peripheral for Creat
 [[dependencies.${mod_id}]]
     modId="sable"
     type="required"
-    versionRange="[2.0.1,)"
+    versionRange="[2.0.6,)"
     ordering="AFTER"
     side="BOTH"
 [[dependencies.${mod_id}]]
