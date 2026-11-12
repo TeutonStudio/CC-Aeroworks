@@ -33,8 +33,8 @@ def main() -> int:
     state = read("src/main/kotlin/de/teutonstudio/ccaeroworks/compat/computercraft/ControlDeskPeripheralState.kt")
     docs = read("docs/cc-peripheral-api.md")
     programming = read("docs/peripheral-programming.md")
-    german_readme = read("README_GER.md")
-    english_readme = read("README_ENG.md")
+    german_readme = read("docs/overview-de.md")
+    english_readme = read("docs/overview-en.md")
     dashboard = read("examples/cc/dashboard.lua")
     monitor = read("examples/cc/input-monitor.lua")
 
@@ -123,8 +123,8 @@ def main() -> int:
     for source_name, source in (
         ("API documentation", docs),
         ("programming guide", programming),
-        ("German README", german_readme),
-        ("English README", english_readme),
+        ("German technical overview", german_readme),
+        ("English technical overview", english_readme),
         ("dashboard example", dashboard),
         ("input monitor example", monitor),
     ):

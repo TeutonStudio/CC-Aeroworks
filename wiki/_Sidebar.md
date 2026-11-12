@@ -1,19 +1,39 @@
 ## CC-Aeroworks
 
+**Deutsch** · [[English|English]]
+
+### Einstieg
+
 - [[Startseite|Home]]
+- [[Installation]]
+- [[Erste Schritte|Erste-Schritte]]
 - [[Bedienung]]
+- [[Handbuch und Quellen|Handbuch-und-Quellen]]
+
+### Funktionen
+
 - [[Computer-Steuerungspulte]]
 - [[Peripheral-Netzwerk]]
-- [[API-Schnellreferenz]]
+- [[Displays und Rezepte|Programmierbare-Displays]]
+- [[Kombinierte Eingabe|Kombinierte-Eingabe]]
+- [[Kanäle und Automatisierung|Kanaele-und-Automatisierung]]
+- [[Steuerungsskripte]]
+- [[Bedienterminals]]
 - [[Telemetrie]]
-- [[Programmierbare-Displays]]
 - [[Radar-Routing]]
-- [[Kombinierte-Eingabe]]
+- [[Zugsteuerung]]
+- [[Bewegte Konstruktionen|Bewegte-Konstruktionen]]
 
----
+### Referenz
 
-### Schnellzugriff
+- [[Lua-API|API-Schnellreferenz]]
+- [[Konfiguration]]
+- [[Fehlerbehebung]]
 
-- [Repository](https://github.com/TeutonStudio/CC-Aeroworks)
-- [Issues](https://github.com/TeutonStudio/CC-Aeroworks/issues)
-- [Lua-Beispiele](https://github.com/TeutonStudio/CC-Aeroworks/tree/master/examples/cc)
+### English
+
+- [[Complete guide|English]]
+- [[Displays and recipes|Displays-en]]
+- [[Lua API|API-en]]
+
+[Downloads](https://github.com/TeutonStudio/CC-Aeroworks/releases) · [Repository](https://github.com/TeutonStudio/CC-Aeroworks)

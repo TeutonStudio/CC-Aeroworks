@@ -1,5 +1,7 @@
 # Kombinierte Eingabe
 
+[[Deutsch|Kombinierte-Eingabe]] · [[English|English#combined-input]]
+
 Der Eingabetyp **Kombiniert** verbindet eine gehaltene Aktivierungstaste mit Mausbewegungen. Er ist für Situationen gedacht, in denen ein Modul erst bewusst ausgewählt und anschließend präzise mit der Maus verstellt werden soll.
 
 Der Modus ist kein zusätzliches Modul und keine globale Minecraft-Tastenbelegung. Die Aktivierungstaste wird pro Kanal direkt in der vorhandenen Aeroworks-Konfiguration des Moduls gespeichert.
@@ -35,7 +37,7 @@ Beim ersten Wechsel auf **Kombiniert** wird eine leere Belegung mit `K` vorbeleg
 ## Steuerung verwenden
 
 1. Schließe den Modulbildschirm.
-2. Sieh das gewünschte Modul am Steuerungspult an.
+2. Sieh das gewünschte Modul an und betrete die Pultsteuerung per Rechtsklick.
 3. Halte die konfigurierte Aktivierungstaste.
 4. Bewege die Maus auf der für den Kanal vorgesehenen Achse.
 5. Lass die Taste los, um die Steuerung zu beenden.
@@ -124,7 +126,7 @@ Lege mehrere Quadrant-Kanäle auf dieselbe Taste, wenn sie gemeinsam bewegt werd
 
 ### Unbeabsichtigte Aktivierung vermeiden
 
-Verwende keine Taste, die während normaler Bewegung dauerhaft gedrückt wird. Eine Taste wie `W` wäre technisch möglich, aber ungefähr so klug wie ein Not-Aus-Schalter unter dem Fußpedal.
+Wähle eine Taste, die du gezielt für die jeweilige Steuerung hältst und die nicht bereits unbeabsichtigt durch normale Bewegung gedrückt wird.
 
 ## Fehlerdiagnose
 
@@ -149,3 +151,5 @@ Passe die Y-Achsen-Umkehrung in der Clientkonfiguration an. Maus X des Joysticks
 ### Zwei Kanäle bewegen sich gleichzeitig
 
 Beide Kanäle verwenden dieselbe Aktivierungstaste. Weise getrennte Tasten zu, wenn sie unabhängig gesteuert werden sollen.
+
+![Aktivierter Kombiniert-Modus am Hebel: konfigurierte Aktivierungstaste plus Maus-Y.](https://raw.githubusercontent.com/wiki/TeutonStudio/CC-Aeroworks/assets/screenshots/wiki-combined-input.png)

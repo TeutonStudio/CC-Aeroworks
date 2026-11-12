@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE_ROOT = ROOT / "examples/cc"
 ROOT_README = ROOT / "README.md"
-LANGUAGE_READMES = (ROOT / "README_GER.md", ROOT / "README_ENG.md")
+LANGUAGE_READMES = (ROOT / "docs/overview-de.md", ROOT / "docs/overview-en.md")
 EXAMPLE_README = EXAMPLE_ROOT / "README.md"
 
 REQUIRED_QUICKSTARTS = {
@@ -70,12 +70,10 @@ def verify_example_index() -> None:
 
 def verify_readmes() -> None:
     index = ROOT_README.read_text(encoding="utf-8")
-    if "README_GER.md" not in index or "README_ENG.md" not in index:
-        fail("README.md must be the language index for README_GER.md and README_ENG.md")
-    if index.index("README_GER.md") > index.index("README_ENG.md"):
-        fail("README.md must list German before English")
-    if "```lua" in index.lower():
-        fail("README.md must remain a lightweight language index")
+    if "examples/cc/README.md" not in index:
+        fail("README must link the runnable example index")
+    if len(index.split()) > 130 or "```lua" in index.lower():
+        fail("README must remain a concise English introduction")
 
     for path in LANGUAGE_READMES:
         if not path.exists():
@@ -93,7 +91,7 @@ def verify_readmes() -> None:
         "examples/cc/pixel-test.lua",
         "examples/cc/touch-test.lua",
     }
-    missing = sorted(link for link in required_links if link not in documentation)
+    missing = sorted(link for link in required_links if link not in documentation and "../" + link not in documentation)
     if missing:
         fail("Language READMEs are missing example links: " + ", ".join(missing))
 

@@ -1,10 +1,17 @@
-# API-Schnellreferenz
+# Lua-API
+
+[[Deutsch|API-Schnellreferenz]] · [[English|API-en]]
+
+![Ponder-Szene zur Ausgabe auf einem montierten Display.](https://raw.githubusercontent.com/wiki/TeutonStudio/CC-Aeroworks/assets/screenshots/wiki-display_programming.png)
+
+
+Diese Seite erklärt die Programmierung. Die vier Hardwarevarianten und ihre Rezeptgrafiken stehen unter [[Die vier Displays|Programmierbare-Displays]].
 
 ## Zugriffswege
 
 | Eingebetteter Computer | Externer Computer |
 |---|---|
-| globale `peripherals`-, `controls`- und `telemetry`-APIs | lokales Peripheral `ControlDesk` |
+| globale `peripherals`-, `channels`-, `controls`-, `wires`- und `telemetry`-APIs | lokales Peripheral `ControlDesk` |
 | sieht alle Pulte, Nachbargeräte, lokale Telemetrie und darf Steuerautorität übernehmen | sieht nur das direkt verbundene Pult |
 | kein Modem erforderlich | direkt oder über Wired Modem |
 | `cc_aeroworks_*`-Ereignisse | `cc_aeroworks_desk_input` |
@@ -39,7 +46,7 @@ cc_aeroworks:control_desk
 cc_aeroworks_control_desk
 ```
 
-Methoden:
+Gemeinsame lokale Modul-/Displaymethoden (auch am eingebetteten Desk-Handle):
 
 ```text
 getInfo()
@@ -56,13 +63,28 @@ setDisplayNumber(socket, value, zeroPad?)
 clearDisplay(socket)
 clearDisplays()
 getDisplaySize(socket)
+setDisplayResolution(socket, ppb)
 getDisplayPixel(socket, x, y)
 setDisplayPixel(socket, x, y, enabled)
+setDisplayPixelBatch(socket, points, enabled?)
 setDisplayPixels(socket, rows)
 clearDisplayPixels(socket)
 getDisplayColor(socket)
 setDisplayColor(socket, color)
 ```
+
+## Zusätzliche Methoden des lokalen Peripherals
+
+Diese Bindungsmethoden stehen am lokalen `ControlDesk`-Peripheral bereit, nicht am eingebetteten Desk-Handle:
+
+```text
+getDisplayBinding(socket)
+setDisplayTouchScript(socket, path)
+clearDisplayBinding(socket)
+setControlScript(socket, path)
+```
+
+Mit Create: Radars kommen `getRadarSources()` und `setRadarSource(socket, id)` hinzu. Mit eingesetztem CC:-Terminals-Gerät kommen der Typ `terminal` und die üblichen Terminalmethoden wie `write`, `getSize`, `setCursorPos`, `blit`, Farb- und Palettenzugriffe hinzu. `getInfo().device` beschreibt das Slot-Gerät, `programmable` dessen Computerrolle. Details stehen unter [[Bedienterminals]].
 
 ## Globale `peripherals`-API
 
@@ -78,6 +100,7 @@ findAll(type)
 wrap(x, y, z, type?)
 wrap(position, type?)
 getDesks()
+getTree()
 getTypes()
 getNetwork()
 refresh()
@@ -208,7 +231,7 @@ local radar = peripherals.wrap(12, 64, -8, "radar")
 
 Es werden keine Chunks geladen. Gesucht wird nur in der Dimension des eingebetteten Computers.
 
-Integrierte Create-Zugsteuerungen sind transparente Brückensegmente und erscheinen nicht in `deskCount` oder `getDesks()`. Direkt angrenzende Geräte bleiben über ihre echte Position verfügbar und werden dem nächstgelegenen echten Desk zugeordnet.
+Integrierte Create-Zugsteuerungen und Vorrichtungs-Steuerungen sind transparente Brückensegmente und erscheinen nicht in `deskCount` oder `getDesks()`. Direkt angrenzende Geräte bleiben über ihre echte Position verfügbar und werden dem nächstgelegenen echten Desk zugeordnet.
 
 ## Netzwerkstatus
 
@@ -229,7 +252,45 @@ Globale Graphzugriffe werden abgelehnt bei:
 - mehr als 64 physischen Pult-, Zugsteuerungs- und Vorrichtungs-Steuerungssegmenten,
 - einem Computer außerhalb des Besitzerverbunds.
 
-# Globale `controls`-API
+## Globale `channels`-API
+
+Die bevorzugte Oberfläche für neue Automatisierungsprogramme ist `require("cc_aeroworks.channels")`:
+
+```text
+ls(path?)
+stat(pathOrId)
+read(pathOrId)
+setWire(pathOrId, value)
+pulseWire(pathOrId, ticks?, value?)
+resetWire(pathOrId)
+override(pathOrId, value)
+overrideBatch(commands)
+release(pathOrId)
+releaseAll()
+```
+
+Richtungskanäle und Wire-Werte liegen bei `0..15`. Pfade wie `/groups/flight/gear` benötigen eine konfigurierte Gruppe und Bindung. Weitere Wurzeln sind `/modules`, `/wires` und `/groups`.
+
+## Globale `wires`-API
+
+Modulname: `cc_aeroworks.wires`. Sie steuert konfigurierte Wire-Ausgänge direkt:
+
+```text
+list()
+exists(name)
+get(name)
+set(name, value)
+pulse(name, ticks?, value?)
+reset(name)
+resetAll()
+getInfo(name)
+getBackend()
+isEnabled()
+```
+
+Werte liegen bei `0..15`. Anlegen, Löschen und Umbenennen erfolgt im Channels-Tab oder Shellbefehl `wires`, nicht über diese Runtime-API. Siehe [[Kanäle und Automatisierung|Kanaele-und-Automatisierung]].
+
+## Globale `controls`-API
 
 Nur der eingebettete Computer besitzt diese API:
 
@@ -280,9 +341,9 @@ cc_aeroworks_control_override(action, deskId, deskIndex, socket, socketName, cha
 cc_aeroworks_control_release(deskId, socket, socketName, channel, reason)
 ```
 
-Details: `docs/control-overrides.md`.
+Details: [[Kanäle und Automatisierung|Kanaele-und-Automatisierung]] und [Control-Overrides](https://github.com/TeutonStudio/CC-Aeroworks/blob/master/docs/control-overrides.md).
 
-# Globale `telemetry`-API
+## Globale `telemetry`-API
 
 Nur der eingebettete Computer besitzt diese API:
 
@@ -353,7 +414,7 @@ Mit optionalem Create: Simulated:
 local dock = telemetry.getDock("left_cargo")
 ```
 
-Methoden:
+Gemeinsame lokale Modul-/Displaymethoden (auch am eingebetteten Desk-Handle):
 
 ```text
 getInfo()
@@ -425,17 +486,103 @@ cc_aeroworks_remote_telemetry_changed(dockId, sourceId, action, revision)
 
 ## Displayvertrag
 
-- Text: zwei beziehungsweise drei Zeichen.
-- Zahlen: zweistellig `-9..99`, dreistellig `-99..999`.
+- Kleine und große Displays unterstützen Text-, Zahlen- und Pixelanzeige.
 - Pixelursprung: `(1,1)` links oben.
 - Rastergröße: über `getDisplaySize` lesen, nicht fest annehmen.
 - `setDisplayPixels`: exakt `height` Strings aus `0` und `1`, jeweils exakt `width` Zeichen.
 - `getDisplayColor(socket)` / `setDisplayColor(socket, 0xRRGGBB)`: gespeicherte Farbe; Setzen nur bei erweiterten Displays.
-- Touch: nur erweiterte Displays und nur mit erweitertem Computer im aktiven Pultverbund.
+- Touch: nur erweiterte Displays und nur mit erweitertem Computer oder erweitertem CC:-Terminals-Terminal im aktiven Pultverbund.
 - Create: Radars: Radar-Ingresses erscheinen als Pseudo-Skripte im selben Dropdown wie Lua-Skripte; die Auswahl ist exklusiv und nur für erweiterte Displays verfügbar.
 
 ## Ponder
 
 Die Computerpulte besitzen getrennte Szenen für Netzwerkaufbau, Peripheral-Suche und Diagnose. Displays besitzen getrennte Szenen für Herstellung, Montage und Programmierung. Radar besitzt Szenen für automatisches Routing und Data-Link-Kompatibilität.
 
-Telemetrie wird zusätzlich über [[Telemetrie]] und die Repository-Dokumente `docs/telemetry.md` sowie `docs/docking-telemetry.md` beschrieben.
+Telemetrie wird zusätzlich über [[Telemetrie]] beschrieben. Der [vollständige Lua-Vertrag](https://github.com/TeutonStudio/CC-Aeroworks/blob/master/docs/cc-peripheral-api.md) und die [Beispielprogramme](https://github.com/TeutonStudio/CC-Aeroworks/tree/master/examples/cc) ergänzen diese Schnellreferenz.
+
+## Display-Helper
+
+`require("display")` arbeitet mit einer aufgelösten Display-Ereignistabelle:
+
+```text
+resolve(event)
+getSize(event)
+setResolution(event, ppb)
+getColor(event)
+setColor(event, color)
+clear(event)
+getPixel(event, x, y)
+setPixel(event, x, y, enabled)
+setPixelBatch(event, points, enabled?)
+setPixels(event, rows)
+setText(event, text)
+setNumber(event, value, zeroPad?)
+```
+
+`require("touchdisplay")` erbt diese Funktionen und ergänzt:
+
+```text
+isTap(event)
+isDraw(event)
+position(event)
+normalizedPosition(event)
+drawStart(event)
+drawDelta(event)
+drawDirection(event)
+drawSpeed(event)
+drawSamples(event)
+drawStroke(event)
+drawEnded(event)
+drawIdentity(event)
+```
+
+Für Freihandzeichnen ist `drawStroke` der Einstieg. Für auflösungsunabhängige Bedienfelder nutze `normalizedPosition`. Gebundene Touch-Handler werden nur vom eingebetteten Computer automatisch geladen; siehe [[Programmierbare-Displays]].
+
+## Beispiel: ein Display im Pultnetz beschreiben
+
+Dieses Programm läuft auf dem eingebetteten Computer und verändert die Ausgabe des ersten gefundenen Displays:
+
+```lua
+local peripherals = require("cc_aeroworks.peripherals")
+for _, desk in pairs(peripherals.find("ControlDesk")) do
+  for _, panel in ipairs(desk.getDisplays()) do
+    local socket = panel.socketName
+    local size = desk.getDisplaySize(socket)
+    print(size.width, size.height, size.ppb)
+    desk.setDisplayText(socket, "42")
+    return
+  end
+end
+error("Kein Display montiert")
+```
+
+Für ein bestimmtes Instrument wähle das Pult anhand seiner stabilen Desk-ID und den Socket ausdrücklich. Eine Positionsadresse kann sich bei Bewegung ändern.
+
+## Beispiel: Pixel und Touch
+
+Mehrere Punkte lassen sich mit einem Aufruf schreiben; Pixelkoordinaten beginnen bei `(1,1)`:
+
+```lua
+desk.setDisplayPixelBatch("big", {
+  { x = 1, y = 1 },
+  { x = 2, y = 1 },
+  { x = 3, y = 1 },
+}, true)
+```
+
+Ein Touch-Handler liegt auf dem eingebetteten Computer und wird in den Moduleinstellungen unter **Display-Steuerung** gewählt. Er benötigt ein erweitertes Display und ein erweitertes Slot-Gerät:
+
+```lua
+local touch = require("touchdisplay")
+return {
+  onTap = function(event)
+    local u, v = touch.normalizedPosition(event)
+    print(u, v)
+  end,
+  onDraw = function(event)
+    touch.drawStroke(event)
+  end,
+}
+```
+
+Handler müssen zügig zurückkehren. Externe Computer starten gespeicherte owner-lokale Handler nicht automatisch; sie verarbeiten die zugestellten Ereignisse im eigenen Programm.

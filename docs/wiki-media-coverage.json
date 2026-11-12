@@ -1,0 +1,210 @@
+{
+  "capture_date": "2026-11-12",
+  "capture_build": "local 1.5.4 / TeutonLib 1.6.0",
+  "features": [
+    {
+      "id": "device-slot",
+      "page": "Computer-Steuerungspulte",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-device-slot.png"
+      ]
+    },
+    {
+      "id": "desk-assembly",
+      "page": "Computer-Steuerungspulte",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-desk_network.png"
+      ]
+    },
+    {
+      "id": "copycat-row-materials",
+      "page": "Computer-Steuerungspulte",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-copycat-style.png"
+      ]
+    },
+    {
+      "id": "peripheral-network",
+      "page": "Peripheral-Netzwerk",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-peripheral_search.png"
+      ]
+    },
+    {
+      "id": "four-display-variants",
+      "page": "Programmierbare-Displays",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-four-displays.png"
+      ]
+    },
+    {
+      "id": "pixels-colour-resolution",
+      "page": "Programmierbare-Displays",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-pixels-colour-resolution.png"
+      ]
+    },
+    {
+      "id": "touch-draw",
+      "page": "Programmierbare-Displays",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-draw-stroke.png"
+      ],
+      "scope": "Actual Lua renderer with predefined test input; physical mouse gesture is not asserted."
+    },
+    {
+      "id": "combined-input",
+      "page": "Kombinierte-Eingabe",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-combined-input.png"
+      ],
+      "scope": "Native configuration view"
+    },
+    {
+      "id": "wire-channels",
+      "page": "Kanaele-und-Automatisierung",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-channels.png"
+      ]
+    },
+    {
+      "id": "channel-groups",
+      "page": "Kanaele-und-Automatisierung",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-channel-groups.png"
+      ]
+    },
+    {
+      "id": "hard-overrides",
+      "page": "Kanaele-und-Automatisierung",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-desk_diagnostics.png"
+      ]
+    },
+    {
+      "id": "dbw-target-editor",
+      "page": "Kanaele-und-Automatisierung",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-dbw-target-editor.png"
+      ]
+    },
+    {
+      "id": "control-script-binding",
+      "page": "Steuerungsskripte",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-bound-control-script.png"
+      ]
+    },
+    {
+      "id": "operator-terminal",
+      "page": "Bedienterminals",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-operator-terminal.png"
+      ]
+    },
+    {
+      "id": "telemetry",
+      "page": "Telemetrie",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-verified-telemetry.png"
+      ]
+    },
+    {
+      "id": "locked-dock-telemetry",
+      "page": "Telemetrie",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-dock-telemetry.png"
+      ]
+    },
+    {
+      "id": "radar-data-link-routing",
+      "page": "Radar-Routing",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-radar_controller.png",
+        "assets/screenshots/wiki-radar_direct.png"
+      ]
+    },
+    {
+      "id": "radar-contact-selection",
+      "page": "Radar-Routing",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-radar-selected-contact.png"
+      ],
+      "scope": "Native radar and selected-contact state; target selected through the native NetworkData API."
+    },
+    {
+      "id": "native-create-controls",
+      "page": "Zugsteuerung",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-native-create-controls.png"
+      ]
+    },
+    {
+      "id": "dashboard-controller",
+      "page": "Zugsteuerung",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-bound-dashboard.png"
+      ]
+    },
+    {
+      "id": "create-mobile-runtime",
+      "page": "Bewegte-Konstruktionen",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-create-mobile-desk.png"
+      ]
+    },
+    {
+      "id": "sable-global-gps",
+      "page": "Bewegte-Konstruktionen",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-sable-gps.png"
+      ]
+    },
+    {
+      "id": "sources-ui",
+      "page": "Handbuch-und-Quellen",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-sources.png"
+      ]
+    },
+    {
+      "id": "manual-and-ponder",
+      "page": "Handbuch-und-Quellen",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-manual.png"
+      ]
+    },
+    {
+      "id": "pixel-editor",
+      "page": "Handbuch-und-Quellen",
+      "status": "shown",
+      "media": [
+        "assets/screenshots/wiki-pixel-editor.png"
+      ]
+    }
+  ]
+}

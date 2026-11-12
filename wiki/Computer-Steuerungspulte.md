@@ -1,6 +1,13 @@
 # Computer-Steuerungspulte
 
-Normale Aeroworks-Steuereinheiten besitzen einen gemeinsamen Computerslot pro verbundener Reihe. Der Computer verwaltet keinen monolithischen Multiblock-Peripheral mehr. Stattdessen indexiert er jedes verbundene Pult als eigenen Adapter und fasst alle benachbarten Peripherals in einem gemeinsamen Graphen zusammen.
+[[Deutsch|Computer-Steuerungspulte]] · [[English|English#desk-assemblies]]
+
+![Ponder-Szene zum gemeinsamen Computer und der verbundenen Pultreihe.](https://raw.githubusercontent.com/wiki/TeutonStudio/CC-Aeroworks/assets/screenshots/wiki-desk_network.png)
+
+![Eingesetzter Computer im Geräteslot der Modulübersicht.](https://raw.githubusercontent.com/wiki/TeutonStudio/CC-Aeroworks/assets/screenshots/wiki-device-slot.png)
+
+
+Normale Aeroworks-Steuereinheiten besitzen einen gemeinsamen Geräteslot pro verbundener Reihe. Er nimmt einen CC:Tweaked-Computer oder mit optionalem CC: Terminals ein Bedienterminal auf. Diese Seite beschreibt vor allem den Computerbetrieb; die Terminalvariante steht unter [[Bedienterminals]]. Der Computer verwaltet keinen monolithischen Multiblock-Peripheral mehr. Stattdessen indexiert er jedes verbundene Pult als eigenen Adapter und fasst alle benachbarten Peripherals in einem gemeinsamen Graphen zusammen.
 
 ## Varianten
 
@@ -8,8 +15,9 @@ Normale Aeroworks-Steuereinheiten besitzen einen gemeinsamen Computerslot pro ve
 |---|---|
 | Normaler CC:Tweaked-Computer | normaler Computer im gemeinsamen Slot |
 | Erweiterter CC:Tweaked-Computer | erweiterter Computer im gemeinsamen Slot |
+| Normales/erweitertes CC:-Terminals-Terminal | Bedienstation für einen externen Computer, optional |
 
-Die Computerfamilie bestimmt Terminal, Farbe und Kapazität. Beide Varianten verwenden dieselbe Netzwerk- und Ponder-Logik.
+Die Computerfamilie bestimmt die Fähigkeiten des eingesetzten Computers. Erweiterte Slot-Geräte ermöglichen zusammen mit erweiterten Displays Touch. Beide Varianten verwenden dieselbe Netzwerk- und Ponder-Logik.
 
 ## Einsetzen und Datenerhalt
 
@@ -44,16 +52,16 @@ Native Create-Zugsteuerungen und Vorrichtungs-Steuerungen übernehmen bei seitli
 
 Frame- und Panel-Material einer Copycat-Reihe werden atomar auf alle geladenen sichtbaren Segmente übertragen. Pro Segment und aktiver Zone wird ein Materialblock benötigt. Bei unvollständig geladener Reihe oder Materialmangel bleibt der Stil unverändert. Jedes Segment speichert seine Zahlung, damit Abbau, Montage, Demontage und Neuladen weder Material verlieren noch vervielfältigen.
 
-Jedes Mitglied behält:
+Jedes echte Pult behält:
 
 - eine stabile Desk-ID,
 - seine aktuelle Weltposition,
 - seine Module und Displays,
 - Peripherals an seinen sechs Seiten.
 
-Eine integrierte Zugsteuerung zählt als physisches Brückensegment, aber nicht als Pult: Sie besitzt keine Desk-ID, keine Desk-Adresse und keine Module. Modems, andere CC:Tweaked-Peripherals, Create:-Radars-Network-Filterer und Radar-Data-Links an diesem Segment werden trotzdem als Quellen des gemeinsamen Netzes gefunden.
+Integrierte Zugsteuerungen und Vorrichtungs-Steuerungen zählen als physische Brückensegmente, aber nicht als Pulte: Sie besitzt keine Desk-ID, keine Desk-Adresse und keine Module. Modems, andere CC:Tweaked-Peripherals, Create:-Radars-Network-Filterer und Radar-Data-Links an diesem Segment werden trotzdem als Quellen des gemeinsamen Netzes gefunden.
 
-Der Computer darf links, mittig oder rechts stehen. Seine Position verändert die erreichbaren Geräte nicht. Das Netzwerk lädt keine Chunks nach und ist auf 64 vollständig geladene physische Segmente einschließlich Zugsteuerungen begrenzt.
+Der Computer darf links, mittig oder rechts stehen. Seine Position verändert die erreichbaren Geräte nicht. Das Netzwerk lädt keine Chunks nach und ist auf 64 vollständig geladene physische Segmente einschließlich Zug- und Vorrichtungs-Steuerungen begrenzt.
 
 ## Globale `peripherals`-API
 
@@ -129,7 +137,7 @@ Der lokale Adapter greift nur auf dieses Pult zu. Netzwerkweite `getDesk...`-Met
 
 Ein Pultnetz darf höchstens einen eingesetzten Computer enthalten. Mehrere externe Computer an einem Wired-Modem-Netz bleiben davon unberührt.
 
-Ein zweiter Computer kann nicht per Shift-Klick eingesetzt werden. Beim Zusammenführen belegter Reihen bleibt bevorzugt ein erweiterter Computer, danach der erste in Reihenfolge; weitere Computer werden mitsamt Daten ausgeworfen.
+Ein zweiter Computer kann nicht per Shift-Klick eingesetzt werden. Beim Zusammenführen belegter Reihen hat ein Computer Vorrang vor einem Terminal; innerhalb derselben Geräteart bleibt bevorzugt die erweiterte Stufe, danach das erste Gerät in Reihenfolge. Weitere Geräte werden mitsamt ihren gespeicherten Daten ausgeworfen.
 
 Beim Abbau des Trägers wandert der Computer ins größere verbleibende Reststück, bei Gleichstand nach links in der bisherigen Reihenordnung. Die letzte Steuereinheit droppt den Computer zusätzlich. Der Transfer verändert keine Module, Desk-IDs oder lokalen Einstellungen der verbleibenden Steuereinheiten. Chunkentladen verschiebt und droppt keinen Computer.
 
@@ -161,7 +169,7 @@ Alle Texte liegen auf Deutsch und Englisch vor.
 
 ## Fehlerfälle
 
-- mehr als 64 verbundene physische Pult- und Zugsteuerungssegmente: globaler Zugriff wird abgelehnt,
+- mehr als 64 verbundene physische Pult-, Zugsteuerungs- und Vorrichtungs-Steuerungssegmente: globaler Zugriff wird abgelehnt,
 - nicht vollständig geladenes Netzwerk: globaler Zugriff wird abgelehnt,
 - mehrere eingebettete Computer: globaler Zugriff wird abgelehnt,
 - unbekannte Koordinate oder fehlender Typ: `nil`,
@@ -169,3 +177,5 @@ Alle Texte liegen auf Deutsch und Englisch vor.
 - ungültiger Socket: Lua-Fehler.
 
 Die vollständige Methodenübersicht steht in [[API-Schnellreferenz]].
+
+![Copycat-Pultreihe mit Kupferrahmen und Holzpanelen.](https://raw.githubusercontent.com/wiki/TeutonStudio/CC-Aeroworks/assets/screenshots/wiki-copycat-style.png)
