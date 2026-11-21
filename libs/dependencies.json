@@ -192,9 +192,9 @@
       "filenameExamples": [
         "teutonlib-1.6.0.jar"
       ],
-      "sha256": "2f05d48595633db4ec42d1b0b2b742839d3d5ea26d24d26ae6dc4bc56b97e4d7",
-      "source": "Local coordinated TeutonLib 1.6.0 release artifact",
-      "notes": "Required on client and server. Provides the shared workspace, world geometry and bounded network session APIs."
+      "sha256": "bbd46f76d579cd6f17f2c575fa503b8697fadb43c3064d04338d0ded5bcddc16",
+      "source": "Local TeutonLib 1.6.0 build artifact verified with NeoForge 21.1.251",
+      "notes": "Required on client and server. This artifact requires NeoForge 21.1.251 or newer and provides the shared workspace, world geometry and bounded network session APIs."
     }
   ]
 }

@@ -47,7 +47,7 @@ Create: Radars benötigt in der verwendeten 1.21.1-Laufzeit Create Big Cannons. 
 
 Die optionale Kompatibilität mit Create: Train Functionality ist wegen des internen Dashboard-Controller-Lesepfads exakt auf Version 0.1.47 festgelegt. Gradle löst das offizielle Artefakt für lokale Laufzeiten über CurseMaven auf; ein zusätzliches lokales CTF-JAR wird aus dem allgemeinen `fileTree` ausgeschlossen, damit es nicht doppelt geladen wird.
 
-JEI wird zusätzlich über das offizielle BlameJared-Maven und Neat über CurseMaven ausschließlich in den zusätzlichen Runtime-Classpath von `runClient` geladen. `19.39.0.372` ist die höchste veröffentlichte JEI-Version vor der Anhebung der NeoForge-Mindestversion auf `21.1.238` und bleibt damit mit der Projektbasis NeoForge `21.1.234` kompatibel. JEI ermöglicht die manuelle Kontrolle der Crafting- und Create-Verarbeitungsrezepte; Neat ergänzt Lebensleisten über Kreaturen. Beide sind reine Entwicklungswerkzeuge und keine veröffentlichten CC-Aeroworks-Abhängigkeiten.
+JEI wird zusätzlich über das offizielle BlameJared-Maven und Neat über CurseMaven ausschließlich in den zusätzlichen Runtime-Classpath von `runClient` geladen. Die geprüfte JEI-Version `19.39.0.372` bleibt auch mit der Projektbasis NeoForge `21.1.251` kompatibel. JEI ermöglicht die manuelle Kontrolle der Crafting- und Create-Verarbeitungsrezepte; Neat ergänzt Lebensleisten über Kreaturen. Beide sind reine Entwicklungswerkzeuge und keine veröffentlichten CC-Aeroworks-Abhängigkeiten.
 
 Manuell in `libs/` abgelegte offizielle JARs für Create: Radars, Create Big Cannons, Ritchie's Projectile Library, JEI oder Neat werden aus dem allgemeinen Datei-Classpath ausgeschlossen, damit ihre Mod-IDs nicht doppelt geladen werden. Die veröffentlichte CC-Aeroworks-Mod bettet keines dieser Artefakte ein.
 
@@ -55,7 +55,7 @@ Die maschinenlesbaren Dateimuster und bekannte offizielle Beispieldateinamen ste
 
 ## Prüfsummen
 
-`dependencies.json` unterstützt pro Artefakt eine feste SHA-256-Prüfsumme. TeutonLib 1.6.0 ist auf die SHA-256 des koordiniert gebauten Release-Artefakts festgelegt. Andere Felder bleiben `null`, weil verschiedene offizielle Distributionsplattformen identische Modversionen mit unterschiedlich benannten oder neu signierten Dateien ausliefern können. Sobald die vom Team verwendeten Zielartefakte festgelegt sind, werden deren SHA-256-Werte eingetragen und damit verbindlich.
+`dependencies.json` unterstützt pro Artefakt eine feste SHA-256-Prüfsumme. TeutonLib 1.6.0 ist auf die SHA-256 des mit NeoForge 21.1.251 geprüften lokalen Build-Artefakts festgelegt. Das ältere 1.6.0-Artefakt für NeoForge 21.1.234 hat eine andere Prüfsumme und wird als Build-Basis nicht mehr verwendet. Andere Felder bleiben `null`, weil verschiedene offizielle Distributionsplattformen identische Modversionen mit unterschiedlich benannten oder neu signierten Dateien ausliefern können. Sobald die vom Team verwendeten Zielartefakte festgelegt sind, werden deren SHA-256-Werte eingetragen und damit verbindlich.
 
 ```bash
 sha256sum libs/*.jar
@@ -87,6 +87,6 @@ Fehlt ein Pflichtartefakt oder passen mehrere Dateien auf dasselbe Muster, brich
 
 TeutonLib **1.6.0** stellt die gemeinsamen Standard-/Quellen-/Kanalreiter, Sable-Weltgeometrie und Netzwerk-Sitzungshelfer bereit. Lege die Release-JAR `teutonlib-1.6.0.jar` in das konfigurierte Modverzeichnis. Alternativ baue das benachbarte TeutonLib-Projekt mit `./gradlew build` und kopiere diese JAR aus `build/libs/`; die Sources-JAR gehört nicht auf den Mod-Classpath. Ältere TeutonLib-Versionen genügen den aktuellen Integrations-APIs nicht.
 
-Die gemeinsame Basis ist NeoForge **21.1.234**. Auf Pultcomputern bleiben Aeroworks-Kanäle, Gruppen, DbW-Ziele und Lua-APIs maßgeblich. Es wird kein zweiter beschreibbarer TeutonLib-Kanalbestand angelegt. Die bestehende Kanalspeicherung benötigt keine Migration. Siehe [Integration und Abnahme](../docs/teutonlib-computer-ui.md).
+Die gemeinsame Mindestversion ist NeoForge **21.1.251**. Die aktuellen lokalen TeutonLib-JARs 1.6.0 bis 1.6.3 verlangen diese Version. Auf Pultcomputern bleiben Aeroworks-Kanäle, Gruppen, DbW-Ziele und Lua-APIs maßgeblich. Es wird kein zweiter beschreibbarer TeutonLib-Kanalbestand angelegt. Die bestehende Kanalspeicherung benötigt keine Migration. Siehe [Integration und Abnahme](../docs/teutonlib-computer-ui.md).
 
 Die veröffentlichte Laufzeit unterstützt TeutonLib `[1.6.0,1.7.0)`. Das lokale Build-Manifest ist auf die API-Basis 1.6.0 mit fester SHA-256 gepinnt.

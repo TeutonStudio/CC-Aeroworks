@@ -1,6 +1,6 @@
 # Gemeinsame Computeroberfläche mit TeutonLib
 
-CC-Aeroworks unterstützt TeutonLib 1.6.x ab 1.6.0 auf Client und Server sowie NeoForge 21.1.234. TeutonLib muss vor CC-Aeroworks geladen werden; TeutonLib besitzt keine Abhängigkeit zurück zu Aeroworks.
+CC-Aeroworks unterstützt TeutonLib 1.6.x ab 1.6.0 auf Client und Server sowie NeoForge ab 21.1.251. TeutonLib muss vor CC-Aeroworks geladen werden; TeutonLib besitzt keine Abhängigkeit zurück zu Aeroworks.
 
 ## Bedienung
 
