@@ -35,6 +35,6 @@ CC-Aeroworks verbindet die Steuerungspulte von **Create: Aeroworks** mit **CC:Tw
 
 [Downloads](https://github.com/TeutonStudio/CC-Aeroworks/releases) · [Modrinth](https://modrinth.com/mod/cc-aeroworks) · [Beispielprogramme](https://github.com/TeutonStudio/CC-Aeroworks/tree/master/examples/cc) · [Fehler melden](https://github.com/TeutonStudio/CC-Aeroworks/issues)
 
-Die Installationsanleitung beschreibt das veröffentlichte Release **1.5.3**. Die technische Übersicht im Repository beschreibt zusätzlich den lokalen Entwicklungsstand **1.5.4**; insbesondere unterscheiden sich die TeutonLib-Abhängigkeiten. Verwende die zur installierten Version passenden Loader-Anforderungen.
+Die Installationsanleitung und die technische Übersicht im Repository beschreiben **Release 1.5.5** mit NeoForge ab **21.1.251**, TeutonLib **1.6.x** und Sable ab **2.0.6**. Für ältere Releases gelten die Metadaten der jeweiligen JAR.
 
 Die neuen Ingame-Aufnahmen zeigen den lokalen Entwicklungsstand 1.5.4 mit TeutonLib 1.6.0. Die Rezeptgrafiken stammen aus 1.5.3.

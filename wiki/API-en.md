@@ -5,7 +5,7 @@
 ![In-game Ponder demonstration of output on a mounted display.](https://raw.githubusercontent.com/wiki/TeutonStudio/CC-Aeroworks/assets/screenshots/wiki-display_programming.png)
 
 
-This page covers programming in **CC-Aeroworks 1.5.3**. The [[four displays and their recipe images|Displays-en]] have a separate hardware guide. Lua identifiers are the same in every language.
+This page covers programming in **CC-Aeroworks 1.5.5**. The [[four displays and their recipe images|Displays-en]] have a separate hardware guide. Lua identifiers are the same in every language.
 
 ## Choose the access method
 

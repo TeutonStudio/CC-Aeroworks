@@ -2,23 +2,23 @@
 
 [[Deutsch|Installation]] · [[English|English#installation]]
 
-Diese Anleitung gilt für **CC-Aeroworks 1.5.3**, Minecraft **1.21.1** und **NeoForge**. Installiere bei einem Server dieselben erforderlichen Mods auch auf den Clients.
+Diese Anleitung gilt für **CC-Aeroworks 1.5.5**, Minecraft **1.21.1** und **NeoForge**. Installiere bei einem Server dieselben erforderlichen Mods auch auf den Clients.
 
 ## Erforderliche Komponenten
 
-Die folgende Kombination entspricht der Projekt-Baseline. Die Versionsbereiche stammen aus den Mod-Metadaten von 1.5.3.
+Die folgende Kombination entspricht der Projekt-Baseline. Die Versionsbereiche stammen aus den Mod-Metadaten von 1.5.5.
 
 | Komponente | Baseline | Akzeptierter Bereich |
 |---|---|---|
 | Minecraft | 1.21.1 | genau 1.21.1 |
 | Java | 21 | Java 21 für diese Minecraft-Version |
-| NeoForge | 21.1.234 | ab 21.1.234, passend zu Minecraft 1.21.1 |
+| NeoForge | 21.1.251 | ab 21.1.251, passend zu Minecraft 1.21.1 |
 | Create | 6.0.10 | ab 6.0.10, unter 6.0.11 |
 | Create: Aeroworks | 1.5.0 | ab 1.5.0, unter 1.6.0 |
 | Create: Aeronautics | 1.3.2 | ab 1.3.2, unter 1.4.0 |
-| Sable | 2.0.5 | ab 2.0.1 |
+| Sable | 2.0.6 | ab 2.0.6 |
 | CC:Tweaked | 1.120.2 | ab 1.119.0, unter 1.121.0 |
-| TeutonLib | 1.5.0 | ab 1.5.0, unter 1.6.0 |
+| TeutonLib | 1.6.0 | ab 1.6.0, unter 1.7.0 |
 | Kotlin for Forge | 5.12.0 | ab 5.11.0, unter 6.0.0 |
 
 Die Versionsbereiche weiterer Abhängigkeiten müssen ebenfalls zueinander passen. Verwende NeoForge-/Minecraft-1.21.1-Dateien der jeweiligen Projekte. Die Versionsnummer des Aeroworks-Modpacks ist nicht die Versionsnummer der Aeroworks-Mod.
@@ -27,7 +27,7 @@ Die Versionsbereiche weiterer Abhängigkeiten müssen ebenfalls zueinander passe
 
 1. Sichere eine bestehende Welt vor einem Versionswechsel.
 2. Richte Minecraft 1.21.1 mit NeoForge ein und starte das Profil einmal.
-3. Lade `cc-aeroworks-1.5.3.jar` aus dem [Release 1.5.3](https://github.com/TeutonStudio/CC-Aeroworks/releases/tag/v1.5.3) herunter.
+3. Lade `cc-aeroworks-1.5.5.jar` aus dem [Release 1.5.5](https://github.com/TeutonStudio/CC-Aeroworks/releases/tag/v1.5.5) herunter.
 4. Lege die JAR und die erforderlichen Abhängigkeiten in den `mods`-Ordner der Instanz. Entferne ältere doppelte Versionen derselben Mod.
 5. Starte das Spiel beziehungsweise den Server. Prüfe bei einem Ladefehler zuerst die vom Loader genannten Mod-IDs und Versionsbereiche.
 6. Baue ein Aeroworks-Pult und folge [[Erste Schritte|Erste-Schritte]].
@@ -57,11 +57,11 @@ Prüfe bei optionalen Mods auch deren eigene Abhängigkeiten. JEI ist als Rezept
 - Alte X/Y-Auflösungsschlüssel werden durch `display.ppb` ersetzt. Nach einer Rasteränderung müssen Pixelbilder neu gezeichnet werden.
 
 
-## Lokaler Entwicklungsstand 1.5.4
+## Abbildungen und ältere Releases
 
 Die neuen Ingame-Abbildungen wurden mit dem lokalen Entwicklungsstand 1.5.4 und TeutonLib 1.6.0 aufgenommen.
-Dieser Stand benötigt TeutonLib 1.6.x und Sable 2.0.6. Er ändert nicht die oben aufgeführten
-Versionsanforderungen des veröffentlichten Releases 1.5.3. Die gemeinsame Computeroberfläche
+Release 1.5.5 benötigt ebenfalls TeutonLib 1.6.x und Sable ab 2.0.6 sowie NeoForge ab 21.1.251.
+Für ältere Releases gelten die Metadaten ihrer jeweiligen JAR. Die gemeinsame Computeroberfläche
 kann sich deshalb von einer älteren installierten Version unterscheiden.
 
 Die [technische Entwicklungsübersicht](https://github.com/TeutonStudio/CC-Aeroworks/blob/master/docs/overview-de.md)

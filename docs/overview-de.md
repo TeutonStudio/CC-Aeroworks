@@ -1,6 +1,6 @@
 # CC-Aeroworks
 
-Technische Übersicht des lokalen Entwicklungsstands 1.5.4. Für veröffentlichte Builds gelten die Versionsbereiche der jeweiligen Release-Metadaten.
+Technische Übersicht für CC-Aeroworks 1.5.5. Für ältere Builds gelten die Versionsbereiche der jeweiligen Release-Metadaten.
 
 CC-Aeroworks verbindet **Create: Aeroworks Control Desks** mit **CC:Tweaked** und macht aus einer Reihe von Steuerungspulten ein programmierbares Cockpit-Netzwerk. Die Mod ergänzt gemeinsame Geräteslots für Computer oder geschützte Bedienterminals, adressierbare Desk-Peripherals, eine netzwerkweite Lua-API, programmierbare Displays, Touch-/Draw-Eingabe, Create-Telemetrie, steuerbare Kanäle sowie optionale Create:-Radars- und Create:-Train-Functionality-Integration.
 
@@ -234,7 +234,7 @@ Die ausführliche externe Referenz liegt unter [`docs/cc-peripheral-api.md`](cc-
 ## Entwicklungsumgebung
 
 - Minecraft 1.21.1
-- NeoForge 21.1.234+
+- NeoForge 21.1.251+
 - TeutonLib 1.6.x ab 1.6.0 (Pflicht auf Client und Server; gemeinsame Computer-, Geometrie- und Netzwerkbasis)
 - Java 21
 - Kotlin 2.4.0 / KotlinForForge NeoForge 5.12.0

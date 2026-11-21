@@ -4,21 +4,21 @@
 
 CC-Aeroworks turns **Create: Aeroworks** desks into programmable cockpits using **CC:Tweaked**. This guide covers setup, every user-facing feature and important limits. The detailed [[display guide|Displays-en]] and [[Lua API|API-en]] are also available in English.
 
-The installation baseline below is the published **1.5.3** release. Local development **1.5.4** changes the TeutonLib baseline to 1.6.x. Follow the dependency ranges reported by your installed build; do not combine the two baselines.
+The installation baseline below is **CC-Aeroworks 1.5.5**, which requires NeoForge 21.1.251 or newer and TeutonLib 1.6.x. Older releases retain the dependency ranges reported by their own metadata.
 
 ## Installation
 
 Install the mod and its dependencies on **both client and server**. Use Minecraft **1.21.1**, **NeoForge** and **Java 21**.
 
-| Required component | Published 1.5.3 baseline |
+| Required component | Release 1.5.5 baseline |
 |---|---|
-| NeoForge | 21.1.234 or newer for Minecraft 1.21.1 |
+| NeoForge | 21.1.251 or newer for Minecraft 1.21.1 |
 | Create | 6.0.10; below 6.0.11 |
 | Create: Aeroworks | 1.5.0; below 1.6.0 |
 | Create: Aeronautics | 1.3.2; below 1.4.0 |
-| Sable | 2.0.5 baseline; at least 2.0.1 in the 1.5.3 metadata |
+| Sable | 2.0.6 or newer |
 | CC:Tweaked | 1.120.2 baseline; 1.119.0 to below 1.121.0 |
-| TeutonLib | 1.5.x for 1.5.3; 1.6.x for local development 1.5.4 |
+| TeutonLib | 1.6.0 or newer, below 1.7.0 |
 | Kotlin for Forge | 5.12.0 baseline; at least 5.11.0, below 6.0.0 |
 
 Download CC-Aeroworks from [GitHub Releases](https://github.com/TeutonStudio/CC-Aeroworks/releases) or [Modrinth](https://modrinth.com/mod/cc-aeroworks). Put the JARs in the instance's `mods` directory and remove duplicate versions. Check each dependency's own requirements too.

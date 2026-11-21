@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.5.5 — 2026-11-21
 
 - Raised the NeoForge build and runtime minimum to 21.1.251 and pinned the matching local TeutonLib 1.6.0 artifact; the supported TeutonLib range remains `[1.6.0,1.7.0)`.
 - Fixed repeated mobile computer saves losing later state changes after a peripheral adapter replaced its NBT.
