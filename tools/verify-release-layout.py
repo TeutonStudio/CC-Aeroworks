@@ -12,13 +12,14 @@ def require(condition: bool, message: str) -> None:
 
 
 index = (ROOT / "README.md").read_text(encoding="utf-8")
-german = (ROOT / "README_GER.md").read_text(encoding="utf-8")
-english = (ROOT / "README_ENG.md").read_text(encoding="utf-8")
+german = (ROOT / "docs/overview-de.md").read_text(encoding="utf-8")
+english = (ROOT / "docs/overview-en.md").read_text(encoding="utf-8")
 workflow = (ROOT / ".github/workflows/verify.yml").read_text(encoding="utf-8")
 
-require("README_GER.md" in index and "README_ENG.md" in index, "README language index must link both language variants")
-require(index.index("README_GER.md") < index.index("README_ENG.md"), "German README must be listed before English")
-for name, content in (("German README", german), ("English README", english)):
+require(len(index.split()) < 130, "README must remain a concise English introduction")
+require("/wiki/English" in index and "/wiki)" in index, "README must link both Wiki languages")
+require("Sprache / Language" not in index, "README must not remain a language index")
+for name, content in (("German technical overview", german), ("English technical overview", english)):
     require("peripherals.find" in content, f"{name} must document the current peripherals API")
     require("aeroworks.getDesks" not in content, f"{name} still documents the removed aeroworks.getDesks API")
     require("setDeskDisplay" not in content, f"{name} still documents removed network-wide display methods")
@@ -37,4 +38,4 @@ require("refs/heads/release/" in workflow, "Protected full build must run on rel
 require("github.head_ref" in workflow and "release/" in workflow,
         "Protected full build must cover same-repository release pull requests")
 
-print("Validated bilingual README entry point, removed-monolith verifier hygiene and release-branch CI gates.")
+print("Validated concise README and bilingual technical overviews, removed-monolith verifier hygiene and release-branch CI gates.")

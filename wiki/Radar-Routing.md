@@ -1,13 +1,17 @@
 # Erweiterte Displays und Create: Radars
 
+[[Deutsch|Radar-Routing]] · [[English|English#radar]]
+
+![Ponder-Aufbau für die Radarquelle des Pultcomputers.](https://raw.githubusercontent.com/wiki/TeutonStudio/CC-Aeroworks/assets/screenshots/wiki-radar_controller.png)
+
+![Ponder-Aufbau für die direkte Radar-Anzeige mit nativem Data Link.](https://raw.githubusercontent.com/wiki/TeutonStudio/CC-Aeroworks/assets/screenshots/wiki-radar_direct.png)
+
+
 Radar ist kein separates Display-Item. Ein kleines oder großes erweitertes Display kann im Dropdown `Display-Steuerung` statt eines Lua-Skripts eine Radarquelle als Pseudo-Skript auswählen. Diese Quelle kann über einen nativen Create:-Radars-Monitorendpoint oder über den eingebetteten Computer des Pultnetzes versorgt werden. Displays innerhalb desselben CC-Aeroworks-Pultmultiblocks können außerdem den bereits synchronisierten Radar-Snapshot eines anderen Display-Pults auswählen.
 
-## Unterstützte Pulte
+## Voraussetzungen
 
-- Aeroworks-Steuerungspult
-- Advanced Aeroworks-Steuerungspult
-- ComputerControlDesk
-- Advanced ComputerControlDesk
+Installiere die optionale Create:-Radars-Kombination aus [[Installation]]. Verwende ein Pult der gemeinsamen Reihe mit einem kleinen oder großen **erweiterten** Display. Für Display-Touch muss außerdem ein erweitertes Slot-Gerät eingesetzt sein. Alte Computerpult-Bezeichnungen meinen heute normale Pulte mit eingesetztem Computer.
 
 Ein Pult ohne kleines oder großes **erweitertes** Display wird vom Data Link nicht als Monitor akzeptiert. Normale Displays bleiben reine Ausgaben und können keine Radar-Pseudo-Skriptquelle wählen.
 
@@ -23,7 +27,7 @@ Der Network Filterer muss für diesen nativen Pfad nicht direkt neben dem Pult s
 
 ## Alternativ über den Pultcomputer
 
-Bei einem aktiven Pultnetz mit genau einem eingebetteten Computer ist kein zweiter Data Link zum Display-Pult nötig. Dafür den Network Filterer direkt an ein Pultmitglied oder eine integrierte Create-Zugsteuerung setzen oder eine bereits vorhandene Endpoint-Zuordnung eines solchen Segments verwenden. Der Filterer muss weiterhin separat per Data Link mit dem Radar verbunden sein. Ein nativer Monitor-Data-Link darf ebenfalls direkt auf eine integrierte Zugsteuerung zielen.
+Bei einem aktiven Pultnetz mit genau einem eingebetteten Computer ist kein zweiter Data Link zum Display-Pult nötig. Dafür den Network Filterer direkt an ein Pultmitglied oder eine integrierte Create-Zug- oder Vorrichtungs-Steuerung setzen oder eine bereits vorhandene Endpoint-Zuordnung eines solchen Segments verwenden. Der Filterer muss weiterhin separat per Data Link mit dem Radar verbunden sein. Ein nativer Monitor-Data-Link darf ebenfalls direkt auf eine integrierte Create-Steuerung zielen.
 
 Der Computer routet Radarposition, Detection-Filter, Zielauswahl und native Tracks aus der Filterer-Gruppe an erweiterte Displays mit gewählter Radarquelle. Ein echter Monitorendpoint am jeweiligen Pult hat Vorrang. Sind ohne lokalen Monitorendpoint mehrere Network Filterer sichtbar, meldet das Display `Mehrere Network Controller`; es wählt nicht automatisch einen davon.
 
@@ -86,10 +90,12 @@ Die Filterung verwendet dieselbe native `DetectionConfig` wie ein Create:-Radars
 Ein `ControlDesk` stellt zusätzlich bereit:
 
 ```lua
+local desk = peripheral.find("ControlDesk")
+assert(desk, "Kein lokales Pult verbunden")
 local sources = desk.getRadarSources()
 local binding = desk.getDisplayBinding("big")
 
-desk.setRadarSource("big", sources[1].id)
+if sources[1] then desk.setRadarSource("big", sources[1].id) end
 desk.setRadarSource("big", "local")
 desk.clearDisplayBinding("big")
 ```
@@ -104,7 +110,7 @@ desk.setDisplayTouchScript("big", "/ui/main.lua")
 
 Eingebettete Computer benötigen keinen separaten Router-Prozess. Die mitgelieferte CraftOS-Autorun-Runtime verarbeitet `cc_aeroworks_console_display_input`, löst das gebundene Skript automatisch auf und ruft dessen `onTap`, `onDraw`, Legacy-`onDoubleTap` oder `onPointer`-Handler auf. Handler werden in einer Shell-kompatiblen Umgebung mit normalem `require`/`package` geladen; Draw-Handler werden pro Geste wiederverwendet und nach deren Ende verworfen, sodass Skriptänderungen nicht dauerhaft von einem alten Chunk verdeckt werden. Externe Computer erhalten weiterhin die normalen Desk-/`monitor_touch`-Kompatibilitätsereignisse, führen aber keine owner-lokalen Skriptpfade automatisch aus.
 
-Für Touch-/Draw-Beispiele siehe `examples/cc/touch-test.lua` sowie `docs/display-touch.md`.
+Für Touch-/Draw-Beispiele siehe das [Touch-Beispiel](https://github.com/TeutonStudio/CC-Aeroworks/blob/master/examples/cc/touch-test.lua) und die [Touch-Dokumentation](https://github.com/TeutonStudio/CC-Aeroworks/blob/master/docs/display-touch.md).
 
 ## Trennen
 
@@ -122,4 +128,6 @@ Bei Routing-Problemen zuerst `desk.getRadarSources()` und `desk.getDisplayBindin
 
 Ohne Create: Radars startet CC-Aeroworks weiterhin. Die Radar-Pseudo-Skripte und optionalen Ponder-Inhalte werden nicht geladen; normale und erweiterte Displays, Computerpulte und Steuereinheiten bleiben verfügbar.
 
-`Kein Radar zugeordnet` bedeutet: Der Pultendpoint ist mit dem Controller verbunden, aber die native Netzwerkgruppe hat keinen Radar. Controller → Radar separat mit dem Data-Link-Gegenstand verbinden. Die Quellenwahl allein erzeugt diese Zuordnung nicht. Beide Diagnoseschalter sind standardmäßig aus; siehe [Konfiguration](../docs/configuration.md).
+`Kein Radar zugeordnet` bedeutet: Der Pultendpoint ist mit dem Controller verbunden, aber die native Netzwerkgruppe hat keinen Radar. Controller → Radar separat mit dem Data-Link-Gegenstand verbinden. Die Quellenwahl allein erzeugt diese Zuordnung nicht. Beide Diagnoseschalter sind standardmäßig aus; siehe [[Konfiguration]].
+
+![Native Radaransicht eines laufenden Radars mit realen Testwelt-Kontakten. Ein Kuh-Kontakt ist im nativen Netzwerk als Ziel ausgewählt.](https://raw.githubusercontent.com/wiki/TeutonStudio/CC-Aeroworks/assets/screenshots/wiki-radar-selected-contact.png)

@@ -1,5 +1,10 @@
 # Peripheral-Netzwerk
 
+[[Deutsch|Peripheral-Netzwerk]] · [[English|English#peripheral-network]]
+
+![Ponder zeigt ein angeschlossenes Funkmodem und adressierbare Pultsegmente.](https://raw.githubusercontent.com/wiki/TeutonStudio/CC-Aeroworks/assets/screenshots/wiki-peripheral_search.png)
+
+
 Der eingebettete Computer behandelt den Pultverbund als Netzwerk aus einzelnen Desk-Adaptern. Er scannt die sechs Seiten jedes vollständig geladenen Pults und indexiert alle dort angebotenen CC:Tweaked-Peripherals.
 
 ## Netzwerkgraph
@@ -23,7 +28,7 @@ print(network.deskCount, network.peripheralCount)
 
 Die Netzwerk-ID wird aus Dimension und sortierten Desk-IDs abgeleitet. Sie bleibt deshalb bei einer reinen Positionsänderung stabil, ändert sich aber, wenn Pulte zum Verbund hinzukommen oder ihn verlassen.
 
-Berührt dasselbe physische Peripheral mehrere Pultflächen, wird es nur einmal gezählt, sofern Blockposition, gemeldete Typmenge und CC:Tweaked-Identität übereinstimmen. Unterschiedliche seitenspezifische Capabilities bleiben getrennte Einträge. Menschen haben tatsächlich Geräte gebaut, die je nach angefasster Seite etwas anderes behaupten, also muss auch das berücksichtigt werden.
+Berührt dasselbe physische Peripheral mehrere Pultflächen, wird es nur einmal gezählt, sofern Blockposition, gemeldete Typmenge und CC:Tweaked-Identität übereinstimmen. Unterschiedliche seitenspezifische Capabilities bleiben getrennte Einträge.
 
 ## Pulte finden
 
@@ -162,15 +167,21 @@ Eine reine Capability-Änderung kann sofort geprüft werden:
 peripherals.refresh()
 ```
 
-Native Create-Zugsteuerungen, die als Pultchassis integriert sind, verbinden den Graphen ohne selbst ein `ControlDesk` zu werden. Direkt an ihnen platzierte Peripherals werden mit ihrer echten Position und Seite dem nächstgelegenen echten Pult zugeordnet. Ihre Adresse enthält zusätzlich das physische Brückensegment.
+Native Create-Zugsteuerungen und Vorrichtungs-Steuerungen, die als Pultchassis integriert sind, verbinden den Graphen ohne selbst ein `ControlDesk` zu werden. Direkt an ihnen platzierte Peripherals werden mit ihrer echten Position und Seite dem nächstgelegenen echten Pult zugeordnet. Ihre Adresse enthält zusätzlich das physische Brückensegment.
 
 ## Grenzen
 
 Der globale Zugriff wird abgelehnt bei:
 
 - mehreren eingebetteten Computern,
-- mehr als 64 physischen Pult- und Zugsteuerungssegmenten,
+- mehr als 64 physischen Pult-, Zugsteuerungs- und Vorrichtungs-Steuerungssegmenten,
 - teilweise geladenen Reihen,
 - einem Computer, der den aufgelösten Verbund nicht besitzt.
 
-Die sechs physischen Seiten des Computerblocks bleiben lokale CC:Tweaked-Seiten. Entfernte Geräte werden ausschließlich über `peripherals` adressiert.
+Die sechs physischen Seiten des Computerträgers bleiben lokale CC:Tweaked-Seiten. Entfernte Geräte werden ausschließlich über `peripherals` adressiert.
+
+## Baumansicht und bewegte Netze
+
+`peripherals.getTree()` liefert die hierarchische Sicht des Netzes. `getInfo()` und `getNetwork()` melden zusätzlich die `assemblyId` der expliziten Reihe. Zwei direkt benachbarte Reihen mit unterschiedlicher Assembly-Zugehörigkeit haben getrennte Graphen.
+
+`getNetwork().space` unterscheidet `world`, `sable` und `contraption`. Auf mobilen Create-Contraptions stehen nur ausdrücklich adaptierte Geräte zur Verfügung. Weitere Koordinaten- und Lifecycle-Regeln stehen unter [[Bewegte Konstruktionen|Bewegte-Konstruktionen]].

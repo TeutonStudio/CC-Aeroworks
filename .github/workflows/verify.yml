@@ -79,6 +79,9 @@ jobs:
       - name: Validate guide and Ponder resources
         run: python3 tools/verify-guide.py
 
+      - name: Validate Wiki navigation and media
+        run: python3 tools/verify-wiki.py --require-all-media
+
       - name: Validate API reference catalog
         run: python3 tools/verify-api-reference.py
 

@@ -1,90 +1,40 @@
-# CC-Aeroworks Wiki
+# CC-Aeroworks
 
-CC-Aeroworks verbindet die Steuerungspulte aus Create: Aeroworks mit CC:Tweaked. Die Mod ergänzt adressierbare Pultadapter, ein netzwerkweites Peripheral-Verzeichnis für eingebettete Computer, programmierbare Displays, kombinierte Maussteuerung und optionale Create:-Radars-Anzeigen.
+**Deutsch** · [[English|English]]
+
+CC-Aeroworks verbindet die Steuerungspulte von **Create: Aeroworks** mit **CC:Tweaked**. Baue ein programmierbares Cockpit mit gemeinsamem Computer, Displays, Eingaben und Messwerten. Optionale Integrationen ergänzen Radar, Zugsteuerung und Telemetrie angedockter Module.
 
 ## Einstieg
 
-- [[Bedienung]] erklärt Terminal, normale Steuerung, Einstellungen und Ponder.
-- [[Computer-Steuerungspulte]] erklärt Crafting, Computerposition und Netzwerkregeln.
-- [[Peripheral-Netzwerk]] erklärt Desk-Adapter, Typauflösung und Geräteadressen.
-- [[API-Schnellreferenz]] listet alle Lua-Methoden und Rückgabeformen.
-- [[Programmierbare-Displays]] beschreibt Text-, Zahlen- und Pixelmodus.
-- [[Radar-Routing]] erklärt Radar-Pseudo-Skripte für erweiterte Displays sowie Data-Link- und Network-Controller-Quellen.
-- [[Kombinierte-Eingabe]] erklärt den Halte-zu-Steuern-Modus.
+1. [[Installation]] — benötigte Mods und Umstieg von älteren Versionen.
+2. [[Erste Schritte|Erste-Schritte]] — Computer einsetzen, Pulte finden und eine Anzeige ansteuern.
+3. [[Bedienung]] — Geräteübersicht, Einstellungen, Steuerungs-HUD und Ponder.
 
-## Zwei Zugriffsebenen
+## Funktionen
 
-### Eingebetteter Computer
-
-Ein normales oder erweitertes Computer-Steuerungspult stellt die globale API `peripherals` bereit. Es darf an jeder Position der Pultreihe stehen.
-
-```lua
-local desks = peripherals.find("ControlDesk")
-local desk = desks["12,64,-7"]
-assert(desk, "Zielpult fehlt")
-
-desk.setDisplayText("big", "123")
-```
-
-Ein im gesamten Verbund genau einmal vorkommendes Gerät ist direkt über seinen Typ erreichbar:
-
-```lua
-local modem = peripherals.find("endermodem")
-assert(modem, "Kein EnderModem vorhanden")
-modem.open(42)
-```
-
-### Externer Computer
-
-Ein gewöhnlicher CC:Tweaked-Computer oder ein Wired Modem verbindet sich mit jedem Pult als eigenem lokalen `ControlDesk`-Peripheral:
-
-```lua
-local desk = peripheral.find("ControlDesk")
-assert(desk, "Kein lokales Steuerungspult verbunden")
-
-print(desk.getInput("left"))
-desk.setDisplayText("big", "123")
-```
-
-Der lokale Adapter sieht ausschließlich dieses Pult. Mehrere Pulte in einem Wired-Modem-Netz bleiben mehrere normale CC:Tweaked-Peripherals.
-
-## Bedienung in drei Zeilen
-
-| Aktion | Eingabe |
+| Thema | Anleitung |
 |---|---|
-| Eingebetteten Computer öffnen | Schleichen + Rechtsklick mit leerer Haupthand auf ein geladenes Pult |
-| Montierte Steuerung bedienen | normaler Rechtsklick auf das Modul |
-| Steuerungseinstellungen öffnen | Create-Schraubenschlüssel + Rechtsklick auf eine horizontale Pultseite |
+| Pultreihen, Geräteslot, Copycat-Stile und Create-Steuerungen | [[Computer-Steuerungspulte]] |
+| Lokale und netzwerkweite Geräte | [[Peripheral-Netzwerk]] |
+| Kleine und große Displays, normale und erweiterte Stufen | [Displays und Rezepte](Programmierbare-Displays) |
+| Pixel, Farbe, Touch und Draw | [Display-API](API-Schnellreferenz) |
+| Tastatur und Maus für Hebel, Joystick und Throttle | [Kombinierte Eingabe](Kombinierte-Eingabe) |
+| Physische Kanäle, Wire-Ausgänge, Gruppen und Drive By Wire | [Kanäle und Automatisierung](Kanaele-und-Automatisierung) |
+| Lua-Handler für Steuermodule | [[Steuerungsskripte]] |
+| Bedienstationen mit externem Computer | [[Bedienterminals]] |
+| Create-Display-Links und Simulated-Docks | [[Telemetrie]] |
+| Radarquelle, Filter, Display und Ziele | [[Radar-Routing]] |
+| Native Create-Steuerungen und Dashboard Controller | [[Zugsteuerung]] |
+| Create-Contraptions, Sable und GPS | [Bewegte Konstruktionen](Bewegte-Konstruktionen) |
 
-Über Computerpult-, Display- und Radaritem kann im Inventar oder Rezeptbetrachter **W gehalten** werden, um die passenden Ponder-Erklärungen zu öffnen.
+[[Handbuch, Quellen und Pixel-Editor|Handbuch-und-Quellen]]
 
-## Netzwerkregeln
+## Nachschlagen
 
-Gleich ausgerichtete Steuerungspulte verbinden sich unmittelbar links und rechts zu einer linearen Reihe. Normale Aeroworks-Pulte und beide Computerpultvarianten dürfen gemischt werden.
+[[Lua-API|API-Schnellreferenz]] · [[Konfiguration]] · [[Fehlerbehebung]]
 
-Seitlich an Bodenpulte oder Steuerstände gesetzte native Create-Zugsteuerungen können die Reihe als transparente Segmente verbinden. Sie sind keine adressierbaren `ControlDesk`-Knoten; direkt angrenzende Modems, Network Filterer und Data Links stehen dem Multiblock dennoch als Quellen zur Verfügung.
+[Downloads](https://github.com/TeutonStudio/CC-Aeroworks/releases) · [Modrinth](https://modrinth.com/mod/cc-aeroworks) · [Beispielprogramme](https://github.com/TeutonStudio/CC-Aeroworks/tree/master/examples/cc) · [Fehler melden](https://github.com/TeutonStudio/CC-Aeroworks/issues)
 
-- maximal 64 physische Pult- und Zugsteuerungssegmente,
-- keine automatische Chunk-Nachladung,
-- teilweise geladene Netzwerke werden abgelehnt,
-- höchstens ein eingebetteter Computer,
-- jeder Desk behält stabile ID, Position, Module, Displays und Anschlussseiten,
-- ein versehentlich platziertes zweites Computerpult wird zu einem normalen Pult; der zusätzliche Computer wird mit seinen Daten ausgeworfen,
-- Konflikte aus Altwelten, Befehlen oder Strukturwerkzeugen bleiben diagnostizierbar.
+Die Installationsanleitung beschreibt das veröffentlichte Release **1.5.3**. Die technische Übersicht im Repository beschreibt zusätzlich den lokalen Entwicklungsstand **1.5.4**; insbesondere unterscheiden sich die TeutonLib-Abhängigkeiten. Verwende die zur installierten Version passenden Loader-Anforderungen.
 
-## Wichtige Begriffe
-
-| Begriff | Bedeutung |
-|---|---|
-| Desk | Ein einzelnes adressierbares Steuerungspult |
-| Desk-Handle | Lua-Objekt für Module, Displays und lokale Nachbargeräte eines Pults |
-| Socket | Ein Modulplatz: `left`, `right` oder `big` |
-| Desk-ID | Stabile UUID eines Pults |
-| Desk-Adresse | Aktuelle Weltposition als `x,y,z` |
-| Peripheral-Adresse | Desk-Adresse plus Anschlussseite, zum Beispiel `12,64,-7/north` |
-| `peripherals` | Globale Graph-API des eingebetteten Computers |
-| `ControlDesk` | Lokaler Peripheral-Typ jedes einzelnen Pults |
-
-## Projektstatus
-
-Die Repositoryprüfungen validieren API-Vertrag, Übersetzungen, Ponder-Struktur, Radarressourcen, Rezepte und Dokumentation. Ein vollständiger Modbuild und dedizierter Server-Smoke-Test benötigen das rechtmäßig bereitgestellte Abhängigkeitspaket des Projekts.
+Die neuen Ingame-Aufnahmen zeigen den lokalen Entwicklungsstand 1.5.4 mit TeutonLib 1.6.0. Die Rezeptgrafiken stammen aus 1.5.3.

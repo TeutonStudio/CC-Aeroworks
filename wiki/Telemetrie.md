@@ -1,6 +1,8 @@
 # Telemetrie
 
-Der eingebettete `ComputerControlDesk` kann Create-Display-Links als strukturierte Telemetrieeingänge verwenden. Normale ControlDesks bleiben dagegen normale Create-Display-Ziele.
+[[Deutsch|Telemetrie]] · [[English|English#telemetry-and-docking]]
+
+Ein Pult mit eingebettetem Computer (`ComputerControlDesk`) kann Create-Display-Links als strukturierte Telemetrieeingänge verwenden. Pulte ohne diese Computerrolle behalten ihr normales Create-Display-Zielverhalten. Wähle als Telemetrieziel den Computerträger.
 
 ## Lokale Messwerte
 
@@ -67,7 +69,7 @@ Remote-Daten:
 ```lua
 if dock and dock.getInfo().locked then
   local fuel = dock.getTelemetry("fuel")
-  print(fuel.value.percent)
+  if fuel then print(fuel.value.percent) end
 end
 ```
 
@@ -100,7 +102,18 @@ Identische Display-Link-Refreshs erzeugen kein `changed`-Event.
 
 Ausführliche Entwicklerdokumentation im Repository:
 
-- `docs/telemetry.md`
-- `docs/docking-telemetry.md`
-- `docs/telemetry-test-plan.md`
-- `examples/cc/telemetry-dashboard.lua`
+- [Telemetrievertrag](https://github.com/TeutonStudio/CC-Aeroworks/blob/master/docs/telemetry.md)
+- [Docking-Telemetrie](https://github.com/TeutonStudio/CC-Aeroworks/blob/master/docs/docking-telemetry.md)
+- [Telemetrie-Dashboard](https://github.com/TeutonStudio/CC-Aeroworks/blob/master/examples/cc/telemetry-dashboard.lua)
+
+## Messwert prüfen
+
+Prüfe vor der Verwendung `available`, `supported` und `stale`. `ageTicks` beschreibt das Alter des letzten Refreshs. Eine fehlende oder veraltete Quelle sollte in einem Steuerprogramm nicht als gültiger Nullwert behandelt werden.
+
+Aliase bleiben gespeichert. Die aktuellen Messwerte werden nach dem Neustart durch Display Links neu aufgebaut. Item-/Fluidlisten können mit `truncated=true` gekürzt sein; Gesamtmengen und `entryCount` bleiben vollständig.
+
+Auf gewöhnlichen Create-Contraptions bietet `telemetry.get("contraption")` mobile Positions-, Rotations-, Geschwindigkeits- und Lagerdaten. Siehe [[Bewegte Konstruktionen|Bewegte-Konstruktionen]]. Grenzwerte und Aktualisierungsintervalle stehen unter [[Konfiguration]].
+
+![Die reale Create-Display-Link-Quelle Diamantenlager ist im Quellenreiter bereit.](https://raw.githubusercontent.com/wiki/TeutonStudio/CC-Aeroworks/assets/screenshots/wiki-verified-telemetry.png)
+
+![Laufende Telemetrie über zwei tatsächlich verriegelte Docking Connector: Das entfernte Lager enthält 64 Items.](https://raw.githubusercontent.com/wiki/TeutonStudio/CC-Aeroworks/assets/screenshots/wiki-dock-telemetry.png)
