@@ -12,9 +12,10 @@ object ConsoleInputEventArguments {
         value: Int?,
         channel: String,
         handlerPath: String,
-        previousValue: Int?
+        previousValue: Int?,
+        eventId: Long
     ): Array<Any?> = arrayOf(
         deskId, deskIndex, socket, DeskSockets.name(socket), moduleId, value, channel,
-        handlerPath, previousValue
+        handlerPath, previousValue, eventId
     )
 }

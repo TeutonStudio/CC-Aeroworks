@@ -5,6 +5,7 @@ import com.simibubi.create.content.contraptions.actors.trainControls.ControlsBlo
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleMultiblockSkinState;
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleAssemblyPlacement;
 import de.teutonstudio.ccaeroworks.multiblock.ConsoleAssemblyBlockEntity;
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleAssemblyStyles;
 import com.simibubi.create.content.contraptions.actors.contraptionControls.ContraptionControlsBlock;
 import de.teutonstudio.ccaeroworks.train.TrainControlConsoleIntegration;
 import net.minecraft.core.BlockPos;
@@ -24,6 +25,7 @@ import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.BlockHitResult;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -33,7 +35,30 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /** Adds opt-in Aeroworks console geometry to Create's original train-controls block. */
 @Mixin(ControlsBlock.class)
-public abstract class ControlsBlockConsoleMixin implements EntityBlock {
+public abstract class ControlsBlockConsoleMixin extends Block implements EntityBlock {
+    protected ControlsBlockConsoleMixin(Properties properties) {
+        super(properties);
+    }
+
+    @Override
+    public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
+        // BreakEvent can still be canceled. This hook runs only after it was accepted.
+        if (level instanceof ServerLevel server && TrainControlConsoleIntegration.isIntegrated(state)) {
+            ConsoleAssemblyStyles.releaseControlStyle(server, pos, player);
+        }
+        return super.playerWillDestroy(level, pos, state, player);
+    }
+
+    @Override
+    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState next, boolean moved) {
+        // Moving a console retains its materials in the captured block-entity NBT.
+        if (!moved && state.getBlock() != next.getBlock() && level instanceof ServerLevel server
+            && TrainControlConsoleIntegration.isIntegrated(state)) {
+            ConsoleAssemblyStyles.releaseControlStyle(server, pos);
+        }
+        super.onRemove(state, level, pos, next, moved);
+    }
+
     protected ItemInteractionResult useItemOn(
         ItemStack stack,
         BlockState state,

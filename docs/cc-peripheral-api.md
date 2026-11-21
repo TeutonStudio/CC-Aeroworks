@@ -363,3 +363,5 @@ cc_aeroworks_remote_telemetry_changed
 ```
 
 Für die beiden `*_display_input`-Ereignisse bleiben alle bisherigen Argumentpositionen bis einschließlich `isEnd` unverändert. Danach folgen `directionU`, `directionV`, `speed` und als letztes Argument die serverseitig aufgelöste `samples`-Tabelle. Die fachlichen Details stehen in `display-touch.md`.
+
+`cc_aeroworks_console_input` liefert nach dem Ereignisnamen `deskId`, `deskIndex`, `socket`, `socketName`, `moduleId`, `value`, `channel`, `handlerPath`, `previousValue` und `eventId`. Die zusätzliche `eventId` steigt während der Laufzeit dieses Computers monoton an. Gebundene Steuerungsskripte erhalten sie als `controlEvent.id` und werden auch mit `parallel.waitForAll` oder `parallel.waitForAny` genau einmal pro Eingabe ausgeführt.

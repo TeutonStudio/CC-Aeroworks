@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Fixed repeated mobile computer saves losing later state changes after a peripheral adapter replaced its NBT.
+- Kept explicit console assembly boundaries and ceiling desk rows when creating mobile computer runtimes.
+- Added monotonically increasing control-input event IDs so bound Lua scripts execute once when CraftOS broadcasts events through `parallel`.
+- Fixed deleted wire channels returning after a computer reload or extraction.
+- Moved integrated Create control material refunds out of cancellable break events, preserving survival, creative and contraption movement behavior.
+- Reused one channel snapshot per override batch and removed obsolete wire runtime state.
+
 ## 1.5.4 — 2026-11-10
 
 - Updated the required TeutonLib version and verified build baseline to 1.6.0; the supported runtime range is `[1.6.0,1.7.0)`.

@@ -39,11 +39,6 @@ data class WireChannelBankView(
     val channels: List<WireChannelView>
 )
 
-private data class WireChannelState(
-    var value: Int = 0,
-    var pulseEndTick: Long? = null
-)
-
 interface WireBackend : SignalBackend {
 
     /** Read-only DBW topology lookup used by the channel GUI for any logical desk source. */

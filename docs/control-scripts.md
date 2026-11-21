@@ -33,15 +33,17 @@ return {
 ```
 
 Die Eingabe enthält `deskId`, `deskIndex`, `socket` (nullbasiert), `socketName`, `moduleId`, `channel`,
-`value`, `previousValue` und `handler` (Dateipfad). Bei mehrkanaligen Modulen lässt sich mit `channel`
+`value`, `previousValue`, `handler` (Dateipfad) und `id` (Ereignis-ID). Bei mehrkanaligen Modulen lässt sich mit `channel`
 zwischen Achsen oder Tasten unterscheiden. Das Skript wird bei jedem Aufruf frisch geladen; Änderungen
 an der Datei greifen beim nächsten Eingabeereignis. Lang laufende Schleifen und eigene wartende
 Ereignisschleifen gehören in das Hauptprogramm. Die gebundenen Skripte sollten zügig zurückkehren.
 Lade- und Ausführungsfehler werden ausgegeben; spätere Eingaben bleiben funktionsfähig.
 
 Die vorhandenen sieben Argumente von `cc_aeroworks_console_input` bleiben in derselben Reihenfolge.
-Angehängt werden der Skriptpfad (leer bei fehlender Zuordnung) und der vorherige Kanalwert. Programme
-können diese Ereignisse weiterhin selbst empfangen, auch wenn ein gebundenes Skript ausgeführt wird.
+Angehängt werden der Skriptpfad (leer bei fehlender Zuordnung), der vorherige Kanalwert und die
+während der Computerlaufzeit monoton steigende Ereignis-ID. Sie verhindert, dass ein gebundenes Skript
+durch die Ereignisverteilung von `parallel.waitForAll` oder `parallel.waitForAny` mehrfach ausgeführt
+wird. Programme können diese Ereignisse weiterhin selbst empfangen, auch wenn ein gebundenes Skript ausgeführt wird.
 Eine Zuordnung startet das Skript auf dem eingebauten Computer, nicht auf extern angeschlossenen
 Computern. Über einen Desk-Handle ist dieselbe Zuordnung programmatisch möglich:
 

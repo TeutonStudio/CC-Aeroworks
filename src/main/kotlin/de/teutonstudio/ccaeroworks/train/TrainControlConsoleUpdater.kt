@@ -33,9 +33,6 @@ object TrainControlConsoleUpdater {
     fun onBreak(event: BlockEvent.BreakEvent) {
         val level = event.level as? ServerLevel ?: return
         if (!relevant(event.state)) return
-        if (TrainControlConsoleIntegration.isIntegrated(event.state)) {
-            ConsoleAssemblyStyles.releaseControlStyle(level, event.pos, event.player)
-        }
         schedule(level, event.pos)
     }
 

@@ -9,7 +9,8 @@ import de.teutonstudio.ccaeroworks.config.CCServerConfig
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksTypes
 import de.teutonstudio.ccaeroworks.computer.ConsoleComputers
 import de.teutonstudio.ccaeroworks.network.MobileContraptionSnapshotPayload
-import de.teutonstudio.ccaeroworks.train.TrainControlConsoleIntegration
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleAssemblyBlockEntity
+import de.teutonstudio.ccaeroworks.multiblock.ConsoleAssemblyRuntime
 import java.util.UUID
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -216,7 +217,7 @@ class MobileContraptionRuntime private constructor(
             contexts.forEach { (origin, originContext) ->
                 if (origin in visited || !AeroworksTypes.isControlDesk(originContext.blockState().block)) return@forEach
                 val state = originContext.blockState()
-                val geometry = TrainControlConsoleIntegration.geometry(state) ?: return@forEach
+                if (ConsoleAssemblyRuntime.geometry(state) == null) return@forEach
                 val facing = state.getValue(BlockStateProperties.HORIZONTAL_FACING)
                 val queue = ArrayDeque<BlockPos>()
                 val component = linkedSetOf<BlockPos>()
@@ -229,8 +230,11 @@ class MobileContraptionRuntime private constructor(
                     visited += pos
                     arrayOf(facing.counterClockWise, facing.clockWise).forEach { direction ->
                         val next = pos.relative(direction)
-                        val nextState = contexts[next]?.blockState() ?: return@forEach
-                        if (TrainControlConsoleIntegration.compatible(nextState, facing, geometry) && next !in component) {
+                        val current = contexts.getValue(pos)
+                        val neighbour = contexts[next] ?: return@forEach
+                        if (ConsoleAssemblyRuntime.samePhysicalProfile(current.blockState(), neighbour.blockState()) &&
+                            assemblyId(current) == assemblyId(neighbour) && next !in component
+                        ) {
                             queue += next
                         }
                     }
@@ -255,10 +259,16 @@ class MobileContraptionRuntime private constructor(
                     }
                     .map { it.context.localPosition() to it.instance }
                 result += MobileConsoleComputer(
-                    entity, level, desks, computer.first, computer.second.blockEntityData(), peripherals
+                    entity, level, desks, computer.first, computer.second, peripherals
                 )
             }
             return result
+        }
+
+        private fun assemblyId(context: Context): UUID? = context.blockEntityData().let { tag ->
+            if (tag.hasUUID(ConsoleAssemblyBlockEntity.NBT_ASSEMBLY_ID)) {
+                tag.getUUID(ConsoleAssemblyBlockEntity.NBT_ASSEMBLY_ID)
+            } else null
         }
 
         private fun connectInternalWired(entries: List<Entry>) {

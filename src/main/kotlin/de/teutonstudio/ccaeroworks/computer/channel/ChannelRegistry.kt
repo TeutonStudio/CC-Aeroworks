@@ -64,7 +64,7 @@ data class ChannelRegistrySnapshot(
     val wireBackend: String,
     val wireEnabled: Boolean
 ) {
-    val channels: List<ChannelDescriptor> get() = modules.flatMap(ChannelModuleDescriptor::channels) + wires
+    val channels: List<ChannelDescriptor> = modules.flatMap(ChannelModuleDescriptor::channels) + wires
 }
 
 /** One canonical logical view over physical controls, virtual wire channels and user aliases. */
@@ -153,7 +153,7 @@ object ChannelRegistry {
 
     fun resolve(owner: ConsoleComputer, raw: String): ChannelDescriptor {
         val snapshot = snapshot(owner)
-        return resolve(snapshot, owner, raw)
+        return resolve(snapshot, raw)
             ?: throw LuaException("Unknown or unavailable channel '$raw'")
     }
 
@@ -161,7 +161,7 @@ object ChannelRegistry {
 
     fun stat(owner: ConsoleComputer, raw: String): Map<String, Any> {
         val snapshot = snapshot(owner)
-        groupBinding(snapshot, owner, raw)?.let { (group, binding) ->
+        groupBinding(snapshot, raw)?.let { (group, binding) ->
             val target = snapshot.channels.firstOrNull { it.id == binding.targetId }
             return linkedMapOf<String, Any>(
                 "name" to binding.alias,
@@ -171,7 +171,7 @@ object ChannelRegistry {
                 "available" to (target != null)
             ).also { info -> target?.let { info.putAll(describe(it)) } }
         }
-        return describe(resolve(snapshot, owner, raw) ?: throw LuaException("Unknown channel '$raw'"))
+        return describe(resolve(snapshot, raw) ?: throw LuaException("Unknown channel '$raw'"))
     }
 
     fun ls(owner: ConsoleComputer, rawPath: String): List<Map<String, Any>> {
@@ -268,20 +268,22 @@ object ChannelRegistry {
     }
 
     fun overrideBatch(owner: ConsoleComputer, commands: List<Pair<String, Int>>): Int {
+        if (commands.isEmpty()) return 0
+        val snapshot = snapshot(owner)
         val resolved = commands.map { (raw, value) ->
             requireSignal(value)
-            val descriptor = resolve(owner, raw)
+            val descriptor = resolve(snapshot, raw) ?: throw LuaException("Unknown or unavailable channel '$raw'")
             val target = descriptor.controlTarget ?: throw LuaException("Channel '$raw' is not a control channel")
-            Triple(raw, target, value)
+            target to value
         }
-        val duplicate = resolved.groupBy { (_, target, _) -> Triple(target.deskId, target.socket, target.nativeChannel) }
+        val duplicate = resolved.groupBy { (target, _) -> Triple(target.deskId, target.socket, target.nativeChannel) }
             .entries.firstOrNull { it.value.size > 1 }
         if (duplicate != null) {
             throw LuaException("Override batch addresses both directions of native channel ${duplicate.key}")
         }
         return ControlOverrideManager.overrideBatch(
             owner,
-            resolved.map { (_, target, value) ->
+            resolved.map { (target, value) ->
                 ControlOverrideCommand(target.deskId, target.socket, target.nativeChannel, target.sign * value)
             }
         )
@@ -293,7 +295,7 @@ object ChannelRegistry {
         return ControlOverrideManager.release(owner, target.deskId, target.socket, target.nativeChannel)
     }
 
-    private fun resolve(snapshot: ChannelRegistrySnapshot, owner: ConsoleComputer, raw: String): ChannelDescriptor? {
+    private fun resolve(snapshot: ChannelRegistrySnapshot, raw: String): ChannelDescriptor? {
         val value = raw.trim()
         snapshot.channels.firstOrNull { it.id == value }?.let { return it }
         val path = normalizePath(value)
@@ -302,7 +304,7 @@ object ChannelRegistry {
             return snapshot.wires.firstOrNull { it.name == name }
         }
         if (path.startsWith("/groups/")) {
-            val binding = groupBinding(snapshot, owner, path)?.second ?: return null
+            val binding = groupBinding(snapshot, path)?.second ?: return null
             return snapshot.channels.firstOrNull { it.id == binding.targetId }
         }
         if (path.startsWith("/modules/")) {
@@ -317,13 +319,12 @@ object ChannelRegistry {
 
     private fun groupBinding(
         snapshot: ChannelRegistrySnapshot,
-        owner: ConsoleComputer,
         raw: String
-    ): Pair<ChannelGroupDefinition, ChannelGroupBinding>? {
+    ): Pair<UserChannelGroupView, UserChannelBindingView>? {
         val path = normalizePath(raw)
         val parts = path.split('/').filter(String::isNotBlank)
         if (parts.size != 3 || parts[0] != "groups") return null
-        val group = owner.channelGroups().definitions().firstOrNull { it.name == parts[1] } ?: return null
+        val group = snapshot.groups.firstOrNull { it.name == parts[1] } ?: return null
         val binding = group.bindings.firstOrNull { it.alias == parts[2] } ?: return null
         return group to binding
     }

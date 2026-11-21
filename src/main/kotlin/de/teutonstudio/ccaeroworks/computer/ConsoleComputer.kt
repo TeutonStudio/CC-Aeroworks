@@ -1,22 +1,16 @@
 package de.teutonstudio.ccaeroworks.computer
 
 import com.mred231.aeroworks.content.controls.console.ConsoleBlockEntity
-import dan200.computercraft.api.ComputerCraftAPI
 import dan200.computercraft.core.computer.ComputerSide
 import dan200.computercraft.impl.BundledRedstone
 import dan200.computercraft.shared.ModRegistry
 import dan200.computercraft.shared.computer.core.ComputerFamily
 import dan200.computercraft.shared.computer.core.ServerComputer
-import dan200.computercraft.shared.computer.core.ServerContext
-import dan200.computercraft.shared.computer.core.TerminalSize
-import dan200.computercraft.shared.computer.inventory.ComputerMenuWithoutInventory
 import dan200.computercraft.shared.network.container.ComputerContainerData
 import dan200.computercraft.shared.platform.ComponentAccess
 import dan200.computercraft.shared.platform.PlatformHelper
 import dan200.computercraft.shared.util.DirectionUtil
-import dan200.computercraft.shared.util.NonNegativeId
 import dan200.computercraft.shared.util.RedstoneUtil
-import dan200.computercraft.shared.util.StorageCapacity
 import de.teutonstudio.ccaeroworks.CCAeroworks
 import de.teutonstudio.ccaeroworks.compat.aeroworks.AeroworksDeskService
 import de.teutonstudio.ccaeroworks.compat.aeroworks.DeskInputSnapshot
@@ -30,7 +24,6 @@ import de.TeutonStudio.TeutonLib.api.computer.hosted.HostedComputer
 import de.TeutonStudio.TeutonLib.api.computer.hosted.HostedComputerPersistenceKeys
 import net.minecraft.core.Direction
 import net.minecraft.core.HolderLookup
-import net.minecraft.core.component.DataComponents
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerLevel
@@ -63,6 +56,7 @@ class ConsoleComputer(val host: ConsoleBlockEntity, private val installed: ItemS
 
     private var lastNetworkRevision: Long = Long.MIN_VALUE
     private var lastInputs: Map<String, Map<Int, DeskInputSnapshot>> = emptyMap()
+    private var inputEventSequence: Long = 0
 
     private val peripheralAccess: ComponentAccess<dan200.computercraft.api.peripheral.IPeripheral> =
         PlatformHelper.get().createPeripheralAccess(host) {}
@@ -224,9 +218,7 @@ class ConsoleComputer(val host: ConsoleBlockEntity, private val installed: ItemS
         computer.writeStandardComponents(stack)
         stack.set(CCDataComponents.COMPUTER_POWERED.get(), computer.powered)
         stack.set(CCDataComponents.RADAR_DESTINATION_DESK_ID.get(), radarDestinationDeskId)
-        wireBank.encodedDefinitions().takeIf(String::isNotEmpty)?.let {
-            stack.set(CCDataComponents.WIRE_CHANNELS.get(), it)
-        }
+        stack.set(CCDataComponents.WIRE_CHANNELS.get(), wireBank.encodedDefinitions().takeIf(String::isNotEmpty))
         stack.set(CCDataComponents.CHANNEL_GROUPS.get(), groups.encodedDefinitions().takeIf(String::isNotEmpty))
     }
 
@@ -304,7 +296,8 @@ class ConsoleComputer(val host: ConsoleBlockEntity, private val installed: ItemS
                                     newValue,
                                     channel,
                                     de.teutonstudio.ccaeroworks.display.ControlScriptBindings.path(member.desk, socket),
-                                    oldValue
+                                    oldValue,
+                                    ++inputEventSequence
                                 )
                             )
                         }

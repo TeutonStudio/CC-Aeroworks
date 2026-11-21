@@ -13,13 +13,13 @@ import dan200.computercraft.shared.platform.PlatformHelper
 import dan200.computercraft.shared.util.NonNegativeId
 import dan200.computercraft.shared.util.StorageCapacity
 import de.teutonstudio.ccaeroworks.api.mobile.MobilePeripheralInstance
+import de.teutonstudio.ccaeroworks.api.mobile.MobilePeripheralContext
 import de.teutonstudio.ccaeroworks.computer.MobileComputerComponents
 import de.teutonstudio.ccaeroworks.computer.MobileConsoleAccess
 import de.teutonstudio.ccaeroworks.registry.CCDataComponents
 import java.util.UUID
 import net.minecraft.core.BlockPos
 import net.minecraft.core.component.DataComponents
-import net.minecraft.nbt.CompoundTag
 import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.MenuProvider
@@ -35,10 +35,10 @@ class MobileConsoleComputer(
     val level: ServerLevel,
     val deskPositions: Set<BlockPos>,
     private val computerDesk: BlockPos,
-    private val data: CompoundTag,
+    private val context: MobilePeripheralContext,
     private val instances: List<Pair<BlockPos, MobilePeripheralInstance>>
 ) : MenuProvider, Nameable, AutoCloseable {
-    private var installed = ItemStack.parseOptional(level.registryAccess(), data.getCompound(INSTALLED_TAG))
+    private val installed = ItemStack.parseOptional(level.registryAccess(), context.blockEntityData().getCompound(INSTALLED_TAG))
     private var computerId = NonNegativeId.getId(installed.get(ModRegistry.DataComponents.COMPUTER_ID.get()))
     private var storageCapacity = StorageCapacity.getOrDefault(
         installed.get(ModRegistry.DataComponents.STORAGE_CAPACITY.get()), -1
@@ -87,7 +87,8 @@ class MobileConsoleComputer(
         installed.set(ModRegistry.DataComponents.TERMINAL_SIZE.get(), terminalSize)
         installed.set(CCDataComponents.COMPUTER_POWERED.get(), powered)
         installed.set(DataComponents.CUSTOM_NAME, label?.let(Component::literal))
-        data.put(INSTALLED_TAG, installed.save(level.registryAccess()))
+        // Adapters replace the context's NBT after saving their virtual block entities.
+        context.blockEntityData().put(INSTALLED_TAG, installed.save(level.registryAccess()))
     }
 
     fun openTerminal(player: Player): Boolean {
